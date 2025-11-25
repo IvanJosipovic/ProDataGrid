@@ -1492,6 +1492,9 @@ namespace Avalonia.Controls
         // Makes sure the row shows the proper visuals for selection, currency, details, etc.
         private void LoadRowVisualsForDisplay(DataGridRow row)
         {
+            // Restore visibility for rows that were hidden during recycling
+            row.ClearValue(Visual.IsVisibleProperty);
+            
             // If the row has been recycled, reapply the BackgroundBrush
             if (row.IsRecycled)
             {
@@ -1540,6 +1543,9 @@ namespace Avalonia.Controls
         {
             if (element is DataGridRow dataGridRow)
             {
+                // Always hide the row immediately to prevent ghost rows during scrolling
+                dataGridRow.SetCurrentValue(Visual.IsVisibleProperty, false);
+                
                 if (IsRowRecyclable(dataGridRow))
                 {
                     UnloadRow(dataGridRow);

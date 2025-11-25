@@ -127,6 +127,19 @@ namespace Avalonia.Controls.Primitives
             };
             Clip = rg;
 
+            // Arrange any hidden/recycled children off-screen to prevent ghost rows
+            // This is necessary because Avalonia keeps elements at their last arranged position
+            // even when they're hidden, and during fast scrolling the visibility change may not
+            // take effect before the next render
+            var offScreenRect = new Rect(-10000, -10000, 0, 0);
+            foreach (Control child in Children)
+            {
+                if (!child.IsVisible)
+                {
+                    child.Arrange(offScreenRect);
+                }
+            }
+
             return new Size(finalSize.Width, finalHeight);
         }
 

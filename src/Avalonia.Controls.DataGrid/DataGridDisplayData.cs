@@ -83,14 +83,20 @@ namespace Avalonia.Controls
         {
             Debug.Assert(!_recyclableRows.Contains(row));
             row.DetachFromDataGrid(true);
-            _recyclableRows.Push(row);
+            // Hide the row immediately to prevent ghost rows during scrolling
+            row.SetCurrentValue(Visual.IsVisibleProperty, false);
+            Debug.Assert(!_fullyRecycledRows.Contains(row));
+            _fullyRecycledRows.Push(row);
         }
 
         internal DataGridRowGroupHeader? GetUsedGroupHeader()
         {
+            // Note: _recyclableGroupHeaders should always be empty since we now add directly to _fullyRecycledGroupHeaders
             if (_recyclableGroupHeaders.Count > 0)
             {
-                return _recyclableGroupHeaders.Pop();
+                DataGridRowGroupHeader groupHeader = _recyclableGroupHeaders.Pop();
+                groupHeader.ClearValue(Visual.IsVisibleProperty);
+                return groupHeader;
             }
             else if (_fullyRecycledGroupHeaders.Count > 0)
             {
@@ -106,7 +112,10 @@ namespace Avalonia.Controls
         {
             Debug.Assert(!_recyclableGroupHeaders.Contains(groupHeader));
             groupHeader.IsRecycled = true;
-            _recyclableGroupHeaders.Push(groupHeader);
+            // Hide the group header immediately to prevent ghost headers during scrolling
+            groupHeader.SetCurrentValue(Visual.IsVisibleProperty, false);
+            Debug.Assert(!_fullyRecycledGroupHeaders.Contains(groupHeader));
+            _fullyRecycledGroupHeaders.Push(groupHeader);
         }
 
         internal void ClearElements(bool recycle)
@@ -118,9 +127,14 @@ namespace Avalonia.Controls
                 {
                     if (element is DataGridRow row)
                     {
+                        // Always hide the row immediately to prevent ghost rows during fast scrolling
+                        row.SetCurrentValue(Visual.IsVisibleProperty, false);
+                        
                         if (row.IsRecyclable)
                         {
-                            AddRecyclableRow(row);
+                            row.DetachFromDataGrid(true);
+                            Debug.Assert(!_fullyRecycledRows.Contains(row));
+                            _fullyRecycledRows.Push(row);
                         }
                         else
                         {
@@ -129,7 +143,11 @@ namespace Avalonia.Controls
                     }
                     else if (element is DataGridRowGroupHeader groupHeader)
                     {
-                        AddRecylableRowGroupHeader(groupHeader);
+                        // Hide the group header immediately to prevent ghost headers during fast scrolling
+                        groupHeader.SetCurrentValue(Visual.IsVisibleProperty, false);
+                        groupHeader.IsRecycled = true;
+                        Debug.Assert(!_fullyRecycledGroupHeaders.Contains(groupHeader));
+                        _fullyRecycledGroupHeaders.Push(groupHeader);
                     }
                 }
             }
@@ -250,9 +268,12 @@ namespace Avalonia.Controls
 
         internal DataGridRow? GetUsedRow()
         {
+            // Note: _recyclableRows should always be empty since we now add directly to _fullyRecycledRows
             if (_recyclableRows.Count > 0)
             {
-                return _recyclableRows.Pop();
+                DataGridRow row = _recyclableRows.Pop();
+                row.ClearValue(Visual.IsVisibleProperty);
+                return row;
             }
             else if (_fullyRecycledRows.Count > 0)
             {

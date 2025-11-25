@@ -2458,7 +2458,8 @@ namespace Avalonia.Controls
 
                 if (scrollHeight != 0)
                 {
-                    DisplayData.PendingVerticalScrollHeight = scrollHeight;
+                    // Accumulate scroll height to handle rapid scroll events
+                    DisplayData.PendingVerticalScrollHeight += scrollHeight;
                     handled = true;
                     
                     var eventType = scrollHeight > 0 ? ScrollEventType.SmallIncrement : ScrollEventType.SmallDecrement;

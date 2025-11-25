@@ -369,7 +369,8 @@ namespace Avalonia.Controls.Primitives
             if (deltaY != 0)
             {
                 // Use the DataGrid's existing vertical scroll handling
-                OwningGrid.DisplayData.PendingVerticalScrollHeight = deltaY;
+                // Accumulate the delta to handle multiple scroll events before measure
+                OwningGrid.DisplayData.PendingVerticalScrollHeight += deltaY;
                 InvalidateMeasure();
                 
                 // Schedule pre-fetching for smoother scrolling

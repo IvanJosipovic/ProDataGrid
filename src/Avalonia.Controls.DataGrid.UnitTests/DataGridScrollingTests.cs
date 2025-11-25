@@ -1,0 +1,1274 @@
+// Copyright (c) Wiesław Šoltés. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
+
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using Avalonia.Collections;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
+using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
+using Avalonia.Markup.Xaml.Styling;
+using Avalonia.VisualTree;
+using Xunit;
+
+namespace Avalonia.Controls.DataGridTests;
+
+/// <summary>
+/// Tests for DataGrid scrolling behavior with ILogicalScrollable.
+/// </summary>
+public class DataGridScrollingTests
+{
+    #region Row Position Tests
+
+    [AvaloniaFact]
+    public void Rows_Are_Positioned_Sequentially_Without_Overlap()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act
+        var rows = GetRows(target);
+        
+        // Assert - each row's top should be >= previous row's bottom
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5, // Allow small tolerance for rounding
+                $"Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Rows_Do_Not_Overlap_After_Vertical_Scroll()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act - scroll down
+        target.ScrollIntoView(items[20], target.Columns[0]);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - rows should not overlap after scrolling
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"After scroll: Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Rows_Do_Not_Overlap_After_Multiple_Scroll_Operations()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act - scroll multiple times
+        for (int scrollTo = 10; scrollTo <= 50; scrollTo += 10)
+        {
+            target.ScrollIntoView(items[scrollTo], target.Columns[0]);
+            target.UpdateLayout();
+            
+            var rows = GetRows(target);
+            
+            // Assert - rows should not overlap after each scroll
+            var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+            for (int i = 1; i < orderedRows.Count; i++)
+            {
+                var prevRow = orderedRows[i - 1];
+                var currentRow = orderedRows[i];
+                
+                Assert.True(
+                    currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                    $"After scrolling to {scrollTo}: Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Rows_Do_Not_Overlap_After_Scroll_Up_And_Down()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act - scroll down then up
+        target.ScrollIntoView(items[50], target.Columns[0]);
+        target.UpdateLayout();
+        
+        target.ScrollIntoView(items[10], target.Columns[0]);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - rows should not overlap
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"After scroll up/down: Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+        }
+    }
+
+    #endregion
+
+    #region Row Height Consistency Tests
+
+    [AvaloniaFact]
+    public void All_Rows_Have_Consistent_Height()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act
+        var rows = GetRows(target);
+        
+        // Assert - all rows should have roughly the same height
+        var heights = rows.Select(r => r.Bounds.Height).ToList();
+        var avgHeight = heights.Average();
+        
+        foreach (var height in heights)
+        {
+            Assert.True(
+                Math.Abs(height - avgHeight) < 2.0, // Allow 2px tolerance
+                $"Row height {height} differs significantly from average {avgHeight}");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Row_Heights_Are_Preserved_After_Scroll()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        var initialRows = GetRows(target);
+        var initialHeight = initialRows.First().Bounds.Height;
+        
+        // Act - scroll
+        target.ScrollIntoView(items[30], target.Columns[0]);
+        target.UpdateLayout();
+        
+        var scrolledRows = GetRows(target);
+        
+        // Assert - rows should maintain consistent height
+        foreach (var row in scrolledRows)
+        {
+            Assert.True(
+                Math.Abs(row.Bounds.Height - initialHeight) < 2.0,
+                $"Row {row.Index} height {row.Bounds.Height} differs from initial height {initialHeight}");
+        }
+    }
+
+    #endregion
+
+    #region ILogicalScrollable Offset Tests
+
+    [AvaloniaFact]
+    public void RowsPresenter_Offset_Changes_On_Scroll()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        var presenter = GetRowsPresenter(target);
+        var initialOffset = presenter.Offset;
+        
+        // Act
+        target.ScrollIntoView(items[20], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Assert - offset should have changed
+        Assert.True(presenter.Offset.Y > initialOffset.Y, 
+            $"Offset should increase after scrolling down. Initial: {initialOffset.Y}, After: {presenter.Offset.Y}");
+    }
+
+    [AvaloniaFact]
+    public void RowsPresenter_Offset_Is_Consistent_With_Row_Positions()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act - scroll to middle
+        target.ScrollIntoView(items[30], target.Columns[0]);
+        target.UpdateLayout();
+        
+        var presenter = GetRowsPresenter(target);
+        var rows = GetRows(target);
+        var firstVisibleRow = rows.OrderBy(r => r.Index).First();
+        
+        // Assert - first visible row should be positioned near top of viewport
+        Assert.True(
+            firstVisibleRow.Bounds.Top <= 0 || Math.Abs(firstVisibleRow.Bounds.Top) < firstVisibleRow.Bounds.Height,
+            $"First visible row (index {firstVisibleRow.Index}) top {firstVisibleRow.Bounds.Top} should be near viewport top");
+    }
+
+    [AvaloniaFact]
+    public void Extent_Is_Larger_Than_Viewport_For_Large_Data()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        var presenter = GetRowsPresenter(target);
+        
+        // Assert - extent should be larger than viewport for 100 items
+        Assert.True(presenter.Extent.Height > presenter.Viewport.Height,
+            $"Extent height ({presenter.Extent.Height}) should be larger than viewport ({presenter.Viewport.Height}) for 100 items");
+    }
+
+    #endregion
+
+    #region PendingVerticalScrollHeight Accumulation Tests
+
+    [AvaloniaFact]
+    public void Scroll_Delta_Is_Accumulated_Not_Replaced()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        var presenter = GetRowsPresenter(target);
+        
+        // Record initial row positions
+        target.UpdateLayout();
+        var initialRows = GetRows(target);
+        var initialFirstIndex = initialRows.Min(r => r.Index);
+        
+        // Act - apply multiple scroll offsets in sequence
+        presenter.Offset = new Vector(0, 50);
+        target.UpdateLayout();
+        
+        presenter.Offset = new Vector(0, 100);
+        target.UpdateLayout();
+        
+        presenter.Offset = new Vector(0, 150);
+        target.UpdateLayout();
+        
+        var finalRows = GetRows(target);
+        var finalFirstIndex = finalRows.Min(r => r.Index);
+        
+        // Assert - we should have scrolled past initial rows
+        Assert.True(finalFirstIndex > initialFirstIndex,
+            $"After scrolling, first visible row index ({finalFirstIndex}) should be greater than initial ({initialFirstIndex})");
+    }
+
+    [AvaloniaFact]
+    public void Rapid_Scroll_Changes_Result_In_Correct_Position()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - rapidly change offset without waiting for layout
+        for (int i = 1; i <= 10; i++)
+        {
+            presenter.Offset = new Vector(0, i * 20);
+        }
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - rows should not overlap
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"After rapid scroll: Row {currentRow.Index} overlaps with row {prevRow.Index}");
+        }
+    }
+
+    #endregion
+
+    #region Scroll To Beginning/End Tests
+
+    [AvaloniaFact]
+    public void Scroll_To_Beginning_Shows_First_Row()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Scroll to middle first
+        target.ScrollIntoView(items[50], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Act - scroll back to beginning
+        target.ScrollIntoView(items[0], target.Columns[0]);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        var firstVisibleIndex = rows.Min(r => r.Index);
+        
+        // Assert - first row should be visible
+        Assert.Equal(0, firstVisibleIndex);
+    }
+
+    [AvaloniaFact]
+    public void Scroll_To_End_Shows_Last_Row()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act - scroll to end
+        target.ScrollIntoView(items[99], target.Columns[0]);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        var lastVisibleIndex = rows.Max(r => r.Index);
+        
+        // Assert - last row should be visible
+        Assert.Equal(99, lastVisibleIndex);
+    }
+
+    #endregion
+
+    #region UseLogicalScrollable Property Tests
+
+    [AvaloniaFact]
+    public void UseLogicalScrollable_Is_False_By_Default()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 10).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Assert - default is false for backward compatibility
+        Assert.False(target.UseLogicalScrollable);
+    }
+
+    [AvaloniaFact]
+    public void UseLogicalScrollable_Can_Be_Set_To_True()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 10).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        
+        // Assert
+        Assert.True(target.UseLogicalScrollable);
+    }
+
+    [AvaloniaFact]
+    public void IsLogicalScrollEnabled_Matches_UseLogicalScrollable()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 10).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Assert
+        Assert.Equal(target.UseLogicalScrollable, presenter.IsLogicalScrollEnabled);
+    }
+
+    #endregion
+
+    #region ILogicalScrollable Scrolling Tests
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Rows_Are_Positioned_Sequentially_Without_Overlap()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        
+        // Act
+        var rows = GetRows(target);
+        
+        // Assert - each row's top should be >= previous row's bottom
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Rows_Do_Not_Overlap_After_Vertical_Scroll()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        
+        // Act - scroll down via ILogicalScrollable
+        var presenter = GetRowsPresenter(target);
+        presenter.Offset = new Vector(0, 100);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - rows should not overlap after scrolling
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"After scroll: Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Rows_Do_Not_Overlap_After_Multiple_Offset_Changes()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - change offset multiple times
+        for (int y = 50; y <= 300; y += 50)
+        {
+            presenter.Offset = new Vector(0, y);
+            target.UpdateLayout();
+            
+            var rows = GetRows(target);
+            
+            // Assert - rows should not overlap after each scroll
+            var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+            for (int i = 1; i < orderedRows.Count; i++)
+            {
+                var prevRow = orderedRows[i - 1];
+                var currentRow = orderedRows[i];
+                
+                Assert.True(
+                    currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                    $"At offset {y}: Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Offset_Accumulates_Correctly()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - set offset progressively
+        presenter.Offset = new Vector(0, 100);
+        target.UpdateLayout();
+        
+        presenter.Offset = new Vector(0, 200);
+        target.UpdateLayout();
+        
+        presenter.Offset = new Vector(0, 300);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        var firstVisibleIndex = rows.Min(r => r.Index);
+        
+        // Assert - should have scrolled past initial rows
+        Assert.True(firstVisibleIndex > 0,
+            $"After scrolling to offset 300, first visible row index ({firstVisibleIndex}) should be > 0");
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Rows_Do_Not_Overlap_After_Scroll_Up()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - scroll down then up
+        presenter.Offset = new Vector(0, 300);
+        target.UpdateLayout();
+        
+        presenter.Offset = new Vector(0, 100);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - rows should not overlap
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"After scroll up: Row {currentRow.Index} (top: {currentRow.Bounds.Top}) overlaps with row {prevRow.Index} (bottom: {prevRow.Bounds.Bottom})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Rapid_Offset_Changes_Do_Not_Cause_Overlap()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - rapidly change offset multiple times without UpdateLayout between them
+        for (int i = 1; i <= 10; i++)
+        {
+            presenter.Offset = new Vector(0, i * 30);
+        }
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - rows should not overlap
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"After rapid scroll: Row {currentRow.Index} (top:{currentRow.Bounds.Top}, bottom:{currentRow.Bounds.Bottom}) overlaps with row {prevRow.Index} (top:{prevRow.Bounds.Top}, bottom:{prevRow.Bounds.Bottom})");
+        }
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Row_Top_Positions_Are_Distinct()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - scroll down
+        presenter.Offset = new Vector(0, 150);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - each row should have a distinct top position
+        var topPositions = rows.Select(r => r.Bounds.Top).ToList();
+        var distinctPositions = topPositions.Distinct().ToList();
+        
+        Assert.Equal(rows.Count, distinctPositions.Count);
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Rows_Have_Sequential_Indices()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - scroll down
+        presenter.Offset = new Vector(0, 150);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        var orderedIndices = rows.OrderBy(r => r.Bounds.Top).Select(r => r.Index).ToList();
+        
+        // Assert - indices should be sequential (no gaps)
+        for (int i = 1; i < orderedIndices.Count; i++)
+        {
+            Assert.Equal(orderedIndices[i - 1] + 1, orderedIndices[i]);
+        }
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Scroll_To_End_Shows_Last_Row()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - scroll to max offset
+        var maxOffset = presenter.Extent.Height - presenter.Viewport.Height;
+        presenter.Offset = new Vector(0, maxOffset);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        var lastVisibleIndex = rows.Max(r => r.Index);
+        
+        // Assert - last row should be visible
+        Assert.Equal(99, lastVisibleIndex);
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Scroll_Back_To_Beginning()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Scroll to middle first
+        presenter.Offset = new Vector(0, 200);
+        target.UpdateLayout();
+        
+        // Act - scroll back to beginning
+        presenter.Offset = new Vector(0, 0);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        var firstVisibleIndex = rows.Min(r => r.Index);
+        
+        // Assert - first row should be visible
+        Assert.Equal(0, firstVisibleIndex);
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_Fast_Scroll_To_Bottom_Then_Top_No_Ghost_Rows()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+        
+        // Act - fast scroll to bottom
+        var maxOffset = Math.Max(0, presenter.Extent.Height - presenter.Viewport.Height);
+        presenter.Offset = new Vector(0, maxOffset);
+        target.UpdateLayout();
+        
+        // Then fast scroll back to top
+        presenter.Offset = new Vector(0, 0);
+        target.UpdateLayout();
+        
+        var rows = GetRows(target);
+        
+        // Assert - all visible rows should have sequential indices starting from 0
+        var orderedIndices = rows.OrderBy(r => r.Index).Select(r => r.Index).ToList();
+        Assert.Equal(0, orderedIndices.First());
+        
+        // Verify no gaps in indices (no ghost rows from the bottom)
+        for (int i = 1; i < orderedIndices.Count; i++)
+        {
+            Assert.Equal(orderedIndices[i - 1] + 1, orderedIndices[i]);
+        }
+        
+        // Verify all rows are properly positioned without overlap
+        var orderedByPosition = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedByPosition.Count; i++)
+        {
+            var prevRow = orderedByPosition[i - 1];
+            var currentRow = orderedByPosition[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"Row {currentRow.Index} overlaps with row {prevRow.Index}");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Rows_Are_Hidden_When_Scrolled_Out_Of_View()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Get initial rows
+        var initialRows = GetRows(target);
+        var initialMaxIndex = initialRows.Max(r => r.Index);
+        
+        // Act - scroll down significantly
+        target.ScrollIntoView(items[50], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all DataGridRow controls (including hidden ones)
+        var allRowControls = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        
+        // Filter to only visible rows
+        var visibleRows = allRowControls.Where(r => r.IsVisible).ToList();
+        
+        // Assert - visible rows should only be around index 50
+        var minVisibleIndex = visibleRows.Min(r => r.Index);
+        var maxVisibleIndex = visibleRows.Max(r => r.Index);
+        
+        // The old rows (0 to initialMaxIndex) should not be visible
+        Assert.True(minVisibleIndex > initialMaxIndex,
+            $"After scrolling, minimum visible index ({minVisibleIndex}) should be greater than initial max ({initialMaxIndex})");
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    private static DataGrid CreateTarget(IList<ScrollTestModel> items, int height = 100, bool useLogicalScrollable = false)
+    {
+        var root = new Window
+        {
+            Width = 300,
+            Height = height,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var target = new DataGrid
+        {
+            Columns =
+            {
+                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") }
+            },
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = useLogicalScrollable,
+        };
+
+        root.Content = target;
+        root.Show();
+        return target;
+    }
+
+    private static DataGridRowsPresenter GetRowsPresenter(DataGrid target)
+    {
+        return target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRowsPresenter>()
+            .First();
+    }
+
+    private static IReadOnlyList<DataGridRow> GetRows(DataGrid target)
+    {
+        return target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+    }
+
+    private static IReadOnlyList<DataGridRowGroupHeader> GetGroupHeaders(DataGrid target)
+    {
+        return target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRowGroupHeader>()
+            .ToList();
+    }
+
+    private static DataGrid CreateGroupedTarget(IList<GroupableTestModel> items, int height = 200, bool useLogicalScrollable = false)
+    {
+        var root = new Window
+        {
+            Width = 300,
+            Height = height,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var collectionView = new DataGridCollectionView(items);
+        collectionView.GroupDescriptions.Add(new DataGridPathGroupDescription(nameof(GroupableTestModel.Group)));
+
+        var target = new DataGrid
+        {
+            Columns =
+            {
+                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") },
+                new DataGridTextColumn { Header = "Group", Binding = new Binding("Group") }
+            },
+            ItemsSource = collectionView,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = useLogicalScrollable,
+        };
+
+        root.Content = target;
+        root.Show();
+        return target;
+    }
+
+    #endregion
+
+    #region Ghost Row Tests
+
+    [AvaloniaFact]
+    public void Recycled_Rows_Are_Immediately_Hidden()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Get all row controls before scroll
+        var allRowsBefore = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        
+        // Act - scroll to bottom
+        target.ScrollIntoView(items[99], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all row controls after scroll (including hidden recycled ones)
+        var allRowsAfter = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        
+        // Filter to only visible rows
+        var visibleRowsAfter = allRowsAfter.Where(r => r.IsVisible).ToList();
+        
+        // Assert - visible rows should only be near the end
+        var minVisibleIndex = visibleRowsAfter.Min(r => r.Index);
+        Assert.True(minVisibleIndex > 50, 
+            $"After scrolling to bottom, minimum visible index ({minVisibleIndex}) should be > 50");
+        
+        // Assert - all other rows should be hidden
+        var hiddenRows = allRowsAfter.Where(r => !r.IsVisible).ToList();
+        foreach (var row in hiddenRows)
+        {
+            Assert.False(row.IsVisible, $"Recycled row {row.Index} should be hidden");
+        }
+    }
+
+    [AvaloniaFact]
+    public void No_Ghost_Rows_After_Fast_Scroll_To_Bottom_And_Back()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items);
+        
+        // Act - fast scroll to bottom
+        target.ScrollIntoView(items[99], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Then fast scroll back to top
+        target.ScrollIntoView(items[0], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all visible rows
+        var allRows = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        var visibleRows = allRows.Where(r => r.IsVisible).ToList();
+        
+        // Assert - visible rows should only be at the top (indices near 0)
+        var maxVisibleIndex = visibleRows.Max(r => r.Index);
+        Assert.True(maxVisibleIndex < 20, 
+            $"After scrolling back to top, maximum visible index ({maxVisibleIndex}) should be < 20. Possible ghost rows from bottom.");
+        
+        // Assert - indices should be sequential (no ghost rows with high indices)
+        var orderedIndices = visibleRows.OrderBy(r => r.Index).Select(r => r.Index).ToList();
+        Assert.Equal(0, orderedIndices.First());
+        for (int i = 1; i < orderedIndices.Count; i++)
+        {
+            Assert.Equal(orderedIndices[i - 1] + 1, orderedIndices[i]);
+        }
+    }
+
+    #endregion
+
+    #region Grouping Scrolling Tests
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_Rows_Do_Not_Overlap()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 50)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items);
+        
+        // Act - get visible elements
+        var rows = GetRows(target);
+        var groupHeaders = GetGroupHeaders(target);
+        
+        // Assert - rows should not overlap
+        var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+        for (int i = 1; i < orderedRows.Count; i++)
+        {
+            var prevRow = orderedRows[i - 1];
+            var currentRow = orderedRows[i];
+            
+            Assert.True(
+                currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                $"Row at index {currentRow.Index} overlaps with row at index {prevRow.Index}");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_No_Ghost_Rows_After_Scroll()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items);
+        
+        // Act - scroll to bottom
+        target.ScrollIntoView(items[99], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Then scroll back to top
+        target.ScrollIntoView(items[0], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all visible elements
+        var allRows = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        var visibleRows = allRows.Where(r => r.IsVisible).ToList();
+        
+        var allHeaders = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRowGroupHeader>()
+            .ToList();
+        var visibleHeaders = allHeaders.Where(h => h.IsVisible).ToList();
+        
+        // Assert - visible rows should be at the top
+        if (visibleRows.Any())
+        {
+            var maxVisibleRowIndex = visibleRows.Max(r => r.Index);
+            Assert.True(maxVisibleRowIndex < 30,
+                $"After scrolling back to top, max visible row index ({maxVisibleRowIndex}) should be < 30");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_Recycled_Group_Headers_Are_Hidden()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items);
+        
+        // Act - scroll to middle
+        target.ScrollIntoView(items[50], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all group headers
+        var allHeaders = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRowGroupHeader>()
+            .ToList();
+        
+        var visibleHeaders = allHeaders.Where(h => h.IsVisible).ToList();
+        var hiddenHeaders = allHeaders.Where(h => !h.IsVisible).ToList();
+        
+        // Assert - hidden headers should not be visible
+        foreach (var header in hiddenHeaders)
+        {
+            Assert.False(header.IsVisible, "Recycled group header should be hidden");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_Fast_Scroll_No_Ghost_Group_Headers()
+    {
+        // Arrange - create data with many groups
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 5}"))
+            .ToList(); // 20 groups
+        var target = CreateGroupedTarget(items, height: 300);
+        
+        // Act - fast scroll to bottom
+        target.ScrollIntoView(items[99], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Then fast scroll back to top
+        target.ScrollIntoView(items[0], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all visible group headers
+        var allHeaders = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRowGroupHeader>()
+            .ToList();
+        var visibleHeaders = allHeaders.Where(h => h.IsVisible).ToList();
+        
+        // Assert - visible headers should be for early groups only
+        foreach (var header in visibleHeaders)
+        {
+            var groupInfo = header.RowGroupInfo;
+            if (groupInfo != null)
+            {
+                // The visible headers should be for the first few groups
+                Assert.True(header.Bounds.Top < target.Bounds.Height + 100,
+                    $"Visible group header at slot {groupInfo.Slot} is positioned too far down (possible ghost header)");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_Multiple_Scroll_Operations_No_Overlap()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items, height: 400);
+        
+        // Act - perform multiple scroll operations
+        for (int scrollTo = 20; scrollTo <= 80; scrollTo += 20)
+        {
+            target.ScrollIntoView(items[scrollTo], target.Columns[0]);
+            target.UpdateLayout();
+            
+            var rows = GetRows(target).Where(r => r.IsVisible).ToList();
+            var headers = GetGroupHeaders(target).Where(h => h.IsVisible).ToList();
+            
+            // Assert - no overlap among visible rows
+            var orderedRows = rows.OrderBy(r => r.Bounds.Top).ToList();
+            for (int i = 1; i < orderedRows.Count; i++)
+            {
+                var prevRow = orderedRows[i - 1];
+                var currentRow = orderedRows[i];
+                
+                Assert.True(
+                    currentRow.Bounds.Top >= prevRow.Bounds.Bottom - 0.5,
+                    $"At scroll position {scrollTo}: Row overlaps with previous row");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_All_Offscreen_Rows_Are_Hidden()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items, height: 300);
+        
+        // Act - scroll to middle
+        target.ScrollIntoView(items[50], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all row elements (including hidden ones)
+        var allRows = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        
+        // Check each row - if it's visible, it should be within viewport bounds
+        var viewportHeight = target.Bounds.Height;
+        foreach (var row in allRows)
+        {
+            if (row.IsVisible)
+            {
+                // Visible row should be at least partially within viewport
+                Assert.True(
+                    row.Bounds.Bottom >= 0 && row.Bounds.Top < viewportHeight + 50,
+                    $"Visible row {row.Index} at position {row.Bounds.Top} is outside viewport (0 to {viewportHeight})");
+            }
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_Scroll_Down_Then_Up_All_Old_Rows_Hidden()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items, height: 300);
+        
+        // Act - scroll to bottom
+        target.ScrollIntoView(items[99], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get rows visible at bottom
+        var rowsAtBottom = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .Where(r => r.IsVisible)
+            .Select(r => r.Index)
+            .ToHashSet();
+        
+        // Scroll back to top
+        target.ScrollIntoView(items[0], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get all rows and their visibility
+        var allRows = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .ToList();
+        
+        // Rows that were visible at bottom should NOT be visible at top (unless they're reused)
+        var visibleRowsAtTop = allRows.Where(r => r.IsVisible).ToList();
+        foreach (var row in visibleRowsAtTop)
+        {
+            // Visible rows at top should have low indices
+            Assert.True(row.Index < 20,
+                $"Row with index {row.Index} is visible at top position but should be hidden (was visible at bottom)");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_DisplayData_Consistency_After_Scroll()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items, height: 300);
+        
+        // Act - scroll to middle
+        target.ScrollIntoView(items[50], target.Columns[0]);
+        target.UpdateLayout();
+        
+        // Get DisplayData info
+        var displayData = target.DisplayData;
+        var firstSlot = displayData.FirstScrollingSlot;
+        var lastSlot = displayData.LastScrollingSlot;
+        
+        // Get all visible rows from visual tree
+        var visibleRows = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRow>()
+            .Where(r => r.IsVisible)
+            .ToList();
+        
+        var visibleHeaders = target.GetSelfAndVisualDescendants()
+            .OfType<DataGridRowGroupHeader>()
+            .Where(h => h.IsVisible)
+            .ToList();
+        
+        // All visible elements should have slots within the DisplayData range
+        foreach (var row in visibleRows)
+        {
+            Assert.True(row.Slot >= firstSlot && row.Slot <= lastSlot,
+                $"Visible row slot {row.Slot} is outside DisplayData range [{firstSlot}, {lastSlot}]");
+        }
+        
+        foreach (var header in visibleHeaders)
+        {
+            var slot = header.RowGroupInfo?.Slot ?? -1;
+            Assert.True(slot >= firstSlot && slot <= lastSlot,
+                $"Visible group header slot {slot} is outside DisplayData range [{firstSlot}, {lastSlot}]");
+        }
+    }
+
+    [AvaloniaFact]
+    public void Grouped_DataGrid_No_Duplicate_Visible_Slots()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+        var target = CreateGroupedTarget(items, height: 400);
+        
+        // Act - scroll multiple times
+        int[] scrollPositions = { 0, 30, 60, 90, 45, 15, 75, 0 };
+        foreach (var pos in scrollPositions)
+        {
+            target.ScrollIntoView(items[pos], target.Columns[0]);
+            target.UpdateLayout();
+            
+            // Get all visible rows
+            var visibleRows = target.GetSelfAndVisualDescendants()
+                .OfType<DataGridRow>()
+                .Where(r => r.IsVisible)
+                .ToList();
+            
+            // Check for duplicate slots
+            var slots = visibleRows.Select(r => r.Slot).ToList();
+            var duplicateSlots = slots.GroupBy(s => s).Where(g => g.Count() > 1).Select(g => g.Key).ToList();
+            
+            Assert.Empty(duplicateSlots);
+        }
+    }
+
+    #endregion
+
+    #region Test Model
+
+    private class ScrollTestModel : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private string _name;
+
+        public ScrollTestModel(string name) => _name = name;
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                if (_name != value)
+                {
+                    _name = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+    }
+
+    private class GroupableTestModel : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        private string _name;
+        private string _group;
+
+        public GroupableTestModel(string name, string group)
+        {
+            _name = name;
+            _group = group;
+        }
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                if (_name != value)
+                {
+                    _name = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+
+        public string Group
+        {
+            get => _group;
+            set
+            {
+                if (_group != value)
+                {
+                    _group = value;
+                    RaisePropertyChanged();
+                }
+            }
+        }
+    }
+
+    #endregion
+}
