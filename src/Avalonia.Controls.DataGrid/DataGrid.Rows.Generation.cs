@@ -180,14 +180,27 @@ namespace Avalonia.Controls
                 element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                 AvailableSlotElementRoom -= element.DesiredSize.Height;
 
+                var estimator = RowHeightEstimator;
+                
                 if (groupHeader != null)
                 {
                     _rowGroupHeightsByLevel[groupHeader.Level] = groupHeader.DesiredSize.Height;
+                    // Record the measured group header height with the estimator
+                    estimator?.RecordRowGroupHeaderHeight(slot, groupHeader.Level, element.DesiredSize.Height);
                 }
 
-                if (row != null && RowHeightEstimate == DataGrid.DATAGRID_defaultRowHeight && double.IsNaN(row.Height))
+                if (row != null)
                 {
-                    RowHeightEstimate = element.DesiredSize.Height;
+                    // Record the measured row height with the estimator
+                    bool hasDetails = GetRowDetailsVisibility(slot);
+                    // Details height is already included in element.DesiredSize.Height
+                    estimator?.RecordMeasuredHeight(slot, element.DesiredSize.Height, hasDetails, 0);
+                    
+                    // Update the legacy estimate for backward compatibility
+                    if (RowHeightEstimate == DataGrid.DATAGRID_defaultRowHeight && double.IsNaN(row.Height))
+                    {
+                        RowHeightEstimate = element.DesiredSize.Height;
+                    }
                 }
             }
 

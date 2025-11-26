@@ -128,6 +128,9 @@ namespace Avalonia.Controls
                 // is no longer relevant, so we should force a cancel edit.
                 CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
 
+                // Notify the estimator about the reset
+                RowHeightEstimator?.Reset();
+
                 // We want to persist selection throughout a reset, so store away the selected items
                 List<object> selectedItemsCache = new List<object>(_selectedItems.SelectedItemsCache);
 

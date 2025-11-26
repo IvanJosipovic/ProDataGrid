@@ -162,6 +162,7 @@ namespace Avalonia.Controls
             RowDetailsTemplateProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowDetailsTemplateChanged(e));
             RowDetailsVisibilityModeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowDetailsVisibilityModeChanged(e));
             AutoGenerateColumnsProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnAutoGenerateColumnsChanged(e));
+            RowHeightEstimatorProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowHeightEstimatorChanged(e));
 
             FocusableProperty.OverrideDefaultValue<DataGrid>(true);
         }
@@ -516,6 +517,48 @@ namespace Avalonia.Controls
         {
             get;
             private set;
+        }
+
+        /// <summary>
+        /// Gets the effective row height estimator, creating a default one if none is set.
+        /// </summary>
+        internal IDataGridRowHeightEstimator EffectiveRowHeightEstimator
+        {
+            get
+            {
+                var estimator = RowHeightEstimator;
+                if (estimator == null)
+                {
+                    // Use the internal estimates directly when no custom estimator is set
+                    return null;
+                }
+                return estimator;
+            }
+        }
+
+        /// <summary>
+        /// Called when the RowHeightEstimator property changes.
+        /// </summary>
+        private void OnRowHeightEstimatorChanged(AvaloniaPropertyChangedEventArgs e)
+        {
+            var oldEstimator = e.OldValue as IDataGridRowHeightEstimator;
+            var newEstimator = e.NewValue as IDataGridRowHeightEstimator;
+
+            if (newEstimator != null)
+            {
+                // Initialize the new estimator with current state
+                newEstimator.DefaultRowHeight = DATAGRID_defaultRowHeight;
+                newEstimator.OnDataSourceChanged(SlotCount);
+                
+                // Sync current estimates
+                if (RowHeightEstimate != DATAGRID_defaultRowHeight)
+                {
+                    // Transfer our current estimate to the new estimator if we've measured any rows
+                }
+            }
+
+            // Force refresh of displayed rows
+            InvalidateMeasure();
         }
 
         /// <summary>

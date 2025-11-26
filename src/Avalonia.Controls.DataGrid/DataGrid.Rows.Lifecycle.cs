@@ -47,7 +47,21 @@ namespace Avalonia.Controls
             if (slot < DisplayData.FirstScrollingSlot - 1)
             {
                 // The element was added above our viewport so it pushes the VerticalOffset down
-                double elementHeight = RowGroupHeadersTable.Contains(slot) ? RowGroupHeaderHeightEstimate : RowHeightEstimate;
+                var estimator = RowHeightEstimator;
+                double elementHeight;
+                
+                if (estimator != null)
+                {
+                    var rowGroupInfo = RowGroupHeadersTable.GetValueAt(slot);
+                    bool isHeader = rowGroupInfo != null;
+                    int level = isHeader ? rowGroupInfo.Level : 0;
+                    bool hasDetails = !isHeader && GetRowDetailsVisibility(slot);
+                    elementHeight = estimator.GetEstimatedHeight(slot, isHeader, level, hasDetails);
+                }
+                else
+                {
+                    elementHeight = RowGroupHeadersTable.Contains(slot) ? RowGroupHeaderHeightEstimate : RowHeightEstimate;
+                }
 
                 SetVerticalOffset(_verticalOffset + elementHeight);
             }

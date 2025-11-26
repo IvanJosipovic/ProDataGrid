@@ -578,5 +578,24 @@ namespace Avalonia.Controls
         /// </summary>
         public IDataGridCollectionView CollectionView =>
             DataConnection.CollectionView;
+
+        /// <summary>
+        /// Identifies the RowHeightEstimator dependency property.
+        /// </summary>
+        public static readonly StyledProperty<IDataGridRowHeightEstimator> RowHeightEstimatorProperty =
+            AvaloniaProperty.Register<DataGrid, IDataGridRowHeightEstimator>(
+                nameof(RowHeightEstimator),
+                defaultValue: new AdvancedRowHeightEstimator());
+
+        /// <summary>
+        /// Gets or sets the row height estimator used for scroll calculations.
+        /// Setting this property allows using different algorithms for handling variable row heights.
+        /// If not set, a default average-based estimator is used.
+        /// </summary>
+        public IDataGridRowHeightEstimator RowHeightEstimator
+        {
+            get { return GetValue(RowHeightEstimatorProperty); }
+            set { SetValue(RowHeightEstimatorProperty, value); }
+        }
     }
 }

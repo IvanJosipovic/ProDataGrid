@@ -82,34 +82,71 @@ namespace Avalonia.Controls
                 Debug.Assert(_verticalOffset >= 0);
                 Debug.Assert(NegVerticalOffset >= 0);
 
-                // Height of all rows above the viewport
-                double totalRowsHeight = _verticalOffset - NegVerticalOffset;
+                var estimator = RowHeightEstimator;
 
-                // Add the height of all the rows currently displayed, AvailableRowRoom
-                // is not always up to date enough for this
+                // Collect displayed row heights and record them with the estimator
+                var displayedHeights = new List<double>();
+                int displayedSlot = DisplayData.FirstScrollingSlot;
                 foreach (Control element in DisplayData.GetScrollingElements())
                 {
+                    double height;
                     if (element is DataGridRow row)
                     {
-                        totalRowsHeight += row.TargetHeight;
+                        height = row.TargetHeight;
+                        bool hasDetails = GetRowDetailsVisibility(displayedSlot);
+                        // Record with estimator - details height is already included in TargetHeight
+                        estimator?.RecordMeasuredHeight(displayedSlot, height, hasDetails, 0);
+                    }
+                    else if (element is DataGridRowGroupHeader groupHeader)
+                    {
+                        height = element.DesiredSize.Height;
+                        estimator?.RecordRowGroupHeaderHeight(displayedSlot, groupHeader.Level, height);
                     }
                     else
                     {
-                        totalRowsHeight += element.DesiredSize.Height;
+                        height = element.DesiredSize.Height;
                     }
+                    displayedHeights.Add(height);
+                    displayedSlot = GetNextVisibleSlot(displayedSlot);
                 }
 
-                // Details up to and including viewport
+                // Update the estimator with current display state
+                // Pass the collapsed slot count and details count so estimators can accurately calculate
+                int collapsedSlotCount = _collapsedSlotsTable.GetIndexCount(0, DisplayData.LastScrollingSlot);
                 int detailsCount = GetDetailsCountInclusive(0, DisplayData.LastScrollingSlot);
+                estimator?.UpdateFromDisplayedRows(
+                    DisplayData.FirstScrollingSlot,
+                    DisplayData.LastScrollingSlot,
+                    displayedHeights.ToArray(),
+                    _verticalOffset,
+                    NegVerticalOffset,
+                    collapsedSlotCount,
+                    detailsCount);
+
+                // Height of all rows above the viewport
+                double totalRowsHeight = _verticalOffset - NegVerticalOffset;
+
+                // Add the height of all the rows currently displayed
+                foreach (double height in displayedHeights)
+                {
+                    totalRowsHeight += height;
+                }
+
+                // Get the effective row details estimate
+                double rowDetailsEstimate = estimator?.RowDetailsHeightEstimate ?? RowDetailsHeightEstimate;
 
                 // Subtract details that were accounted for from the totalRowsHeight
-                totalRowsHeight -= detailsCount * RowDetailsHeightEstimate;
+                totalRowsHeight -= detailsCount * rowDetailsEstimate;
 
-                // Update the RowHeightEstimate if we have more row information
+                // Update the RowHeightEstimate if we have more row information (for backward compatibility)
                 if (DisplayData.LastScrollingSlot >= _lastEstimatedRow)
                 {
                     _lastEstimatedRow = DisplayData.LastScrollingSlot;
-                    RowHeightEstimate = totalRowsHeight / (_lastEstimatedRow + 1 - _collapsedSlotsTable.GetIndexCount(0, _lastEstimatedRow));
+                    int visibleCount = _lastEstimatedRow + 1 - _collapsedSlotsTable.GetIndexCount(0, _lastEstimatedRow);
+                    if (visibleCount > 0)
+                    {
+                        RowHeightEstimate = totalRowsHeight / visibleCount;
+                    }
                 }
 
                 // Calculate estimates for what's beyond the viewport
@@ -117,17 +154,39 @@ namespace Avalonia.Controls
                 {
                     int remainingRowCount = (SlotCount - DisplayData.LastScrollingSlot - _collapsedSlotsTable.GetIndexCount(DisplayData.LastScrollingSlot, SlotCount - 1) - 1);
 
-                    // Add estimation for the cell heights of all rows beyond our viewport
-                    totalRowsHeight += RowHeightEstimate * remainingRowCount;
+                    // Use estimator if available, otherwise fall back to simple estimate
+                    if (estimator != null)
+                    {
+                        // Sum estimated heights for remaining slots
+                        for (int slot = DisplayData.LastScrollingSlot + 1; slot < SlotCount; slot++)
+                        {
+                            if (!_collapsedSlotsTable.Contains(slot))
+                            {
+                                var rowGroupInfo = RowGroupHeadersTable.GetValueAt(slot);
+                                bool isHeader = rowGroupInfo != null;
+                                int level = isHeader ? rowGroupInfo.Level : 0;
+                                bool hasDetails = !isHeader && GetRowDetailsVisibility(slot);
+                                totalRowsHeight += estimator.GetEstimatedHeight(slot, isHeader, level, hasDetails);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Add estimation for the cell heights of all rows beyond our viewport
+                        totalRowsHeight += RowHeightEstimate * remainingRowCount;
 
-                    // Add the rest of the details beyond the viewport
-                    detailsCount += GetDetailsCountInclusive(DisplayData.LastScrollingSlot + 1, SlotCount - 1);
+                        // Add the rest of the details beyond the viewport
+                        detailsCount += GetDetailsCountInclusive(DisplayData.LastScrollingSlot + 1, SlotCount - 1);
+                        totalRowsHeight += detailsCount * rowDetailsEstimate;
+                    }
+                }
+                else
+                {
+                    // Add details height for visible rows
+                    totalRowsHeight += detailsCount * rowDetailsEstimate;
                 }
 
-                //
-                double totalDetailsHeight = detailsCount * RowDetailsHeightEstimate;
-
-                return totalRowsHeight + totalDetailsHeight;
+                return totalRowsHeight;
             }
         }
 
@@ -254,6 +313,9 @@ namespace Avalonia.Controls
             int slot = SlotFromRowIndex(rowIndex);
             object item = DataConnection.GetDataItem(rowIndex);
 
+            // Notify the estimator about the insertion
+            RowHeightEstimator?.OnItemsInserted(slot, 1);
+
             // isCollapsed below is always false because we only use the method if we're not grouping
             InsertElementAt(slot, rowIndex, item, null/*DataGridRowGroupInfo*/, false /*isCollapsed*/);
         }
@@ -342,7 +404,12 @@ namespace Avalonia.Controls
 
         internal void RemoveRowAt(int rowIndex, object item)
         {
-            RemoveElementAt(SlotFromRowIndex(rowIndex), item, true);
+            int slot = SlotFromRowIndex(rowIndex);
+            
+            // Notify the estimator about the removal
+            RowHeightEstimator?.OnItemsRemoved(slot, 1);
+            
+            RemoveElementAt(slot, item, true);
         }
 
         internal bool ScrollSlotIntoView(int slot, bool scrolledHorizontally)
@@ -782,9 +849,25 @@ namespace Avalonia.Controls
                     if (!isDisplayed)
                     {
                         // Estimate the height change if the slots aren't displayed.  If they are displayed, we can add real values
-                        double rowCount = lastSlot - firstSlot - GetRowGroupHeaderCount(firstSlot, lastSlot, false, out double headerHeight) + 1;
-                        double detailsCount = GetDetailsCountInclusive(firstSlot, lastSlot);
-                        currentHeightChange += headerHeight + (detailsCount * RowDetailsHeightEstimate) + (rowCount * RowHeightEstimate);
+                        var estimator = RowHeightEstimator;
+                        if (estimator != null)
+                        {
+                            // Use the estimator for per-slot height estimation
+                            for (int slot = firstSlot; slot <= lastSlot; slot++)
+                            {
+                                var rowGroupInfo = RowGroupHeadersTable.GetValueAt(slot);
+                                bool isHeader = rowGroupInfo != null;
+                                int level = isHeader ? rowGroupInfo.Level : 0;
+                                bool hasDetails = !isHeader && GetRowDetailsVisibility(slot);
+                                currentHeightChange += estimator.GetEstimatedHeight(slot, isHeader, level, hasDetails);
+                            }
+                        }
+                        else
+                        {
+                            double rowCount = lastSlot - firstSlot - GetRowGroupHeaderCount(firstSlot, lastSlot, false, out double headerHeight) + 1;
+                            double detailsCount = GetDetailsCountInclusive(firstSlot, lastSlot);
+                            currentHeightChange += headerHeight + (detailsCount * RowDetailsHeightEstimate) + (rowCount * RowHeightEstimate);
+                        }
                     }
                     slotsExpanded += lastSlot - firstSlot + 1;
                     firstSlot = lastSlot + 1;
@@ -836,6 +919,25 @@ namespace Avalonia.Controls
         // Returns an estimate for the height of the slots between fromSlot and toSlot
         private double GetHeightEstimate(int fromSlot, int toSlot)
         {
+            var estimator = RowHeightEstimator;
+            if (estimator != null)
+            {
+                double totalHeight = 0;
+                for (int slot = fromSlot; slot <= toSlot; slot++)
+                {
+                    if (!_collapsedSlotsTable.Contains(slot))
+                    {
+                        var rowGroupInfo = RowGroupHeadersTable.GetValueAt(slot);
+                        bool isHeader = rowGroupInfo != null;
+                        int level = isHeader ? rowGroupInfo.Level : 0;
+                        bool hasDetails = !isHeader && GetRowDetailsVisibility(slot);
+                        totalHeight += estimator.GetEstimatedHeight(slot, isHeader, level, hasDetails);
+                    }
+                }
+                return totalHeight;
+            }
+
+            // Fallback to simple estimation
             double rowCount = toSlot - fromSlot - GetRowGroupHeaderCount(fromSlot, toSlot, true, out double headerHeight) + 1;
             double detailsCount = GetDetailsCountInclusive(fromSlot, toSlot);
 
@@ -856,7 +958,18 @@ namespace Avalonia.Controls
             }
             else
             {
+                var estimator = RowHeightEstimator;
                 DataGridRowGroupInfo rowGroupInfo = RowGroupHeadersTable.GetValueAt(slot);
+                
+                if (estimator != null)
+                {
+                    bool isHeader = rowGroupInfo != null;
+                    int level = isHeader ? rowGroupInfo.Level : 0;
+                    bool hasDetails = !isHeader && GetRowDetailsVisibility(slot);
+                    return estimator.GetEstimatedHeight(slot, isHeader, level, hasDetails);
+                }
+
+                // Fallback to simple estimation
                 if (rowGroupInfo != null)
                 {
                     return _rowGroupHeightsByLevel[rowGroupInfo.Level];
