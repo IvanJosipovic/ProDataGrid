@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             xmlns:dgrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
+             x:Class="DataGridSample.ScrollInteractionsPage"
+             x:DataType="viewModels:ScrollInteractionsViewModel">
+  <UserControl.DataContext>
+    <viewModels:ScrollInteractionsViewModel/>
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
+      <TextBlock Classes="h2" Text="Scroll Snap + Row Details"/>
+      <TextBlock TextWrapping="Wrap"
+                 Text="Demonstrates ScrollViewer snap points and scroll anchoring. Scroll deep, insert rows at the top, and expand details to validate stable offsets and row height estimation."/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+      <CheckBox Content="Snap to row starts"
+                IsChecked="{Binding EnableSnapPoints, Mode=TwoWay}"/>
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <TextBlock Text="Row details:" VerticalAlignment="Center"/>
+        <ComboBox Width="190"
+                  ItemsSource="{Binding DetailsModes}"
+                  SelectedItem="{Binding DetailsMode, Mode=TwoWay}"/>
+      </StackPanel>
+
+      <Button Content="Insert 10 at top"
+              Command="{Binding InsertAtTopCommand}"/>
+      <Button Content="Append 10"
+              Command="{Binding AppendCommand}"/>
+      <Button Content="Stretch random details"
+              Command="{Binding StretchDetailsCommand}"/>
+      <Button Content="Reset feed"
+              Command="{Binding ResetCommand}"/>
+    </StackPanel>
+
+    <DataGrid x:Name="InteractionsGrid"
+              Grid.Row="2"
+              ItemsSource="{Binding Items}"
+              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+              UseLogicalScrollable="True"
+              RowDetailsVisibilityMode="{Binding DetailsMode}"
+              HeadersVisibility="All"
+              CanUserResizeColumns="True"
+              CanUserReorderColumns="True"
+              CanUserSortColumns="True"
+              RowBackground="#08000000"
+              GridLinesVisibility="Horizontal">
+      <DataGrid.RowHeightEstimator>
+        <dgrid:AdvancedRowHeightEstimator/>
+      </DataGrid.RowHeightEstimator>
+
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="ID"
+                            Binding="{Binding Id}"
+                            Width="70"
+                            x:DataType="models:LiveDataItem"/>
+        <DataGridTemplateColumn Header="Severity"
+                                Width="110"
+                                x:DataType="models:LiveDataItem">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="models:LiveDataItem">
+              <Border Background="{Binding Accent}"
+                      CornerRadius="4"
+                      Padding="6,2"
+                      HorizontalAlignment="Stretch">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <Ellipse Width="8" Height="8"
+                           Fill="White"
+                           Opacity="0.7"
+                           VerticalAlignment="Center"/>
+                  <TextBlock Text="{Binding Severity}"
+                             FontWeight="SemiBold"
+                             VerticalAlignment="Center"/>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Title"
+                            Binding="{Binding Title}"
+                            Width="2*"
+                            x:DataType="models:LiveDataItem"/>
+        <DataGridTextColumn Header="Source"
+                            Binding="{Binding Source}"
+                            Width="*"
+                            x:DataType="models:LiveDataItem"/>
+        <DataGridTextColumn Header="Summary"
+                            Binding="{Binding Summary}"
+                            Width="3*"
+                            x:DataType="models:LiveDataItem"/>
+        <DataGridCheckBoxColumn Header="Pinned"
+                                Binding="{Binding IsPinned}"
+                                Width="90"
+                                IsThreeState="False"
+                                x:DataType="models:LiveDataItem"/>
+        <DataGridTextColumn Header="Updated"
+                            Binding="{Binding Timestamp, StringFormat='{}{0:T}'}"
+                            Width="140"
+                            x:DataType="models:LiveDataItem"/>
+      </DataGrid.Columns>
+
+      <DataGrid.RowDetailsTemplate>
+        <DataTemplate x:DataType="models:LiveDataItem">
+          <Border Background="#0A000000" Padding="10,6,10,10">
+            <StackPanel Spacing="4">
+              <TextBlock Text="{Binding Details}" TextWrapping="Wrap"/>
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBlock Text="{Binding Source}" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding Timestamp, StringFormat='Logged at {0:T}'}" Foreground="#666"/>
+                <TextBlock Text="{Binding IsPinned, StringFormat='Pinned: {0}'}" Foreground="#666"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </DataGrid.RowDetailsTemplate>
+
+      <DataGrid.Styles>
+        <Style Selector="DataGridRow">
+          <Setter Property="Header" Value="{Binding $self.Index}"/>
+        </Style>
+      </DataGrid.Styles>
+    </DataGrid>
+
+    <Border Grid.Row="3"
+            Padding="8,4"
+            Margin="0,8,0,0"
+            Background="#20000000">
+      <TextBlock Text="{Binding StatusText}"/>
+    </Border>
+  </Grid>
+</UserControl>

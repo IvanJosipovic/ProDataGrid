@@ -20,6 +20,9 @@
     <TabItem Header="Variable Height Scrolling">
       <local:VariableHeightPage />
     </TabItem>
+    <TabItem Header="Scroll Snap &amp; Details">
+      <local:ScrollInteractionsPage />
+    </TabItem>
     <TabItem Header="Large Variable Height">
       <local:LargeVariableHeightPage />
     </TabItem>
