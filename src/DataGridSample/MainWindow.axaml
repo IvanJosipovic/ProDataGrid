@@ -8,8 +8,14 @@
         WindowStartupLocation="CenterScreen">
 
   <TabControl Margin="8">
-    <TabItem Header="DataGrid Samples">
-      <local:DataGridPage />
+    <TabItem Header="DataGrid">
+      <local:BasicPage />
+    </TabItem>
+    <TabItem Header="Grouping">
+      <local:GroupingPage />
+    </TabItem>
+    <TabItem Header="Editable">
+      <local:EditablePage />
     </TabItem>
     <TabItem Header="Variable Height Scrolling">
       <local:VariableHeightPage />

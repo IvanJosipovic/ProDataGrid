@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.GroupingPage"
+             x:DataType="viewModels:GroupingViewModel">
+  <UserControl.DataContext>
+    <viewModels:GroupingViewModel/>
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,*">
+    <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
+      <TextBlock Classes="h2">Grouping</TextBlock>
+      <TextBlock Text="Countries grouped by region." TextWrapping="Wrap" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="1"
+              Margin="12"
+              ItemsSource="{Binding GroupedCountriesView}"
+              IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Country or Region" Binding="{Binding Name}" Width="6*" x:DataType="models:Country" />
+        <DataGridTextColumn Header="Region" Binding="{Binding Region}" Width="4*" x:DataType="models:Country" />
+        <DataGridTextColumn DisplayIndex="3" Header="Population" Binding="{Binding Population}" Width="3*" x:DataType="models:Country" />
+        <DataGridTextColumn DisplayIndex="2" Header="Area" Binding="{Binding Area}" Width="3*" x:DataType="models:Country" />
+        <DataGridTextColumn Header="GDP" Binding="{Binding GDP}" Width="3*" x:DataType="models:Country" />
+      </DataGrid.Columns>
+      <DataGrid.RowTheme>
+        <ControlTheme TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+          <ControlTheme.Children>
+            <Style Selector="^:nth-child(5n+3)">
+              <Setter Property="Foreground" Value="Red" />
+              <Setter Property="FontWeight" Value="Bold" />
+            </Style>
+            <Style Selector="^:nth-last-child(5n+1)">
+              <Setter Property="Foreground" Value="Blue" />
+              <Setter Property="FontWeight" Value="Bold" />
+            </Style>
+          </ControlTheme.Children>
+        </ControlTheme>
+      </DataGrid.RowTheme>
+    </DataGrid>
+  </Grid>
+</UserControl>
