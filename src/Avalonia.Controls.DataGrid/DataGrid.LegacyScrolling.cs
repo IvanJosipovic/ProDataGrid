@@ -351,7 +351,7 @@ namespace Avalonia.Controls
         /// <summary>
         /// Returns true if legacy scroll bars are available and visible for scrolling calculations.
         /// </summary>
-        private bool HasLegacyVerticalScrollBar => _vScrollBar != null;
+        private bool HasLegacyVerticalScrollBar => !UseLogicalScrollable && _vScrollBar != null;
 
         /// <summary>
         /// Returns true if the legacy vertical scroll bar is visible.

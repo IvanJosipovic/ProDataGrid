@@ -404,6 +404,10 @@ namespace Avalonia.Controls
             if (recycleRow)
             {
                 DisplayData.RecycleRow(dataGridRow);
+                if (UseLogicalScrollable && _rowsPresenter != null)
+                {
+                    _rowsPresenter.Children.Remove(dataGridRow);
+                }
             }
             else
             {

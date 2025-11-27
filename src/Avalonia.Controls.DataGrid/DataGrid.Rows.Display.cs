@@ -262,6 +262,8 @@ namespace Avalonia.Controls
             {
                 // Always hide the row immediately to prevent ghost rows during scrolling
                 dataGridRow.SetCurrentValue(Visual.IsVisibleProperty, false);
+                // Move recycled rows out of the viewport so stale bounds don't interfere with layout checks
+                dataGridRow.Arrange(new Rect(-10000, -10000, 0, 0));
 
                 if (IsRowRecyclable(dataGridRow))
                 {
@@ -275,6 +277,7 @@ namespace Avalonia.Controls
             else if (element is DataGridRowGroupHeader groupHeader)
             {
                 OnUnloadingRowGroup(new DataGridRowGroupHeaderEventArgs(groupHeader));
+                groupHeader.Arrange(new Rect(-10000, -10000, 0, 0));
                 DisplayData.RecycleGroupHeader(groupHeader);
             }
             else if (_rowsPresenter != null)

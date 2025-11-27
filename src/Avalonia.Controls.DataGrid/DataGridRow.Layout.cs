@@ -74,7 +74,14 @@ namespace Avalonia.Controls
             if (_bottomGridLine != null)
             {
                 RectangleGeometry gridlineClipGeometry = new RectangleGeometry();
-                gridlineClipGeometry.Rect = new Rect(OwningGrid.HorizontalOffset, 0, Math.Max(0, DesiredSize.Width - OwningGrid.HorizontalOffset), _bottomGridLine.DesiredSize.Height);
+                // Use the arranged width (which accounts for total columns/header width) so the
+                // horizontal grid line spans the full row, not just the measured viewport width.
+                double arrangedWidth = Math.Max(finalSize.Width, DesiredSize.Width);
+                gridlineClipGeometry.Rect = new Rect(
+                    OwningGrid.HorizontalOffset,
+                    0,
+                    Math.Max(0, arrangedWidth - OwningGrid.HorizontalOffset),
+                    _bottomGridLine.DesiredSize.Height);
                 _bottomGridLine.Clip = gridlineClipGeometry;
             }
 

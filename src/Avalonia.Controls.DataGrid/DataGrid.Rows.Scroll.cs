@@ -53,15 +53,15 @@ namespace Avalonia.Controls
                             {
                                 // Very large scroll occurred. Instead of determining the exact number of scrolled off rows,
                                 // let's estimate the number based on RowHeight.
-                                ResetDisplayedRows();
-                                
-                                var estimator = RowHeightEstimator;
-                                if (estimator != null)
-                                {
-                                    // Use the estimator's slot-at-offset calculation for better accuracy
-                                    int estimatedSlot = estimator.EstimateSlotAtOffset(_verticalOffset + height, SlotCount);
-                                    newFirstScrollingSlot = Math.Min(GetNextVisibleSlot(estimatedSlot), lastVisibleSlot);
-                                }
+                            ResetDisplayedRows();
+                            
+                            var estimator = RowHeightEstimator;
+                            if (estimator != null)
+                            {
+                                // Use the estimator's slot-at-offset calculation for better accuracy
+                                int estimatedSlot = estimator.EstimateSlotAtOffset(_verticalOffset + height, SlotCount);
+                                newFirstScrollingSlot = Math.Min(GetNextVisibleSlot(estimatedSlot), lastVisibleSlot);
+                            }
                                 else
                                 {
                                     double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
@@ -341,6 +341,7 @@ namespace Avalonia.Controls
 
                 Debug.Assert(MathUtilities.GreaterThanOrClose(NegVerticalOffset, 0));
                 Debug.Assert(MathUtilities.GreaterThanOrClose(_verticalOffset, NegVerticalOffset));
+
             }
             finally
             {

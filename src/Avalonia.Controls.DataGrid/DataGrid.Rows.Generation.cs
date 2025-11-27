@@ -149,9 +149,8 @@ namespace Avalonia.Controls
 
                     if (IsRowRecyclable(row))
                     {
-                        if (!row.IsRecycled)
+                        if (_rowsPresenter != null && !_rowsPresenter.Children.Contains(row))
                         {
-                            Debug.Assert(!_rowsPresenter.Children.Contains(element));
                             _rowsPresenter.Children.Add(row);
                         }
                     }
