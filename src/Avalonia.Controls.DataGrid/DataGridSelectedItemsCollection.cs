@@ -6,13 +6,15 @@
 #nullable disable
 
 using System;
+using System.ComponentModel;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections;
 
 namespace Avalonia.Controls
 {
-    internal class DataGridSelectedItemsCollection : IList
+    internal class DataGridSelectedItemsCollection : IList, INotifyCollectionChanged, INotifyPropertyChanged
     {
         private List<object> _oldSelectedItemsCache;
         private IndexToValueTable<bool> _oldSelectedSlotsTable;
@@ -192,6 +194,10 @@ namespace Avalonia.Controls
             }
         }
 
+        public event NotifyCollectionChangedEventHandler CollectionChanged;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
         public bool IsSynchronized
         {
             get
@@ -311,6 +317,7 @@ namespace Avalonia.Controls
         {
             List<object> addedSelectedItems = new List<object>();
             List<object> removedSelectedItems = new List<object>();
+            int previousCount = _oldSelectedItemsCache.Count;
 
             // Compare the old selected indexes with the current selection to determine which items
             // have been added and removed since the last time this method was called
@@ -336,11 +343,50 @@ namespace Avalonia.Controls
             _oldSelectedSlotsTable = _selectedSlotsTable.Copy();
             _oldSelectedItemsCache = new List<object>(_selectedItemsCache);
 
+            RaiseCollectionChanged(previousCount, addedSelectedItems, removedSelectedItems);
+
             return
                 new SelectionChangedEventArgs(DataGrid.SelectionChangedEvent, removedSelectedItems, addedSelectedItems)
                 {
                     Source = OwningGrid
                 };
+        }
+
+        private void RaiseCollectionChanged(int oldCount, List<object> addedItems, List<object> removedItems)
+        {
+            if (CollectionChanged != null)
+            {
+                if (removedItems.Count > 0)
+                {
+                    CollectionChanged(this, new NotifyCollectionChangedEventArgs(
+                        NotifyCollectionChangedAction.Remove,
+                        removedItems,
+                        -1));
+                }
+
+                if (addedItems.Count > 0)
+                {
+                    CollectionChanged(this, new NotifyCollectionChangedEventArgs(
+                        NotifyCollectionChangedAction.Add,
+                        addedItems,
+                        -1));
+                }
+            }
+
+            if (addedItems.Count > 0 || removedItems.Count > 0)
+            {
+                if (oldCount != _selectedItemsCache.Count)
+                {
+                    OnPropertyChanged(nameof(Count));
+                }
+
+                OnPropertyChanged("Item[]");
+            }
+        }
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
         internal void InsertIndex(int slot)

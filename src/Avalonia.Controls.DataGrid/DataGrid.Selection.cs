@@ -8,6 +8,8 @@ using Avalonia.Collections;
 using Avalonia.Controls.Utils;
 using Avalonia.Interactivity;
 using System;
+using System.Collections;
+using System.Collections.Specialized;
 using System.Collections.Generic;
 using System.Diagnostics;
 
@@ -217,6 +219,266 @@ namespace Avalonia.Controls
                 {
                     OnSelectionChanged(e);
                 }
+            }
+        }
+
+        private void SetSelectedItemsCollection(IList value)
+        {
+            IList newValue = value ?? (IList)_selectedItems;
+            IList oldValue = SelectedItems;
+
+            if (ReferenceEquals(oldValue, newValue))
+            {
+                return;
+            }
+
+            DetachBoundSelectedItems();
+            _selectedItemsBinding = ReferenceEquals(newValue, _selectedItems) ? null : newValue;
+            AttachBoundSelectedItems();
+
+            RaisePropertyChanged(SelectedItemsProperty, oldValue, SelectedItems);
+
+            if (_selectedItemsBinding != null)
+            {
+                ApplySelectedItemsFromBinding(_selectedItemsBinding);
+            }
+        }
+
+        private void AttachBoundSelectedItems()
+        {
+            if (_selectedItemsBinding is INotifyCollectionChanged incc)
+            {
+                _selectedItemsBindingNotifications = incc;
+                _selectedItemsBindingNotifications.CollectionChanged += OnBoundSelectedItemsCollectionChanged;
+            }
+        }
+
+        private void DetachBoundSelectedItems()
+        {
+            if (_selectedItemsBindingNotifications != null)
+            {
+                _selectedItemsBindingNotifications.CollectionChanged -= OnBoundSelectedItemsCollectionChanged;
+                _selectedItemsBindingNotifications = null;
+            }
+        }
+
+        private void OnBoundSelectedItemsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (_syncingSelectedItems || _selectedItemsBinding == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _syncingSelectedItems = true;
+                ApplySelectedItemsChangeFromBinding(e);
+            }
+            finally
+            {
+                _syncingSelectedItems = false;
+            }
+        }
+
+        private void OnSelectedItemsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            if (_syncingSelectedItems || _selectedItemsBinding == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _syncingSelectedItems = true;
+                ApplySelectionChangeToBinding(e);
+            }
+            finally
+            {
+                _syncingSelectedItems = false;
+            }
+        }
+
+        private void ApplySelectedItemsFromBinding(IList boundItems)
+        {
+            bool previousSync = _syncingSelectedItems;
+            _syncingSelectedItems = true;
+            try
+            {
+                if (SelectionMode == DataGridSelectionMode.Single)
+                {
+                    SelectedItem = boundItems.Count > 0 ? boundItems[boundItems.Count - 1] : null;
+                    NormalizeBoundSelectionForSingleMode();
+                    return;
+                }
+
+                ClearRowSelection(resetAnchorSlot: true);
+
+                foreach (object item in boundItems)
+                {
+                    _selectedItems.Add(item);
+                }
+            }
+            finally
+            {
+                _syncingSelectedItems = previousSync;
+            }
+        }
+
+        private void ApplySelectedItemsChangeFromBinding(NotifyCollectionChangedEventArgs e)
+        {
+            if (ReferenceEquals(_selectedItemsBinding, _selectedItems))
+            {
+                return;
+            }
+
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Reset:
+                    ApplySelectedItemsFromBinding(_selectedItemsBinding);
+                    break;
+                case NotifyCollectionChangedAction.Add:
+                    if (SelectionMode == DataGridSelectionMode.Single)
+                    {
+                        if (e.NewItems != null && e.NewItems.Count > 0)
+                        {
+                            SelectedItem = e.NewItems[e.NewItems.Count - 1];
+                        }
+                        NormalizeBoundSelectionForSingleMode();
+                        break;
+                    }
+
+                    if (e.NewItems != null)
+                    {
+                        foreach (object item in e.NewItems)
+                        {
+                            _selectedItems.Add(item);
+                        }
+                    }
+                    break;
+                case NotifyCollectionChangedAction.Remove:
+                    if (e.OldItems != null)
+                    {
+                        foreach (object item in e.OldItems)
+                        {
+                            _selectedItems.Remove(item);
+                        }
+                    }
+
+                    if (SelectionMode == DataGridSelectionMode.Single)
+                    {
+                        if ((_selectedItemsBinding?.Count ?? 0) == 0)
+                        {
+                            SelectedItem = null;
+                        }
+                        NormalizeBoundSelectionForSingleMode();
+                    }
+                    break;
+                case NotifyCollectionChangedAction.Replace:
+                    if (e.OldItems != null)
+                    {
+                        foreach (object item in e.OldItems)
+                        {
+                            _selectedItems.Remove(item);
+                        }
+                    }
+
+                    if (SelectionMode == DataGridSelectionMode.Single)
+                    {
+                        SelectedItem = e.NewItems != null && e.NewItems.Count > 0 ? e.NewItems[0] : null;
+                        NormalizeBoundSelectionForSingleMode();
+                    }
+                    else if (e.NewItems != null)
+                    {
+                        foreach (object item in e.NewItems)
+                        {
+                            _selectedItems.Add(item);
+                        }
+                    }
+                    break;
+                case NotifyCollectionChangedAction.Move:
+                    // Order does not impact grid selection; no action required.
+                    break;
+            }
+        }
+
+        private void ApplySelectionChangeToBinding(NotifyCollectionChangedEventArgs e)
+        {
+            if (ReferenceEquals(_selectedItemsBinding, _selectedItems))
+            {
+                return;
+            }
+
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Reset:
+                    _selectedItemsBinding.Clear();
+                    foreach (object item in _selectedItems)
+                    {
+                        _selectedItemsBinding.Add(item);
+                    }
+                    break;
+                case NotifyCollectionChangedAction.Add:
+                    InsertItemsIntoBinding(e.NewItems, e.NewStartingIndex);
+                    break;
+                case NotifyCollectionChangedAction.Remove:
+                    RemoveItemsFromBinding(e.OldItems);
+                    break;
+                case NotifyCollectionChangedAction.Replace:
+                    RemoveItemsFromBinding(e.OldItems);
+                    InsertItemsIntoBinding(e.NewItems, e.NewStartingIndex);
+                    break;
+                case NotifyCollectionChangedAction.Move:
+                    _selectedItemsBinding.Clear();
+                    foreach (object item in _selectedItems)
+                    {
+                        _selectedItemsBinding.Add(item);
+                    }
+                    break;
+            }
+        }
+
+        private void InsertItemsIntoBinding(IList items, int index)
+        {
+            if (items == null || _selectedItemsBinding == null)
+            {
+                return;
+            }
+
+            int insertIndex = index >= 0 && index <= _selectedItemsBinding.Count ? index : _selectedItemsBinding.Count;
+            foreach (object item in items)
+            {
+                _selectedItemsBinding.Insert(insertIndex, item);
+                insertIndex++;
+            }
+        }
+
+        private void RemoveItemsFromBinding(IList items)
+        {
+            if (items == null || _selectedItemsBinding == null)
+            {
+                return;
+            }
+
+            foreach (object item in items)
+            {
+                if (_selectedItemsBinding.Contains(item))
+                {
+                    _selectedItemsBinding.Remove(item);
+                }
+            }
+        }
+
+        private void NormalizeBoundSelectionForSingleMode()
+        {
+            if (_selectedItemsBinding == null || ReferenceEquals(_selectedItemsBinding, _selectedItems))
+            {
+                return;
+            }
+
+            _selectedItemsBinding.Clear();
+            if (_selectedItems.Count > 0)
+            {
+                _selectedItemsBinding.Add(_selectedItems[0]);
             }
         }
 

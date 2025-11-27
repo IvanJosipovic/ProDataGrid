@@ -125,6 +125,9 @@ namespace Avalonia.Controls
         private bool _scrollingByHeight;
         private IndexToValueTable<bool> _showDetailsTable;
         private DataGridSelectedItemsCollection _selectedItems;
+        private IList _selectedItemsBinding;
+        private INotifyCollectionChanged _selectedItemsBindingNotifications;
+        private bool _syncingSelectedItems;
 
         // An approximation of the sum of the heights in pixels of the scrolling rows preceding
         // the first displayed scrolling row.  Since the scrolled off rows are discarded, the grid
@@ -182,6 +185,7 @@ namespace Avalonia.Controls
             _loadedRows = new List<DataGridRow>();
             _lostFocusActions = new Queue<Action>();
             _selectedItems = new DataGridSelectedItemsCollection(this);
+            _selectedItems.CollectionChanged += OnSelectedItemsCollectionChanged;
             RowGroupHeadersTable = new IndexToValueTable<DataGridRowGroupInfo>();
             _bindingValidationErrors = new List<Exception>();
 
@@ -245,7 +249,8 @@ namespace Avalonia.Controls
         /// </summary>
         public IList SelectedItems
         {
-            get { return _selectedItems as IList; }
+            get => _selectedItemsBinding ?? (IList)_selectedItems;
+            set => SetSelectedItemsCollection(value);
         }
 
         internal DataGridColumnCollection ColumnsInternal

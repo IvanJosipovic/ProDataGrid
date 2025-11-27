@@ -490,6 +490,13 @@ namespace Avalonia.Controls
             set { SetAndRaise(SelectedItemProperty, ref _selectedItem, value); }
         }
 
+        public static readonly DirectProperty<DataGrid, IList> SelectedItemsProperty =
+            AvaloniaProperty.RegisterDirect<DataGrid, IList>(
+                nameof(SelectedItems),
+                o => o.SelectedItems,
+                (o, v) => o.SelectedItems = v,
+                defaultBindingMode: BindingMode.TwoWay);
+
         public static readonly StyledProperty<DataGridClipboardCopyMode> ClipboardCopyModeProperty =
             AvaloniaProperty.Register<DataGrid, DataGridClipboardCopyMode>(
                 nameof(ClipboardCopyMode),
