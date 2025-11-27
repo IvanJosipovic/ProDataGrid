@@ -2,8 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:DataGridSample"
              xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.VariableHeightPage"
-             x:DataType="local:VariableHeightPage">
+             x:DataType="viewModels:VariableHeightViewModel">
+  <UserControl.DataContext>
+    <viewModels:VariableHeightViewModel/>
+  </UserControl.DataContext>
   
   <Grid RowDefinitions="Auto,Auto,*,Auto">
     <!-- Header -->
@@ -17,45 +21,39 @@
     <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
       <StackPanel Orientation="Horizontal" Spacing="4">
         <TextBlock Text="Item Count:" VerticalAlignment="Center"/>
-        <NumericUpDown x:Name="ItemCountUpDown" 
-                       Minimum="10" 
+        <NumericUpDown Minimum="10" 
                        Maximum="1000000" 
-                       Value="500" 
+                       Value="{Binding ItemCount, Mode=TwoWay}" 
                        Increment="100"
                        Width="120"/>
       </StackPanel>
       
       <StackPanel Orientation="Horizontal" Spacing="4">
         <TextBlock Text="Seed:" VerticalAlignment="Center"/>
-        <NumericUpDown x:Name="SeedUpDown" 
-                       Minimum="1" 
+        <NumericUpDown Minimum="1" 
                        Maximum="9999" 
-                       Value="42" 
+                       Value="{Binding Seed, Mode=TwoWay}" 
                        Increment="1"
                        Width="80"/>
       </StackPanel>
       
-      <Button x:Name="RegenerateButton" Content="Regenerate Items"/>
+      <Button Content="Regenerate Items"
+              Command="{Binding RegenerateCommand}"/>
       
       <Separator/>
 
       <StackPanel Orientation="Horizontal" Spacing="4">
         <TextBlock Text="Estimator:" VerticalAlignment="Center"/>
-        <ComboBox x:Name="EstimatorComboBox"
-                  Width="160"
-                  SelectedIndex="0">
-          <ComboBoxItem Content="Advanced"/>
-          <ComboBoxItem Content="Caching"/>
-          <ComboBoxItem Content="Default"/>
-        </ComboBox>
+        <ComboBox Width="160"
+                  ItemsSource="{Binding Estimators}"
+                  SelectedItem="{Binding SelectedEstimator, Mode=TwoWay}"/>
       </StackPanel>
       
       <StackPanel Orientation="Horizontal" Spacing="4">
         <TextBlock Text="Scroll To:" VerticalAlignment="Center"/>
-        <NumericUpDown x:Name="ScrollToIndexUpDown" 
-                       Minimum="0" 
+        <NumericUpDown Minimum="0" 
                        Maximum="9999" 
-                       Value="0" 
+                       Value="{Binding ScrollToIndex, Mode=TwoWay}" 
                        Increment="10"
                        Width="100"/>
         <Button x:Name="ScrollToButton" Content="Scroll"/>
@@ -71,7 +69,8 @@
               HeadersVisibility="All"
               IsReadOnly="True"
               RowBackground="#08000000"
-              GridLinesVisibility="Horizontal">
+              GridLinesVisibility="Horizontal"
+              ItemsSource="{Binding Items}">
       <DataGrid.Columns>
         <!-- Fixed width ID column -->
         <DataGridTextColumn Header="ID" 
@@ -126,9 +125,9 @@
             Padding="8,4"
             Margin="0,8,0,0">
       <StackPanel Orientation="Horizontal" Spacing="20">
-        <TextBlock x:Name="ItemCountText" Text="Items: 0"/>
-        <TextBlock x:Name="ScrollInfoText" Text="Scroll Position: N/A"/>
-        <TextBlock x:Name="VisibleRangeText" Text="Visible Range: N/A"/>
+        <TextBlock Text="{Binding ItemCountText}"/>
+        <TextBlock Text="{Binding ScrollInfoText}"/>
+        <TextBlock Text="{Binding VisibleRangeText}"/>
       </StackPanel>
     </Border>
   </Grid>
