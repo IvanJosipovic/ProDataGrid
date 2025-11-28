@@ -416,7 +416,7 @@ namespace Avalonia.Controls
                 return true;
             }
             if (_editingColumnIndex != -1 || (editAction == DataGridEditAction.Cancel && raiseEvents &&
-                !((DataConnection.EditableCollectionView != null && DataConnection.EditableCollectionView.CanCancelEdit) || (EditingRow.DataContext is IEditableObject))))
+                !((DataConnection.EditableCollectionView != null && (DataConnection.EditableCollectionView.CanCancelEdit || DataConnection.EditableCollectionView.IsAddingNew)) || (EditingRow.DataContext is IEditableObject))))
             {
                 // Ending the row edit will fail immediately under the following conditions:
                 // 1. We haven't ended the cell edit yet.
@@ -945,6 +945,9 @@ namespace Avalonia.Controls
                 {
                     CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
                 }
+
+                RefreshRowsAndColumns(clearRows: false);
+                UpdatePseudoClasses();
             }
         }
 

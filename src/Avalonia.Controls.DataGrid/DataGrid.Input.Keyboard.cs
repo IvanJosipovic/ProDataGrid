@@ -13,6 +13,8 @@ using Avalonia.Utilities;
 using Avalonia.VisualTree;
 using System.Diagnostics;
 using System;
+using System.Linq;
+using Avalonia.Collections;
 
 namespace Avalonia.Controls
 {
@@ -254,6 +256,36 @@ namespace Avalonia.Controls
                 NoSelectionChangeCount--;
             }
             return _successfullyUpdatedSelection;
+        }
+
+        private bool ProcessDeleteKey()
+        {
+            if (!DataConnection.CanRemove)
+            {
+                return false;
+            }
+
+            object[] toRemove = _selectedItems
+                .OfType<object>()
+                .Where(item => item != DataGridCollectionView.NewItemPlaceholder)
+                .ToArray();
+
+            if (toRemove.Length == 0)
+            {
+                return false;
+            }
+
+            if (!CommitEdit())
+            {
+                return false;
+            }
+
+            foreach (object item in toRemove)
+            {
+                DataConnection.Remove(item);
+            }
+
+            return true;
         }
 
         private bool ProcessF2Key(KeyEventArgs e)

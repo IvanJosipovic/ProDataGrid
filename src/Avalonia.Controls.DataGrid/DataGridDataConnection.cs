@@ -34,6 +34,8 @@ namespace Avalonia.Controls
         private DataGrid _owner;
         private bool _scrollForCurrentChanged;
         private DataGridSelectionAction _selectionActionForCurrentChanged;
+        private bool _onCollectionAddRemoveNewRowPlaceholder;
+        private int? _placeholderRowIndexDuringAdd;
 
         public DataGridDataConnection(DataGrid owner)
         {
@@ -209,6 +211,32 @@ namespace Avalonia.Controls
             }
         }
 
+        private bool CanAddNew
+        {
+            get
+            {
+                return _owner.CanUserAddRows
+                    && !_owner.IsReadOnly
+                    && _owner.IsEnabled
+                    && (EditableCollectionView?.CanAddNew ?? false)
+                    && !(EditableCollectionView?.IsAddingNew ?? false);
+            }
+        }
+
+        public bool CanRemove
+        {
+            get
+            {
+                if (!_owner.CanUserDeleteRows || _owner.IsReadOnly || !_owner.IsEnabled)
+                {
+                    return false;
+                }
+
+                return (EditableCollectionView?.CanRemove ?? false) ||
+                       (List != null && !List.IsReadOnly);
+            }
+        }
+
         /// <summary>Try get number of DataSource items.</summary>
         /// <param name="allowSlow">When "allowSlow" is false, method will not use Linq.Count() method and will return 0 or 1 instead.</param>
         /// <param name="getAny">If "getAny" is true, method can use Linq.Any() method to speedup.</param>
@@ -224,6 +252,10 @@ namespace Avalonia.Controls
                 IEnumerable enumerable when getAny => (true, enumerable.Cast<object>().Any() ? 1 : 0),
                 _ => (false, 0)
             };
+            if (result && CanAddNew)
+            {
+                count++;
+            }
             return result;
         }
 
@@ -251,11 +283,33 @@ namespace Avalonia.Controls
                 {
                     return true;
                 }
+
+                if (dataItem == DataGridCollectionView.NewItemPlaceholder)
+                {
+                    if (!CanAddNew)
+                    {
+                        return false;
+                    }
+
+                    var placeholderIndex = Count > 0 ? Count - 1 : (int?)null;
+                    _onCollectionAddRemoveNewRowPlaceholder = true;
+                    _placeholderRowIndexDuringAdd = placeholderIndex;
+                    try
+                    {
+                        editableCollectionView.AddNew();
+                    }
+                    finally
+                    {
+                        _onCollectionAddRemoveNewRowPlaceholder = false;
+                        _placeholderRowIndexDuringAdd = null;
+                    }
+                }
                 else
                 {
                     editableCollectionView.EditItem(dataItem);
-                    return editableCollectionView.IsEditingItem || editableCollectionView.IsAddingNew;
                 }
+
+                return editableCollectionView.IsEditingItem || editableCollectionView.IsAddingNew;
             }
 
             if (dataItem is IEditableObject editableDataItem)
@@ -280,6 +334,21 @@ namespace Avalonia.Controls
                 if (editableCollectionView.CanCancelEdit)
                 {
                     editableCollectionView.CancelEdit();
+                    return true;
+                }
+                else if (editableCollectionView.IsAddingNew)
+                {
+                    CommittingEdit = true;
+                    try
+                    {
+                        editableCollectionView.CancelNew();
+                    }
+                    finally
+                    {
+                        CommittingEdit = false;
+                    }
+
+                    AddNewItemRow();
                     return true;
                 }
                 return false;
@@ -333,9 +402,10 @@ namespace Avalonia.Controls
                 // we don't want to attempt a second commit inside our CurrentChanging event handler.
                 _owner.NoCurrentCellChangeCount++;
                 CommittingEdit = true;
+                bool wasAddingNew = editableCollectionView.IsAddingNew;
                 try
                 {
-                    if (editableCollectionView.IsAddingNew)
+                    if (wasAddingNew)
                     {
                         editableCollectionView.CommitNew();
                     }
@@ -348,6 +418,10 @@ namespace Avalonia.Controls
                 {
                     _owner.NoCurrentCellChangeCount--;
                     CommittingEdit = false;
+                }
+                if (wasAddingNew)
+                {
+                    AddNewItemRow();
                 }
                 return true;
             }
@@ -367,27 +441,46 @@ namespace Avalonia.Controls
 
             if (DataSource is DataGridCollectionView collectionView)
             {
-                return (index < collectionView.Count) ? collectionView.GetItemAt(index) : null;
+                if (index < collectionView.Count)
+                {
+                    return collectionView.GetItemAt(index);
+                }
+
+                return CanAddNew && index == collectionView.Count
+                    ? DataGridCollectionView.NewItemPlaceholder
+                    : null;
             }
 
             IList list = List;
             if (list != null)
             {
-                return (index < list.Count) ? list[index] : null;
+                if (index < list.Count)
+                {
+                    return list[index];
+                }
+
+                return CanAddNew && index == list.Count
+                    ? DataGridCollectionView.NewItemPlaceholder
+                    : null;
             }
 
             IEnumerable enumerable = DataSource;
             if (enumerable != null)
             {
-                IEnumerator enumerator = enumerable.GetEnumerator();
-                int i = -1;
-                while (enumerator.MoveNext() && i < index)
+                int i = 0;
+                foreach (object dataItemTmp in enumerable)
                 {
-                    i++;
                     if (i == index)
                     {
-                        return enumerator.Current;
+                        return dataItemTmp;
                     }
+
+                    i++;
+                }
+
+                if (CanAddNew && index == i)
+                {
+                    return DataGridCollectionView.NewItemPlaceholder;
                 }
             }
             return null;
@@ -444,29 +537,46 @@ namespace Avalonia.Controls
 
         public int IndexOf(object dataItem)
         {
+            bool isNewItemPlaceholder = dataItem == DataGridCollectionView.NewItemPlaceholder;
+
             if (DataSource is DataGridCollectionView cv)
             {
+                if (isNewItemPlaceholder)
+                {
+                    return CanAddNew ? cv.Count : -1;
+                }
+
                 return cv.IndexOf(dataItem);
             }
 
             IList list = List;
             if (list != null)
             {
+                if (isNewItemPlaceholder)
+                {
+                    return CanAddNew ? list.Count : -1;
+                }
+
                 return list.IndexOf(dataItem);
             }
 
             IEnumerable enumerable = DataSource;
-            if (enumerable != null && dataItem != null)
+            if (enumerable != null)
             {
                 int index = 0;
                 foreach (object dataItemTmp in enumerable)
                 {
-                    if ((dataItem == null && dataItemTmp == null) ||
-                        dataItem.Equals(dataItemTmp))
+                    if ((!isNewItemPlaceholder && dataItem == null && dataItemTmp == null) ||
+                        (!isNewItemPlaceholder && dataItem != null && dataItem.Equals(dataItemTmp)))
                     {
                         return index;
                     }
                     index++;
+                }
+
+                if (isNewItemPlaceholder && CanAddNew)
+                {
+                    return index;
                 }
             }
             return -1;
@@ -529,7 +639,14 @@ namespace Avalonia.Controls
                 _scrollForCurrentChanged = scrollIntoView;
                 _backupSlotForCurrentChanged = backupSlot;
 
-                CollectionView.MoveCurrentTo(item is DataGridCollectionViewGroup ? null : item);
+                if (item == DataGridCollectionView.NewItemPlaceholder)
+                {
+                    CollectionView_CurrentChanged(this, EventArgs.Empty);
+                }
+                else
+                {
+                    CollectionView.MoveCurrentTo(item is DataGridCollectionViewGroup ? null : item);
+                }
 
                 _expectingCurrentChanged = false;
             }
@@ -665,6 +782,8 @@ namespace Avalonia.Controls
                     if (ShouldAutoGenerateColumns)
                     {
                         // The columns are also affected (not just rows) in this case so we need to reset everything
+                        _onCollectionAddRemoveNewRowPlaceholder = false;
+                        _placeholderRowIndexDuringAdd = null;
                         _owner.InitializeElements(false /*recycleRows*/);
                     }
                     else if (!IsGrouping)
@@ -672,7 +791,21 @@ namespace Avalonia.Controls
                         // If we're grouping then we handle this through the CollectionViewGroup notifications
                         // According to WPF, Add is a single item operation
                         Debug.Assert(e.NewItems.Count == 1);
+                        if (_onCollectionAddRemoveNewRowPlaceholder)
+                        {
+                            if (_placeholderRowIndexDuringAdd.HasValue)
+                            {
+                                _owner.RemoveRowAt(_placeholderRowIndexDuringAdd.Value, DataGridCollectionView.NewItemPlaceholder);
+                            }
+                            _placeholderRowIndexDuringAdd = null;
+                            _onCollectionAddRemoveNewRowPlaceholder = false;
+                        }
                         _owner.InsertRowAt(e.NewStartingIndex);
+                    }
+                    else
+                    {
+                        _onCollectionAddRemoveNewRowPlaceholder = false;
+                        _placeholderRowIndexDuringAdd = null;
                     }
                     break;
                 case NotifyCollectionChangedAction.Remove:
@@ -742,6 +875,41 @@ namespace Avalonia.Controls
             }
 
             _owner.UpdatePseudoClasses();
+        }
+
+        private void AddNewItemRow()
+        {
+            if (!CanAddNew)
+            {
+                return;
+            }
+
+            int placeholderIndex = Count - 1;
+            if (placeholderIndex >= 0)
+            {
+                _owner.InsertRowAt(placeholderIndex);
+            }
+
+            _owner.UpdatePseudoClasses();
+        }
+
+        /// <summary>
+        /// Remove an item from the underlying <see cref="DataSource"/>.
+        /// </summary>
+        internal void Remove(object item)
+        {
+            if (EditableCollectionView != null)
+            {
+                EditableCollectionView.Remove(item);
+            }
+            else if (List != null && !List.IsReadOnly)
+            {
+                List.Remove(item);
+            }
+            else
+            {
+                throw new NotSupportedException("Underlying data source does not support modifications");
+            }
         }
 
         private void UpdateDataProperties()

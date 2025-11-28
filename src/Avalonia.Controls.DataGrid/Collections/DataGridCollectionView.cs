@@ -74,6 +74,11 @@ namespace Avalonia.Collections
         private static readonly DataGridCurrentChangingEventArgs uncancelableCurrentChangingEventArgs = new DataGridCurrentChangingEventArgs(false);
 
         /// <summary>
+        /// Gets the object used as a placeholder for a new item row.
+        /// </summary>
+        public static object NewItemPlaceholder { get; } = new();
+
+        /// <summary>
         /// Value that we cache for the PageIndex if we are in a DeferRefresh,
         /// and the user has attempted to move to a different page.
         /// </summary>

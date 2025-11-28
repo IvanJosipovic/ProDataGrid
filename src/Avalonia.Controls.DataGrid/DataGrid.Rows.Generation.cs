@@ -3,6 +3,7 @@
 // Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 // All other rights reserved.
 
+using Avalonia.Collections;
 using Avalonia.Data;
 using Avalonia.Styling;
 using System.Diagnostics;
@@ -31,7 +32,9 @@ namespace Avalonia.Controls
             DataGridRow dataGridRow = GetGeneratedRow(dataContext);
             if (dataGridRow == null)
             {
-                dataGridRow = DisplayData.GetRecycledRow() ?? new DataGridRow();
+                var recycledRow = DisplayData.GetRecycledRow();
+                dataGridRow = recycledRow ?? new DataGridRow();
+                var previousDataContext = dataGridRow.DataContext;
                 dataGridRow.Index = rowIndex;
                 dataGridRow.Slot = slot;
                 dataGridRow.OwningGrid = this;
@@ -41,6 +44,17 @@ namespace Avalonia.Controls
                     dataGridRow.SetValue(ThemeProperty, rowTheme, BindingPriority.Template);
                 }
                 CompleteCellsCollection(dataGridRow);
+
+                if (recycledRow != null &&
+                    previousDataContext != dataContext &&
+                    (dataContext == DataGridCollectionView.NewItemPlaceholder ||
+                     previousDataContext == DataGridCollectionView.NewItemPlaceholder))
+                {
+                    foreach (DataGridCell cell in dataGridRow.Cells)
+                    {
+                        cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
+                    }
+                }
 
                 OnLoadingRow(new DataGridRowEventArgs(dataGridRow));
             }

@@ -5,6 +5,7 @@
 
 #nullable disable
 
+using Avalonia.Collections;
 using Avalonia.Controls.Templates;
 using Avalonia.Controls.Utils;
 using Avalonia.Input;
@@ -34,6 +35,27 @@ namespace Avalonia.Controls
         {
             get { return _cellTemplate; }
             set { SetAndRaise(CellTemplateProperty, ref _cellTemplate, value); }
+        }
+
+        private IDataTemplate _newRowCellTemplate;
+
+        /// <summary>
+        /// Defines the <see cref="NewRowCellTemplate"/> property.
+        /// </summary>
+        public static readonly DirectProperty<DataGridTemplateColumn, IDataTemplate> NewRowCellTemplateProperty =
+            AvaloniaProperty.RegisterDirect<DataGridTemplateColumn, IDataTemplate>(
+                nameof(NewRowCellTemplate),
+                o => o.NewRowCellTemplate,
+                (o, v) => o.NewRowCellTemplate = v);
+
+        /// <summary>
+        /// Gets or sets the template used for the placeholder row that allows adding a new item.
+        /// </summary>
+        [InheritDataTypeFromItems(nameof(DataGrid.ItemsSource), AncestorType = typeof(DataGrid))]
+        public IDataTemplate NewRowCellTemplate
+        {
+            get => _newRowCellTemplate;
+            set => SetAndRaise(NewRowCellTemplateProperty, ref _newRowCellTemplate, value);
         }
 
         private IDataTemplate _cellEditingCellTemplate;
@@ -74,6 +96,25 @@ namespace Avalonia.Controls
 
         protected override Control GenerateElement(DataGridCell cell, object dataItem)
         {
+            Control recycledContent = _forceGenerateCellFromTemplate ? null : cell.Content as Control;
+
+            if (dataItem == DataGridCollectionView.NewItemPlaceholder)
+            {
+                _forceGenerateCellFromTemplate = false;
+
+                if (NewRowCellTemplate != null)
+                {
+                    if (NewRowCellTemplate is IRecyclingDataTemplate recyclingNewRowTemplate)
+                    {
+                        return recyclingNewRowTemplate.Build(dataItem, recycledContent);
+                    }
+
+                    return NewRowCellTemplate.Build(dataItem);
+                }
+
+                return new Control();
+            }
+
             if (CellTemplate != null)
             {
                 if (_forceGenerateCellFromTemplate)
@@ -82,7 +123,7 @@ namespace Avalonia.Controls
                     return CellTemplate.Build(dataItem);
                 }
                 return (CellTemplate is IRecyclingDataTemplate recyclingDataTemplate)
-                    ? recyclingDataTemplate.Build(dataItem, cell.Content as Control)
+                    ? recyclingDataTemplate.Build(dataItem, recycledContent)
                     : CellTemplate.Build(dataItem);
             }
             if (Design.IsDesignMode)
@@ -124,7 +165,7 @@ namespace Avalonia.Controls
         protected internal override void RefreshCellContent(Control element, string propertyName)
         {
             var cell = element?.Parent as DataGridCell;
-            if(propertyName == nameof(CellTemplate) && cell is not null)
+            if(cell is not null && (propertyName == nameof(CellTemplate) || propertyName == nameof(NewRowCellTemplate)))
             {
                 cell.Content = GenerateElement(cell, cell.DataContext);
             }

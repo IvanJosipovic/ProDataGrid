@@ -84,6 +84,9 @@ namespace Avalonia.Controls
 
                 case Key.Insert:
                     return ProcessCopyKey(e.KeyModifiers);
+
+                case Key.Delete:
+                    return ProcessDeleteKey();
             }
             if (focusDataGrid)
             {

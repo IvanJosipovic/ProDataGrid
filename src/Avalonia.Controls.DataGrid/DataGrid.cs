@@ -154,6 +154,8 @@ namespace Avalonia.Controls
             IsReadOnlyProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnIsReadOnlyChanged(e));
             MaxColumnWidthProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnMaxColumnWidthChanged(e));
             MinColumnWidthProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnMinColumnWidthChanged(e));
+            CanUserAddRowsProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnCanUserAddRowsChanged(e));
+            CanUserDeleteRowsProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnCanUserDeleteRowsChanged(e));
             RowHeightProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowHeightChanged(e));
             RowHeaderWidthProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowHeaderWidthChanged(e));
             SelectionModeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnSelectionModeChanged(e));
@@ -231,6 +233,27 @@ namespace Avalonia.Controls
         {
             PseudoClasses.Set(":empty-columns", !ColumnsInternal.GetVisibleColumns().Any());
             PseudoClasses.Set(":empty-rows", !DataConnection.Any());
+        }
+
+        private void OnCanUserAddRowsChanged(AvaloniaPropertyChangedEventArgs e)
+        {
+            if (_areHandlersSuspended)
+            {
+                return;
+            }
+
+            RefreshRowsAndColumns(clearRows: false);
+            UpdatePseudoClasses();
+        }
+
+        private void OnCanUserDeleteRowsChanged(AvaloniaPropertyChangedEventArgs e)
+        {
+            if (_areHandlersSuspended)
+            {
+                return;
+            }
+
+            UpdatePseudoClasses();
         }
 
         /// <summary>

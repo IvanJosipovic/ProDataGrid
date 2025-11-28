@@ -141,6 +141,13 @@ namespace Avalonia.Controls
         //TODO: Check
         private void DataGrid_IsEnabledChanged(AvaloniaPropertyChangedEventArgs e)
         {
+            if (_areHandlersSuspended)
+            {
+                return;
+            }
+
+            RefreshRowsAndColumns(clearRows: false);
+            UpdatePseudoClasses();
         }
 
         /// <summary>

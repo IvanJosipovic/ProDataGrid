@@ -5,6 +5,7 @@
 
 #nullable disable
 
+using Avalonia.Collections;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -202,7 +203,7 @@ namespace Avalonia.Controls
 
             SyncProperties(textBlockElement);
 
-            if (Binding != null)
+            if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
             {
                 textBlockElement.Bind(TextBlock.TextProperty, Binding);
             }

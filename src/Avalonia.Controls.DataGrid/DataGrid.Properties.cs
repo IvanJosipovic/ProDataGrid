@@ -70,6 +70,36 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
+        /// Identifies the <see cref="CanUserAddRows"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<bool> CanUserAddRowsProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(nameof(CanUserAddRows), true);
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether the user can add rows.
+        /// </summary>
+        public bool CanUserAddRows
+        {
+            get { return GetValue(CanUserAddRowsProperty); }
+            set { SetValue(CanUserAddRowsProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="CanUserDeleteRows"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<bool> CanUserDeleteRowsProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(nameof(CanUserDeleteRows), true);
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether the user can delete rows.
+        /// </summary>
+        public bool CanUserDeleteRows
+        {
+            get { return GetValue(CanUserDeleteRowsProperty); }
+            set { SetValue(CanUserDeleteRowsProperty, value); }
+        }
+
+        /// <summary>
         /// Identifies the ColumnHeaderHeight dependency property.
         /// </summary>
         public static readonly StyledProperty<double> ColumnHeaderHeightProperty =
