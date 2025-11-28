@@ -15,6 +15,9 @@
     <TabItem Header="Collection Changes">
       <pages:CollectionChangesPage />
     </TabItem>
+    <TabItem Header="Selection Binding">
+      <pages:SelectedItemsPage />
+    </TabItem>
     <TabItem Header="Grouping">
       <local:GroupingPage />
     </TabItem>

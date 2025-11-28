@@ -1,0 +1,56 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.SelectedItemsPage"
+             x:DataType="viewModels:SelectedItemsViewModel">
+  <UserControl.DataContext>
+    <viewModels:SelectedItemsViewModel/>
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,*" ColumnDefinitions="3*,2*" Margin="12" ColumnSpacing="12" RowSpacing="8">
+    <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
+      <TextBlock Classes="h2">Bind and observe SelectedItems</TextBlock>
+      <TextBlock Text="The grid's SelectedItems is bound two-way to an ObservableCollection. Pick rows, watch the bound list update, and drive selection from the ViewModel to prove two-way sync."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Grid.Column="0" Spacing="8">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <Button Content="Select first three (VM)" Command="{Binding SelectTopCountriesCommand}" />
+        <Button Content="Select Western Europe (VM)" Command="{Binding SelectEuropeanRingCommand}" />
+        <Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" />
+        <TextBlock VerticalAlignment="Center"
+                   Text="{Binding SelectedCount, StringFormat='Selected: {0}'}" />
+      </StackPanel>
+
+      <DataGrid ItemsSource="{Binding Items}"
+                SelectedItems="{Binding SelectedItems, Mode=TwoWay}"
+                SelectionMode="Extended"
+                AutoGenerateColumns="True"
+                HeadersVisibility="All"
+                Height="420" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8">
+      <TextBlock Classes="h3" Text="Bound SelectedItems" />
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="4">
+        <ListBox ItemsSource="{Binding SelectedItems}" Height="220">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+
+      <TextBlock Classes="h3" Text="Change log" />
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1" CornerRadius="4" Padding="4">
+        <ListBox ItemsSource="{Binding SelectionLog}" Height="180" />
+      </Border>
+
+      <TextBlock Text="{Binding LastChange}" TextWrapping="Wrap" />
+    </StackPanel>
+  </Grid>
+</UserControl>
