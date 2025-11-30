@@ -844,7 +844,7 @@ namespace Avalonia.Collections
                     // keep currency on last item.
                     newPosition = Count - 1;
                 }
-                SetCurrent(GetItemAt(newPosition), newPosition);
+                //SetCurrent(GetItemAt(newPosition), newPosition);
             }
         }
 
