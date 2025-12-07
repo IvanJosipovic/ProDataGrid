@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.GroupedSelectionPage"
+             x:DataType="viewModels:GroupedSelectionViewModel">
+  <UserControl.DataContext>
+    <viewModels:GroupedSelectionViewModel/>
+  </UserControl.DataContext>
+
+  <Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
+    <StackPanel Grid.ColumnSpan="2" Spacing="4">
+      <TextBlock Classes="h2">Grouped Selection</TextBlock>
+      <TextBlock Text="Rows are grouped by Region; selection is bound to SelectionModel and skips group headers. Selecting rows keeps state across expand/collapse."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="1"
+              Grid.Column="0"
+              ItemsSource="{Binding GroupedView}"
+              Selection="{Binding SelectionModel}"
+              SelectionMode="Extended"
+              AutoGenerateColumns="True"
+              HeadersVisibility="All"
+              Height="420" />
+
+    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8">
+      <TextBlock Classes="h3" Text="Selected items" />
+      <ItemsControl ItemsSource="{Binding SelectionModel.SelectedItems}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+              <TextBlock Text="(" />
+              <TextBlock Text="{Binding Region}" />
+              <TextBlock Text=")" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+      <TextBlock Text="Expand/collapse groups; selection stays on data rows and ignores header clicks. Bind SelectionModel elsewhere (e.g., another control) to share selection."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+  </Grid>
+</UserControl>

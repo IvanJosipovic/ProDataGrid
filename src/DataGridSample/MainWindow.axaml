@@ -59,6 +59,9 @@
     <TabItem Header="Custom SelectionModel">
       <pages:CustomSelectionModelPage />
     </TabItem>
+    <TabItem Header="Grouped Selection">
+      <pages:GroupedSelectionPage />
+    </TabItem>
     <TabItem Header="Shared SelectionModel">
       <pages:SharedSelectionPage />
     </TabItem>
