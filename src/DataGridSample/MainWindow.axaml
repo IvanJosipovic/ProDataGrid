@@ -8,7 +8,42 @@
         Height="700"
         WindowStartupLocation="CenterScreen">
 
-  <TabControl Margin="8">
+  <TabControl Margin="8"
+              TabStripPlacement="Left">
+    <TabControl.ItemsPanel>
+      <ItemsPanelTemplate>
+        <StackPanel Orientation="Vertical" />
+      </ItemsPanelTemplate>
+    </TabControl.ItemsPanel>
+    <TabControl.Styles>
+      <Style Selector="TabControl">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{TemplateBinding CornerRadius}"
+                    Background="{TemplateBinding Background}"
+                    HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                    VerticalAlignment="{TemplateBinding VerticalAlignment}">
+              <DockPanel>
+                <ScrollViewer DockPanel.Dock="{TemplateBinding TabStripPlacement}"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                  <ItemsPresenter Name="PART_ItemsPresenter"
+                                  ItemsPanel="{TemplateBinding ItemsPanel}" />
+                </ScrollViewer>
+                <ContentPresenter Name="PART_SelectedContentHost"
+                                  Margin="{TemplateBinding Padding}"
+                                  HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                  VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                  Content="{TemplateBinding SelectedContent}"
+                                  ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
+              </DockPanel>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </Style>
+    </TabControl.Styles>
     <TabItem Header="DataGrid">
       <local:BasicPage />
     </TabItem>
@@ -17,6 +52,15 @@
     </TabItem>
     <TabItem Header="Selection Binding">
       <pages:SelectedItemsPage />
+    </TabItem>
+    <TabItem Header="Selection Stability">
+      <pages:SelectionModelStabilityPage />
+    </TabItem>
+    <TabItem Header="Custom SelectionModel">
+      <pages:CustomSelectionModelPage />
+    </TabItem>
+    <TabItem Header="Shared SelectionModel">
+      <pages:SharedSelectionPage />
     </TabItem>
     <TabItem Header="Grouping">
       <local:GroupingPage />
