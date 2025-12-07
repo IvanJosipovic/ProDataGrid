@@ -209,6 +209,11 @@ namespace Avalonia.Controls
             }
             _desiredCurrentColumnIndex = -1;
 
+            int slot = currentItem != null ? SlotFromRowIndex(currentPosition) : -1;
+            bool currentInSelection = currentItem != null &&
+                slot >= 0 &&
+                _selectedItems.ContainsSlot(slot);
+
             try
             {
                 _noSelectionChangeCount++;
@@ -219,14 +224,18 @@ namespace Avalonia.Controls
                     CancelEdit(DataGridEditingUnit.Row, false);
                 }
 
-                ClearRowSelection(true);
                 if (currentItem == null)
                 {
+                    ClearRowSelection(true);
                     SetCurrentCellCore(-1, -1);
+                }
+                else if (currentInSelection)
+                {
+                    ProcessSelectionAndCurrency(columnIndex, currentItem, slot, DataGridSelectionAction.None, false);
                 }
                 else
                 {
-                    int slot = SlotFromRowIndex(currentPosition);
+                    ClearRowSelection(true);
                     ProcessSelectionAndCurrency(columnIndex, currentItem, slot, DataGridSelectionAction.SelectCurrent, false);
                 }
             }
