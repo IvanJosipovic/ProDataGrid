@@ -21,7 +21,7 @@ It displays repeating data in a customizable grid with enhanced features and imp
 | Columns | Text, template, checkbox columns; auto/star/pixel sizing; reordering, resizing, visibility control, frozen sections. |
 | Rows | Variable-height support with pluggable estimators; row details; grouping headers; selection modes; row headers. |
 | Editing & navigation | In-place editing, commit/cancel, keyboard navigation, clipboard copy modes, current cell tracking. |
-| Data operations | Sorting, grouping, paging, currency management via `DataGridCollectionView` family. |
+| Data operations | Sorting, grouping, paging, currency management via `DataGridCollectionView` family; selection built on Avalonia `SelectionModel` for stable binding across sort/filter. |
 | Styling & theming | Fluent/Simple v2 ScrollViewer templates, row/cell styling, template overrides, theme resources, focus/selection visuals. |
 | Data binding | Auto-generates columns from `DataTable.DefaultView` and binds cells via TypeDescriptor (no manual indexers), `SelectedItems` two-way binding support, `DataGridCollectionView` for sorting/grouping/editing. |
 
@@ -92,6 +92,29 @@ Basic setup with common column types and width modes (pixel, auto, star):
 
 Widths accept pixel values (`"80"`), `Auto` (content-based), `*` or weighted stars (e.g., `2*`) that share remaining space.
 
+## Using SelectionModel with DataGrid
+
+DataGrid exposes a `Selection` property (`ISelectionModel`) so you can plug in your own selection model or share one across controls.
+
+- Bind `Selection` to your view-model’s `SelectionModel<T>`:
+
+  ```xml
+  <DataGrid ItemsSource="{Binding Items}"
+            Selection="{Binding MySelectionModel}"
+            SelectionMode="Extended" />
+  ```
+
+  ```csharp
+  public SelectionModel<MyItem> MySelectionModel { get; } = new()
+  {
+      SingleSelect = false
+  };
+  ```
+
+- Let the grid assign `Selection.Source` to its collection view; avoid pre-setting `Source` to prevent mismatches.
+- You can share the same `SelectionModel<T>` with other controls (e.g., `ListBox Selection="{Binding MySelectionModel}"`) to keep selection in sync.
+- `SelectedItems` binding still works; when `Selection` is set, it reflects the model’s selection and updates it when the binding changes.
+
 ## Package Rename
 
 This package has been renamed from `Avalonia.Controls.DataGrid` to `ProDataGrid`.
@@ -154,6 +177,15 @@ Override the estimator per grid:
 - When handling wheel/gesture input, rely on the built-in logic (it routes through `UpdateScroll` when `UseLogicalScrollable` is true).
 - For theme v2, ensure frozen columns and header separators are kept in sync with horizontal offset (the supplied templates already do this).
 - If you depend on stable scroll positioning with dynamic row heights, choose the estimator that matches your data set and reset it after data source changes if needed.
+
+## Selection model integration
+
+ProDataGrid now routes row selection through Avalonia’s `SelectionModel<object?>`, giving stable `SelectedItem/SelectedItems/SelectedIndex` bindings across sorting, filtering, paging, and collection mutations. Highlights:
+
+- `SelectedItems` remains an `IList` (for bindings) but is backed by the selection model; adding/removing in the bound collection updates the grid, and vice versa.
+- Selection survives collection changes (including sorted `DataGridCollectionView` inserts/moves) without losing currency; current row is preserved when possible.
+- Multi-select gestures and `SelectionMode` map to the model (`SelectionMode=Single` ↔ `SingleSelect=true`).
+- A thin adapter keeps row index ↔ slot mapping internal, so custom selection models can be injected later.
 
 ## Samples
 
