@@ -982,6 +982,11 @@ namespace Avalonia.Controls
         /// </summary>
         protected virtual int SelectionIndexFromSlot(int slot)
         {
+            if (RowGroupHeadersTable.Contains(slot))
+            {
+                return -1;
+            }
+
             return RowIndexFromSlot(slot);
         }
 
@@ -991,6 +996,11 @@ namespace Avalonia.Controls
         /// </summary>
         protected virtual int SlotFromSelectionIndex(int index)
         {
+            if (index < 0 || DataConnection == null || index >= DataConnection.Count)
+            {
+                return -1;
+            }
+
             return SlotFromRowIndex(index);
         }
 
