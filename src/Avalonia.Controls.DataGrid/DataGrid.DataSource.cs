@@ -6,8 +6,10 @@
 
 using Avalonia.Collections;
 using Avalonia.Controls.Utils;
+using Avalonia.Controls.Selection;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
@@ -83,6 +85,8 @@ namespace Avalonia.Controls
                         newCollectionView);
                 }
 
+                UpdateSelectionModelSource();
+
                 if (DataConnection.DataSource != null)
                 {
                     // Setup the column headers
@@ -116,6 +120,7 @@ namespace Avalonia.Controls
                 {
                     SelectedItem = DataConnection.CollectionView.CurrentItem;
                 }
+                SyncSelectionModelFromGridSelection();
 
                 // Treat this like the DataGrid has never been measured because all calculations at
                 // this point are invalid until the next layout cycle.  For instance, the ItemsSource
@@ -124,6 +129,124 @@ namespace Avalonia.Controls
                 InvalidateMeasure();
 
                 UpdatePseudoClasses();
+            }
+        }
+
+        private void UpdateSelectionModelSource()
+        {
+            if (_selectionModelAdapter != null)
+            {
+                _syncingSelectionModel = true;
+                try
+                {
+                    var view = DataConnection?.CollectionView;
+                    if (view != null &&
+                        _selectionModelAdapter.Model.Source != null &&
+                        _selectionModelAdapter.Model.Source != view &&
+                        !ReferenceEquals(_selectionModelAdapter.Model.Source, view))
+                    {
+                        throw new InvalidOperationException(
+                            "The supplied ISelectionModel already has an assigned Source but this collection is different to the Items on the control.");
+                    }
+
+                    _selectionModelAdapter.Model.Source = view;
+                }
+                finally
+                {
+                    _syncingSelectionModel = false;
+                }
+            }
+        }
+
+        internal List<object> CaptureSelectionSnapshot()
+        {
+            if (_selectionModelAdapter != null && _selectionModelAdapter.Model.SelectedItems.Count > 0)
+            {
+                return new List<object>(_selectionModelAdapter.Model.SelectedItems.Cast<object>());
+            }
+
+            return null;
+        }
+
+        internal void RestoreSelectionFromSnapshot(IReadOnlyList<object> selectedItems)
+        {
+            if (_selectionModelAdapter == null || selectedItems == null)
+            {
+                return;
+            }
+
+            _syncingSelectionModel = true;
+            try
+            {
+                int firstIndex = -1;
+
+                using (_selectionModelAdapter.Model.BatchUpdate())
+                {
+                    _selectionModelAdapter.Model.Clear();
+                    foreach (object item in selectedItems)
+                    {
+                        int index = DataConnection.IndexOf(item);
+                        if (index >= 0)
+                        {
+                            if (firstIndex == -1)
+                            {
+                                firstIndex = index;
+                            }
+
+                            _selectionModelAdapter.Select(index);
+                        }
+                    }
+                }
+
+                if (firstIndex >= 0)
+                {
+                    _preferredSelectionIndex = firstIndex;
+                }
+
+                ApplySelectionFromSelectionModel();
+
+                foreach (object item in selectedItems)
+                {
+                    int index = DataConnection.IndexOf(item);
+                    if (index >= 0)
+                    {
+                        SetValueNoCallback(SelectedItemProperty, item);
+                        SetValueNoCallback(SelectedIndexProperty, index);
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                _syncingSelectionModel = false;
+            }
+        }
+
+        private void SyncSelectionModelFromGridSelection()
+        {
+            if (_selectionModelAdapter == null || DataConnection?.CollectionView == null || _syncingSelectionModel)
+            {
+                return;
+            }
+
+            _selectionModelAdapter.Model.BeginBatchUpdate();
+            _syncingSelectionModel = true;
+            try
+            {
+                _selectionModelAdapter.Model.Clear();
+                foreach (object item in _selectedItems)
+                {
+                    int index = DataConnection.IndexOf(item);
+                    if (index >= 0)
+                    {
+                        _selectionModelAdapter.Model.Select(index);
+                    }
+                }
+            }
+            finally
+            {
+                _selectionModelAdapter.Model.EndBatchUpdate();
+                _syncingSelectionModel = false;
             }
         }
 
@@ -212,7 +335,15 @@ namespace Avalonia.Controls
             int slot = currentItem != null ? SlotFromRowIndex(currentPosition) : -1;
             bool currentInSelection = currentItem != null &&
                 slot >= 0 &&
-                _selectedItems.ContainsSlot(slot);
+                GetRowSelection(slot);
+
+            if (_selectionModelAdapter != null &&
+                _selectionModelAdapter.Model.SelectedIndexes.Count > 0 &&
+                !currentInSelection)
+            {
+                ApplySelectionFromSelectionModel();
+                return;
+            }
 
             try
             {

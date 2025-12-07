@@ -6,6 +6,7 @@
 
 using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Media;
@@ -525,6 +526,17 @@ namespace Avalonia.Controls
                 nameof(SelectedItems),
                 o => o.SelectedItems,
                 (o, v) => o.SelectedItems = v,
+                defaultBindingMode: BindingMode.TwoWay);
+
+        /// <summary>
+        /// Gets or sets the selection model that drives row selection. If not provided, a default
+        /// selection model is created.
+        /// </summary>
+        public static readonly DirectProperty<DataGrid, ISelectionModel> SelectionProperty =
+            AvaloniaProperty.RegisterDirect<DataGrid, ISelectionModel>(
+                nameof(Selection),
+                o => o.Selection,
+                (o, v) => o.Selection = v,
                 defaultBindingMode: BindingMode.TwoWay);
 
         public static readonly StyledProperty<DataGridClipboardCopyMode> ClipboardCopyModeProperty =

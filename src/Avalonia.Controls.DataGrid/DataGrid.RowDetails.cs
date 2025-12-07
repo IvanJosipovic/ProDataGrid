@@ -89,7 +89,7 @@ namespace Avalonia.Controls
                         if (newDetailsMode == DataGridRowDetailsVisibilityMode.VisibleWhenSelected)
                         {
                             // For VisibleWhenSelected, we need to calculate the value for each individual row
-                            newDetailsVisibility = _selectedItems.ContainsSlot(row.Slot);
+                            newDetailsVisibility = GetRowSelection(row.Slot);
                         }
                         if (row.AreDetailsVisible != newDetailsVisibility)
                         {

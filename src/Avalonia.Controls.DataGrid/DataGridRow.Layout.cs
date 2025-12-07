@@ -139,11 +139,11 @@ namespace Avalonia.Controls
             }
         }
 
-        internal void ApplyState()
+        internal void ApplyState(bool? isSelectedOverride = null)
         {
             if (RootElement != null && OwningGrid != null && IsVisible)
             {
-                var isSelected = Slot != -1 && OwningGrid.GetRowSelection(Slot);
+                var isSelected = isSelectedOverride ?? (Slot != -1 && OwningGrid.GetRowSelection(Slot));
                 IsSelected = isSelected;
                 PseudoClasses.Set(":editing", IsEditing);
                 PseudoClasses.Set(":invalid", !IsValid);

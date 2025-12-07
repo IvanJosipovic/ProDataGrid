@@ -12,13 +12,13 @@ namespace Avalonia.Controls
     public partial class DataGrid
     {
 
-        private void SelectDisplayedElement(int slot)
+        private void SelectDisplayedElement(int slot, bool? isSelectedOverride = null)
         {
             Debug.Assert(IsSlotVisible(slot));
             Control element = DisplayData.GetDisplayedElement(slot);
             if (element is DataGridRow row)
             {
-                row.ApplyState();
+                row.ApplyState(isSelectedOverride);
                 EnsureRowDetailsVisibility(row, raiseNotification: true, animate: true);
             }
             else
@@ -36,7 +36,7 @@ namespace Avalonia.Controls
             _selectedItems.SelectSlot(slot, isSelected);
             if (IsSlotVisible(slot))
             {
-                SelectDisplayedElement(slot);
+                SelectDisplayedElement(slot, isSelected);
             }
         }
 
@@ -46,6 +46,33 @@ namespace Avalonia.Controls
         {
             _selectedItems.SelectSlots(startSlot, endSlot, isSelected);
 
+            if (_selectionModelAdapter != null && !_syncingSelectionModel && DataConnection?.CollectionView != null)
+            {
+                _syncingSelectionModel = true;
+                try
+                {
+                    for (int slot = startSlot; slot <= endSlot; slot++)
+                    {
+                        int rowIndex = RowIndexFromSlot(slot);
+                        if (rowIndex >= 0)
+                        {
+                            if (isSelected)
+                            {
+                                _selectionModelAdapter.Select(rowIndex);
+                            }
+                            else
+                            {
+                                _selectionModelAdapter.Deselect(rowIndex);
+                            }
+                        }
+                    }
+                }
+                finally
+                {
+                    _syncingSelectionModel = false;
+                }
+            }
+
             // Apply the correct row state for display rows and also expand or collapse detail accordingly
             int firstSlot = Math.Max(DisplayData.FirstScrollingSlot, startSlot);
             int lastSlot = Math.Min(DisplayData.LastScrollingSlot, endSlot);
@@ -54,7 +81,7 @@ namespace Avalonia.Controls
             {
                 if (IsSlotVisible(slot))
                 {
-                    SelectDisplayedElement(slot);
+                    SelectDisplayedElement(slot, isSelected);
                 }
             }
         }
@@ -73,6 +100,19 @@ namespace Avalonia.Controls
             }
             if (_selectedItems.Count > 0)
             {
+                if (_selectionModelAdapter != null && !_syncingSelectionModel)
+                {
+                    _syncingSelectionModel = true;
+                    try
+                    {
+                        _selectionModelAdapter.Clear();
+                    }
+                    finally
+                    {
+                        _syncingSelectionModel = false;
+                    }
+                }
+
                 _noSelectionChangeCount++;
                 try
                 {
@@ -110,8 +150,45 @@ namespace Avalonia.Controls
 
         internal bool GetRowSelection(int slot)
         {
-            Debug.Assert(slot != -1);
+            if (slot < 0)
+            {
+                return false;
+            }
+
+            if (_selectionModelAdapter != null && DataConnection?.CollectionView != null)
+            {
+                int rowIndex = RowIndexFromSlot(slot);
+                if (rowIndex >= 0)
+                {
+                    return _selectionModelAdapter.IsSelected(rowIndex);
+                }
+            }
+
             return _selectedItems.ContainsSlot(slot);
+        }
+
+        internal bool GetRowSelectionFromRowIndex(int rowIndex)
+        {
+            if (rowIndex < 0)
+            {
+                return false;
+            }
+
+            if (_selectionModelAdapter != null)
+            {
+                return _selectionModelAdapter.IsSelected(rowIndex);
+            }
+
+            if (DataConnection != null)
+            {
+                int slot = SlotFromRowIndex(rowIndex);
+                if (slot >= 0)
+                {
+                    return _selectedItems.ContainsSlot(slot);
+                }
+            }
+
+            return false;
         }
 
 
@@ -144,6 +221,30 @@ namespace Avalonia.Controls
                 {
                     SelectSlot(slot, isSelected);
                     SelectionHasChanged = true;
+
+                    if (_selectionModelAdapter != null && !_syncingSelectionModel && DataConnection?.CollectionView != null)
+                    {
+                        _syncingSelectionModel = true;
+                        try
+                        {
+                            int rowIndex = RowIndexFromSlot(slot);
+                            if (rowIndex >= 0)
+                            {
+                                if (isSelected)
+                                {
+                                    _selectionModelAdapter.Select(rowIndex);
+                                }
+                                else
+                                {
+                                    _selectionModelAdapter.Deselect(rowIndex);
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            _syncingSelectionModel = false;
+                        }
+                    }
                 }
                 if (setAnchorSlot)
                 {

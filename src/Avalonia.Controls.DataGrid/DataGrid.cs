@@ -8,6 +8,8 @@ using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Controls.DataGridSelection;
+using Avalonia.Controls.Selection;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -127,7 +129,11 @@ namespace Avalonia.Controls
         private DataGridSelectedItemsCollection _selectedItems;
         private IList _selectedItemsBinding;
         private INotifyCollectionChanged _selectedItemsBindingNotifications;
+        private DataGridSelectionModelAdapter _selectionModelAdapter;
+        private bool _syncingSelectionModel;
         private bool _syncingSelectedItems;
+        private int _preferredSelectionIndex = -1;
+        private IDataGridSelectionModelFactory _selectionModelFactory;
 
         // An approximation of the sum of the heights in pixels of the scrolling rows preceding
         // the first displayed scrolling row.  Since the scrolled off rows are discarded, the grid
@@ -211,6 +217,8 @@ namespace Avalonia.Controls
             _mouseOverRowIndex = null;
             CurrentCellCoordinates = new DataGridCellCoordinates(-1, -1);
 
+            SetSelectionModel(CreateSelectionModel(), initializing: true);
+
             RowGroupHeaderHeightEstimate = DATAGRID_defaultRowHeight;
 
             UpdatePseudoClasses();
@@ -274,8 +282,30 @@ namespace Avalonia.Controls
         /// </summary>
         public IList SelectedItems
         {
-            get => _selectedItemsBinding ?? (IList)_selectedItems;
+            get
+            {
+                if (_selectedItemsBinding != null)
+                {
+                    return _selectedItemsBinding;
+                }
+
+                if (_selectionModelAdapter != null)
+                {
+                    return _selectionModelAdapter.SelectedItemsView;
+                }
+
+                return _selectedItems;
+            }
             set => SetSelectedItemsCollection(value);
+        }
+
+        /// <summary>
+        /// Gets or sets the selection model that drives row selection.
+        /// </summary>
+        public ISelectionModel Selection
+        {
+            get => _selectionModelAdapter?.Model;
+            set => SetSelectionModel(value);
         }
 
         internal DataGridColumnCollection ColumnsInternal
@@ -834,6 +864,134 @@ namespace Avalonia.Controls
                 int rowIndex = RowIndexFromSlot(slot);
                 return rowIndex < 0 || rowIndex >= DataConnection.Count;
             }
+        }
+
+        /// <summary>
+        /// Creates the default selection model for the grid. Override to supply a custom model or
+        /// set <see cref="SelectionModelFactory"/> before construction completes.
+        /// </summary>
+        protected virtual ISelectionModel CreateSelectionModel()
+        {
+            return _selectionModelFactory?.Create() ?? new SelectionModel<object?>();
+        }
+
+        /// <summary>
+        /// Optional factory used when creating the default selection model.
+        /// </summary>
+        public IDataGridSelectionModelFactory SelectionModelFactory
+        {
+            get => _selectionModelFactory;
+            set => _selectionModelFactory = value;
+        }
+
+        private void SetSelectionModel(ISelectionModel model, bool initializing = false)
+        {
+            var newModel = model ?? CreateSelectionModel();
+            var oldAdapter = _selectionModelAdapter;
+            var oldModel = oldAdapter?.Model;
+
+            if (ReferenceEquals(oldModel, newModel))
+            {
+                return;
+            }
+
+            if (newModel.Source != null &&
+                DataConnection?.CollectionView != null &&
+                !ReferenceEquals(newModel.Source, DataConnection.CollectionView))
+            {
+                throw new InvalidOperationException(
+                    "The supplied ISelectionModel already has an assigned Source but this collection is different to the Items on the control.");
+            }
+
+            var removedItems = oldModel?.SelectedItems?.ToArray() ?? Array.Empty<object>();
+
+            DetachSelectionModel();
+
+            _syncingSelectionModel = true;
+            try
+            {
+                _selectionModelAdapter = CreateSelectionModelAdapter(newModel);
+                _selectionModelAdapter.Model.SingleSelect = SelectionMode == DataGridSelectionMode.Single;
+                _selectionModelAdapter.Model.SelectionChanged += SelectionModel_SelectionChanged;
+                _selectionModelAdapter.Model.LostSelection += SelectionModel_LostSelection;
+                _selectionModelAdapter.Model.IndexesChanged += SelectionModel_IndexesChanged;
+
+                UpdateSelectionModelSource();
+            }
+            finally
+            {
+                _syncingSelectionModel = false;
+            }
+
+            RaisePropertyChanged(SelectionProperty, oldModel, newModel);
+            RaisePropertyChanged(
+                SelectedItemsProperty,
+                GetSelectedItemsViewOrBinding(oldAdapter),
+                SelectedItems);
+
+            ApplySelectionFromSelectionModel();
+
+            if (!initializing && removedItems.Length > 0)
+            {
+                var args = new SelectionChangedEventArgs(
+                    SelectionChangedEvent,
+                    removedItems,
+                    Array.Empty<object>());
+                OnSelectionChanged(args);
+            }
+        }
+
+        private IList GetSelectedItemsViewOrBinding(DataGridSelectionModelAdapter oldAdapter)
+        {
+            if (_selectedItemsBinding != null)
+            {
+                return _selectedItemsBinding;
+            }
+
+            if (oldAdapter != null)
+            {
+                return oldAdapter.SelectedItemsView;
+            }
+
+            return _selectedItems;
+        }
+
+        private void DetachSelectionModel()
+        {
+            if (_selectionModelAdapter != null)
+            {
+                _selectionModelAdapter.Model.SelectionChanged -= SelectionModel_SelectionChanged;
+                _selectionModelAdapter.Model.LostSelection -= SelectionModel_LostSelection;
+                _selectionModelAdapter.Model.IndexesChanged -= SelectionModel_IndexesChanged;
+            }
+        }
+
+        /// <summary>
+        /// Creates the adapter that wraps an <see cref="ISelectionModel"/> for this grid. Override
+        /// to customize index/slot mapping or SelectedItems projection.
+        /// </summary>
+        /// <param name="model">The selection model instance to adapt.</param>
+        protected virtual DataGridSelectionModelAdapter CreateSelectionModelAdapter(ISelectionModel model)
+        {
+            return new DataGridSelectionModelAdapter(model);
+        }
+
+        /// <summary>
+        /// Maps a visual slot to a selection-model index. Override to customize mapping for grouped
+        /// or hierarchical scenarios.
+        /// </summary>
+        protected virtual int SelectionIndexFromSlot(int slot)
+        {
+            return RowIndexFromSlot(slot);
+        }
+
+        /// <summary>
+        /// Maps a selection-model index back to a visual slot. Override to customize mapping for
+        /// grouped or hierarchical scenarios.
+        /// </summary>
+        protected virtual int SlotFromSelectionIndex(int index)
+        {
+            return SlotFromRowIndex(index);
         }
 
         private void RemoveDisplayedColumnHeader(DataGridColumn dataGridColumn)

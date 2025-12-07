@@ -29,6 +29,22 @@ namespace Avalonia.Controls
             else if (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.VisibleWhenSelected)
             {
                 // Total number of remaining rows that are selected
+                if (_selectionModelAdapter != null && DataConnection != null)
+                {
+                    int selectedCount = 0;
+                    var selectedIndexes = _selectionModelAdapter.Model.SelectedIndexes;
+                    for (int i = 0; i < selectedIndexes.Count; i++)
+                    {
+                        int slot = SlotFromRowIndex(selectedIndexes[i]);
+                        if (slot >= lowerBound && slot <= upperBound)
+                        {
+                            selectedCount++;
+                        }
+                    }
+
+                    return selectedCount;
+                }
+
                 return _selectedItems.GetIndexCount(lowerBound, upperBound);
             }
             Debug.Assert(false); // Shouldn't ever happen
@@ -107,7 +123,7 @@ namespace Avalonia.Controls
                 return
                 gridLevelRowDetailsVisibility == DataGridRowDetailsVisibilityMode.Visible ||
                 (gridLevelRowDetailsVisibility == DataGridRowDetailsVisibilityMode.VisibleWhenSelected &&
-                _selectedItems.ContainsSlot(SlotFromRowIndex(rowIndex)));
+                GetRowSelectionFromRowIndex(rowIndex));
             }
         }
 

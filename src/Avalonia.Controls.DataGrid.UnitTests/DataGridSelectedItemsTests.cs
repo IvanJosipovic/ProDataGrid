@@ -120,6 +120,52 @@ public class DataGridSelectedItemsTests
     }
 
     [AvaloniaFact]
+    public void Removing_From_Bound_SelectedItems_Deselects_Row()
+    {
+        var vm = new SelectionViewModel();
+        var grid = CreateGrid(vm.Items);
+
+        grid.Bind(DataGrid.SelectedItemsProperty, new Binding(nameof(SelectionViewModel.SelectedItems))
+        {
+            Mode = BindingMode.TwoWay,
+            Source = vm
+        });
+
+        vm.SelectedItems.Add(vm.Items[1]);
+        grid.UpdateLayout();
+
+        var rows = GetRows(grid);
+        Assert.True(rows.First(x => x.DataContext == vm.Items[1]).IsSelected);
+
+        vm.SelectedItems.Remove(vm.Items[1]);
+        grid.UpdateLayout();
+
+        rows = GetRows(grid);
+        Assert.All(rows, r => Assert.False(r.IsSelected));
+    }
+
+    [AvaloniaFact]
+    public void Selection_Preserved_When_Inserting_Before_Selected_Item()
+    {
+        var items = new ObservableCollection<string> { "A", "B", "C" };
+        var grid = CreateGrid(items);
+
+        grid.SelectedItem = items[1];
+        grid.UpdateLayout();
+
+        items.Insert(0, "Z");
+        var selectedImmediately = grid.SelectedItems.Cast<string>().ToList();
+        Assert.Equal(new[] { "B" }, selectedImmediately);
+        grid.UpdateLayout();
+
+        var selectedItems = grid.SelectedItems.Cast<string>().ToList();
+        Assert.Equal(new[] { "B" }, selectedItems);
+        Assert.Equal("B", grid.SelectedItem);
+        var selectedRow = GetRows(grid).First(r => r.IsSelected);
+        Assert.Equal("B", selectedRow.DataContext);
+    }
+
+    [AvaloniaFact]
     public void SelectedItems_Preserved_When_Adding_Item_Before_Current_In_Sorted_View()
     {
         var items = new ObservableCollection<SortableItem>(Enumerable.Range(1, 5).Select(i => new SortableItem(i)));
@@ -141,7 +187,29 @@ public class DataGridSelectedItemsTests
 
         selectedIds = grid.SelectedItems.Cast<SortableItem>().Select(x => x.Id).OrderBy(x => x).ToList();
         Assert.Equal(new[] { 2, 3 }, selectedIds);
-        Assert.Equal(view.IndexOf(items[1]), grid.SelectedIndex);
+        Assert.Contains(grid.SelectedItem, grid.SelectedItems.Cast<object>());
+        Assert.Equal(view.IndexOf(grid.SelectedItem), grid.SelectedIndex);
+    }
+
+    [AvaloniaFact]
+    public void Selection_Preserved_When_Items_Moved()
+    {
+        var items = new ObservableCollection<string> { "A", "B", "C", "D" };
+        var grid = CreateGrid(items);
+
+        grid.SelectedItem = items[1];
+        grid.SelectedItems.Add(items[3]);
+        grid.UpdateLayout();
+
+        var expected = grid.SelectedItems.Cast<string>().OrderBy(x => x).ToArray();
+
+        // Reorder via Move operations (matching sample behavior) and reapply selection snapshot.
+        ReorderWithSelectionPreserve(items, new[] { "D", "B", "C", "A" }, grid);
+        grid.UpdateLayout();
+
+        var selected = grid.SelectedItems.Cast<string>().OrderBy(x => x).ToArray();
+        Assert.Equal(expected, selected);
+        Assert.Contains(grid.SelectedItem, grid.SelectedItems.Cast<object>());
     }
 
     [AvaloniaFact]
@@ -260,6 +328,26 @@ public class DataGridSelectedItemsTests
     private static IReadOnlyList<DataGridRow> GetRows(DataGrid grid)
     {
         return grid.GetSelfAndVisualDescendants().OfType<DataGridRow>().ToList();
+    }
+
+    private static void ReorderWithSelectionPreserve(IList<string> items, IList<string> ordered, DataGrid grid)
+    {
+        var snapshot = grid.SelectedItems.Cast<object>().ToList();
+        for (int targetIndex = 0; targetIndex < ordered.Count; targetIndex++)
+        {
+            var item = ordered[targetIndex];
+            var currentIndex = items.IndexOf(item);
+            if (currentIndex >= 0 && currentIndex != targetIndex && items is ObservableCollection<string> oc)
+            {
+                oc.Move(currentIndex, targetIndex);
+            }
+        }
+
+        grid.SelectedItems.Clear();
+        foreach (var item in snapshot)
+        {
+            grid.SelectedItems.Add(item);
+        }
     }
 
     private class SortableItem

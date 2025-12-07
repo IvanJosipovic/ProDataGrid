@@ -11,34 +11,33 @@ using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.Collections;
+using System.Linq;
 
 namespace Avalonia.Controls
 {
     internal class DataGridSelectedItemsCollection : IList, INotifyCollectionChanged, INotifyPropertyChanged
     {
         private List<object> _oldSelectedItemsCache;
-        private IndexToValueTable<bool> _oldSelectedSlotsTable;
         private List<object> _selectedItemsCache;
-        private IndexToValueTable<bool> _selectedSlotsTable;
+        private readonly SortedSet<int> _selectedSlots;
 
         public DataGridSelectedItemsCollection(DataGrid owningGrid)
         {
             OwningGrid = owningGrid;
             _oldSelectedItemsCache = new List<object>();
-            _oldSelectedSlotsTable = new IndexToValueTable<bool>();
             _selectedItemsCache = new List<object>();
-            _selectedSlotsTable = new IndexToValueTable<bool>();
+            _selectedSlots = new SortedSet<int>();
         }
 
         public object this[int index]
         {
             get
             {
-                if (index < 0 || index >= _selectedSlotsTable.IndexCount)
+                if (index < 0 || index >= _selectedSlots.Count)
                 {
-                    throw DataGridError.DataGrid.ValueMustBeBetween("index", "Index", 0, true, _selectedSlotsTable.IndexCount, false);
+                    throw DataGridError.DataGrid.ValueMustBeBetween("index", "Index", 0, true, _selectedSlots.Count, false);
                 }
-                int slot = _selectedSlotsTable.GetNthIndex(index);
+                int slot = GetNthSlot(index);
                 Debug.Assert(slot > -1);
                 return OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot));
             }
@@ -79,7 +78,7 @@ namespace Avalonia.Controls
             Debug.Assert(itemIndex >= 0);
 
             int slot = OwningGrid.SlotFromRowIndex(itemIndex);
-            if (_selectedSlotsTable.RangeCount == 0)
+            if (_selectedSlots.Count == 0)
             {
                 OwningGrid.SelectedItem = dataItem;
             }
@@ -87,7 +86,7 @@ namespace Avalonia.Controls
             {
                 OwningGrid.SetRowSelection(slot, true /*isSelected*/, false /*setAnchorSlot*/);
             }
-            return _selectedSlotsTable.IndexOf(slot);
+            return IndexOf(dataItem);
         }
 
         public void Clear()
@@ -97,7 +96,7 @@ namespace Avalonia.Controls
                 throw DataGridError.DataGridSelectedItemsCollection.CannotChangeSelectedItemsCollectionInSingleMode();
             }
 
-            if (_selectedSlotsTable.RangeCount > 0)
+            if (_selectedSlots.Count > 0)
             {
                 // Clearing the selection does not reset the potential current cell.
                 if (!OwningGrid.CommitEdit(DataGridEditingUnit.Row, true /*exitEditing*/))
@@ -130,7 +129,12 @@ namespace Avalonia.Controls
             }
             Debug.Assert(itemIndex >= 0);
             int slot = OwningGrid.SlotFromRowIndex(itemIndex);
-            return _selectedSlotsTable.IndexOf(slot);
+            if (_selectedSlots.Contains(slot))
+            {
+                return _selectedSlots.TakeWhile(s => s != slot).Count();
+            }
+
+            return -1;
         }
 
         public void Insert(int index, object dataItem)
@@ -169,11 +173,11 @@ namespace Avalonia.Controls
                 throw DataGridError.DataGridSelectedItemsCollection.CannotChangeSelectedItemsCollectionInSingleMode();
             }
 
-            if (index < 0 || index >= _selectedSlotsTable.IndexCount)
+            if (index < 0 || index >= _selectedSlots.Count)
             {
-                throw DataGridError.DataGrid.ValueMustBeBetween("index", "Index", 0, true, _selectedSlotsTable.IndexCount, false);
+                throw DataGridError.DataGrid.ValueMustBeBetween("index", "Index", 0, true, _selectedSlots.Count, false);
             }
-            int rowIndex = _selectedSlotsTable.GetNthIndex(index);
+            int rowIndex = GetNthSlot(index);
             Debug.Assert(rowIndex > -1);
 
             if (rowIndex == OwningGrid.CurrentSlot &&
@@ -190,7 +194,7 @@ namespace Avalonia.Controls
         {
             get
             {
-                return _selectedSlotsTable.IndexCount;
+                return _selectedSlots.Count;
             }
         }
 
@@ -223,9 +227,9 @@ namespace Avalonia.Controls
         {
             Debug.Assert(OwningGrid != null);
             Debug.Assert(OwningGrid.DataConnection != null);
-            Debug.Assert(_selectedSlotsTable != null);
+            Debug.Assert(_selectedSlots != null);
 
-            foreach (int slot in _selectedSlotsTable.GetIndexes())
+            foreach (int slot in _selectedSlots)
             {
                 int rowIndex = OwningGrid.RowIndexFromSlot(slot);
                 Debug.Assert(rowIndex > -1);
@@ -247,20 +251,20 @@ namespace Avalonia.Controls
             }
             set
             {
-                _selectedItemsCache = value;
+                _selectedItemsCache = value ?? new List<object>();
                 UpdateIndexes();
             }
         }
 
         internal void ClearRows()
         {
-            _selectedSlotsTable.Clear();
+            _selectedSlots.Clear();
             _selectedItemsCache.Clear();
         }
 
         internal bool ContainsSlot(int slot)
         {
-            return _selectedSlotsTable.Contains(slot);
+            return _selectedSlots.Contains(slot);
         }
 
         internal bool ContainsAll(int startSlot, int endSlot)
@@ -268,49 +272,58 @@ namespace Avalonia.Controls
             int itemSlot = OwningGrid.RowGroupHeadersTable.GetNextGap(startSlot - 1);
             while (itemSlot <= endSlot)
             {
-                // Skip over the RowGroupHeaderSlots
                 int nextRowGroupHeaderSlot = OwningGrid.RowGroupHeadersTable.GetNextIndex(itemSlot);
                 int lastItemSlot = nextRowGroupHeaderSlot == -1 ? endSlot : Math.Min(endSlot, nextRowGroupHeaderSlot - 1);
-                if (!_selectedSlotsTable.ContainsAll(itemSlot, lastItemSlot))
+                for (int slot = itemSlot; slot <= lastItemSlot; slot++)
                 {
-                    return false;
+                    if (!_selectedSlots.Contains(slot))
+                    {
+                        return false;
+                    }
                 }
                 itemSlot = OwningGrid.RowGroupHeadersTable.GetNextGap(lastItemSlot);
             }
+
             return true;
         }
 
         // Called when an item is deleted from the ItemsSource as opposed to just being unselected
         internal void Delete(int slot, object item)
         {
-            if (_oldSelectedSlotsTable.Contains(slot))
+            if (_selectedSlots.Contains(slot))
             {
                 OwningGrid.SelectionHasChanged = true;
+                DeleteSlot(slot);
+                _selectedItemsCache.Remove(item);
             }
-            DeleteSlot(slot);
-            _selectedItemsCache.Remove(item);
         }
 
         internal void DeleteSlot(int slot)
         {
-            _selectedSlotsTable.RemoveIndex(slot);
-            _oldSelectedSlotsTable.RemoveIndex(slot);
+            _selectedSlots.Remove(slot);
+            _oldSelectedItemsCache.Remove(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
         }
 
         // Returns the inclusive index count between lowerBound and upperBound of all indexes with the given value
         internal int GetIndexCount(int lowerBound, int upperBound)
         {
-            return _selectedSlotsTable.GetIndexCount(lowerBound, upperBound, true);
+            return _selectedSlots.Count(slot => slot >= lowerBound && slot <= upperBound);
         }
 
         internal IEnumerable<int> GetIndexes()
         {
-            return _selectedSlotsTable.GetIndexes();
+            return _selectedSlots;
         }
 
         internal IEnumerable<int> GetSlots(int startSlot)
         {
-            return _selectedSlotsTable.GetIndexes(startSlot);
+            foreach (int slot in _selectedSlots)
+            {
+                if (slot >= startSlot)
+                {
+                    yield return slot;
+                }
+            }
         }
 
         internal SelectionChangedEventArgs GetSelectionChangedEventArgs()
@@ -319,14 +332,11 @@ namespace Avalonia.Controls
             List<object> removedSelectedItems = new List<object>();
             int previousCount = _oldSelectedItemsCache.Count;
 
-            // Compare the old selected indexes with the current selection to determine which items
-            // have been added and removed since the last time this method was called
-            foreach (int newSlot in _selectedSlotsTable.GetIndexes())
+            foreach (int newSlot in _selectedSlots)
             {
                 object newItem = OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(newSlot));
-                if (_oldSelectedSlotsTable.Contains(newSlot))
+                if (_oldSelectedItemsCache.Contains(newItem))
                 {
-                    _oldSelectedSlotsTable.RemoveValue(newSlot);
                     _oldSelectedItemsCache.Remove(newItem);
                 }
                 else
@@ -334,22 +344,17 @@ namespace Avalonia.Controls
                     addedSelectedItems.Add(newItem);
                 }
             }
-            foreach (object oldItem in _oldSelectedItemsCache)
-            {
-                removedSelectedItems.Add(oldItem);
-            }
 
-            // The current selection becomes the old selection
-            _oldSelectedSlotsTable = _selectedSlotsTable.Copy();
+            removedSelectedItems.AddRange(_oldSelectedItemsCache);
+
             _oldSelectedItemsCache = new List<object>(_selectedItemsCache);
 
             RaiseCollectionChanged(previousCount, addedSelectedItems, removedSelectedItems);
 
-            return
-                new SelectionChangedEventArgs(DataGrid.SelectionChangedEvent, removedSelectedItems, addedSelectedItems)
-                {
-                    Source = OwningGrid
-                };
+            return new SelectionChangedEventArgs(DataGrid.SelectionChangedEvent, removedSelectedItems, addedSelectedItems)
+            {
+                Source = OwningGrid
+            };
         }
 
         private void RaiseCollectionChanged(int oldCount, List<object> addedItems, List<object> removedItems)
@@ -391,20 +396,21 @@ namespace Avalonia.Controls
 
         internal void InsertIndex(int slot)
         {
-            _selectedSlotsTable.InsertIndex(slot);
-            _oldSelectedSlotsTable.InsertIndex(slot);
-
-            // It's possible that we're inserting an item that was just removed.  If that's the case,
-            // and the re-inserted item used to be selected, we want to update the _oldSelectedSlotsTable
-            // to include the item's new index within the collection.
-            int rowIndex = OwningGrid.RowIndexFromSlot(slot);
-            if (rowIndex != -1)
+            if (_selectedSlots.Count == 0)
             {
-                object insertedItem = OwningGrid.DataConnection.GetDataItem(rowIndex);
-                if (insertedItem != null && _oldSelectedItemsCache.Contains(insertedItem))
-                {
-                    _oldSelectedSlotsTable.AddValue(slot, true);
-                }
+                return;
+            }
+
+            var updated = new SortedSet<int>();
+            foreach (var existing in _selectedSlots)
+            {
+                updated.Add(existing >= slot ? existing + 1 : existing);
+            }
+
+            _selectedSlots.Clear();
+            foreach (var adjusted in updated)
+            {
+                _selectedSlots.Add(adjusted);
             }
         }
 
@@ -416,19 +422,17 @@ namespace Avalonia.Controls
             }
             if (select)
             {
-                if (!_selectedSlotsTable.Contains(slot))
+                if (_selectedSlots.Add(slot))
                 {
                     _selectedItemsCache.Add(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
                 }
-                _selectedSlotsTable.AddValue(slot, true);
             }
             else
             {
-                if (_selectedSlotsTable.Contains(slot))
+                if (_selectedSlots.Remove(slot))
                 {
                     _selectedItemsCache.Remove(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
                 }
-                _selectedSlotsTable.RemoveValue(slot);
             }
         }
 
@@ -440,17 +444,12 @@ namespace Avalonia.Controls
             {
                 while (itemSlot <= endItemSlot)
                 {
-                    // Add the newly selected item slots by skipping over the RowGroupHeaderSlots
                     int nextRowGroupHeaderSlot = OwningGrid.RowGroupHeadersTable.GetNextIndex(itemSlot);
                     int lastItemSlot = nextRowGroupHeaderSlot == -1 ? endItemSlot : Math.Min(endItemSlot, nextRowGroupHeaderSlot - 1);
                     for (int slot = itemSlot; slot <= lastItemSlot; slot++)
                     {
-                        if (!_selectedSlotsTable.Contains(slot))
-                        {
-                            _selectedItemsCache.Add(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
-                        }
+                        SelectSlot(slot, true);
                     }
-                    _selectedSlotsTable.AddValues(itemSlot, lastItemSlot - itemSlot + 1, true);
                     itemSlot = OwningGrid.RowGroupHeadersTable.GetNextGap(lastItemSlot);
                 }
             }
@@ -458,17 +457,12 @@ namespace Avalonia.Controls
             {
                 while (itemSlot <= endItemSlot)
                 {
-                    // Remove the unselected item slots by skipping over the RowGroupHeaderSlots
                     int nextRowGroupHeaderSlot = OwningGrid.RowGroupHeadersTable.GetNextIndex(itemSlot);
                     int lastItemSlot = nextRowGroupHeaderSlot == -1 ? endItemSlot : Math.Min(endItemSlot, nextRowGroupHeaderSlot - 1);
                     for (int slot = itemSlot; slot <= lastItemSlot; slot++)
                     {
-                        if (_selectedSlotsTable.Contains(slot))
-                        {
-                            _selectedItemsCache.Remove(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
-                        }
+                        SelectSlot(slot, false);
                     }
-                    _selectedSlotsTable.RemoveValues(itemSlot, lastItemSlot - itemSlot + 1);
                     itemSlot = OwningGrid.RowGroupHeadersTable.GetNextGap(lastItemSlot);
                 }
             }
@@ -476,43 +470,41 @@ namespace Avalonia.Controls
 
         internal void UpdateIndexes()
         {
-            _oldSelectedSlotsTable.Clear();
-            _selectedSlotsTable.Clear();
+            _selectedSlots.Clear();
+            _oldSelectedItemsCache.Clear();
 
             if (OwningGrid.DataConnection.DataSource == null)
             {
-                if (SelectedItemsCache.Count > 0)
+                if (_selectedItemsCache.Count > 0)
                 {
                     OwningGrid.SelectionHasChanged = true;
-                    SelectedItemsCache.Clear();
+                    _selectedItemsCache.Clear();
                 }
+                return;
             }
-            else
+
+            List<object> tempSelectedItemsCache = new List<object>();
+            foreach (object item in _selectedItemsCache)
             {
-                List<object> tempSelectedItemsCache = new List<object>();
-                foreach (object item in _selectedItemsCache)
+                int index = OwningGrid.DataConnection.IndexOf(item);
+                if (index != -1)
                 {
-                    int index = OwningGrid.DataConnection.IndexOf(item);
-                    if (index != -1)
-                    {
-                        tempSelectedItemsCache.Add(item);
-                        _selectedSlotsTable.AddValue(OwningGrid.SlotFromRowIndex(index), true);
-                    }
+                    tempSelectedItemsCache.Add(item);
+                    _selectedSlots.Add(OwningGrid.SlotFromRowIndex(index));
                 }
-                foreach (object item in _oldSelectedItemsCache)
+                else
                 {
-                    int index = OwningGrid.DataConnection.IndexOf(item);
-                    if (index == -1)
-                    {
-                        OwningGrid.SelectionHasChanged = true;
-                    }
-                    else
-                    {
-                        _oldSelectedSlotsTable.AddValue(OwningGrid.SlotFromRowIndex(index), true);
-                    }
+                    OwningGrid.SelectionHasChanged = true;
                 }
-                _selectedItemsCache = tempSelectedItemsCache;
             }
+
+            _selectedItemsCache = tempSelectedItemsCache;
+            _oldSelectedItemsCache = new List<object>(_selectedItemsCache);
+        }
+
+        private int GetNthSlot(int index)
+        {
+            return _selectedSlots.ElementAt(index);
         }
     }
 }

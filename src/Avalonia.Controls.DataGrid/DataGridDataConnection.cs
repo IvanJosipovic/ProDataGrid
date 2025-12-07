@@ -775,6 +775,9 @@ namespace Avalonia.Controls
             {
                 throw DataGridError.DataGrid.CannotChangeItemsWhenLoadingRows();
             }
+
+            List<object> selectionSnapshot = _owner.CaptureSelectionSnapshot();
+
             switch (e.Action)
             {
                 case NotifyCollectionChangedAction.Add:
@@ -872,6 +875,11 @@ namespace Avalonia.Controls
                         _owner.InitializeElements(!ShouldAutoGenerateColumns /*recycleRows*/);
                     }
                     break;
+            }
+
+            if (selectionSnapshot != null && e.Action != NotifyCollectionChangedAction.Reset)
+            {
+                _owner.RestoreSelectionFromSnapshot(selectionSnapshot);
             }
 
             _owner.UpdatePseudoClasses();
