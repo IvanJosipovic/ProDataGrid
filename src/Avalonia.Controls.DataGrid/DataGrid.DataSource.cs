@@ -264,6 +264,11 @@ namespace Avalonia.Controls
             }
         }
 
+        internal void ResyncSelectionModelFromGridSelection()
+        {
+            SyncSelectionModelFromGridSelection();
+        }
+
 
         internal void RefreshRowsAndColumns(bool clearRows)
         {

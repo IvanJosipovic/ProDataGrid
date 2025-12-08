@@ -34,14 +34,29 @@ namespace Avalonia.Controls.DataGridSelection
 
         public bool IsSelected(int index) => Model.IsSelected(index);
 
-        public void Select(int index) => Model.Select(index);
+        public void Select(int index)
+        {
+            Model.Select(index);
+        }
 
-        public void Deselect(int index) => Model.Deselect(index);
+        public void Deselect(int index)
+        {
+            Model.Deselect(index);
+        }
 
-        public void SelectRange(int start, int end) => Model.SelectRange(start, end);
+        public void SelectRange(int start, int end)
+        {
+            Model.SelectRange(start, end);
+        }
 
-        public void DeselectRange(int start, int end) => Model.DeselectRange(start, end);
+        public void DeselectRange(int start, int end)
+        {
+            Model.DeselectRange(start, end);
+        }
 
-        public void Clear() => Model.Clear();
+        public void Clear()
+        {
+            Model.Clear();
+        }
     }
 }

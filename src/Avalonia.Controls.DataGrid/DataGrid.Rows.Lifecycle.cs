@@ -4,8 +4,8 @@
 // All other rights reserved.
 
 using System;
-using Avalonia.Media;
 using System.Diagnostics;
+using Avalonia.Media;
 
 namespace Avalonia.Controls
 {
@@ -159,7 +159,10 @@ namespace Avalonia.Controls
             // Update the slot ranges for the RowGroupHeaders before updating the _selectedItems table,
             // because it's dependent on the slots being correct with regards to grouping.
             RowGroupHeadersTable.InsertIndex(slotInserted);
-            _selectedItems.InsertIndex(slotInserted);
+            if (_selectionModelAdapter == null)
+            {
+                _selectedItems.InsertIndex(slotInserted);
+            }
 
             if (isCollapsed)
             {

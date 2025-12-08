@@ -1021,7 +1021,10 @@ namespace Avalonia.Controls
                 // A RowGroupHeader was removed
                 RowGroupHeadersTable.RemoveIndexAndValue(slotDeleted);
                 _collapsedSlotsTable.RemoveIndexAndValue(slotDeleted);
-                _selectedItems.DeleteSlot(slotDeleted);
+                if (_selectionModelAdapter == null)
+                {
+                    _selectedItems.DeleteSlot(slotDeleted);
+                }
             }
             else
             {
@@ -1030,7 +1033,10 @@ namespace Avalonia.Controls
                 {
                     SelectionHasChanged = true;
                 }
-                _selectedItems.Delete(slotDeleted, itemDeleted);
+                if (_selectionModelAdapter == null)
+                {
+                    _selectedItems.Delete(slotDeleted, itemDeleted);
+                }
                 RowGroupHeadersTable.RemoveIndex(slotDeleted);
                 _collapsedSlotsTable.RemoveIndex(slotDeleted);
             }

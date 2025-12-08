@@ -240,20 +240,35 @@ namespace Avalonia.Controls
             int preferredIndex = _preferredSelectionIndex >= 0
                 ? _preferredSelectionIndex
                 : _selectionModelAdapter.Model.SelectedIndex;
-            ClearRowSelection(resetAnchorSlot: true);
 
-            int? firstSlot = null;
+            var mapped = new List<(int RowIndex, int Slot)>();
             foreach (int rowIndex in indexes)
             {
                 int slot = SlotFromSelectionIndex(rowIndex);
                 if (slot >= 0 && slot < SlotCount)
                 {
-                    if (firstSlot == null || (preferredIndex >= 0 && rowIndex == preferredIndex))
-                    {
-                        firstSlot = slot;
-                    }
-                    SetRowSelection(slot, isSelected: true, setAnchorSlot: firstSlot == slot);
+                    mapped.Add((rowIndex, slot));
                 }
+            }
+
+            if (mapped.Count == 0)
+            {
+                _preferredSelectionIndex = preferredIndex;
+                return;
+            }
+
+            ClearRowSelection(resetAnchorSlot: true);
+
+            int? firstSlot = null;
+            foreach (var entry in mapped)
+            {
+                int slot = entry.Slot;
+                int rowIndex = entry.RowIndex;
+                if (firstSlot == null || (preferredIndex >= 0 && rowIndex == preferredIndex))
+                {
+                    firstSlot = slot;
+                }
+                SetRowSelection(slot, isSelected: true, setAnchorSlot: firstSlot == slot);
             }
 
             if (firstSlot.HasValue)
@@ -351,6 +366,24 @@ namespace Avalonia.Controls
                 {
                     _syncingSelectionModel = false;
                 }
+            }
+        }
+
+        internal void RefreshSelectionFromModel()
+        {
+            if (_selectionModelAdapter == null)
+            {
+                return;
+            }
+
+            _syncingSelectionModel = true;
+            try
+            {
+                ApplySelectionFromSelectionModel();
+            }
+            finally
+            {
+                _syncingSelectionModel = false;
             }
         }
 
@@ -790,6 +823,11 @@ namespace Avalonia.Controls
             int insertIndex = index >= 0 && index <= _selectedItemsBinding.Count ? index : _selectedItemsBinding.Count;
             foreach (object item in items)
             {
+                if (_selectedItemsBinding.Contains(item))
+                {
+                    continue;
+                }
+
                 _selectedItemsBinding.Insert(insertIndex, item);
                 insertIndex++;
             }

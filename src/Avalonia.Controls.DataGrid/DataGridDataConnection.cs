@@ -539,6 +539,15 @@ namespace Avalonia.Controls
         {
             bool isNewItemPlaceholder = dataItem == DataGridCollectionView.NewItemPlaceholder;
 
+            if (!isNewItemPlaceholder && DataSource is IList referenceList && dataItem is object)
+            {
+                var referenceIndex = FindReferenceIndex(referenceList, dataItem);
+                if (referenceIndex >= 0)
+                {
+                    return referenceIndex;
+                }
+            }
+
             if (DataSource is DataGridCollectionView cv)
             {
                 if (isNewItemPlaceholder)
@@ -579,6 +588,19 @@ namespace Avalonia.Controls
                     return index;
                 }
             }
+            return -1;
+        }
+
+        private static int FindReferenceIndex(IList list, object dataItem)
+        {
+            for (var i = 0; i < list.Count; i++)
+            {
+                if (ReferenceEquals(list[i], dataItem))
+                {
+                    return i;
+                }
+            }
+
             return -1;
         }
 
@@ -886,6 +908,15 @@ namespace Avalonia.Controls
 
             // Ensure the visual selection state matches the restored selection after mutations
             _owner.RefreshVisibleSelection();
+
+            if (_owner.Selection == null)
+            {
+                _owner.ResyncSelectionModelFromGridSelection();
+            }
+            else
+            {
+                _owner.RefreshSelectionFromModel();
+            }
         }
 
         private void AddNewItemRow()
