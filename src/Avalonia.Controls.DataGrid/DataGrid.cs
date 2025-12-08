@@ -915,6 +915,7 @@ namespace Avalonia.Controls
                 _selectionModelAdapter.Model.SelectionChanged += SelectionModel_SelectionChanged;
                 _selectionModelAdapter.Model.LostSelection += SelectionModel_LostSelection;
                 _selectionModelAdapter.Model.IndexesChanged += SelectionModel_IndexesChanged;
+                _selectionModelAdapter.Model.PropertyChanged += SelectionModel_PropertyChanged;
 
                 UpdateSelectionModelSource();
             }
@@ -963,6 +964,7 @@ namespace Avalonia.Controls
                 _selectionModelAdapter.Model.SelectionChanged -= SelectionModel_SelectionChanged;
                 _selectionModelAdapter.Model.LostSelection -= SelectionModel_LostSelection;
                 _selectionModelAdapter.Model.IndexesChanged -= SelectionModel_IndexesChanged;
+                _selectionModelAdapter.Model.PropertyChanged -= SelectionModel_PropertyChanged;
             }
         }
 

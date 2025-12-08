@@ -12,6 +12,7 @@ using System;
 using System.Collections;
 using System.Collections.Specialized;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 
 namespace Avalonia.Controls
@@ -330,6 +331,29 @@ namespace Avalonia.Controls
             }
         }
 
+        private void SelectionModel_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (_syncingSelectionModel)
+            {
+                return;
+            }
+
+            if (e.PropertyName == nameof(ISelectionModel.SingleSelect))
+            {
+                try
+                {
+                    _syncingSelectionModel = true;
+                    SelectionMode = _selectionModelAdapter.Model.SingleSelect
+                        ? DataGridSelectionMode.Single
+                        : DataGridSelectionMode.Extended;
+                }
+                finally
+                {
+                    _syncingSelectionModel = false;
+                }
+            }
+        }
+
 
         internal bool UpdateSelectionAndCurrency(int columnIndex, int slot, DataGridSelectionAction action, bool scrollIntoView)
         {
@@ -545,6 +569,11 @@ namespace Avalonia.Controls
         private void ApplySelectedItemsChangeFromBinding(NotifyCollectionChangedEventArgs e)
         {
             if (ReferenceEquals(_selectedItemsBinding, _selectedItems))
+            {
+                return;
+            }
+
+            if (_selectionModelAdapter != null && DataConnection?.CollectionView == null)
             {
                 return;
             }

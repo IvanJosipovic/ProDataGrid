@@ -115,12 +115,29 @@ namespace Avalonia.Controls
 
                 // Set the SlotCount (from the data count and number of row group headers) before we make the default selection
                 PopulateRowGroupHeadersTable();
-                SelectedItem = null;
+                var modelSelectionPending = _selectionModelAdapter?.Model != null &&
+                    (_selectionModelAdapter.Model.SelectedIndex >= 0 ||
+                     _selectionModelAdapter.Model.SelectedItems.Count > 0);
+
+                if (!modelSelectionPending)
+                {
+                    SelectedItem = null;
                 if (DataConnection.CollectionView != null && setDefaultSelection)
                 {
                     SelectedItem = DataConnection.CollectionView.CurrentItem;
                 }
+
                 SyncSelectionModelFromGridSelection();
+
+                if (_selectedItemsBinding != null && _selectedItemsBinding.Count > 0)
+                {
+                    ApplySelectedItemsFromBinding(_selectedItemsBinding);
+                }
+            }
+                else
+                {
+                    ApplySelectionFromSelectionModel();
+                }
 
                 // Treat this like the DataGrid has never been measured because all calculations at
                 // this point are invalid until the next layout cycle.  For instance, the ItemsSource
@@ -160,12 +177,9 @@ namespace Avalonia.Controls
 
         internal List<object> CaptureSelectionSnapshot()
         {
-            if (_selectionModelAdapter != null && _selectionModelAdapter.Model.SelectedItems.Count > 0)
-            {
-                return new List<object>(_selectionModelAdapter.Model.SelectedItems.Cast<object>());
-            }
-
-            return null;
+            return _selectionModelAdapter == null && _selectedItems.Count > 0
+                ? new List<object>(_selectedItems.Cast<object>())
+                : null;
         }
 
         internal void RestoreSelectionFromSnapshot(IReadOnlyList<object> selectedItems)

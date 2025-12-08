@@ -16,12 +16,14 @@ namespace Avalonia.Controls.DataGridSelection
     public class SelectedItemsView : IList, INotifyCollectionChanged, INotifyPropertyChanged
     {
         private readonly ISelectionModel _model;
+        private readonly List<object> _pending = new();
 
         public SelectedItemsView(ISelectionModel model)
         {
             _model = model ?? throw new ArgumentNullException(nameof(model));
             _model.SelectionChanged += OnSelectionChanged;
             _model.SourceReset += (_, __) => RaiseReset();
+            _model.PropertyChanged += OnModelPropertyChanged;
         }
 
         public event NotifyCollectionChangedEventHandler CollectionChanged;
@@ -32,6 +34,16 @@ namespace Avalonia.Controls.DataGridSelection
         {
             get
             {
+                if (!HasSource)
+                {
+                    if (index < 0 || index >= _pending.Count)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(index));
+                    }
+
+                    return _pending[index];
+                }
+
                 var items = _model.SelectedItems;
                 if (index < 0 || index >= items.Count)
                 {
@@ -46,7 +58,7 @@ namespace Avalonia.Controls.DataGridSelection
 
         public bool IsFixedSize => false;
 
-        public int Count => _model.SelectedItems.Count;
+        public int Count => HasSource ? _model.SelectedItems.Count : _pending.Count;
 
         public object SyncRoot => this;
 
@@ -54,6 +66,19 @@ namespace Avalonia.Controls.DataGridSelection
 
         public int Add(object value)
         {
+            if (!HasSource)
+            {
+                if (_model.SingleSelect)
+                {
+                    _pending.Clear();
+                }
+
+                _pending.Add(value);
+                RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, value));
+                RaisePropertyChanges();
+                return _pending.Count - 1;
+            }
+
             int index = ResolveIndex(value);
 
             if (_model.SingleSelect)
@@ -68,12 +93,38 @@ namespace Avalonia.Controls.DataGridSelection
             return IndexOf(value);
         }
 
-        public void Clear() => _model.Clear();
+        public void Clear()
+        {
+            if (!HasSource)
+            {
+                if (_pending.Count > 0)
+                {
+                    _pending.Clear();
+                    RaiseReset();
+                }
+                return;
+            }
 
-        public bool Contains(object value) => IndexOf(value) != -1;
+            _model.Clear();
+        }
+
+        public bool Contains(object value)
+        {
+            if (!HasSource)
+            {
+                return _pending.Contains(value);
+            }
+
+            return IndexOf(value) != -1;
+        }
 
         public int IndexOf(object value)
         {
+            if (!HasSource)
+            {
+                return _pending.IndexOf(value);
+            }
+
             var items = _model.SelectedItems;
             for (int i = 0; i < items.Count; i++)
             {
@@ -89,6 +140,16 @@ namespace Avalonia.Controls.DataGridSelection
 
         public void Remove(object value)
         {
+            if (!HasSource)
+            {
+                if (_pending.Remove(value))
+                {
+                    RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, value));
+                    RaisePropertyChanges();
+                }
+                return;
+            }
+
             int index = ResolveIndex(value);
             if (_model.IsSelected(index))
             {
@@ -98,14 +159,28 @@ namespace Avalonia.Controls.DataGridSelection
 
         public void RemoveAt(int index)
         {
+            if (!HasSource)
+            {
+                if (index < 0 || index >= _pending.Count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                }
+
+                var value = _pending[index];
+                _pending.RemoveAt(index);
+                RaiseCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, value, index));
+                RaisePropertyChanges();
+                return;
+            }
+
             var items = _model.SelectedItems;
             if (index < 0 || index >= items.Count)
             {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            var value = items[index];
-            Remove(value);
+            var item = items[index];
+            Remove(item);
         }
 
         public void CopyTo(Array array, int index)
@@ -124,7 +199,7 @@ namespace Avalonia.Controls.DataGridSelection
 
         public IEnumerator GetEnumerator()
         {
-            return _model.SelectedItems.GetEnumerator();
+            return HasSource ? _model.SelectedItems.GetEnumerator() : _pending.GetEnumerator();
         }
 
         private int ResolveIndex(object value)
@@ -155,6 +230,43 @@ namespace Avalonia.Controls.DataGridSelection
             RaiseDiff(e.SelectedItems?.Cast<object?>(), e.DeselectedItems?.Cast<object?>());
         }
 
+        private void OnModelPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ISelectionModel.Source))
+            {
+                ApplyPending();
+            }
+        }
+
+        private bool HasSource => _model.Source != null;
+
+        private void ApplyPending()
+        {
+            if (!HasSource || _pending.Count == 0)
+            {
+                return;
+            }
+
+            using (_model.BatchUpdate())
+            {
+                if (_model.SingleSelect)
+                {
+                    var last = _pending.Last();
+                    _pending.Clear();
+                    Add(last);
+                    return;
+                }
+
+                foreach (var item in _pending.ToArray())
+                {
+                    int index = ResolveIndex(item);
+                    _model.Select(index);
+                }
+
+                _pending.Clear();
+            }
+        }
+
         private void RaiseDiff(IEnumerable<object?>? addedItems, IEnumerable<object?>? removedItems)
         {
             var changed = false;
@@ -182,6 +294,17 @@ namespace Avalonia.Controls.DataGridSelection
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
             }
+        }
+
+        private void RaiseCollectionChanged(NotifyCollectionChangedEventArgs args)
+        {
+            CollectionChanged?.Invoke(this, args);
+        }
+
+        private void RaisePropertyChanges()
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Count)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
         }
 
         private void RaiseReset()

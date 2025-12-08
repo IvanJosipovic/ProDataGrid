@@ -147,6 +147,167 @@ public class DataGridSelectionPropertyTests
         Assert.Equal(0, selectionModel.SelectedIndex); // moved to first after sort
     }
 
+    [AvaloniaFact]
+    public void Deferred_SelectedIndex_Before_ItemsSource_Is_Applied()
+    {
+        var items = new ObservableCollection<string> { "A", "B", "C" };
+
+        var root = new Window
+        {
+            Width = 250,
+            Height = 150,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var grid = new DataGrid
+        {
+            SelectionMode = DataGridSelectionMode.Extended,
+            AutoGenerateColumns = true
+        };
+
+        grid.Selection.SelectedIndex = 1;
+
+        root.Content = grid;
+        root.Show();
+
+        grid.ItemsSource = items;
+        grid.UpdateLayout();
+
+        Assert.Equal("B", grid.SelectedItem);
+        Assert.Equal(1, grid.SelectedIndex);
+        Assert.Equal(new[] { "B" }, grid.SelectedItems.Cast<string>());
+    }
+
+    [AvaloniaFact]
+    public void Deferred_SelectedItems_Before_ItemsSource_Are_Applied()
+    {
+        var items = new ObservableCollection<string> { "A", "B", "C" };
+
+        var root = new Window
+        {
+            Width = 250,
+            Height = 150,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var grid = new DataGrid
+        {
+            SelectionMode = DataGridSelectionMode.Extended,
+            AutoGenerateColumns = true
+        };
+
+        grid.Selection.SingleSelect = false;
+        grid.Selection.Select(0);
+        grid.Selection.Select(2);
+
+        root.Content = grid;
+        root.Show();
+
+        grid.ItemsSource = items;
+        grid.UpdateLayout();
+
+        var selected = grid.SelectedItems.Cast<string>().OrderBy(x => x).ToArray();
+        Assert.Equal(new[] { "A", "C" }, selected);
+        Assert.Equal(new[] { 0, 2 }, grid.Selection.SelectedIndexes.ToArray());
+    }
+
+    [AvaloniaFact]
+    public void Selection_With_Duplicate_Values_Preserves_Instance_On_Insert()
+    {
+        var items = new ObservableCollection<DupItem>
+        {
+            new("keep"),
+            new("dup"),
+            new("other"),
+            new("dup")
+        };
+
+        var target = items[3];
+
+        var grid = CreateGrid(items);
+        grid.UpdateLayout();
+
+        grid.SelectedItem = target;
+        grid.UpdateLayout();
+
+        items.Insert(0, new DupItem("dup"));
+        grid.UpdateLayout();
+
+        var selected = Assert.IsType<DupItem>(grid.SelectedItem);
+        Assert.True(ReferenceEquals(target, selected));
+        Assert.Equal(FindIndexByReference(items, target), grid.Selection.SelectedIndex);
+    }
+
+    [AvaloniaFact]
+    public void Toggling_SingleSelect_Updates_SelectionMode()
+    {
+        var items = new ObservableCollection<string> { "A", "B" };
+        var grid = CreateGrid(items);
+        grid.UpdateLayout();
+
+        // Start in Extended
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.Selection.SingleSelect = true;
+        grid.UpdateLayout();
+
+        Assert.Equal(DataGridSelectionMode.Single, grid.SelectionMode);
+
+        grid.Selection.SingleSelect = false;
+        grid.UpdateLayout();
+
+        Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+    }
+
+    [AvaloniaFact]
+    public void Binding_SelectedItems_Before_ItemsSource_Is_Replayed()
+    {
+        var items = new ObservableCollection<string> { "A", "B", "C" };
+        var selected = new ObservableCollection<object>();
+
+        var root = new Window
+        {
+            Width = 250,
+            Height = 150,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var grid = new DataGrid
+        {
+            SelectionMode = DataGridSelectionMode.Extended,
+            AutoGenerateColumns = true,
+            SelectedItems = selected
+        };
+
+        selected.Add(items[1]);
+
+        root.Content = grid;
+        root.Show();
+
+        grid.ItemsSource = items;
+        grid.UpdateLayout();
+
+        Assert.Equal("B", grid.SelectedItem);
+        Assert.Equal(new[] { "B" }, grid.SelectedItems.Cast<string>());
+    }
+
     private static DataGrid CreateGrid(IEnumerable items)
     {
         var root = new Window
@@ -233,6 +394,35 @@ public class DataGridSelectionPropertyTests
     private class Item
     {
         public string Name { get; set; } = string.Empty;
+    }
+
+    private class DupItem
+    {
+        public DupItem(string name) => Name = name;
+
+        public string Name { get; }
+
+        public override bool Equals(object? obj) =>
+            obj is DupItem other && string.Equals(Name, other.Name, StringComparison.Ordinal);
+
+        public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(Name);
+
+        public override string ToString() => Name;
+    }
+
+    private static int FindIndexByReference<T>(IEnumerable<T> source, T target) where T : class
+    {
+        var i = 0;
+        foreach (var item in source)
+        {
+            if (ReferenceEquals(item, target))
+            {
+                return i;
+            }
+            i++;
+        }
+
+        return -1;
     }
 
     private static IReadOnlyList<DataGridRow> GetRows(DataGrid grid)
