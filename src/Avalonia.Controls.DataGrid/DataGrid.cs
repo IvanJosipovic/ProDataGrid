@@ -1048,6 +1048,7 @@ namespace Avalonia.Controls
             if (DataConnection?.CollectionView != null)
             {
                 RefreshRowsAndColumns(clearRows: false);
+                RefreshColumnSortStates();
             }
         }
 
