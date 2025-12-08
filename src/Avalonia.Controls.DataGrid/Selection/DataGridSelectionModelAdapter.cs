@@ -1,4 +1,5 @@
-﻿// (c) ProDataGrid selection model scaffolding
+﻿// Copyright (c) Wiesław Šoltés. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for details.
 // This layer wraps Avalonia's ISelectionModel and will be wired into DataGrid in later steps.
 
 #nullable disable
