@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using Avalonia.Controls;
 
 namespace Avalonia.Controls.DataGridSorting
 {
@@ -455,7 +456,7 @@ namespace Avalonia.Controls.DataGridSorting
         {
             for (int i = 0; i < _descriptors.Count; i++)
             {
-                if (Equals(_descriptors[i].ColumnId, columnId))
+                if (IsSameColumnId(_descriptors[i], columnId))
                 {
                     return i;
                 }
@@ -468,7 +469,7 @@ namespace Avalonia.Controls.DataGridSorting
         {
             for (int i = list.Count - 1; i >= 0; i--)
             {
-                if (!Equals(list[i].ColumnId, columnId))
+                if (!IsSameColumnId(list[i], columnId))
                 {
                     list.RemoveAt(i);
                     if (i < existingIndex)
@@ -477,6 +478,44 @@ namespace Avalonia.Controls.DataGridSorting
                     }
                 }
             }
+        }
+
+        private static bool IsSameColumnId(SortingDescriptor descriptor, object columnId)
+        {
+            if (Equals(descriptor.ColumnId, columnId))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(descriptor.PropertyPath))
+            {
+                return false;
+            }
+
+            if (columnId is string path &&
+                string.Equals(descriptor.PropertyPath, path, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (columnId is DataGridColumn gridColumn)
+            {
+                var sortMemberPath = gridColumn.SortMemberPath;
+                if (!string.IsNullOrEmpty(sortMemberPath) &&
+                    string.Equals(descriptor.PropertyPath, sortMemberPath, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+
+                var propertyPath = gridColumn.GetSortPropertyName();
+                if (!string.IsNullOrEmpty(propertyPath) &&
+                    string.Equals(descriptor.PropertyPath, propertyPath, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private ListSortDirection? GetNextDirection(ListSortDirection current)
