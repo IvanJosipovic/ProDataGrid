@@ -361,6 +361,45 @@ grid.FilteringAdapterFactory = adapterFactory; // bypasses DataGridCollectionVie
 
 If an external consumer owns `DataGridCollectionView.Filter`, set `OwnsViewFilter=false` and the adapter reconciles descriptors to that external filter (observer mode) while keeping glyphs in sync.
 
+## Hierarchical model integration
+
+Hierarchical rows are driven by `IHierarchicalModel` (flattened view of visible nodes) plus a thin adapter and a built-in `DataGridHierarchicalColumn` that renders indentation and the expander glyph.
+
+- Plug in a model or factory: bind `HierarchicalModel`/`HierarchicalModelFactory` and set `HierarchicalRowsEnabled="True"`.
+- Provide children/leaves via `HierarchicalOptions` (`ChildrenSelector`, optional `IsLeafSelector`, `AutoExpandRoot/MaxAutoExpandDepth`, `SiblingComparer`, `VirtualizeChildren`).
+- The adapter exposes `Count/ItemAt/Toggle/Expand/Collapse` and raises `FlattenedChanged`; selection mapping uses the flattened indices.
+- Use `DataGridHierarchicalColumn` for the tree column; per-level indent is configurable via `Indent`.
+
+```xml
+<DataGrid ItemsSource="{Binding Rows}"
+          HierarchicalModel="{Binding Model}"
+          HierarchicalRowsEnabled="True"
+          AutoGenerateColumns="False">
+  <DataGrid.Columns>
+    <DataGridHierarchicalColumn Header="Name"
+                                Width="2*"
+                                Binding="{Binding Item.Name}" />
+    <DataGridTextColumn Header="Kind" Binding="{Binding Item.Kind}" />
+  </DataGrid.Columns>
+</DataGrid>
+```
+
+```csharp
+var options = new HierarchicalOptions
+{
+    ChildrenSelector = item => ((TreeNode)item).Children,
+    IsLeafSelector = item => !((TreeNode)item).IsDirectory,
+    AutoExpandRoot = true,
+    MaxAutoExpandDepth = 0,
+    VirtualizeChildren = true
+};
+
+var model = new HierarchicalModel(options);
+model.SetRoot(rootNode);
+```
+
+Sample: see `Hierarchical Model` page in `src/DataGridSample` for a file-system tree with Name/Kind/Size/Modified columns.
+
 ## Samples
 
 - The sample app (`src/DataGridSample`) includes pages for pixel-perfect columns, frozen columns, large datasets, and variable-height scenarios (`Pages/*Page.axaml`).
