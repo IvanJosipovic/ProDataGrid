@@ -1,0 +1,98 @@
+<!--
+  Copyright (c) Wiesław Šoltés. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.FilteringModelSamplePage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+    d:DesignHeight="720"
+    d:DesignWidth="1100"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:FilteringModelSampleViewModel />
+  </UserControl.DataContext>
+
+  <UserControl.Resources>
+    <Flyout x:Key="CustomerFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
+            Content="{Binding CustomerFilter}"
+            ContentTemplate="{StaticResource DataGridFilterTextEditorTemplate}" />
+
+    <Flyout x:Key="StatusFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
+            Content="{Binding StatusFilter}"
+            ContentTemplate="{StaticResource DataGridFilterEnumEditorTemplate}" />
+
+    <Flyout x:Key="DateFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
+            Content="{Binding DateFilter}"
+            ContentTemplate="{StaticResource DataGridFilterDateEditorTemplate}" />
+
+    <Flyout x:Key="TotalFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
+            Content="{Binding TotalFilter}"
+            ContentTemplate="{StaticResource DataGridFilterNumberEditorTemplate}" />
+  </UserControl.Resources>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*">
+    <StackPanel Spacing="4">
+      <TextBlock Text="FilteringModel with built-in editors"
+                 FontWeight="Bold"
+                 FontSize="18" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="This sample uses the shared filter editor templates and the built-in FilteringModel adapter—no DynamicData. Use the header filter buttons or the apply buttons in each flyout." />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1"
+               Margin="0 8">
+      <Button Content="Clear all filters"
+              Command="{Binding ClearAllCommand}"
+              Margin="0 0 8 8" />
+    </WrapPanel>
+
+    <DataGrid Grid.Row="2"
+              ItemsSource="{Binding View}"
+              FilteringModel="{Binding FilteringModel}"
+              AutoGenerateColumns="False"
+              CanUserSortColumns="True"
+              GridLinesVisibility="Horizontal"
+              SelectionMode="Extended">
+      <DataGrid.Columns>
+        <DataGridTextColumn Width="*"
+                            Header="Customer"
+                            Binding="{Binding Customer}"
+                            FilterFlyout="{StaticResource CustomerFilterFlyout}" />
+
+        <DataGridTextColumn Width="140"
+                            Header="Status"
+                            Binding="{Binding Status}"
+                            FilterFlyout="{StaticResource StatusFilterFlyout}" />
+
+        <DataGridTextColumn Width="120"
+                            Header="Region"
+                            Binding="{Binding Region}" />
+
+        <DataGridTextColumn Width="140"
+                            Header="Ordered (UTC)"
+                            Binding="{Binding Ordered, StringFormat='{}{0:MM-dd}'}"
+                            FilterFlyout="{StaticResource DateFilterFlyout}" />
+
+        <DataGridTextColumn Width="120"
+                            Header="Total"
+                            Binding="{Binding Total, StringFormat='{}{0:C2}'}"
+                            FilterFlyout="{StaticResource TotalFilterFlyout}" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,340 @@
+<!--
+  Copyright (c) Wiesław Šoltés. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.DynamicDataFilteringPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    d:DesignHeight="720"
+    d:DesignWidth="1100"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:DynamicDataFilteringViewModel />
+  </UserControl.DataContext>
+
+  <UserControl.Resources>
+    <Flyout x:Key="ServiceFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}">
+      <StackPanel Spacing="8" Width="240">
+        <TextBlock Text="Service contains" FontWeight="SemiBold" />
+        <TextBox Text="{Binding ServiceFilter, UpdateSourceTrigger=PropertyChanged}" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Clear" Command="{Binding ClearServiceFilterCommand}" />
+          <Button Content="Apply" Command="{Binding ApplyServiceFilterCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Flyout>
+
+    <Flyout x:Key="StatusFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}">
+      <StackPanel Spacing="8" Width="240">
+        <TextBlock Text="Status in" FontWeight="SemiBold" />
+        <ItemsControl ItemsSource="{Binding StatusOptions}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <UniformGrid Columns="2" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <CheckBox Content="{Binding Value}"
+                        IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Clear" Command="{Binding ClearStatusFilterCommand}" />
+          <Button Content="Apply" Command="{Binding ApplyStatusFilterCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Flyout>
+
+    <Flyout x:Key="RegionFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}">
+      <StackPanel Spacing="8" Width="220">
+        <TextBlock Text="Region equals" FontWeight="SemiBold" />
+        <ComboBox ItemsSource="{Binding RegionOptions}"
+                  SelectedItem="{Binding SelectedRegion, Mode=TwoWay}" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Clear" Command="{Binding ClearRegionFilterCommand}" />
+          <Button Content="Apply" Command="{Binding ApplyRegionFilterCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Flyout>
+
+    <Flyout x:Key="StartedFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}">
+      <StackPanel Spacing="8" Width="240">
+        <TextBlock Text="Started between" FontWeight="SemiBold" />
+        <StackPanel Spacing="6">
+          <DatePicker SelectedDate="{Binding StartedFrom, Mode=TwoWay}" Width="220" />
+          <DatePicker SelectedDate="{Binding StartedTo, Mode=TwoWay}" Width="220" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Clear" Command="{Binding ClearStartedFilterCommand}" />
+          <Button Content="Apply" Command="{Binding ApplyStartedFilterCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Flyout>
+
+    <Flyout x:Key="ErrorFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}">
+      <StackPanel Spacing="8" Width="240">
+        <TextBlock Text="Error rate range" FontWeight="SemiBold" />
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <NumericUpDown Width="96"
+                         Minimum="0"
+                         Maximum="1"
+                         Increment="0.001"
+                         Value="{Binding MinErrorRate, Mode=TwoWay}" />
+          <TextBlock VerticalAlignment="Center" Text="to" />
+          <NumericUpDown Width="96"
+                         Minimum="0"
+                         Maximum="1"
+                         Increment="0.001"
+                         Value="{Binding MaxErrorRate, Mode=TwoWay}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <Button Content="Clear" Command="{Binding ClearErrorFilterCommand}" />
+          <Button Content="Apply" Command="{Binding ApplyErrorFilterCommand}" />
+        </StackPanel>
+      </StackPanel>
+    </Flyout>
+  </UserControl.Resources>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,Auto,*"
+        ColumnDefinitions="2*,*">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4"
+                MaxWidth="960">
+      <TextBlock Text="DynamicData filtering with FilteringModel"
+                 FontWeight="Bold"
+                 FontSize="18" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="This page shows how a FilteringModel can drive a DynamicData pipeline via a custom adapter factory. Header interactions update the model, which emits filter descriptors upstream without mutating the local collection view filter." />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1"
+               Grid.ColumnSpan="2"
+               Margin="0 8"
+               ItemWidth="260">
+      <Button Content="Apply preset (Rolling Out + US regions + ErrorRate &lt; 0.02)"
+              Command="{Binding ApplyPresetCommand}"
+              HorizontalAlignment="Stretch"
+              Margin="0 0 10 10" />
+      <Button Content="Clear filters"
+              Command="{Binding ClearFiltersCommand}"
+              HorizontalAlignment="Stretch"
+              Margin="0 0 10 10" />
+      <TextBlock VerticalAlignment="Center"
+                 MaxWidth="360"
+                 TextWrapping="Wrap"
+                 Margin="0 0 10 10"
+                 Text="Use these buttons or bind your own filter UI to the FilteringModel." />
+    </WrapPanel>
+
+    <Border Grid.Row="2"
+            Grid.ColumnSpan="2"
+            Margin="0 0 0 10"
+            Padding="8"
+            Background="#08000000"
+            CornerRadius="6">
+      <StackPanel Spacing="10">
+        <TextBlock Text="Filter row (bound to FilteringModel)"
+                   FontWeight="SemiBold" />
+        <WrapPanel ItemWidth="240">
+          <StackPanel Width="220" Spacing="6" Margin="0 0 10 10">
+            <TextBlock Text="Service contains" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <TextBox Width="160"
+                       Text="{Binding ServiceFilter, UpdateSourceTrigger=PropertyChanged}">
+                <TextBox.KeyBindings>
+                  <KeyBinding Gesture="Enter" Command="{Binding ClearServiceFilterCommand}" />
+                </TextBox.KeyBindings>
+              </TextBox>
+              <Button Content="Clear" Command="{Binding ClearServiceFilterCommand}" />
+            </StackPanel>
+            <TextBlock FontSize="11" Foreground="#7f000000" Text="Debounced; uses Contains on Service." />
+          </StackPanel>
+
+          <StackPanel Width="220" Spacing="6" Margin="0 0 10 10">
+            <TextBlock Text="Status (In)" />
+            <UniformGrid Columns="2">
+              <ItemsControl ItemsSource="{Binding StatusOptions}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <CheckBox Content="{Binding Value}"
+                              IsChecked="{Binding IsSelected, Mode=TwoWay}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </UniformGrid>
+            <Button Content="Clear status" Command="{Binding ClearStatusFilterCommand}" />
+          </StackPanel>
+
+          <StackPanel Width="220" Spacing="6" Margin="0 0 10 10">
+            <TextBlock Text="Region equals" />
+            <ComboBox Width="170"
+                      ItemsSource="{Binding RegionOptions}"
+                      SelectedItem="{Binding SelectedRegion, Mode=TwoWay}" />
+            <Button Content="Clear region" Command="{Binding ClearRegionFilterCommand}" />
+          </StackPanel>
+
+          <StackPanel Width="240" Spacing="6" Margin="0 0 10 10">
+            <TextBlock Text="Error rate range" />
+            <StackPanel Orientation="Horizontal" Spacing="6">
+              <NumericUpDown Width="96"
+                             Minimum="0"
+                             Maximum="1"
+                             Increment="0.001"
+                             Value="{Binding MinErrorRate, Mode=TwoWay}" />
+              <TextBlock VerticalAlignment="Center" Text="to" />
+              <NumericUpDown Width="96"
+                             Minimum="0"
+                             Maximum="1"
+                             Increment="0.001"
+                             Value="{Binding MaxErrorRate, Mode=TwoWay}" />
+            </StackPanel>
+            <Button Content="Clear error rate" Command="{Binding ClearErrorFilterCommand}" />
+          </StackPanel>
+
+          <StackPanel Width="240" Spacing="6" Margin="0 0 10 10">
+            <TextBlock Text="Started (between)" />
+            <StackPanel Spacing="6">
+              <DatePicker SelectedDate="{Binding StartedFrom, Mode=TwoWay}" Width="200" />
+              <DatePicker SelectedDate="{Binding StartedTo, Mode=TwoWay}" Width="200" />
+            </StackPanel>
+            <Button Content="Clear started" Command="{Binding ClearStartedFilterCommand}" />
+          </StackPanel>
+        </WrapPanel>
+
+        <ItemsControl ItemsSource="{Binding FilterChips}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <WrapPanel />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Padding="6" Margin="0 4 8 0" Background="#0D000000" CornerRadius="4">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <TextBlock Text="{Binding Column}" FontWeight="SemiBold" />
+                  <TextBlock Text="{Binding Value}" />
+                  <Button Content="✕"
+                          Command="{Binding DataContext.RemoveChipCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding ColumnId}"
+                          Padding="4" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Border>
+
+    <DataGrid Grid.Row="3"
+              Grid.Column="0"
+              x:Name="Grid"
+              ItemsSource="{Binding View}"
+              AutoGenerateColumns="False"
+              SelectionMode="Extended"
+              CanUserSortColumns="True"
+              FilteringModel="{Binding FilteringModel}"
+              GridLinesVisibility="Horizontal">
+      <DataGrid.Columns>
+        <DataGridTextColumn Width="*"
+                            Header="Service"
+                            Binding="{Binding Service}"
+                            FilterFlyout="{StaticResource ServiceFilterFlyout}" />
+
+        <DataGridTextColumn Width="140"
+                            Header="Status"
+                            Binding="{Binding Status}"
+                            FilterFlyout="{StaticResource StatusFilterFlyout}" />
+
+        <DataGridTextColumn Width="140"
+                            Header="Region"
+                            Binding="{Binding Region}"
+                            FilterFlyout="{StaticResource RegionFilterFlyout}" />
+
+        <DataGridTextColumn Header="Ring"
+                            Binding="{Binding Ring}"
+                            Width="80" />
+
+        <DataGridTextColumn Width="150"
+                            Header="Started (UTC)"
+                            Binding="{Binding Started, StringFormat='{}{0:MM-dd HH:mm}'}"
+                            FilterFlyout="{StaticResource StartedFilterFlyout}" />
+
+        <DataGridTextColumn Width="120"
+                            Header="Error Rate"
+                            Binding="{Binding ErrorRate, StringFormat='{}{0:P2}'}"
+                            FilterFlyout="{StaticResource ErrorFilterFlyout}" />
+
+        <DataGridTextColumn Header="Incidents"
+                            Binding="{Binding Incidents}"
+                            Width="90" />
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <StackPanel Grid.Row="3"
+                Grid.Column="1"
+                Margin="12 0 0 0"
+                Spacing="10">
+      <Border Padding="10" Background="#0D000000" CornerRadius="6">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Filtering descriptors" FontWeight="Bold" />
+          <ItemsControl ItemsSource="{Binding DescriptorSummaries}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Vertical" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="6" Margin="0 3" Background="#08000000" CornerRadius="4">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding Column}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Operator}" />
+                    <TextBlock Text="{Binding Value}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="10" Background="#0D000000" CornerRadius="6">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Upstream filters (DynamicData)" FontWeight="Bold" />
+          <ItemsControl ItemsSource="{Binding UpstreamFilters}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Vertical" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="6" Margin="0 3" Background="#08000000" CornerRadius="4">
+                  <TextBlock Text="{Binding}" />
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Grid>
+</UserControl>
