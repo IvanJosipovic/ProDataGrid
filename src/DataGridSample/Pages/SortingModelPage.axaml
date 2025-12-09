@@ -1,0 +1,105 @@
+<!--
+  Copyright (c) Wiesław Šoltés. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.SortingModelPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:sorting="clr-namespace:Avalonia.Controls.DataGridSorting;assembly=Avalonia.Controls.DataGrid"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    d:DesignHeight="600"
+    d:DesignWidth="1000"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:SortingModelViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto"
+        ColumnDefinitions="*,*"
+        Margin="12">
+    <StackPanel Orientation="Horizontal"
+                Spacing="12"
+                Grid.ColumnSpan="2">
+      <CheckBox Content="Grid owns sort descriptions"
+                IsChecked="{Binding OwnsSortDescriptions, Mode=TwoWay}" />
+      <CheckBox Content="Multi-sort with Shift"
+                IsChecked="{Binding MultiSortEnabled, Mode=TwoWay}" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock VerticalAlignment="Center" Text="Cycle:" />
+        <ComboBox Width="220"
+                  SelectedItem="{Binding SortCycleMode, Mode=TwoWay}">
+          <sorting:SortCycleMode>AscendingDescendingNone</sorting:SortCycleMode>
+          <sorting:SortCycleMode>AscendingDescending</sorting:SortCycleMode>
+        </ComboBox>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="8"
+                Margin="0 8"
+                Grid.Row="1"
+                Grid.ColumnSpan="2">
+      <Button Content="Apply programmatic sort (Name ↑, Population ↓)"
+              Command="{Binding ApplySortCommand}" />
+      <Button Content="Push external sorts (Region ↓ then Region ↑ duplicate)"
+              Command="{Binding ExternalSortCommand}" />
+      <Button Content="Clear sorts"
+              Command="{Binding ClearSortsCommand}" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              x:Name="Grid"
+              Grid.Column="0"
+              Grid.ColumnSpan="2"
+              ItemsSource="{Binding ItemsView}"
+              OwnsSortDescriptions="True"
+              IsMultiSortEnabled="True"
+              SortCycleMode="AscendingDescendingNone"
+              SelectionMode="Extended"
+              CanUserSortColumns="True"
+              AreRowGroupHeadersFrozen="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" SortMemberPath="Name"/>
+        <DataGridTextColumn Header="Region" Binding="{Binding Region}" SortMemberPath="Region"/>
+        <DataGridTextColumn Header="Population" Binding="{Binding Population}" SortMemberPath="Population"/>
+        <DataGridTextColumn Header="Area" Binding="{Binding Area}" SortMemberPath="Area"/>
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <StackPanel Grid.Row="3"
+                Grid.Column="0"
+                Margin="0 8 8 0"
+                Spacing="4">
+      <TextBlock Text="Active Sort Descriptors" FontWeight="Bold" />
+      <ItemsControl ItemsSource="{Binding ItemsView.SortDescriptions}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate>
+            <StackPanel Orientation="Vertical" />
+          </ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <Border Padding="4" Margin="0 2" Background="#1A000000" CornerRadius="4">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <TextBlock Text="{Binding PropertyPath}" />
+                <TextBlock Text="→" />
+                <TextBlock Text="{Binding Direction}" />
+                <TextBlock Text="{Binding SourceComparer, StringFormat=Comparer}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <TextBlock Grid.Row="3"
+               Grid.Column="1"
+               Margin="8 8 0 0"
+               TextWrapping="Wrap"
+               Text="Use the controls above to try: click headers to toggle Asc/Desc/None, Shift+click for multi-sort, or switch to observe mode and push external sorts. The list mirrors the view's SortDescriptions so you can see how the sorting model reconciles changes."/>
+  </Grid>
+</UserControl>

@@ -367,7 +367,8 @@ namespace Avalonia.Controls
                 return;
             }
 
-            var snapshot = _selectionModelSnapshot;
+            var snapshot = _selectionModelSnapshot
+                ?? _selectionModelAdapter.SelectedItemsView.Cast<object>().ToList();
             if (snapshot == null || snapshot.Count == 0)
             {
                 return;
@@ -408,6 +409,41 @@ namespace Avalonia.Controls
             else
             {
                 _selectionModelSnapshot = null;
+            }
+        }
+
+        private void RestoreSelectionFromSnapshot()
+        {
+            if (_selectionModelAdapter == null)
+            {
+                return;
+            }
+
+            var snapshot = _selectionModelSnapshot;
+            if (snapshot == null || snapshot.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                _syncingSelectionModel = true;
+                using (_selectionModelAdapter.Model.BatchUpdate())
+                {
+                    _selectionModelAdapter.Model.Clear();
+                    foreach (var item in snapshot)
+                    {
+                        int index = GetSelectionModelIndexOfItem(item);
+                        if (index >= 0)
+                        {
+                            _selectionModelAdapter.Select(index);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _syncingSelectionModel = false;
             }
         }
 

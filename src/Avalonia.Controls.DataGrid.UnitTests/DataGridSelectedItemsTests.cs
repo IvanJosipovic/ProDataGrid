@@ -5,11 +5,14 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridSorting;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
 
@@ -213,6 +216,64 @@ public class DataGridSelectedItemsTests
     }
 
     [AvaloniaFact]
+    public void Selection_Preserved_When_Sorting_Model_Reorders_Items()
+    {
+        var items = new ObservableCollection<SortableItem>
+        {
+            new SortableItem(3),
+            new SortableItem(1),
+            new SortableItem(2)
+        };
+        var view = new DataGridCollectionView(items);
+        var grid = CreateSortableGrid(view);
+
+        grid.UpdateLayout();
+
+        grid.SelectedItem = items[2];
+        grid.UpdateLayout();
+
+        var selected = Assert.IsType<SortableItem>(grid.SelectedItem);
+        var model = grid.SortingModel;
+        var column = grid.Columns[0];
+
+        model.Toggle(new SortingDescriptor(column, ListSortDirection.Ascending, column.SortMemberPath, culture: view.Culture));
+        grid.UpdateLayout();
+
+        Assert.Same(selected, grid.SelectedItem);
+        Assert.Contains(selected, grid.SelectedItems.Cast<object>());
+        Assert.Equal(view.IndexOf(selected), grid.SelectedIndex);
+    }
+
+    [AvaloniaFact]
+    public void Selection_Preserved_When_External_Sort_In_Observe_Mode()
+    {
+        var items = new ObservableCollection<SortableItem>
+        {
+            new SortableItem(3),
+            new SortableItem(1),
+            new SortableItem(2)
+        };
+        var view = new DataGridCollectionView(items);
+        var grid = CreateSortableGrid(view);
+
+        grid.OwnsSortDescriptions = false;
+        grid.UpdateLayout();
+
+        grid.SelectedItem = items[1];
+        grid.UpdateLayout();
+
+        var selected = grid.SelectedItem;
+
+        view.SortDescriptions.Add(DataGridSortDescription.FromPath(nameof(SortableItem.Id), ListSortDirection.Descending));
+        Dispatcher.UIThread.RunJobs();
+        grid.UpdateLayout();
+
+        Assert.Same(selected, grid.SelectedItem);
+        Assert.Contains(selected, grid.SelectedItems.Cast<object>());
+        Assert.Equal(view.IndexOf(selected), grid.SelectedIndex);
+    }
+
+    [AvaloniaFact]
     public void SelectedItems_Survive_Repeated_Adds_And_Sorts()
     {
         var items = new ObservableCollection<SortableItem>(Enumerable.Range(1, 6).Select(i => new SortableItem(i)));
@@ -329,6 +390,8 @@ public class DataGridSelectedItemsTests
     {
         return grid.GetSelfAndVisualDescendants().OfType<DataGridRow>().ToList();
     }
+
+    private static ISortingModel GetSortingModel(DataGrid grid) => grid.SortingModel;
 
     private static void ReorderWithSelectionPreserve(IList<string> items, IList<string> ordered, DataGrid grid)
     {

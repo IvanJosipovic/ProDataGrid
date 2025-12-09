@@ -85,6 +85,8 @@ namespace Avalonia.Controls
                         newCollectionView);
                 }
 
+                UpdateSortingAdapterView();
+
                 if (DataConnection.DataSource != null)
                 {
                     // Setup the column headers

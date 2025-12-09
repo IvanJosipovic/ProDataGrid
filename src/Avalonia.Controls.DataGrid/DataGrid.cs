@@ -32,6 +32,7 @@ using Avalonia.Controls.Utils;
 using Avalonia.Layout;
 using Avalonia.Controls.Metadata;
 using Avalonia.Input.GestureRecognizers;
+using Avalonia.Controls.DataGridSorting;
 using Avalonia.Styling;
 using Avalonia.Reactive;
 
@@ -114,6 +115,10 @@ namespace Avalonia.Controls
         // used to store the current column during a Reset
 
         // this is a workaround only for the scenarios where we need it, it is not all encompassing nor always updated
+        private Avalonia.Controls.DataGridSorting.ISortingModel _sortingModel;
+        private Avalonia.Controls.DataGridSorting.DataGridSortingAdapter _sortingAdapter;
+        private Avalonia.Controls.DataGridSorting.IDataGridSortingModelFactory _sortingModelFactory;
+        private Avalonia.Controls.DataGridSorting.IDataGridSortingAdapterFactory _sortingAdapterFactory;
 
         // Nth row of rows 0..N that make up the RowHeightEstimate
         private int _lastEstimatedRow;
@@ -212,6 +217,8 @@ namespace Avalonia.Controls
             DataConnection = new DataGridDataConnection(this);
             _showDetailsTable = new IndexToValueTable<bool>();
             _collapsedSlotsTable = new IndexToValueTable<bool>();
+
+            SetSortingModel(CreateSortingModel(), initializing: true);
 
             AnchorSlot = -1;
             _lastEstimatedRow = -1;
@@ -886,6 +893,112 @@ namespace Avalonia.Controls
             set => _selectionModelFactory = value;
         }
 
+        /// <summary>
+        /// Creates the default sorting model for the grid. Override or set <see cref="SortingModelFactory"/>
+        /// before construction completes to supply a custom implementation.
+        /// </summary>
+        protected virtual ISortingModel CreateSortingModel()
+        {
+            return _sortingModelFactory?.Create() ?? new SortingModel();
+        }
+
+        /// <summary>
+        /// Optional factory used when creating the default sorting model.
+        /// </summary>
+        public IDataGridSortingModelFactory SortingModelFactory
+        {
+            get => _sortingModelFactory;
+            set => _sortingModelFactory = value;
+        }
+
+        /// <summary>
+        /// Optional factory for creating the sorting adapter. Use this to plug in a custom adapter
+        /// (e.g., DynamicData/server-side sorting) without subclassing <see cref="DataGrid"/>.
+        /// </summary>
+        public IDataGridSortingAdapterFactory SortingAdapterFactory
+        {
+            get => _sortingAdapterFactory;
+            set => _sortingAdapterFactory = value;
+        }
+
+        /// <summary>
+        /// Enables or disables multi-column sorting (Shift + click).
+        /// </summary>
+        public bool IsMultiSortEnabled
+        {
+            get => _sortingModel?.MultiSort ?? true;
+            set
+            {
+                if (_sortingModel != null)
+                {
+                    _sortingModel.MultiSort = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Controls the sort direction cycle (two-state or three-state).
+        /// </summary>
+        public SortCycleMode SortCycleMode
+        {
+            get => _sortingModel?.CycleMode ?? SortCycleMode.AscendingDescendingNone;
+            set
+            {
+                if (_sortingModel != null)
+                {
+                    _sortingModel.CycleMode = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// When true the sorting model overwrites the view's SortDescriptions; when false it observes external changes.
+        /// </summary>
+        public bool OwnsSortDescriptions
+        {
+            get => _sortingModel?.OwnsViewSorts ?? true;
+            set
+            {
+                if (_sortingModel != null)
+                {
+                    _sortingModel.OwnsViewSorts = value;
+                    _sortingAdapter?.RefreshOwnership();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets the sorting model that drives column sorting.
+        /// </summary>
+        public ISortingModel SortingModel
+        {
+            get => _sortingModel;
+            set => SetSortingModel(value);
+        }
+
+        /// <summary>
+        /// Creates the adapter that connects the sorting model to the grid.
+        /// </summary>
+        /// <param name="model">Sorting model instance.</param>
+        /// <returns>Adapter that will bridge the model to the collection view and grid.</returns>
+        protected virtual DataGridSortingAdapter CreateSortingAdapter(ISortingModel model)
+        {
+            var adapter = _sortingAdapterFactory?.Create(this, model)
+                ?? new DataGridSortingAdapter(
+                    model,
+                    () => ColumnsItemsInternal,
+                    OnSortingAdapterApplying,
+                    OnSortingAdapterApplied);
+
+            if (adapter == null)
+            {
+                throw new InvalidOperationException("Sorting adapter factory returned null.");
+            }
+
+            adapter.AttachLifecycle(OnSortingAdapterApplying, OnSortingAdapterApplied);
+            return adapter;
+        }
+
         private void SetSelectionModel(ISelectionModel model, bool initializing = false)
         {
             var newModel = model ?? CreateSelectionModel();
@@ -943,6 +1056,122 @@ namespace Avalonia.Controls
                     Array.Empty<object>());
                 OnSelectionChanged(args);
             }
+        }
+
+        private void SortingModel_SortingChanged(object sender, SortingChangedEventArgs e)
+        {
+            RefreshColumnSortStates();
+        }
+
+        private void OnSortingAdapterApplying()
+        {
+            UpdateSelectionSnapshot();
+        }
+
+        private void OnSortingAdapterApplied()
+        {
+            if (DataConnection?.CollectionView != null)
+            {
+                RefreshRowsAndColumns(clearRows: false);
+                RestoreSelectionFromSnapshot();
+                RefreshSelectionFromModel();
+                RefreshColumnSortStates();
+            }
+        }
+
+        private void UpdateSortingAdapterView()
+        {
+            _sortingAdapter?.AttachView(DataConnection?.CollectionView);
+            RefreshColumnSortStates();
+        }
+
+        internal void RefreshColumnSortStates()
+        {
+            if (ColumnsItemsInternal == null)
+            {
+                return;
+            }
+
+            foreach (DataGridColumn column in ColumnsItemsInternal)
+            {
+                column?.HeaderCell?.UpdatePseudoClasses();
+            }
+        }
+
+        private void SetSortingModel(ISortingModel model, bool initializing = false)
+        {
+            var oldModel = _sortingModel;
+            var newModel = model ?? CreateSortingModel();
+
+            if (ReferenceEquals(_sortingModel, newModel))
+            {
+                return;
+            }
+
+            bool ownsViewSorts = oldModel?.OwnsViewSorts ?? newModel.OwnsViewSorts;
+            bool multiSort = oldModel?.MultiSort ?? newModel.MultiSort;
+            var cycleMode = oldModel?.CycleMode ?? newModel.CycleMode;
+
+            _sortingAdapter?.Dispose();
+            _sortingAdapter = null;
+
+            if (oldModel != null)
+            {
+                oldModel.SortingChanged -= SortingModel_SortingChanged;
+            }
+
+            _sortingModel = newModel;
+            _sortingModel.MultiSort = multiSort;
+            _sortingModel.CycleMode = cycleMode;
+            _sortingModel.OwnsViewSorts = ownsViewSorts;
+            _sortingModel.SortingChanged += SortingModel_SortingChanged;
+
+            _sortingAdapter = CreateSortingAdapter(_sortingModel);
+
+            if (!initializing)
+            {
+                UpdateSortingAdapterView();
+            }
+
+            RaisePropertyChanged(SortingModelProperty, oldModel, _sortingModel);
+        }
+
+        internal SortingDescriptor GetSortingDescriptorForColumn(DataGridColumn column)
+        {
+            if (column == null || _sortingModel == null)
+            {
+                return null;
+            }
+
+            foreach (var descriptor in _sortingModel.Descriptors)
+            {
+                if (ReferenceEquals(descriptor.ColumnId, column))
+                {
+                    return descriptor;
+                }
+
+                if (!string.IsNullOrEmpty(descriptor.PropertyPath))
+                {
+                    var propertyName = column.GetSortPropertyName();
+                    if (!string.IsNullOrEmpty(propertyName) &&
+                        string.Equals(descriptor.PropertyPath, propertyName, StringComparison.Ordinal))
+                    {
+                        return descriptor;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        internal ListSortDirection? GetColumnSortDirection(DataGridColumn column)
+        {
+            return GetSortingDescriptorForColumn(column)?.Direction;
+        }
+
+        internal void ProcessSort(DataGridColumn column, KeyModifiers keyModifiers, ListSortDirection? forcedDirection)
+        {
+            _sortingAdapter?.HandleHeaderClick(column, keyModifiers, forcedDirection);
         }
 
         private IList GetSelectedItemsViewOrBinding(DataGridSelectionModelAdapter oldAdapter)

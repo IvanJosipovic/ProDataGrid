@@ -7,6 +7,7 @@
 using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Selection;
+using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Media;
@@ -537,6 +538,17 @@ namespace Avalonia.Controls
                 nameof(Selection),
                 o => o.Selection,
                 (o, v) => o.Selection = v,
+                defaultBindingMode: BindingMode.TwoWay);
+
+        /// <summary>
+        /// Gets or sets the sorting model that drives column sorting. If not provided, a default
+        /// sorting model is created.
+        /// </summary>
+        public static readonly DirectProperty<DataGrid, ISortingModel> SortingModelProperty =
+            AvaloniaProperty.RegisterDirect<DataGrid, ISortingModel>(
+                nameof(SortingModel),
+                o => o.SortingModel,
+                (o, v) => o.SortingModel = v,
                 defaultBindingMode: BindingMode.TwoWay);
 
         public static readonly StyledProperty<DataGridClipboardCopyMode> ClipboardCopyModeProperty =

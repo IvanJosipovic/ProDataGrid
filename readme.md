@@ -187,6 +187,105 @@ ProDataGrid now routes row selection through Avalonia’s `SelectionModel<object
 - Multi-select gestures and `SelectionMode` map to the model (`SelectionMode=Single` ↔ `SingleSelect=true`).
 - A thin adapter keeps row index ↔ slot mapping internal, so custom selection models can be injected later.
 
+## Sorting model integration
+
+Sorting is now driven by a dedicated `ISortingModel` and adapter instead of directly mutating `SortDescriptions` from the header. This keeps sort state explicit, pluggable, and testable:
+
+- Configure gesture policies on the model via `IsMultiSortEnabled`, `SortCycleMode` (2- or 3-state), and `OwnsSortDescriptions` (strict vs observe external changes).
+- Per-column comparers/culture and `SortMemberPath` flow into `SortingDescriptor`s; duplicate-column guards and batch updates prevent drift.
+- Plug in a custom model without subclassing the grid: set `SortingModel` or `SortingModelFactory` before use to inject alternate sort pipelines (e.g., server-side).
+- Plug in a custom adapter without subclassing the grid: set `SortingAdapterFactory` to supply a specialized adapter (e.g., DynamicData/server-side) that can short-circuit local `SortDescriptions` churn via `TryApplyModelToView`.
+- The adapter mirrors `Sorting` ↔ `DataGridCollectionView.SortDescriptions`, logging/rolling back on failures and refreshing rows while preserving selection snapshots.
+- Gestures are unchanged (click/shift/meta), but glyphs and programmatic updates now reflect the model, so tests and automation can drive sorting through the same surface.
+- Centralized descriptors plus `SortingChanging/SortingChanged` events make sort state observable; batch updates and duplicate-column guards prevent drift.
+- Observe mode keeps the model in sync when `SortDescriptions` is mutated externally; strict mode keeps the model authoritative.
+- Per-column `CustomSortComparer`/culture/paths are preserved in `SortingDescriptor`s, so custom comparers are first-class (including natural/ordinal/culture-aware string sorts).
+- Sample: see `Sorting Model Playground` in `src/DataGridSample` for presets, external-sort reconciliation, and event logging.
+
+### Using SortingModel with DataGrid
+
+Bind a custom sorting model or factory just like selection:
+
+```xml
+<DataGrid ItemsSource="{Binding Items}"
+          SortingModel="{Binding MySortingModel}"
+          IsMultiSortEnabled="True"
+          SortCycleMode="AscendingDescendingNone"
+          OwnsSortDescriptions="True">
+  <DataGrid.Columns>
+    <DataGridTextColumn Header="Name"
+                        Binding="{Binding Name}"
+                        SortMemberPath="Name" />
+    <DataGridTextColumn Header="Status"
+                        Binding="{Binding Status}"
+                        SortMemberPath="Status"
+                        CustomSortComparer="{Binding StatusComparer}" />
+  </DataGrid.Columns>
+</DataGrid>
+```
+
+```csharp
+public ISortingModel MySortingModel { get; } = new SortingModel
+{
+    MultiSort = true,
+    CycleMode = SortCycleMode.AscendingDescendingNone,
+    OwnsViewSorts = true
+};
+
+public IComparer StatusComparer { get; } = new StatusComparer();
+
+public void ApplyPreset()
+{
+    MySortingModel.Apply(new[]
+    {
+        new SortingDescriptor("Status", ListSortDirection.Ascending, "Status", StatusComparer),
+        new SortingDescriptor("Name", ListSortDirection.Ascending, "Name")
+    });
+}
+```
+
+Or swap the model creation globally:
+
+```csharp
+dataGrid.SortingModelFactory = new MyCustomSortingFactory();
+```
+
+### DynamicData integration
+
+To keep sorting upstream in a DynamicData pipeline (no local `SortDescriptions` churn), supply a custom adapter factory and feed a comparer subject into `Sort`:
+
+```csharp
+var source = new SourceList<Deployment>();
+source.AddRange(Deployment.CreateSeed());
+
+var adapterFactory = new DynamicDataSortingAdapterFactory(log => Debug.WriteLine(log));
+var comparerSubject = new BehaviorSubject<IComparer<Deployment>>(adapterFactory.SortComparer);
+
+source.Connect()
+      .Sort(comparerSubject) // DynamicData performs the sort
+      .Bind(out _view)
+      .Subscribe();
+
+SortingModel sortingModel = new SortingModel
+{
+    MultiSort = true,
+    CycleMode = SortCycleMode.AscendingDescendingNone,
+    OwnsViewSorts = true
+};
+
+sortingModel.SortingChanged += (_, e) =>
+{
+    adapterFactory.UpdateComparer(e.NewDescriptors);
+    comparerSubject.OnNext(adapterFactory.SortComparer);
+};
+
+// In code-behind (since SortingAdapterFactory cannot be bound directly in XAML):
+grid.SortingModel = sortingModel;
+grid.SortingAdapterFactory = adapterFactory;
+```
+
+Header clicks update the `SortingModel`; the custom adapter overrides `TryApplyModelToView`, so instead of touching `SortDescriptions` it rebuilds a `SortExpressionComparer` chain and pushes it to the DynamicData `Sort` operator. The grid still shows glyphs/state from the `SortingModel`, but the actual sort happens in the DynamicData pipeline.
+
 ## Samples
 
 - The sample app (`src/DataGridSample`) includes pages for pixel-perfect columns, frozen columns, large datasets, and variable-height scenarios (`Pages/*Page.axaml`).

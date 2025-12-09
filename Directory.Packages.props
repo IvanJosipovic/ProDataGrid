@@ -16,6 +16,8 @@
     <PackageVersion Include="Avalonia.Fonts.Inter" Version="$(AvaloniaVersion)" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="$(AvaloniaVersion)" />
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="$(AvaloniaVersion)" />
+    <PackageVersion Include="DynamicData" Version="9.4.1" />
+    <PackageVersion Include="System.Reactive" Version="6.0.1" />
   </ItemGroup>
 
   <!-- Test packages -->

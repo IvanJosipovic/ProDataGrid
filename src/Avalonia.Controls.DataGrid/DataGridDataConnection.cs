@@ -790,16 +790,7 @@ namespace Avalonia.Controls
 
         private void CollectionView_SortDescriptions_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            if (_owner.ColumnsItemsInternal.Count == 0)
-            {
-                return;
-            }
-
-            // refresh sort description
-            foreach (DataGridColumn column in _owner.ColumnsItemsInternal)
-            {
-                column.HeaderCell.UpdatePseudoClasses();
-            }
+            _owner.RefreshColumnSortStates();
         }
 
         private void NotifyingDataSource_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)

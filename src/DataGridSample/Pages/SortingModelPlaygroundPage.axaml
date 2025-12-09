@@ -1,0 +1,177 @@
+<!--
+  Copyright (c) Wiesław Šoltés. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.SortingModelPlaygroundPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    xmlns:sorting="clr-namespace:Avalonia.Controls.DataGridSorting;assembly=Avalonia.Controls.DataGrid"
+    d:DesignHeight="720"
+    d:DesignWidth="1100"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:SortingModelPlaygroundViewModel />
+  </UserControl.DataContext>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*"
+        ColumnDefinitions="2*,*">
+    <StackPanel Grid.ColumnSpan="2"
+                Spacing="4">
+      <TextBlock Text="Sorting model playground"
+                 FontWeight="Bold"
+                 FontSize="18" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Mix comparer-based and property-based sorts, validate changes, and watch the sorting model stay in sync with the collection view. Click headers or run the presets to see the guard and synchronization in action." />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Grid.ColumnSpan="2"
+                Orientation="Horizontal"
+                Spacing="12"
+                Margin="0 8">
+      <CheckBox Content="Grid owns sort descriptions"
+                IsChecked="{Binding OwnsSortDescriptions}" />
+      <CheckBox Content="Multi-sort with Shift"
+                IsChecked="{Binding MultiSortEnabled}" />
+      <CheckBox Content="Pin Status as primary"
+                IsChecked="{Binding PinStatusPrimary}" />
+      <StackPanel Orientation="Horizontal"
+                  Spacing="6">
+        <TextBlock VerticalAlignment="Center" Text="Cycle:" />
+        <ComboBox Width="220"
+                  SelectedItem="{Binding SortCycleMode}">
+          <sorting:SortCycleMode>AscendingDescendingNone</sorting:SortCycleMode>
+          <sorting:SortCycleMode>AscendingDescending</sorting:SortCycleMode>
+        </ComboBox>
+      </StackPanel>
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              Grid.Column="0"
+              x:Name="Grid"
+              ItemsSource="{Binding ItemsView}"
+              AutoGenerateColumns="False"
+              SelectionMode="Extended"
+              CanUserSortColumns="True"
+              GridLinesVisibility="Horizontal"
+              AreRowGroupHeadersFrozen="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Service (natural)"
+                            Binding="{Binding Service}"
+                            SortMemberPath="Service"
+                            Width="*"/>
+        <DataGridTextColumn Header="Status"
+                            Binding="{Binding Status}"
+                            SortMemberPath="Status"
+                            Width="140"/>
+        <DataGridTextColumn Header="Ring"
+                            Binding="{Binding Ring}"
+                            SortMemberPath="Ring"
+                            Width="90"/>
+        <DataGridTextColumn Header="Region"
+                            Binding="{Binding Region}"
+                            SortMemberPath="Region"
+                            Width="120"/>
+        <DataGridTextColumn Header="Started (UTC)"
+                            Binding="{Binding Started, StringFormat='{}{0:MM-dd HH:mm}'}"
+                            SortMemberPath="Started"
+                            Width="140"/>
+        <DataGridTextColumn Header="Error Rate"
+                            Binding="{Binding ErrorRate, StringFormat='{}{0:P2}'}"
+                            SortMemberPath="ErrorRate"
+                            Width="110"/>
+        <DataGridTextColumn Header="Incidents"
+                            Binding="{Binding Incidents}"
+                            SortMemberPath="Incidents"
+                            Width="90"/>
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <StackPanel Grid.Row="2"
+                Grid.Column="1"
+                Margin="12 0 0 0"
+                Spacing="10">
+      <Border Padding="10" Background="#0D000000" CornerRadius="6">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Presets and guards" FontWeight="Bold" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Status -> Ring -> Newest"
+                    Command="{Binding ApplyStatusPresetCommand}" />
+            <Button Content="Error rate -> Incidents"
+                    Command="{Binding ApplyPerformancePresetCommand}" />
+            <Button Content="Region -> Service -> Newest"
+                    Command="{Binding ApplyRegionPresetCommand}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Content="Add service tiebreaker"
+                    Command="{Binding AddServiceTiebreakerCommand}" />
+            <Button Content="Push external Region/Error sorts"
+                    Command="{Binding PushExternalSortsCommand}" />
+            <Button Content="Clear sorts"
+                    Command="{Binding ClearSortsCommand}" />
+          </StackPanel>
+          <TextBlock TextWrapping="Wrap"
+                     Text="Click headers to toggle, Shift+click to multi-sort. When pinning is on, attempts to drop Status get canceled in SortingChanging." />
+        </StackPanel>
+      </Border>
+
+      <Border Padding="10" Background="#0D000000" CornerRadius="6">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Sorting model descriptors" FontWeight="Bold" />
+          <ItemsControl ItemsSource="{Binding DescriptorSummaries}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Vertical" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="6" Margin="0 3" Background="#08000000" CornerRadius="4">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding Column}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Direction}" />
+                    <TextBlock Text="{Binding Kind}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+
+          <TextBlock Text="View SortDescriptions" FontWeight="Bold" Margin="0 8 0 0" />
+          <ItemsControl ItemsSource="{Binding ItemsView.SortDescriptions}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel Orientation="Vertical" />
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Border Padding="6" Margin="0 3" Background="#08000000" CornerRadius="4">
+                  <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="{Binding PropertyPath, TargetNullValue=Comparer}" />
+                    <TextBlock Text="{Binding Direction}" />
+                    <TextBlock Text="{Binding SourceComparer}" />
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="10" Background="#0D000000" CornerRadius="6">
+        <StackPanel Spacing="6">
+          <TextBlock Text="Sorting events log" FontWeight="Bold" />
+          <ListBox ItemsSource="{Binding SortLog}"
+                   Height="220" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Grid>
+</UserControl>

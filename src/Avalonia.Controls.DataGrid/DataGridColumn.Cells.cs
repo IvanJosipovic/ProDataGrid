@@ -182,21 +182,36 @@ namespace Avalonia.Controls
         /// </summary>
         internal DataGridSortDescription GetSortDescription()
         {
-            if (OwningGrid != null
-            && OwningGrid.DataConnection != null
-            && OwningGrid.DataConnection.SortDescriptions != null)
+            if (OwningGrid != null)
             {
-                if (CustomSortComparer != null)
+                var descriptor = OwningGrid.GetSortingDescriptorForColumn(this);
+                if (descriptor != null)
                 {
-                    return
-                    OwningGrid.DataConnection.SortDescriptions
-                    .OfType<DataGridComparerSortDescription>()
-                    .FirstOrDefault(s => s.SourceComparer == CustomSortComparer);
+                    if (descriptor.HasComparer)
+                    {
+                        return DataGridSortDescription.FromComparer(descriptor.Comparer, descriptor.Direction);
+                    }
+
+                    if (descriptor.HasPropertyPath)
+                    {
+                        return DataGridSortDescription.FromPath(descriptor.PropertyPath, descriptor.Direction, descriptor.Culture);
+                    }
                 }
 
-                string propertyName = GetSortPropertyName();
+                if (OwningGrid.DataConnection != null
+                    && OwningGrid.DataConnection.SortDescriptions != null)
+                {
+                    if (CustomSortComparer != null)
+                    {
+                        return OwningGrid.DataConnection.SortDescriptions
+                            .OfType<DataGridComparerSortDescription>()
+                            .FirstOrDefault(s => s.SourceComparer == CustomSortComparer);
+                    }
 
-                return OwningGrid.DataConnection.SortDescriptions.FirstOrDefault(s => s.HasPropertyPath && s.PropertyPath == propertyName);
+                    string propertyName = GetSortPropertyName();
+
+                    return OwningGrid.DataConnection.SortDescriptions.FirstOrDefault(s => s.HasPropertyPath && s.PropertyPath == propertyName);
+                }
             }
 
             return null;
