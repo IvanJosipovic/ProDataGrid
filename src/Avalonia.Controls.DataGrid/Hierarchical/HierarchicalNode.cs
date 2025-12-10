@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace Avalonia.Controls.DataGridHierarchical
 {
@@ -120,6 +121,11 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// Cached handler to detach collection change subscription.
         /// </summary>
         internal NotifyCollectionChangedEventHandler? ChildrenChangedHandler { get; set; }
+
+        /// <summary>
+        /// Tracks in-flight load cancellation for this node.
+        /// </summary>
+        internal CancellationTokenSource? LoadCancellation { get; set; }
 
         /// <summary>
         /// Tracks whether children were materialized.

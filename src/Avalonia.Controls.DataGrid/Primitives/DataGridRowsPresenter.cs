@@ -28,6 +28,7 @@ namespace Avalonia.Controls.Primitives
     sealed partial class DataGridRowsPresenter : Panel, IChildIndexProvider
     {
         private EventHandler<ChildIndexChangedEventArgs>? _childIndexChanged;
+        private int _virtualizationGuardDepth;
 
         public DataGridRowsPresenter()
         {
@@ -38,6 +39,23 @@ namespace Avalonia.Controls.Primitives
         {
             get;
             set;
+        }
+
+        internal bool VirtualizationGuardActive => _virtualizationGuardDepth > 0;
+
+        internal IDisposable BeginVirtualizationGuard()
+        {
+            _virtualizationGuardDepth++;
+            CancelPrefetch();
+
+            return new ActionDisposable(() =>
+            {
+                _virtualizationGuardDepth = Math.Max(0, _virtualizationGuardDepth - 1);
+                if (_virtualizationGuardDepth == 0)
+                {
+                    InvalidateMeasure();
+                }
+            });
         }
 
         #region IChildIndexProvider Implementation
@@ -256,6 +274,22 @@ namespace Avalonia.Controls.Primitives
             }
 
             e.Handled = e.Handled || OwningGrid.UpdateScroll(-e.Delta);
+        }
+
+        private sealed class ActionDisposable : IDisposable
+        {
+            private Action _onDispose;
+
+            public ActionDisposable(Action onDispose)
+            {
+                _onDispose = onDispose ?? throw new ArgumentNullException(nameof(onDispose));
+            }
+
+            public void Dispose()
+            {
+                _onDispose?.Invoke();
+                _onDispose = null;
+            }
         }
 
 #if DEBUG

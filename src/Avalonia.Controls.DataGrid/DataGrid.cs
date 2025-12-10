@@ -1317,9 +1317,13 @@ namespace Avalonia.Controls
             }
 
             var indexMap = e.IndexMap;
-            RemapSelectionForHierarchyChange(indexMap);
-            RefreshRowsAndColumns(clearRows: false);
-            RefreshSelectionFromModel();
+            using (_hierarchicalModel?.BeginVirtualizationGuard())
+            using (_rowsPresenter?.BeginVirtualizationGuard())
+            {
+                RemapSelectionForHierarchyChange(indexMap);
+                RefreshRowsAndColumns(clearRows: false);
+                RefreshSelectionFromModel();
+            }
         }
 
         private void RunHierarchicalAction(Action action)

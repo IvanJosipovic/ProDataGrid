@@ -438,7 +438,7 @@ namespace Avalonia.Controls.Primitives
         /// </summary>
         internal void SchedulePrefetch()
         {
-            if (_prefetchScheduled || OwningGrid == null || !OwningGrid.UseLogicalScrollable)
+            if (_prefetchScheduled || OwningGrid == null || !OwningGrid.UseLogicalScrollable || VirtualizationGuardActive)
                 return;
 
             // Only prefetch if offset has changed significantly
@@ -460,7 +460,7 @@ namespace Avalonia.Controls.Primitives
         {
             _prefetchScheduled = false;
 
-            if (OwningGrid == null || !OwningGrid.UseLogicalScrollable)
+            if (OwningGrid == null || !OwningGrid.UseLogicalScrollable || VirtualizationGuardActive)
                 return;
 
             var displayData = OwningGrid.DisplayData;

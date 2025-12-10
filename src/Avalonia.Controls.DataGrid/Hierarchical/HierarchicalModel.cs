@@ -9,6 +9,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Collections;
 
 namespace Avalonia.Controls.DataGridHierarchical
 {
@@ -164,6 +165,17 @@ namespace Avalonia.Controls.DataGridHierarchical
         public Exception Error { get; }
     }
 
+    public class HierarchicalNodeRetryEventArgs : HierarchicalNodeEventArgs
+    {
+        public HierarchicalNodeRetryEventArgs(HierarchicalNode node, TimeSpan delay)
+            : base(node)
+        {
+            Delay = delay;
+        }
+
+        public TimeSpan Delay { get; }
+    }
+
     public class HierarchyChangedEventArgs : HierarchicalNodeEventArgs
     {
         public HierarchyChangedEventArgs(HierarchicalNode node, NotifyCollectionChangedAction action)
@@ -223,6 +235,8 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         event EventHandler<HierarchicalNodeLoadFailedEventArgs>? NodeLoadFailed;
 
+        event EventHandler<HierarchicalNodeRetryEventArgs>? NodeLoadRetryScheduled;
+
         /// <summary>
         /// Raised when the hierarchy mutates (structure changes), independent from visible flattening changes.
         /// </summary>
@@ -255,6 +269,11 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// <param name="item">Item instance.</param>
         /// <returns>Visible index or -1.</returns>
         int IndexOf(object item);
+
+        /// <summary>
+        /// Creates a guard scope to throttle virtualization-sensitive work (e.g., rapid expand/collapse).
+        /// </summary>
+        IDisposable BeginVirtualizationGuard();
 
         /// <summary>
         /// Expands a node and realizes its visible children.
@@ -357,6 +376,9 @@ namespace Avalonia.Controls.DataGridHierarchical
         private readonly List<HierarchicalNode> _flattened;
         private readonly IReadOnlyList<HierarchicalNode> _flattenedView;
         private readonly Dictionary<(Type, string), Func<object, object?>> _propertyPathCache;
+        private readonly HashSet<HierarchicalNode> _pendingCullNodes = new();
+        private readonly Dictionary<HierarchicalNode, NodeLoadState> _loadStates = new();
+        private int _virtualizationGuardDepth;
 
         public HierarchicalModel(HierarchicalOptions? options = null)
         {
@@ -378,6 +400,21 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         public event EventHandler<FlattenedChangedEventArgs>? FlattenedChanged;
 
+        internal bool IsVirtualizationGuardActive => _virtualizationGuardDepth > 0;
+
+        public IDisposable BeginVirtualizationGuard()
+        {
+            _virtualizationGuardDepth++;
+            return new ActionDisposable(() =>
+            {
+                _virtualizationGuardDepth = Math.Max(0, _virtualizationGuardDepth - 1);
+                if (_virtualizationGuardDepth == 0)
+                {
+                    CullPendingDescendants();
+                }
+            });
+        }
+
         public event EventHandler<HierarchicalNodeEventArgs>? NodeExpanded;
 
         public event EventHandler<HierarchicalNodeEventArgs>? NodeCollapsed;
@@ -389,6 +426,8 @@ namespace Avalonia.Controls.DataGridHierarchical
         public event EventHandler<HierarchicalNodeLoadFailedEventArgs>? NodeLoadFailed;
 
         public event EventHandler<HierarchyChangedEventArgs>? HierarchyChanged;
+
+        public event EventHandler<HierarchicalNodeRetryEventArgs>? NodeLoadRetryScheduled;
 
         public void SetRoot(object rootItem)
         {
@@ -454,17 +493,37 @@ namespace Avalonia.Controls.DataGridHierarchical
                 throw new ArgumentNullException(nameof(node));
             }
 
-            if (node.IsExpanded)
+            if (node.IsExpanded && node.HasMaterializedChildren && node.LoadError == null)
             {
                 return;
             }
 
-            await EnsureChildrenMaterializedAsync(node, forceReload: false, cancellationToken).ConfigureAwait(false);
+            var wasExpanded = node.IsExpanded;
+            if (!wasExpanded)
+            {
+                node.IsExpanded = true; // gate concurrent expand attempts
+            }
+
+            try
+            {
+                await EnsureChildrenMaterializedAsync(node, forceReload: false, cancellationToken).ConfigureAwait(false);
+            }
+            catch
+            {
+                node.IsExpanded = wasExpanded;
+                throw;
+            }
+
+            if (node.LoadError != null || !node.HasMaterializedChildren)
+            {
+                node.IsExpanded = wasExpanded;
+                return;
+            }
 
             var parentIndex = _flattened.IndexOf(node);
             var inserted = 0;
 
-            if (parentIndex >= 0 && !node.IsLeaf)
+            if (!wasExpanded && parentIndex >= 0 && !node.IsLeaf)
             {
                 inserted = InsertVisibleChildren(node, parentIndex + 1);
                 if (inserted > 0)
@@ -495,6 +554,8 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return;
             }
 
+            CancelPendingLoad(node);
+
             var parentIndex = _flattened.IndexOf(node);
             if (parentIndex >= 0)
             {
@@ -510,9 +571,16 @@ namespace Avalonia.Controls.DataGridHierarchical
             RecalculateExpandedCountsUpwards(node.Parent);
             OnNodeCollapsed(node);
 
-            if (Options.VirtualizeChildren)
+            if (Options.VirtualizeChildren || IsVirtualizationGuardActive)
             {
-                DematerializeDescendants(node);
+                if (Options.VirtualizeChildren)
+                {
+                    DematerializeDescendants(node);
+                }
+                else
+                {
+                    _pendingCullNodes.Add(node);
+                }
             }
         }
 
@@ -761,6 +829,11 @@ namespace Avalonia.Controls.DataGridHierarchical
         protected virtual void OnNodeLoadFailed(HierarchicalNode node, Exception error)
         {
             NodeLoadFailed?.Invoke(this, new HierarchicalNodeLoadFailedEventArgs(node, error));
+        }
+
+        protected virtual void OnNodeLoadRetryScheduled(HierarchicalNode node, TimeSpan delay)
+        {
+            NodeLoadRetryScheduled?.Invoke(this, new HierarchicalNodeRetryEventArgs(node, delay));
         }
 
         protected virtual void OnHierarchyChanged(HierarchicalNode node, NotifyCollectionChangedAction action)
@@ -1101,17 +1174,13 @@ namespace Avalonia.Controls.DataGridHierarchical
 
             var replaceIndex = e.OldStartingIndex >= 0 ? e.OldStartingIndex : 0;
             replaceIndex = Math.Min(replaceIndex, parent.MutableChildren.Count);
-            var replaceCount = Math.Min(Math.Min(e.NewItems.Count, e.OldItems.Count), parent.MutableChildren.Count - replaceIndex);
-            if (replaceCount <= 0)
-            {
-                return;
-            }
 
+            var removeCount = Math.Min(e.OldItems.Count, parent.MutableChildren.Count - replaceIndex);
             var parentIndex = _flattened.IndexOf(parent);
             var visibleOffset = GetVisibleOffsetForChildIndex(parent, replaceIndex);
             var removedNodes = new List<HierarchicalNode>();
 
-            for (int i = 0; i < replaceCount; i++)
+            for (int i = 0; i < removeCount; i++)
             {
                 if (replaceIndex < parent.MutableChildren.Count)
                 {
@@ -1125,7 +1194,7 @@ namespace Avalonia.Controls.DataGridHierarchical
             var removedVisible = removedNodes.Sum(GetVisibleVisibleCount);
 
             var newNodes = new List<HierarchicalNode>();
-            foreach (var item in e.NewItems.Cast<object>().Take(replaceCount))
+            foreach (var item in e.NewItems.Cast<object>())
             {
                 if (item == null)
                 {
@@ -1283,6 +1352,8 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         private void DetachHierarchy(HierarchicalNode node)
         {
+            CancelPendingLoad(node);
+            ClearLoadState(node);
             DetachChildrenNotifier(node);
 
             foreach (var child in node.Children)
@@ -1293,6 +1364,8 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         private void DematerializeDescendants(HierarchicalNode node)
         {
+            CancelPendingLoad(node);
+            ClearLoadState(node);
             foreach (var child in node.MutableChildren)
             {
                 child.IsExpanded = false;
@@ -1304,6 +1377,24 @@ namespace Avalonia.Controls.DataGridHierarchical
             node.MutableChildren.Clear();
             node.HasMaterializedChildren = false;
             node.IsLeaf = false;
+        }
+
+        private void CullPendingDescendants()
+        {
+            if (_pendingCullNodes.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var node in _pendingCullNodes.ToArray())
+            {
+                if (!node.IsExpanded)
+                {
+                    DematerializeDescendants(node);
+                }
+            }
+
+            _pendingCullNodes.Clear();
         }
 
         private IReadOnlyList<HierarchicalNode> EnsureChildrenMaterialized(HierarchicalNode node, bool forceReload = false)
@@ -1321,10 +1412,63 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return node.Children;
             }
 
+            var state = GetLoadState(node);
+            if (state.Task != null && !state.Task.IsCompleted && !forceReload)
+            {
+                return await state.Task.ConfigureAwait(false);
+            }
+
+            if (state.Task != null && !state.Task.IsCompleted && forceReload)
+            {
+                CancelPendingLoad(node);
+            }
+
+            if (state.NextRetryUtc.HasValue)
+            {
+                var now = DateTime.UtcNow;
+                if (state.NextRetryUtc.Value > now)
+                {
+                    var delay = state.NextRetryUtc.Value - now;
+                    OnNodeLoadRetryScheduled(node, delay);
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                }
+            }
+
             node.IsLoading = true;
             node.LoadError = null;
             OnNodeLoading(node);
 
+            node.LoadCancellation?.Cancel();
+            node.LoadCancellation?.Dispose();
+            var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            node.LoadCancellation = linkedCts;
+            state.Cancellation = linkedCts;
+
+            var loadTask = LoadChildrenWithStateAsync(node, forceReload, state, linkedCts.Token);
+            state.Task = loadTask;
+
+            try
+            {
+                return await loadTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                if (state.Task == loadTask)
+                {
+                    state.Task = null;
+                }
+                node.LoadCancellation = null;
+                state.Cancellation?.Dispose();
+                state.Cancellation = null;
+            }
+        }
+
+        private async Task<IReadOnlyList<HierarchicalNode>> LoadChildrenWithStateAsync(
+            HierarchicalNode node,
+            bool forceReload,
+            NodeLoadState state,
+            CancellationToken cancellationToken)
+        {
             try
             {
                 if (HasReachedMaxDepth(node))
@@ -1339,6 +1483,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                     node.HasMaterializedChildren = true;
                     node.IsLeaf = true;
                     OnNodeLoaded(node);
+                    ResetRetryState(state);
                     return node.Children;
                 }
 
@@ -1360,6 +1505,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                     node.IsLeaf = true;
                     node.HasMaterializedChildren = true;
                     OnNodeLoaded(node);
+                    ResetRetryState(state);
                     return node.Children;
                 }
 
@@ -1404,6 +1550,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                 node.HasMaterializedChildren = true;
                 node.IsLeaf = node.MutableChildren.Count == 0;
                 OnNodeLoaded(node);
+                ResetRetryState(state);
 
                 return node.Children;
             }
@@ -1414,6 +1561,8 @@ namespace Avalonia.Controls.DataGridHierarchical
                 node.HasMaterializedChildren = false;
                 node.IsLeaf = node.MutableChildren.Count == 0;
                 node.LoadError = null;
+                state.RetryCount = 0;
+                state.NextRetryUtc = null;
                 throw;
             }
             catch (Exception ex)
@@ -1423,7 +1572,14 @@ namespace Avalonia.Controls.DataGridHierarchical
                 node.IsLeaf = true;
                 node.HasMaterializedChildren = false;
                 node.LoadError = ex;
+                state.RetryCount++;
+                var delay = ComputeRetryDelay(state.RetryCount);
+                state.NextRetryUtc = DateTime.UtcNow + delay;
                 OnNodeLoadFailed(node, ex);
+                if (delay > TimeSpan.Zero)
+                {
+                    OnNodeLoadRetryScheduled(node, delay);
+                }
                 return node.Children;
             }
             finally
@@ -1437,6 +1593,20 @@ namespace Avalonia.Controls.DataGridHierarchical
             if (item is null)
             {
                 return true;
+            }
+
+            if (Options.TreatGroupsAsNodes)
+            {
+                if (item is DataGridCollectionViewGroup)
+                {
+                    return false;
+                }
+
+                if (item is DataGridCollectionView view &&
+                    (view.GroupDescriptions?.Count > 0 || view.Groups != null))
+                {
+                    return false;
+                }
             }
 
             if (Options.IsLeafSelector != null)
@@ -1471,6 +1641,20 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return Task.FromResult(Options.ChildrenSelector(item));
             }
 
+            if (Options.TreatGroupsAsNodes)
+            {
+                if (item is DataGridCollectionViewGroup group)
+                {
+                    return Task.FromResult<IEnumerable?>(group.Items);
+                }
+
+                if (item is DataGridCollectionView view &&
+                    (view.GroupDescriptions?.Count > 0 || view.Groups != null))
+                {
+                    return Task.FromResult<IEnumerable?>(view.Groups);
+                }
+            }
+
             if (Options.ItemsSelector != null)
             {
                 return Task.FromResult(Options.ItemsSelector(item));
@@ -1483,6 +1667,48 @@ namespace Avalonia.Controls.DataGridHierarchical
             }
 
             throw new InvalidOperationException("Provide ChildrenSelector, ItemsSelector, or ChildrenPropertyPath to resolve children.");
+        }
+
+        private void CancelPendingLoad(HierarchicalNode node)
+        {
+            if (_loadStates.TryGetValue(node, out var state) && state.Task != null && !state.Task.IsCompleted)
+            {
+                state.Cancellation?.Cancel();
+            }
+        }
+
+        private NodeLoadState GetLoadState(HierarchicalNode node)
+        {
+            if (!_loadStates.TryGetValue(node, out var state))
+            {
+                state = new NodeLoadState();
+                _loadStates[node] = state;
+            }
+
+            return state;
+        }
+
+        private void ClearLoadState(HierarchicalNode node)
+        {
+            if (_loadStates.TryGetValue(node, out var state))
+            {
+                state.Cancellation?.Cancel();
+                state.Cancellation?.Dispose();
+                _loadStates.Remove(node);
+            }
+        }
+
+        private static TimeSpan ComputeRetryDelay(int attempt)
+        {
+            var clampedAttempt = Math.Max(1, Math.Min(6, attempt));
+            var ms = 100 * (int)Math.Pow(2, clampedAttempt - 1);
+            return TimeSpan.FromMilliseconds(Math.Min(ms, 5000));
+        }
+
+        private static void ResetRetryState(NodeLoadState state)
+        {
+            state.RetryCount = 0;
+            state.NextRetryUtc = null;
         }
 
         private void SortChildren(HierarchicalNode parent, IComparer<object> comparer, bool recursive)
@@ -1651,6 +1877,33 @@ namespace Avalonia.Controls.DataGridHierarchical
 
                 current.ExpandedCount = total;
                 current = current.Parent;
+            }
+        }
+
+        private sealed class NodeLoadState
+        {
+            public CancellationTokenSource? Cancellation { get; set; }
+
+            public Task<IReadOnlyList<HierarchicalNode>>? Task { get; set; }
+
+            public int RetryCount { get; set; }
+
+            public DateTime? NextRetryUtc { get; set; }
+        }
+
+        private sealed class ActionDisposable : IDisposable
+        {
+            private Action _onDispose;
+
+            public ActionDisposable(Action onDispose)
+            {
+                _onDispose = onDispose ?? throw new ArgumentNullException(nameof(onDispose));
+            }
+
+            public void Dispose()
+            {
+                _onDispose?.Invoke();
+                _onDispose = null;
             }
         }
     }

@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace Avalonia.Controls.DataGridHierarchical
 {
@@ -22,6 +23,9 @@ namespace Avalonia.Controls.DataGridHierarchical
     {
         private readonly IHierarchicalModel _model;
         private readonly Action<FlattenedChangedEventArgs>? _flattenedChangedCallback;
+        private IDisposable? _virtualizationGuard;
+        private DispatcherTimer? _guardTimer;
+        private static readonly TimeSpan GuardDebounce = TimeSpan.FromMilliseconds(50);
 
         public DataGridHierarchicalAdapter(
             IHierarchicalModel model,
@@ -51,11 +55,23 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         public bool IsExpanded(int index) => _model.GetNode(index).IsExpanded;
 
-        public void Toggle(int index) => _model.Toggle(_model.GetNode(index));
+        public void Toggle(int index)
+        {
+            BeginDebouncedVirtualizationGuard();
+            _model.Toggle(_model.GetNode(index));
+        }
 
-        public void Expand(int index) => _model.Expand(_model.GetNode(index));
+        public void Expand(int index)
+        {
+            BeginDebouncedVirtualizationGuard();
+            _model.Expand(_model.GetNode(index));
+        }
 
-        public void Collapse(int index) => _model.Collapse(_model.GetNode(index));
+        public void Collapse(int index)
+        {
+            BeginDebouncedVirtualizationGuard();
+            _model.Collapse(_model.GetNode(index));
+        }
 
         public int IndexOfNode(HierarchicalNode node) => _model.IndexOf(node);
 
@@ -88,14 +104,43 @@ namespace Avalonia.Controls.DataGridHierarchical
             _model.ApplySiblingComparer(comparer, recursive);
         }
 
-        public void ExpandAll(HierarchicalNode? node = null, int? maxDepth = null) => _model.ExpandAll(node, maxDepth);
+        public void ExpandAll(HierarchicalNode? node = null, int? maxDepth = null)
+        {
+            BeginDebouncedVirtualizationGuard();
+            _model.ExpandAll(node, maxDepth);
+        }
 
-        public void CollapseAll(HierarchicalNode? node = null, int? minDepth = null) => _model.CollapseAll(node, minDepth);
+        public void CollapseAll(HierarchicalNode? node = null, int? minDepth = null)
+        {
+            BeginDebouncedVirtualizationGuard();
+            _model.CollapseAll(node, minDepth);
+        }
 
         private void OnModelFlattenedChanged(object? sender, FlattenedChangedEventArgs e)
         {
             FlattenedChanged?.Invoke(this, e);
             _flattenedChangedCallback?.Invoke(e);
+        }
+
+        private void BeginDebouncedVirtualizationGuard()
+        {
+            _virtualizationGuard ??= _model.BeginVirtualizationGuard();
+
+            if (_guardTimer == null)
+            {
+                _guardTimer = new DispatcherTimer { Interval = GuardDebounce };
+                _guardTimer.Tick += (_, __) => EndDebouncedVirtualizationGuard();
+            }
+
+            _guardTimer.Stop();
+            _guardTimer.Start();
+        }
+
+        private void EndDebouncedVirtualizationGuard()
+        {
+            _guardTimer?.Stop();
+            _virtualizationGuard?.Dispose();
+            _virtualizationGuard = null;
         }
     }
 }

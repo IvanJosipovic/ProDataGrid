@@ -150,6 +150,63 @@ public class HierarchicalHeadlessTests
         Assert.Equal(4, model.Count);
     }
 
+    [AvaloniaFact]
+    public void Rapid_Toggle_Culls_And_Rebinds()
+    {
+        var root = new Item("root");
+        var current = root;
+        const int depth = 20;
+        for (int i = 0; i < depth; i++)
+        {
+            var child = new Item($"n{i}");
+            current.Children.Add(child);
+            current = child;
+        }
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            VirtualizeChildren = false // force cull via guard queue
+        });
+        model.SetRoot(root);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.Flattened
+        };
+
+        grid.Columns.Add(new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Avalonia.Data.Binding("Item.Name")
+        });
+
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var toggleMethod = typeof(DataGrid).GetMethod(
+            "TryToggleHierarchicalAtSlot",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        for (int i = 0; i < 5; i++)
+        {
+            // Expand
+            Assert.True((bool)toggleMethod!.Invoke(grid, new object[] { 0, true })!);
+            grid.UpdateLayout();
+            Assert.Equal(depth + 1, model.Count);
+            ValidateDisplayedRows(grid, model);
+
+            // Collapse
+            Assert.True((bool)toggleMethod!.Invoke(grid, new object[] { 0, true })!);
+            grid.UpdateLayout();
+            Assert.Equal(1, model.Count);
+            ValidateDisplayedRows(grid, model);
+        }
+    }
+
     private static void RunSortScenario(string sortMemberPath)
     {
         var root = new Item("root");
@@ -245,6 +302,25 @@ public class HierarchicalHeadlessTests
         window.Show();
         grid.UpdateLayout();
         return grid;
+    }
+
+    private static void ValidateDisplayedRows(DataGrid grid, HierarchicalModel model)
+    {
+        var display = grid.DisplayData;
+        var seen = new HashSet<int>();
+
+        foreach (Control element in display.GetScrollingElements())
+        {
+            if (element is DataGridRow row)
+            {
+                Assert.InRange(row.Index, 0, model.Count - 1);
+                Assert.True(seen.Add(row.Index));
+
+                var node = row.DataContext as HierarchicalNode;
+                Assert.NotNull(node);
+                Assert.Same(model.GetNode(row.Index), node);
+            }
+        }
     }
 
     private static void ClickHeader(DataGrid grid, string header, KeyModifiers modifiers = KeyModifiers.None)

@@ -57,6 +57,17 @@ namespace Avalonia.Controls
 
             if (RowGroupHeadersTable != null && RowGroupHeadersTable.Contains(slot))
             {
+                if (_hierarchicalModel?.Options.TreatGroupsAsNodes == true)
+                {
+                    var rowGroupInfo = RowGroupHeadersTable.GetValueAt(slot);
+                    var group = rowGroupInfo?.CollectionViewGroup;
+                    if (group != null)
+                    {
+                        hierarchicalIndex = _hierarchicalAdapter.IndexOfItem(group);
+                        return hierarchicalIndex >= 0;
+                    }
+                }
+
                 return false;
             }
 
@@ -86,6 +97,35 @@ namespace Avalonia.Controls
             if (rowGroupInfo?.CollectionViewGroup == null)
             {
                 return false;
+            }
+
+            if (_hierarchicalModel?.Options.TreatGroupsAsNodes == true)
+            {
+                var group = rowGroupInfo.CollectionViewGroup;
+                var index = _hierarchicalAdapter?.IndexOfItem(group) ?? -1;
+                if (index >= 0)
+                {
+                    if (subtree)
+                    {
+                        RunHierarchicalAction(() =>
+                        {
+                            if (_hierarchicalAdapter.IsExpanded(index))
+                            {
+                                _hierarchicalAdapter.CollapseAll(_hierarchicalAdapter.NodeAt(index));
+                            }
+                            else
+                            {
+                                _hierarchicalAdapter.ExpandAll(_hierarchicalAdapter.NodeAt(index));
+                            }
+                        });
+                    }
+                    else
+                    {
+                        _hierarchicalAdapter.Toggle(index);
+                    }
+
+                    return true;
+                }
             }
 
             switch (action)

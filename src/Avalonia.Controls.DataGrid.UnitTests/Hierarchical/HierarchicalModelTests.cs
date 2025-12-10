@@ -2,9 +2,11 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls.DataGridHierarchical;
@@ -548,6 +550,119 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public async Task ChildrenSelectorAsync_CancelledByCollapse_LeavesNodeUnloaded()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+
+        var tcs = new TaskCompletionSource<IEnumerable?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (_, ct) =>
+            {
+                ct.Register(() => tcs.TrySetCanceled(ct));
+                return tcs.Task;
+            }
+        });
+
+        model.SetRoot(root);
+
+        var expandTask = model.ExpandAsync(model.Root!);
+        await Task.Delay(10);
+        Assert.True(model.Root!.IsLoading);
+
+        model.Collapse(model.Root!);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => expandTask);
+
+        Assert.False(model.Root!.IsLoading);
+        Assert.False(model.Root!.IsExpanded);
+        Assert.Null(model.Root!.LoadError);
+        Assert.Equal(1, model.Count);
+    }
+
+    [Fact]
+    public async Task ChildrenSelectorAsync_RetryBackoff_IsHonored_And_Succeeds()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+
+        int attempts = 0;
+        TimeSpan? scheduledDelay = null;
+        HierarchicalNodeLoadFailedEventArgs? failure = null;
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (_, _) =>
+            {
+                attempts++;
+                if (attempts == 1)
+                {
+                    throw new InvalidOperationException("boom");
+                }
+
+                return Task.FromResult<IEnumerable?>(root.Children);
+            }
+        });
+
+        model.NodeLoadRetryScheduled += (_, e) => scheduledDelay = e.Delay;
+        model.NodeLoadFailed += (_, e) => failure = e;
+
+        model.SetRoot(root);
+
+        await model.ExpandAsync(model.Root!);
+        Assert.Equal(1, attempts);
+        Assert.NotNull(failure);
+        Assert.NotNull(scheduledDelay);
+        Assert.True(scheduledDelay!.Value > TimeSpan.Zero);
+
+        var sw = Stopwatch.StartNew();
+        await model.ExpandAsync(model.Root!);
+        sw.Stop();
+
+        Assert.True(sw.Elapsed >= scheduledDelay!.Value - TimeSpan.FromMilliseconds(10));
+        Assert.Equal(2, attempts);
+        Assert.True(model.Root!.IsExpanded);
+        Assert.Equal(2, model.Count);
+        Assert.Null(model.Root!.LoadError);
+    }
+
+    [Fact]
+    public async Task ChildrenSelectorAsync_DeduplicatesConcurrentExpands()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+
+        var tcs = new TaskCompletionSource<IEnumerable?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (_, ct) =>
+            {
+                Interlocked.Increment(ref calls);
+                using (ct.Register(() => tcs.TrySetCanceled(ct)))
+                {
+                    return await tcs.Task.ConfigureAwait(false);
+                }
+            }
+        });
+
+        model.SetRoot(root);
+
+        var expand1 = model.ExpandAsync(model.Root!);
+        var expand2 = model.ExpandAsync(model.Root!);
+
+        await Task.Delay(10);
+        tcs.TrySetResult(root.Children);
+
+        await Task.WhenAll(expand1, expand2);
+
+        Assert.Equal(1, calls);
+        Assert.True(model.Root!.IsExpanded);
+        Assert.Equal(2, model.Count);
+    }
+
+    [Fact]
     public void Expand_Collapse_RaiseFlattenedChanges()
     {
         var root = new Item("root");
@@ -613,12 +728,13 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
         model.SetRoot(root);
         model.Expand(model.Root!);
 
-        Assert.True(model.Root!.IsLeaf);
-        Assert.True(model.Root!.IsExpanded);
+        Assert.True(model.Root!.IsLeaf); // load failure marks as leaf
+        Assert.False(model.Root!.IsExpanded); // expand aborted
         Assert.Equal(1, model.Count);
         Assert.NotNull(failure);
         Assert.Same(model.Root, failure!.Node);
         Assert.IsType<InvalidOperationException>(failure.Error);
+        Assert.NotNull(model.Root!.LoadError);
     }
 
     [Fact]
