@@ -165,7 +165,6 @@
                             Background="Transparent"
                             BorderBrush="Transparent"
                             BorderThickness="0"
-                            ToolTip.Tip="Alt+Click toggles the entire subtree; Numpad * expands all descendants."
                             IsEnabled="{TemplateBinding IsExpandable}"
                             IsVisible="{TemplateBinding IsExpandable}"
                             HorizontalAlignment="Center"
