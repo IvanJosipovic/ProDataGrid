@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridSorting;
@@ -101,6 +102,40 @@ public class DataGridSortingPropertyTests
         Assert.Contains(selected, grid.SelectedItems.Cast<object>());
         Assert.Equal(1, grid.SelectedIndex);
         Assert.Equal(1, grid.Selection.SelectedIndex);
+    }
+
+    [AvaloniaFact]
+    public void Changing_SortingAdapterFactory_Recreates_Adapter()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("B"),
+            new("A")
+        };
+
+        var grid = new DataGrid
+        {
+            CanUserSortColumns = true,
+            AutoGenerateColumns = false,
+            ItemsSource = new DataGridCollectionView(items)
+        };
+
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new Binding(nameof(Item.Name)),
+            SortMemberPath = nameof(Item.Name)
+        });
+
+        var factory = new CountingSortingAdapterFactory();
+
+        grid.SortingAdapterFactory = factory;
+
+        Assert.Equal(1, factory.CreateCount);
+
+        var field = typeof(DataGrid).GetField("_sortingAdapter", BindingFlags.Instance | BindingFlags.NonPublic);
+        var adapter = field!.GetValue(grid);
+        Assert.IsType<CountingSortingAdapterFactory.CountingSortingAdapter>(adapter);
     }
 
     private static DataGrid CreateGrid(IEnumerable<Item> items, ISortingModel sortingModel, IDataGridSortingAdapterFactory? adapterFactory = null)
@@ -202,6 +237,25 @@ public class DataGridSortingPropertyTests
                         _items.Move(current, target);
                     }
                 }
+            }
+        }
+    }
+
+    private sealed class CountingSortingAdapterFactory : IDataGridSortingAdapterFactory
+    {
+        public int CreateCount { get; private set; }
+
+        public DataGridSortingAdapter Create(DataGrid grid, ISortingModel model)
+        {
+            CreateCount++;
+            return new CountingSortingAdapter(model, () => grid.Columns);
+        }
+
+        internal sealed class CountingSortingAdapter : DataGridSortingAdapter
+        {
+            public CountingSortingAdapter(ISortingModel model, Func<IEnumerable<DataGridColumn>> columns)
+                : base(model, columns)
+            {
             }
         }
     }

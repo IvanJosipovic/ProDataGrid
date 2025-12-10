@@ -68,6 +68,7 @@ public class SortingModelTests
 
         Assert.True(model.MultiSort);
         Assert.Equal(SortCycleMode.AscendingDescending, model.CycleMode);
+        Assert.True(model.OwnsViewSorts);
     }
 
     [Fact]

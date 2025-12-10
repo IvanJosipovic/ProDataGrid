@@ -161,7 +161,10 @@ public class HierarchicalModelTests
         root.Children.Add(new Item("b"));
         root.Children.Add(new Item("a"));
 
-        var model = new HierarchicalModel(new HierarchicalOptions());
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children
+        });
         model.SetRoot(root);
         model.Expand(model.Root!);
 
@@ -251,6 +254,26 @@ public class HierarchicalModelTests
 
         Assert.Equal(2, model.Count);
         Assert.Equal("new", ((Item)model.GetItem(1)!).Name);
+    }
+
+    [Fact]
+    public void ExpandAll_Respects_MaxDepth()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        var grand = new Item("grand");
+        child.Children.Add(grand);
+        root.Children.Add(child);
+
+        var model = CreateModel();
+        model.SetRoot(root);
+
+        model.ExpandAll(maxDepth: 1);
+
+        Assert.True(model.Root!.IsExpanded);
+        Assert.True(model.GetNode(1).IsExpanded);
+        Assert.False(model.GetNode(2).IsExpanded);
+        Assert.Equal(3, model.Count);
     }
 
     [Fact]
@@ -517,7 +540,7 @@ public class HierarchicalModelTests
         var expandTask = model.ExpandAsync(model.Root!, cts.Token);
         cts.Cancel();
 
-        await Assert.ThrowsAsync<OperationCanceledException>(() => expandTask);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => expandTask);
         Assert.False(model.Root!.IsLoading);
         Assert.False(model.Root!.IsExpanded);
         Assert.Equal(1, model.Count);

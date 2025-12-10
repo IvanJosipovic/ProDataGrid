@@ -120,6 +120,13 @@ public class FilteringModelTests
         Assert.Single(model.Descriptors);
     }
 
+    [Fact]
+    public void Defaults_Own_Filter()
+    {
+        var model = new FilteringModel();
+        Assert.True(model.OwnsViewFilter);
+    }
+
     private static FilteringDescriptor CreateDescriptor(
         object columnId,
         FilteringOperator @operator,
