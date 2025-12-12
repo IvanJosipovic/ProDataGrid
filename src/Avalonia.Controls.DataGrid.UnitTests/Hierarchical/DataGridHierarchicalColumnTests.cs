@@ -8,13 +8,14 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.Input;
+using Avalonia.Headless.XUnit;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Hierarchical;
 
 public class DataGridHierarchicalColumnTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void Presenter_Updates_Padding_From_Level_And_Indent()
     {
         var presenter = new DataGridHierarchicalPresenter
@@ -30,7 +31,7 @@ public class DataGridHierarchicalColumnTests
         Assert.Equal(new Thickness(20, 0, 0, 0), presenter.Padding);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Presenter_Raises_ToggleRequested_On_Click()
     {
         var presenter = new DataGridHierarchicalPresenter
