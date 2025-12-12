@@ -967,15 +967,12 @@ public class DataGridScrollingTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions =
-            {
-                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") },
-                initialTemplate
-            },
             ItemsSource = items,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             UseLogicalScrollable = true,
         };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+        target.ColumnsInternal.Add(initialTemplate);
 
         root.Content = target;
         root.Show();
@@ -987,7 +984,7 @@ public class DataGridScrollingTests
         Assert.True(GetFirstVisibleRowIndex(target) > 0);
 
         // Act - add another template column while rows are recycled, then scroll back
-        target.ColumnDefinitions.Add(new DataGridTemplateColumn
+        target.ColumnsInternal.Add(new DataGridTemplateColumn
         {
             Header = "Extra",
             CellTemplate = new FuncDataTemplate<ScrollTestModel>((item, _) => new TextBlock { Text = item.Name }),
@@ -1022,14 +1019,11 @@ public class DataGridScrollingTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions =
-            {
-                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") }
-            },
             ItemsSource = items,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             UseLogicalScrollable = useLogicalScrollable,
         };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
 
         root.Content = target;
         root.Show();
@@ -1089,15 +1083,12 @@ public class DataGridScrollingTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions =
-            {
-                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") },
-                new DataGridTextColumn { Header = "Group", Binding = new Binding("Group") }
-            },
             ItemsSource = collectionView,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             UseLogicalScrollable = useLogicalScrollable,
         };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Group", Binding = new Binding("Group") });
 
         root.Content = target;
         root.Show();
@@ -1132,11 +1123,11 @@ public class DataGridScrollingTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions = { templateColumn },
             ItemsSource = items,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             UseLogicalScrollable = true,
         };
+        target.ColumnsInternal.Add(templateColumn);
 
         root.Content = target;
         root.Show();

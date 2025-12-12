@@ -66,7 +66,7 @@ public class DataGridRowGroupThemeTests
             RowGroupTheme = rowGroupTheme
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Item.Name))

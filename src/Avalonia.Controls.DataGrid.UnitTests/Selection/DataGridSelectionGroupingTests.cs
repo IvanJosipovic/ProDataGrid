@@ -128,12 +128,12 @@ public class DataGridSelectionGroupingTests
             SelectionMode = DataGridSelectionMode.Extended
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Group",
             Binding = new Binding(nameof(Item.Group))
         });
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Item.Name))

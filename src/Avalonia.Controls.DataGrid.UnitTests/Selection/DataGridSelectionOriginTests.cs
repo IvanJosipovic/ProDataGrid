@@ -178,7 +178,7 @@ public class DataGridSelectionOriginTests
             SelectionMode = DataGridSelectionMode.Extended
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Value",
             Binding = new Binding(".")
@@ -211,7 +211,7 @@ public class DataGridSelectionOriginTests
             SelectionMode = DataGridSelectionMode.Extended
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Value",
             Binding = new Binding(".")

@@ -353,7 +353,7 @@ public class DataGridSelectionPropertyTests
             SelectionMode = DataGridSelectionMode.Extended,
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Value",
             Binding = new Binding(".")
@@ -387,7 +387,7 @@ public class DataGridSelectionPropertyTests
             AutoGenerateColumns = true,
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Item.Name))

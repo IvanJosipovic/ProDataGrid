@@ -121,13 +121,10 @@ public class DataGridRowTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions =
-            {
-                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") }
-            },
             ItemsSource = items,
             HeadersVisibility = DataGridHeadersVisibility.All,
         };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
 
         if (styles is not null)
         {

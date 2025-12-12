@@ -508,7 +508,7 @@ namespace Avalonia.Controls.DataGridTests
                 ItemsSource = items
             };
 
-            grid.ColumnDefinitions.Add(new DataGridTextColumn
+            grid.ColumnsInternal.Add(new DataGridTextColumn
             {
                 Header = "Value",
                 Binding = new Binding(".")

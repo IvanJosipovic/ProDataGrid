@@ -327,7 +327,7 @@ public class DataGridSelectedItemsTests
             SelectionMode = DataGridSelectionMode.Extended,
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Value",
             Binding = new Binding(".")
@@ -359,14 +359,14 @@ public class DataGridSelectedItemsTests
             SelectionMode = DataGridSelectionMode.Extended,
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Id",
             Binding = new Binding(nameof(SortableItem.Id)),
             SortMemberPath = nameof(SortableItem.Id)
         });
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(SortableItem.Name))

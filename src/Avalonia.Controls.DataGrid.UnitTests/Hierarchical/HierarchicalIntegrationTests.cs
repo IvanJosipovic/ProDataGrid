@@ -411,7 +411,7 @@ public class HierarchicalIntegrationTests
         var modelHandlers = ((MulticastDelegate?)modelHandlersField?.GetValue(model))?.GetInvocationList().Select(h => h.Method.Name).ToArray() ?? Array.Empty<string>();
         Assert.Contains("HierarchicalAdapter_FlattenedChanged", modelHandlers);
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -475,7 +475,7 @@ public class HierarchicalIntegrationTests
         bool adapterEventFired = false;
         adapter.FlattenedChanged += (_, __) => adapterEventFired = true;
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -530,7 +530,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = model.Flattened
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -584,7 +584,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = view
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -640,7 +640,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = view
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -693,7 +693,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = view
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -749,7 +749,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = view
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -810,7 +810,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = view
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -872,7 +872,7 @@ public class HierarchicalIntegrationTests
             ItemsSource = view
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")

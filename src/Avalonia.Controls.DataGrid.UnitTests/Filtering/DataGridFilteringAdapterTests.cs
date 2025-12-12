@@ -334,14 +334,14 @@ public class DataGridFilteringAdapterTests
         grid.FilteringModel = filteringModel;
         grid.ItemsSource = view;
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Person.Name)),
             SortMemberPath = nameof(Person.Name)
         });
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Score",
             Binding = new Binding(nameof(Person.Score)),

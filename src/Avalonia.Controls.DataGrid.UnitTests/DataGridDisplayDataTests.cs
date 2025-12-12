@@ -375,13 +375,10 @@ public class DataGridDisplayDataTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions =
-            {
-                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") }
-            },
             ItemsSource = items,
             HeadersVisibility = DataGridHeadersVisibility.All,
         };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
 
         root.Content = target;
         root.Show();
@@ -408,13 +405,10 @@ public class DataGridDisplayDataTests
 
         var target = new DataGrid
         {
-            ColumnDefinitions =
-            {
-                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") }
-            },
             ItemsSource = collectionView,
             HeadersVisibility = DataGridHeadersVisibility.All,
         };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
 
         root.Content = target;
         root.Show();

@@ -71,7 +71,7 @@ public class HierarchicalHeadlessTests
             ItemsSource = model.Flattened
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -116,7 +116,7 @@ public class HierarchicalHeadlessTests
             ItemsSource = model.Flattened
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -178,7 +178,7 @@ public class HierarchicalHeadlessTests
             ItemsSource = model.Flattened
         };
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name")
@@ -278,7 +278,7 @@ public class HierarchicalHeadlessTests
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
         });
 
-        grid.ColumnDefinitions.Add(new DataGridHierarchicalColumn
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
             Header = "Name",
             Binding = new Avalonia.Data.Binding("Item.Name"),

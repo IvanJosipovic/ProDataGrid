@@ -104,13 +104,13 @@ public class DataGridRowCurrentPseudoClassTests
             ItemsSource = people
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Person.Name))
         });
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Role",
             Binding = new Binding(nameof(Person.Role))

@@ -120,7 +120,7 @@ public class DataGridSortingPropertyTests
             ItemsSource = new DataGridCollectionView(items)
         };
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Item.Name)),
@@ -165,7 +165,7 @@ public class DataGridSortingPropertyTests
         grid.SortingModel = sortingModel;
         grid.ItemsSource = view;
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding(nameof(Item.Name)),

@@ -120,9 +120,9 @@ public class DataGridHeaderThemeTests
         {
             nameColumn.HeaderTheme = columnHeaderTheme;
         }
-        grid.ColumnDefinitions.Add(nameColumn);
+        grid.ColumnsInternal.Add(nameColumn);
 
-        grid.ColumnDefinitions.Add(new DataGridTextColumn
+        grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Group",
             Binding = new Binding(nameof(Item.Group))

@@ -363,9 +363,9 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
-        /// Gets the mutable columns collection used for inline or programmatic column definitions.
+        /// Gets the columns collection used for inline or programmatic column definitions.
         /// </summary>
-        public IList<DataGridColumn> ColumnDefinitions => ColumnsInternal;
+        public IReadOnlyList<DataGridColumn> ColumnDefinitions => ColumnsInternal;
 
         /// <summary>
         /// Gets a list that contains the data items corresponding to the selected rows.
