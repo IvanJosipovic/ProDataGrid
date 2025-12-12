@@ -862,6 +862,67 @@ public class DataGridScrollingTests
         }
     }
 
+    [AvaloniaFact]
+    public void LogicalScrollable_Recycled_Row_Handles_New_Template_Column()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+
+        var root = new Window
+        {
+            Width = 300,
+            Height = 140,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var initialTemplate = new DataGridTemplateColumn
+        {
+            Header = "Template",
+            CellTemplate = new FuncDataTemplate<ScrollTestModel>((item, _) => new TextBlock { Text = item.Name }),
+        };
+
+        var target = new DataGrid
+        {
+            Columns =
+            {
+                new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") },
+                initialTemplate
+            },
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = true,
+        };
+
+        root.Content = target;
+        root.Show();
+        target.UpdateLayout();
+
+        // Scroll far enough to recycle the initial rows
+        target.ScrollIntoView(items[^1], target.Columns[0]);
+        target.UpdateLayout();
+        Assert.True(GetFirstVisibleRowIndex(target) > 0);
+
+        // Act - add another template column while rows are recycled, then scroll back
+        target.Columns.Add(new DataGridTemplateColumn
+        {
+            Header = "Extra",
+            CellTemplate = new FuncDataTemplate<ScrollTestModel>((item, _) => new TextBlock { Text = item.Name }),
+        });
+
+        target.ScrollIntoView(items[0], target.Columns[0]);
+        target.UpdateLayout();
+
+        // Assert - rows are realized without throwing during recycling
+        var rows = GetRows(target);
+        Assert.NotEmpty(rows);
+    }
+
     #endregion
 
     #region Helper Methods

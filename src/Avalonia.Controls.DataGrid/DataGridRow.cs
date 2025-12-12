@@ -637,7 +637,10 @@ namespace Avalonia.Controls
                     {
                         if (columns[ci] is DataGridTemplateColumn column)
                         {
-                            column.RefreshCellContent((Control)this.Cells[column.Index].Content, nameof(DataGridTemplateColumn.CellTemplate));
+                            if (column.Index >= 0 && column.Index < Cells.Count)
+                            {
+                                column.RefreshCellContent((Control)Cells[column.Index].Content, nameof(DataGridTemplateColumn.CellTemplate));
+                            }
                         }
                     }
                 }
