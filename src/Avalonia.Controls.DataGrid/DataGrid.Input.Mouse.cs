@@ -29,12 +29,6 @@ namespace Avalonia.Controls
                 CancelPendingAutoScroll();
             }
 
-            if (!UseLogicalScrollable)
-            {
-                base.OnPointerWheelChanged(e);
-                return;
-            }
-
             var delta = e.Delta;
 
             // KeyModifiers.Shift should scroll in horizontal direction. This does not work on every platform.
@@ -44,13 +38,20 @@ namespace Avalonia.Controls
                 delta = new Vector(delta.Y, delta.X);
             }
 
-            if(UpdateScroll(delta * DATAGRID_mouseWheelDelta))
+            if (UpdateScroll(delta * DATAGRID_mouseWheelDelta))
             {
                 e.Handled = true;
             }
             else
             {
-                e.Handled = e.Handled || !ScrollViewer.GetIsScrollChainingEnabled(this);
+                if (!ScrollViewer.GetIsScrollChainingEnabled(this))
+                {
+                    e.Handled = true;
+                }
+                else
+                {
+                    base.OnPointerWheelChanged(e);
+                }
             }
         }
 

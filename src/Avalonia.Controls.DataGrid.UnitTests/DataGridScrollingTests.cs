@@ -10,6 +10,7 @@ using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Styling;
@@ -390,6 +391,83 @@ public class DataGridScrollingTests
         
         // Assert
         Assert.Equal(target.UseLogicalScrollable, presenter.IsLogicalScrollEnabled);
+    }
+
+    #endregion
+
+    #region Mouse Wheel Scrolling Tests
+
+    [AvaloniaFact]
+    public void MouseWheel_Scrolls_In_Legacy_Mode()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140);
+        target.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
+        target.UpdateLayout();
+
+        var root = (TopLevel)target.GetVisualRoot()!;
+        var wheelPoint = target.TranslatePoint(
+            new Point(target.Bounds.Width / 2, target.Bounds.Height / 2),
+            root)!.Value;
+
+        var verticalBar = target.GetSelfAndVisualDescendants()
+            .OfType<ScrollBar>()
+            .FirstOrDefault(sb => sb.Orientation == Orientation.Vertical);
+
+        // Sanity
+        Assert.NotNull(verticalBar);
+
+        var initialIndex = GetFirstVisibleRowIndex(target);
+        var initialBarValue = verticalBar!.Value;
+
+        // Act
+        root.MouseWheel(wheelPoint, new Vector(0, -3));
+        target.UpdateLayout();
+
+        var scrolledIndex = GetFirstVisibleRowIndex(target);
+        var scrolledBarValue = verticalBar.Value;
+
+        // Assert
+        Assert.True(scrolledIndex > initialIndex,
+            $"Expected wheel scroll to advance visible rows. Before: {initialIndex}, After: {scrolledIndex}");
+
+        if (verticalBar.Maximum > 0)
+        {
+            Assert.True(scrolledBarValue > initialBarValue,
+                $"Expected legacy scrollbar to move. Before: {initialBarValue}, After: {scrolledBarValue}, Max: {verticalBar.Maximum}");
+        }
+    }
+
+    [AvaloniaFact]
+    public void MouseWheel_Scrolls_In_Logical_Mode()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140, useLogicalScrollable: true);
+        target.UpdateLayout();
+
+        var presenter = GetRowsPresenter(target);
+        var root = (TopLevel)target.GetVisualRoot()!;
+        var wheelPoint = target.TranslatePoint(
+            new Point(target.Bounds.Width / 2, target.Bounds.Height / 2),
+            root)!.Value;
+
+        var initialIndex = GetFirstVisibleRowIndex(target);
+        var initialOffset = presenter.Offset.Y;
+
+        // Act
+        root.MouseWheel(wheelPoint, new Vector(0, -3));
+        target.UpdateLayout();
+
+        var scrolledIndex = GetFirstVisibleRowIndex(target);
+        var scrolledOffset = presenter.Offset.Y;
+
+        // Assert
+        Assert.True(scrolledIndex > initialIndex,
+            $"Expected wheel scroll to advance visible rows. Before: {initialIndex}, After: {scrolledIndex}");
+        Assert.True(scrolledOffset > initialOffset,
+            $"Expected wheel scroll to update logical offset. Before: {initialOffset}, After: {scrolledOffset}");
     }
 
     #endregion
