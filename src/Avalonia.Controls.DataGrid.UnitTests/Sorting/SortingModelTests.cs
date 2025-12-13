@@ -72,6 +72,19 @@ public class SortingModelTests
     }
 
     [Fact]
+    public void SetOrUpdate_Replaces_Descriptor_With_Same_ColumnId()
+    {
+        var model = new SortingModel();
+        model.Apply(new[] { CreateDescriptor("col1", ListSortDirection.Ascending, "Name") });
+
+        model.SetOrUpdate(CreateDescriptor("col1", ListSortDirection.Descending, "Name"));
+
+        var active = Assert.Single(model.Descriptors);
+        Assert.Equal("col1", active.ColumnId);
+        Assert.Equal(ListSortDirection.Descending, active.Direction);
+    }
+
+    [Fact]
     public void Toggle_With_Multi_Modifier_Preserves_Existing_Sorts()
     {
         var model = new SortingModel();

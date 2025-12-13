@@ -209,6 +209,10 @@ namespace Avalonia.Controls
                 dataGridColumn.Index = columnIndexWithFiller;
                 dataGridColumn.OwningGrid = _owningGrid;
                 dataGridColumn.RemoveEditingElement();
+                if (dataGridColumn != RowGroupSpacerColumn && dataGridColumn != FillerColumn)
+                {
+                    _owningGrid.InitializeColumnSortDirection(dataGridColumn);
+                }
                 if (dataGridColumn.IsVisible)
                 {
                     VisibleEdgedColumnsWidth += dataGridColumn.ActualWidth;

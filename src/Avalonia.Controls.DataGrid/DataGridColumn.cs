@@ -50,6 +50,7 @@ namespace Avalonia.Controls
         private bool _setWidthInternalNoCallback;
         private bool _showFilterButton;
         private FlyoutBase _filterFlyout;
+        private System.Collections.IComparer _customSortComparer;
 
         /// <summary>
         /// Routed event raised when the column header receives a pointer press.
@@ -275,6 +276,10 @@ namespace Avalonia.Controls
                         SetWidthInternalNoCallback(width);
                     }
                 }
+            }
+            else if (change.Property == SortDirectionProperty)
+            {
+                OwningGrid?.OnColumnSortDirectionChanged(this, change.GetNewValue<ListSortDirection?>());
             }
         }
 
@@ -813,6 +818,22 @@ namespace Avalonia.Controls
             _headerCell?.InvokeProcessSort(Input.KeyModifiers.None, direction);
         }
 
+        /// <summary>
+        /// Gets or sets the current sort direction for this column.
+        /// </summary>
+        public static readonly StyledProperty<ListSortDirection?> SortDirectionProperty =
+            AvaloniaProperty.Register<DataGridColumn, ListSortDirection?>(nameof(SortDirection));
+
+        /// <summary>
+        /// Gets or sets the current sort direction for this column. Setting this property updates
+        /// the owning grid's sorting model; clearing it removes the column from sorting.
+        /// </summary>
+        public ListSortDirection? SortDirection
+        {
+            get => GetValue(SortDirectionProperty);
+            set => SetValue(SortDirectionProperty, value);
+        }
+
 
         /// <summary>
         /// When overridden in a derived class, gets an editing element that is bound to the column's <see cref="P:Avalonia.Controls.DataGridBoundColumn.Binding" /> property value.
@@ -917,8 +938,15 @@ namespace Avalonia.Controls
         /// </summary>
         public System.Collections.IComparer CustomSortComparer
         {
-            get;
-            set;
+            get => _customSortComparer;
+            set
+            {
+                if (!Equals(_customSortComparer, value))
+                {
+                    _customSortComparer = value;
+                    OwningGrid?.OnColumnCustomSortComparerChanged(this);
+                }
+            }
         }
 
 

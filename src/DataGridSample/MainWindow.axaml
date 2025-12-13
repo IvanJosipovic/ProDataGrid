@@ -113,6 +113,9 @@
     <TabItem Header="Sorting Model">
       <pages:SortingModelPage />
     </TabItem>
+    <TabItem Header="Sort Direction Restore">
+      <pages:SortDirectionPage />
+    </TabItem>
     <TabItem Header="Sorting Model Playground">
       <pages:SortingModelPlaygroundPage />
     </TabItem>

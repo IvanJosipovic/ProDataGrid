@@ -1,0 +1,107 @@
+<!--
+  Copyright (c) Wiesław Šoltés. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.SortDirectionPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:sorting="clr-namespace:Avalonia.Controls.DataGridSorting;assembly=Avalonia.Controls.DataGrid"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    d:DesignHeight="600"
+    d:DesignWidth="1000"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:SortDirectionViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*,Auto"
+        ColumnDefinitions="*,*"
+        Margin="12">
+    <StackPanel Orientation="Horizontal"
+                Spacing="12"
+                Grid.ColumnSpan="2">
+      <CheckBox Content="Grid owns sort descriptions"
+                IsChecked="{Binding OwnsSortDescriptions, Mode=TwoWay}" />
+      <CheckBox Content="Multi-sort with Shift"
+                IsChecked="{Binding MultiSortEnabled, Mode=TwoWay}" />
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock VerticalAlignment="Center" Text="Cycle:" />
+        <ComboBox Width="220"
+                  SelectedItem="{Binding SortCycleMode, Mode=TwoWay}">
+          <sorting:SortCycleMode>AscendingDescendingNone</sorting:SortCycleMode>
+          <sorting:SortCycleMode>AscendingDescending</sorting:SortCycleMode>
+        </ComboBox>
+      </StackPanel>
+    </StackPanel>
+
+    <StackPanel Orientation="Horizontal"
+                Spacing="8"
+                Margin="0 8"
+                Grid.Row="1"
+                Grid.ColumnSpan="2">
+      <Button Content="Save current sort state"
+              Command="{Binding SaveCurrentSortsCommand}" />
+      <Button Content="Load preset (Region ↑, Name ↑, Population ↓)"
+              Command="{Binding LoadPresetCommand}" />
+      <Button Content="Apply saved sorts to columns"
+              Click="OnApplySavedSorts" />
+      <Button Content="Clear column SortDirection"
+              Click="OnClearSorts" />
+      <Button Content="Clear saved list"
+              Command="{Binding ClearSavedSortsCommand}" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              x:Name="Grid"
+              Grid.Column="0"
+              Grid.ColumnSpan="2"
+              ItemsSource="{Binding ItemsView}"
+              SelectionMode="Extended"
+              CanUserSortColumns="True"
+              AreRowGroupHeadersFrozen="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" SortMemberPath="Name" />
+        <DataGridTextColumn Header="Region" Binding="{Binding Region}" SortMemberPath="Region" />
+        <DataGridTextColumn Header="Population" Binding="{Binding Population}" SortMemberPath="Population" />
+        <DataGridTextColumn Header="Area" Binding="{Binding Area}" SortMemberPath="Area" />
+      </DataGrid.Columns>
+    </DataGrid>
+
+    <Grid Grid.Row="3"
+          Grid.Column="0"
+          Grid.ColumnSpan="2"
+          ColumnDefinitions="*,*"
+          Margin="0 8 0 0">
+      <StackPanel Spacing="4">
+        <TextBlock Text="Saved sort order" FontWeight="Bold" />
+        <ItemsControl ItemsSource="{Binding SavedSorts}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Vertical" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Padding="4" Margin="0 2" Background="#1A000000" CornerRadius="4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Property}" />
+                  <TextBlock Text="→" />
+                  <TextBlock Text="{Binding Direction}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+
+      <TextBlock Grid.Column="1"
+                 Margin="8 0 0 0"
+                 TextWrapping="Wrap"
+                 Text="Capture the current SortDescriptions, edit or load a preset, then push them back into the grid via the new column SortDirection property. Switch ownership modes to see it reconcile with the sorting model."/>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -39,6 +39,7 @@ using Avalonia.Controls.DataGridSorting;
 using Avalonia.Styling;
 using Avalonia.Reactive;
 using System.Reflection;
+using System.Globalization;
 
 namespace Avalonia.Controls
 {
@@ -123,6 +124,7 @@ namespace Avalonia.Controls
         private Avalonia.Controls.DataGridSorting.DataGridSortingAdapter _sortingAdapter;
         private Avalonia.Controls.DataGridSorting.IDataGridSortingModelFactory _sortingModelFactory;
         private Avalonia.Controls.DataGridSorting.IDataGridSortingAdapterFactory _sortingAdapterFactory;
+        private bool _syncingColumnSortDirection;
         private Avalonia.Controls.DataGridFiltering.IFilteringModel _filteringModel;
         private Avalonia.Controls.DataGridFiltering.DataGridFilteringAdapter _filteringAdapter;
         private Avalonia.Controls.DataGridFiltering.IDataGridFilteringModelFactory _filteringModelFactory;
@@ -1421,6 +1423,7 @@ namespace Avalonia.Controls
 
         private void SortingModel_SortingChanged(object sender, SortingChangedEventArgs e)
         {
+            SyncColumnSortDirectionsFromModel();
             RefreshColumnSortStates();
         }
 
@@ -1671,6 +1674,7 @@ namespace Avalonia.Controls
         private void UpdateSortingAdapterView()
         {
             _sortingAdapter?.AttachView(DataConnection?.CollectionView);
+            SyncColumnSortDirectionsFromModel();
             RefreshColumnSortStates();
         }
 
@@ -1740,6 +1744,7 @@ namespace Avalonia.Controls
                 UpdateSortingAdapterView();
             }
 
+            SyncColumnSortDirectionsFromModel();
             RaisePropertyChanged(SortingModelProperty, oldModel, _sortingModel);
         }
 
@@ -1853,6 +1858,173 @@ namespace Avalonia.Controls
         internal ListSortDirection? GetColumnSortDirection(DataGridColumn column)
         {
             return GetSortingDescriptorForColumn(column)?.Direction;
+        }
+
+        internal void OnColumnSortDirectionChanged(DataGridColumn column, ListSortDirection? direction)
+        {
+            if (_sortingModel == null || _syncingColumnSortDirection)
+            {
+                return;
+            }
+
+            if (ColumnsInternal != null &&
+                (column == ColumnsInternal.FillerColumn || column == ColumnsInternal.RowGroupSpacerColumn))
+            {
+                return;
+            }
+
+            ApplyColumnSortDirection(column, direction);
+        }
+
+        internal void OnColumnCustomSortComparerChanged(DataGridColumn column)
+        {
+            if (_sortingModel == null || _syncingColumnSortDirection)
+            {
+                return;
+            }
+
+            var direction = GetColumnSortDirection(column);
+            if (direction.HasValue || column.SortDirection.HasValue)
+            {
+                ApplyColumnSortDirection(column, column.SortDirection ?? direction);
+                SyncColumnSortDirectionsFromModel();
+            }
+        }
+
+        internal void InitializeColumnSortDirection(DataGridColumn column)
+        {
+            if (column == null || _sortingModel == null)
+            {
+                return;
+            }
+
+            var descriptor = GetSortingDescriptorForColumn(column);
+            if (descriptor != null)
+            {
+                SetColumnSortDirectionValue(column, descriptor.Direction);
+                return;
+            }
+
+            if (column.SortDirection.HasValue)
+            {
+                ApplyColumnSortDirection(column, column.SortDirection);
+            }
+            else
+            {
+                SetColumnSortDirectionValue(column, null);
+            }
+        }
+
+        private void ApplyColumnSortDirection(DataGridColumn column, ListSortDirection? direction)
+        {
+            if (column == null || _sortingModel == null)
+            {
+                return;
+            }
+
+            if (ColumnsInternal != null &&
+                (column == ColumnsInternal.FillerColumn || column == ColumnsInternal.RowGroupSpacerColumn))
+            {
+                return;
+            }
+
+            if (direction.HasValue)
+            {
+                var descriptor = CreateSortingDescriptorForColumn(column, direction.Value);
+                if (descriptor == null)
+                {
+                    SetColumnSortDirectionValue(column, null);
+                    return;
+                }
+
+                _sortingModel.SetOrUpdate(descriptor);
+            }
+            else
+            {
+                var existing = GetSortingDescriptorForColumn(column);
+                if (existing != null)
+                {
+                    _sortingModel.Remove(existing.ColumnId);
+                }
+                else
+                {
+                    _sortingModel.Remove(column);
+                }
+            }
+        }
+
+        private SortingDescriptor CreateSortingDescriptorForColumn(DataGridColumn column, ListSortDirection direction)
+        {
+            if (column == null)
+            {
+                return null;
+            }
+
+            var existing = GetSortingDescriptorForColumn(column);
+            var viewCulture = (DataConnection?.CollectionView as IDataGridCollectionView)?.Culture;
+            var culture = viewCulture ?? existing?.Culture ?? CultureInfo.InvariantCulture;
+            var comparer = column.CustomSortComparer ?? existing?.Comparer;
+            var propertyPath = column.GetSortPropertyName();
+
+            if (string.IsNullOrEmpty(propertyPath))
+            {
+                propertyPath = existing?.PropertyPath;
+            }
+
+            if (comparer == null && string.IsNullOrEmpty(propertyPath))
+            {
+                return null;
+            }
+
+            var columnId = existing?.ColumnId ?? (object)column;
+            return new SortingDescriptor(columnId, direction, propertyPath, comparer, culture);
+        }
+
+        private void SetColumnSortDirectionValue(DataGridColumn column, ListSortDirection? direction)
+        {
+            if (column == null)
+            {
+                return;
+            }
+
+            _syncingColumnSortDirection = true;
+            try
+            {
+                column.SetCurrentValue(DataGridColumn.SortDirectionProperty, direction);
+            }
+            finally
+            {
+                _syncingColumnSortDirection = false;
+            }
+        }
+
+        private void SyncColumnSortDirectionsFromModel()
+        {
+            if (_sortingModel == null || ColumnsItemsInternal == null)
+            {
+                return;
+            }
+
+            _syncingColumnSortDirection = true;
+            try
+            {
+                foreach (var column in ColumnsItemsInternal)
+                {
+                    if (column == null ||
+                        column == ColumnsInternal.FillerColumn ||
+                        column == ColumnsInternal.RowGroupSpacerColumn)
+                    {
+                        continue;
+                    }
+
+                    var descriptor = GetSortingDescriptorForColumn(column);
+                    column.SetCurrentValue(DataGridColumn.SortDirectionProperty, descriptor?.Direction);
+                }
+            }
+            finally
+            {
+                _syncingColumnSortDirection = false;
+            }
         }
 
         internal Avalonia.Controls.DataGridFiltering.FilteringDescriptor GetFilteringDescriptorForColumn(DataGridColumn column)

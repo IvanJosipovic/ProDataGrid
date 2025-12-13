@@ -144,6 +144,89 @@ public class DataGridSortingHeaderTests
         Assert.Equal("Value", view.SortDescriptions[1].PropertyPath);
     }
 
+    [AvaloniaFact]
+    public void SortDirection_Property_Applies_Sort()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("B"),
+            new("A"),
+        };
+
+        var grid = CreateGrid(items);
+        var nameColumn = grid.ColumnsInternal.First(c => Equals(c.Header, "Name"));
+
+        nameColumn.SortDirection = ListSortDirection.Ascending;
+        grid.UpdateLayout();
+
+        Assert.Equal(new[] { "A", "B" }, GetRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: true, desc: false);
+
+        nameColumn.SortDirection = ListSortDirection.Descending;
+        grid.UpdateLayout();
+
+        Assert.Equal(new[] { "B", "A" }, GetRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: false, desc: true);
+    }
+
+    [AvaloniaFact]
+    public void Clearing_SortDirection_Removes_Descriptor_But_Keeps_Others()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("B", "G", 2),
+            new("A", "G", 3),
+            new("A", "G", 1),
+            new("C", "G", 0),
+        };
+
+        var grid = CreateGrid(items);
+        var nameColumn = grid.ColumnsInternal.First(c => Equals(c.Header, "Name"));
+        var valueColumn = grid.ColumnsInternal.First(c => Equals(c.Header, "Value"));
+
+        nameColumn.SortDirection = ListSortDirection.Ascending;
+        valueColumn.SortDirection = ListSortDirection.Descending;
+        grid.UpdateLayout();
+
+        var view = (IDataGridCollectionView)grid.ItemsSource!;
+        Assert.Equal(2, view.SortDescriptions.Count);
+        Assert.Equal(nameof(Item.Name), view.SortDescriptions[0].PropertyPath);
+        Assert.Equal(nameof(Item.Value), view.SortDescriptions[1].PropertyPath);
+
+        nameColumn.SortDirection = null;
+        grid.UpdateLayout();
+
+        var remaining = Assert.Single(view.SortDescriptions);
+        Assert.Equal(nameof(Item.Value), remaining.PropertyPath);
+        Assert.Equal(ListSortDirection.Descending, remaining.Direction);
+        Assert.Null(nameColumn.SortDirection);
+        Assert.Equal(ListSortDirection.Descending, valueColumn.SortDirection);
+    }
+
+    [AvaloniaFact]
+    public void SortDirection_Syncs_From_Model_With_Property_Path_Id()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("A"),
+            new("B"),
+        };
+
+        var grid = CreateGrid(items);
+        var nameColumn = grid.ColumnsInternal.First(c => Equals(c.Header, "Name"));
+
+        grid.SortingModel.Apply(new[]
+        {
+            new SortingDescriptor("NameKey", ListSortDirection.Descending, nameof(Item.Name))
+        });
+
+        grid.UpdateLayout();
+
+        Assert.Equal(ListSortDirection.Descending, nameColumn.SortDirection);
+        Assert.Equal(new[] { "B", "A" }, GetRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: false, desc: true);
+    }
+
     private static DataGrid CreateGrid(IEnumerable<Item> items)
     {
         var view = new DataGridCollectionView(items);
