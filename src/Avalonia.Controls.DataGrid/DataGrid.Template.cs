@@ -89,6 +89,12 @@ namespace Avalonia.Controls
             _bottomRightCorner = e.NameScope.Find<Visual>(DATAGRID_elementBottomRightCornerHeaderName);
 
             TryExecutePendingAutoScroll();
+
+            // Ensure row drag/drop wiring is active even if the property was set while handlers were suspended.
+            if (_rowDragDropController == null && CanUserReorderRows)
+            {
+                RefreshRowDragDropController();
+            }
         }
 
 

@@ -223,7 +223,6 @@ namespace Avalonia.Controls.DataGridDragDrop
             }
 
             if (row == null ||
-                row.Index < 0 ||
                 ReferenceEquals(row.DataContext, DataGridCollectionView.NewItemPlaceholder))
             {
                 row = null;
@@ -258,7 +257,7 @@ namespace Avalonia.Controls.DataGridDragDrop
                     .OfType<DataGridRow>()
                     .FirstOrDefault(r => r.OwningGrid == _grid);
 
-            if (row == null || row.Index < 0 || ReferenceEquals(row.DataContext, DataGridCollectionView.NewItemPlaceholder))
+            if (row == null || ReferenceEquals(row.DataContext, DataGridCollectionView.NewItemPlaceholder))
             {
                 row = null;
                 header = null;
@@ -461,15 +460,7 @@ namespace Avalonia.Controls.DataGridDragDrop
                     continue;
                 }
 
-                var index = _grid.DataConnection?.IndexOf(item) ?? -1;
-                if (index < 0)
-                {
-                    var row = _grid.GetRowFromItem(item);
-                    if (row != null && row.Index >= 0)
-                    {
-                        index = row.Index;
-                    }
-                }
+                var index = ResolveIndex(item);
                 if (index < 0)
                 {
                     continue;
@@ -485,6 +476,64 @@ namespace Avalonia.Controls.DataGridDragDrop
             }
 
             return new DataGridRowDragInfo(_grid, items, indices, fromSelection);
+        }
+
+        private int ResolveIndex(object item)
+        {
+            // Preferred: data connection lookup.
+            var index = _grid.DataConnection?.IndexOf(item) ?? -1;
+            if (index >= 0)
+            {
+                return index;
+            }
+
+            // Row lookup (realized row).
+            var row = _grid.GetRowFromItem(item);
+            if (row != null)
+            {
+                if (row.Index >= 0)
+                {
+                    return row.Index;
+                }
+
+                if (row.Slot >= 0)
+                {
+                    var slotIndex = _grid.RowIndexFromSlot(row.Slot);
+                    if (slotIndex >= 0)
+                    {
+                        return slotIndex;
+                    }
+                }
+            }
+
+            // IList fallback (reference equality).
+            var list = _grid.DataConnection?.List ?? _grid.ItemsSource as IList;
+            if (list != null)
+            {
+                var listIndex = list.IndexOf(item);
+                if (listIndex >= 0)
+                {
+                    return listIndex;
+                }
+            }
+
+            // Linear scan fallback using reference equality to avoid Equals overrides.
+            var items = _grid.ItemsSource as IEnumerable;
+            if (items != null)
+            {
+                var i = 0;
+                foreach (var candidate in items)
+                {
+                    if (ReferenceEquals(candidate, item))
+                    {
+                        return i;
+                    }
+
+                    i++;
+                }
+            }
+
+            return -1;
         }
 
         private static IDataTransfer CreateDataTransfer(DataGridRowDragInfo info)
@@ -660,16 +709,19 @@ namespace Avalonia.Controls.DataGridDragDrop
             var presenter = GetRowsPresenter();
             var position = DataGridRowDropPosition.Before;
             var targetIndex = GetMaxInsertIndex();
+            var insertIndex = targetIndex;
             object? targetItem = null;
 
             if (row == null && presenter != null)
             {
                 row = ResolveRowFromPresenterHit(presenter, dragEventArgs.GetPosition(presenter), out position, out targetIndex) ?? row;
+                insertIndex = targetIndex;
             }
 
             if (row == null && presenter != null)
             {
                 row = ResolveRowFromPresenterEdge(presenter, dragEventArgs.GetPosition(presenter), out position, out targetIndex) ?? row;
+                insertIndex = targetIndex;
             }
 
             if (row != null)
@@ -693,9 +745,11 @@ namespace Avalonia.Controls.DataGridDragDrop
                 }
 
                 targetIndex = row.Index + (position == DataGridRowDropPosition.After ? 1 : 0);
+                insertIndex = targetIndex;
+
                 if (position == DataGridRowDropPosition.Inside && row.DataContext is HierarchicalNode parentNode)
                 {
-                    targetIndex = parentNode.MutableChildren.Count;
+                    insertIndex = parentNode.MutableChildren.Count;
                 }
 
                 targetItem = row.DataContext;
@@ -703,9 +757,15 @@ namespace Avalonia.Controls.DataGridDragDrop
             else
             {
                 targetIndex = GetMaxInsertIndex();
+                insertIndex = targetIndex;
             }
 
             targetIndex = Math.Min(targetIndex, GetMaxInsertIndex());
+            if (position != DataGridRowDropPosition.Inside)
+            {
+                insertIndex = Math.Min(insertIndex, GetMaxInsertIndex());
+            }
+
             if (targetItem != null && dragInfo.Items.Contains(targetItem))
             {
                 targetItem = null;
@@ -720,7 +780,7 @@ namespace Avalonia.Controls.DataGridDragDrop
                 dragInfo.Indices,
                 targetItem,
                 row?.Index ?? targetIndex,
-                targetIndex,
+                insertIndex,
                 row,
                 position,
                 ReferenceEquals(dragInfo.Grid, _grid),

@@ -590,6 +590,11 @@
         <Setter Property="Opacity" Value="0.6" />
       </Style>
 
+      <Style Selector="^:drag-over-inside /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="{DynamicResource DataGridRowDropIndicatorBrush}" />
+        <Setter Property="Opacity" Value="0.08" />
+      </Style>
+
     </ControlTheme>
 
     <ControlTheme x:Key="FluentDataGridRowGroupExpanderButtonTheme" TargetType="ToggleButton">
