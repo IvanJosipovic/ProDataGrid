@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             xmlns:DataGridDragDrop="clr-namespace:Avalonia.Controls.DataGridDragDrop;assembly=Avalonia.Controls.DataGrid"
+             x:Class="DataGridSample.Pages.RowDragDropPage"
+             x:DataType="viewModels:RowDragDropViewModel">
+  <UserControl.DataContext>
+    <viewModels:RowDragDropViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+    <TextBlock Grid.Row="0"
+               Classes="h2"
+               Text="Reorder rows with drag-and-drop" />
+    <TextBlock Grid.Row="1"
+               TextWrapping="Wrap"
+               Text="Use the row header grip (or the whole row if selected in the dropdown) to drag. Hold Ctrl to copy when enabled." />
+
+    <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12">
+      <CheckBox Content="Allow copy with Ctrl"
+                IsChecked="{Binding AllowCopy}" />
+      <CheckBox Content="Show drag handle"
+                IsChecked="{Binding ShowHandle}" />
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <TextBlock VerticalAlignment="Center" Text="Drag handle:" />
+        <ComboBox Width="180"
+                  SelectedItem="{Binding RowDragHandle}"
+                  ItemsSource="{Binding DragHandles}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="DataGridDragDrop:DataGridRowDragHandle">
+              <TextBlock Text="{Binding .}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </StackPanel>
+    </StackPanel>
+
+    <DataGrid Grid.Row="3"
+              Margin="0,4,0,0"
+              CanUserReorderRows="True"
+              RowDragHandle="{Binding RowDragHandle}"
+              RowDragHandleVisible="{Binding ShowHandle}"
+              RowDragDropOptions="{Binding Options}"
+              RowDropHandler="{Binding DropHandler}"
+              HeadersVisibility="All"
+              RowHeaderWidth="28"
+              AutoGenerateColumns="False"
+              ItemsSource="{Binding Items}">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="#"
+                            Binding="{Binding Id}"
+                            Width="1*" />
+        <DataGridTextColumn Header="Title"
+                            Binding="{Binding Name}"
+                            Width="3*" />
+        <DataGridTextColumn Header="Value"
+                            Binding="{Binding Value}"
+                            Width="1.2*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

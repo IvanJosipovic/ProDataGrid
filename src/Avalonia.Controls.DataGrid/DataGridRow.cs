@@ -31,7 +31,7 @@ namespace Avalonia.Controls
     [TemplatePart(DATAGRIDROW_elementDetails,        typeof(DataGridDetailsPresenter))]
     [TemplatePart(DATAGRIDROW_elementRoot,           typeof(Panel))]
     [TemplatePart(DATAGRIDROW_elementRowHeader,      typeof(DataGridRowHeader))]
-    [PseudoClasses(":selected", ":editing", ":invalid", ":current")]
+    [PseudoClasses(":selected", ":editing", ":invalid", ":current", ":dragging", ":drag-over-before", ":drag-over-after", ":drag-over-inside", ":placeholder")]
 #if !DATAGRID_INTERNAL
     public
 #endif
@@ -55,6 +55,7 @@ namespace Avalonia.Controls
         private int? _mouseOverColumnIndex;
         private DataGrid _owningGrid;
         private bool _isValid = true;
+        private bool _isPlaceholder;
         private Rectangle _bottomGridLine;
         private bool _areHandlersSuspended;
 
@@ -148,6 +149,27 @@ namespace Avalonia.Controls
                 nameof(OwningGrid),
                 o => o.OwningGrid,
                 (o, v) => o.OwningGrid = v);
+
+        public static readonly DirectProperty<DataGridRow, bool> IsPlaceholderProperty =
+            AvaloniaProperty.RegisterDirect<DataGridRow, bool>(
+                nameof(IsPlaceholder),
+                o => o.IsPlaceholder,
+                (o, v) => o.IsPlaceholder = v);
+
+        /// <summary>
+        /// Gets a value indicating whether this row represents the new item placeholder.
+        /// </summary>
+        public bool IsPlaceholder
+        {
+            get => _isPlaceholder;
+            internal set
+            {
+                if (SetAndRaise(IsPlaceholderProperty, ref _isPlaceholder, value))
+                {
+                    PseudoClassesHelper.Set(PseudoClasses, ":placeholder", value);
+                }
+            }
+        }
 
         static DataGridRow()
         {

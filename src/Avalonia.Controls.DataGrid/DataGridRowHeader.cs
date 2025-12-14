@@ -7,6 +7,7 @@
 
 using Avalonia.Automation;
 using Avalonia.Controls.Metadata;
+using Avalonia.Controls.DataGridDragDrop;
 using Avalonia.Input;
 using Avalonia.Media;
 using System.Diagnostics;
@@ -200,7 +201,14 @@ namespace Avalonia.Controls.Primitives
                     OwningGrid.Focus();
                 }
 
-                if (OwningGrid != null && OwningGrid.TryToggleHierarchicalAtSlot(Slot, toggleSubtree: e.KeyModifiers.HasFlag(KeyModifiers.Alt)))
+                var suppressToggleForDragHandle =
+                    OwningGrid.CanUserReorderRows &&
+                    OwningGrid.RowDragHandle == DataGridRowDragHandle.RowHeader &&
+                    OwningGrid.RowDragHandleVisible;
+
+                if (!suppressToggleForDragHandle &&
+                    OwningGrid != null &&
+                    OwningGrid.TryToggleHierarchicalAtSlot(Slot, toggleSubtree: e.KeyModifiers.HasFlag(KeyModifiers.Alt)))
                 {
                     e.Handled = true;
                     return;

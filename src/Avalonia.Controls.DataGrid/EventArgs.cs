@@ -5,11 +5,11 @@
 
 #nullable disable
 
+using System;
+using System.Collections.Generic;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 
@@ -724,5 +724,51 @@ namespace Avalonia.Controls
         }
 
         public KeyModifiers KeyModifiers { get; }
+    }
+
+    public class DataGridRowDragStartingEventArgs : RoutedEventArgs
+    {
+        public DataGridRowDragStartingEventArgs(
+            IReadOnlyList<object> items,
+            IReadOnlyList<int> indices,
+            IDataTransfer data,
+            DragDropEffects allowedEffects,
+            RoutedEvent? routedEvent = null,
+            object? source = null)
+            : base(routedEvent, source)
+        {
+            Items = items ?? Array.Empty<object>();
+            Indices = indices ?? Array.Empty<int>();
+            Data = data ?? throw new ArgumentNullException(nameof(data));
+            AllowedEffects = allowedEffects;
+        }
+
+        public IReadOnlyList<object> Items { get; }
+
+        public IReadOnlyList<int> Indices { get; }
+
+        public IDataTransfer Data { get; }
+
+        public DragDropEffects AllowedEffects { get; set; }
+
+        public bool Cancel { get; set; }
+    }
+
+    public class DataGridRowDragCompletedEventArgs : RoutedEventArgs
+    {
+        public DataGridRowDragCompletedEventArgs(
+            IReadOnlyList<object> items,
+            DragDropEffects effect,
+            RoutedEvent? routedEvent = null,
+            object? source = null)
+            : base(routedEvent, source)
+        {
+            Items = items ?? Array.Empty<object>();
+            Effect = effect;
+        }
+
+        public IReadOnlyList<object> Items { get; }
+
+        public DragDropEffects Effect { get; }
     }
 }

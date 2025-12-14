@@ -11,6 +11,7 @@
     <StreamGeometry x:Key="DataGridFilterIconFilledPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
     <StreamGeometry x:Key="DataGridRowGroupHeaderIconClosedPath">M515 93l930 931l-930 931l90 90l1022 -1021l-1022 -1021z</StreamGeometry>
     <StreamGeometry x:Key="DataGridRowGroupHeaderIconOpenedPath">M109 486 19 576 1024 1581 2029 576 1939 486 1024 1401z</StreamGeometry>
+    <DynamicResource x:Key="DataGridRowDropIndicatorBrush" ResourceKey="HighlightBrush" />
     <ControlTheme x:Key="DataGridFilterButtonTheme" TargetType="Button">
       <Setter Property="Width" Value="22" />
       <Setter Property="Height" Value="22" />
@@ -247,5 +248,26 @@
     <Setter Property="Fill" Value="{TemplateBinding Foreground}" />
     <Setter Property="Stroke" Value="{TemplateBinding Foreground}" />
     <Setter Property="StrokeThickness" Value="1.2" />
+  </Style>
+
+  <Style Selector="DataGrid:row-drag-enabled:row-drag-handle-visible DataGridRowHeader">
+    <Setter Property="Cursor" Value="SizeAll" />
+  </Style>
+
+  <Style Selector="DataGrid:row-drag-enabled:row-drag-handle-visible DataGridRowHeader /template/ Path#DragGrip">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
+  <Style Selector="DataGridRow:placeholder DataGridRowHeader">
+    <Setter Property="Cursor" Value="Arrow" />
+  </Style>
+
+  <Style Selector="DataGridRow:placeholder DataGridRowHeader /template/ Path#DragGrip">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="DataGridRow:dragging /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Opacity" Value="0.6" />
+    <Setter Property="IsVisible" Value="True" />
   </Style>
 </Styles>

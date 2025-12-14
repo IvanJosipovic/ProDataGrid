@@ -20,6 +20,7 @@ It displays repeating data in a customizable grid with enhanced features and imp
 | Virtualization & scrolling | ScrollViewer-based `ILogicalScrollable` presenter, smooth wheel/gesture handling, snap points, anchor support, predictive row prefetch, frozen columns. |
 | Columns | Text, template, checkbox columns; auto/star/pixel sizing; reordering, resizing, visibility control, frozen sections. |
 | Rows | Variable-height support with pluggable estimators; row details; grouping headers; selection modes; row headers. |
+| Drag & drop | Opt-in row drag/drop with header/row handles, multi-row moves, routed events, pluggable handlers (flat + hierarchical before/after/inside), and built-in visuals/auto-scroll. |
 | Editing & navigation | In-place editing, commit/cancel, keyboard navigation, clipboard copy modes, current cell tracking. |
 | Data operations | Sorting, grouping, paging, currency management via `DataGridCollectionView` family; selection built on Avalonia `SelectionModel` for stable binding across sort/filter. |
 | Styling & theming | Fluent/Simple v2 ScrollViewer templates, row/cell styling, template overrides, theme resources, focus/selection visuals. |
@@ -91,6 +92,29 @@ Basic setup with common column types and width modes (pixel, auto, star):
 ```
 
 Widths accept pixel values (`"80"`), `Auto` (content-based), `*` or weighted stars (e.g., `2*`) that share remaining space.
+
+### Row drag & drop quick start
+
+- Turn on `CanUserReorderRows="True"` (default handle is the row header) and choose `RowDragHandle` (`RowHeader`, `Row`, or `RowHeaderAndRow`).
+- Configure effects via `RowDragDropOptions` (e.g., allow copy) and plug in a drop handler when you need custom moves. Built-ins: `DataGridRowReorderHandler` (flat lists) and `DataGridHierarchicalRowReorderHandler` (hierarchical; supports before/after/inside like TreeDataGrid).
+- `RowDragStarting`/`RowDragCompleted` are routed events for telemetry/customization; the grid auto-updates selection after a successful drop.
+- Dropping in the top/bottom thirds of a hierarchical row inserts before/after; the middle inserts inside that node’s children.
+
+```xml
+<!-- xmlns:controls="clr-namespace:Avalonia.Controls;assembly=ProDataGrid" -->
+<DataGrid Items="{Binding HierarchicalItems}"
+          CanUserReorderRows="True"
+          HierarchicalRowsEnabled="True"
+          RowDragHandle="RowHeaderAndRow">
+  <DataGrid.RowDropHandler>
+    <controls:DataGridHierarchicalRowReorderHandler />
+  </DataGrid.RowDropHandler>
+  <DataGrid.RowDragDropOptions>
+    <controls:DataGridRowDragDropOptions AllowedEffects="Move,Copy"
+                                         DragSelectedRows="True" />
+  </DataGrid.RowDragDropOptions>
+</DataGrid>
+```
 
 ## Using SelectionModel with DataGrid
 

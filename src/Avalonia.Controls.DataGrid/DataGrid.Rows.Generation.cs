@@ -39,6 +39,7 @@ namespace Avalonia.Controls
                 dataGridRow.Slot = slot;
                 dataGridRow.OwningGrid = this;
                 dataGridRow.DataContext = dataContext;
+                dataGridRow.IsPlaceholder = ReferenceEquals(dataContext, DataGridCollectionView.NewItemPlaceholder);
                 if (RowTheme is {} rowTheme)
                 {
                     dataGridRow.SetValue(ThemeProperty, rowTheme, BindingPriority.Template);

@@ -8,6 +8,7 @@
 using Avalonia.Automation.Peers;
 using Avalonia.Automation;
 using Avalonia.Controls.Metadata;
+using Avalonia.Controls.DataGridDragDrop;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
@@ -160,6 +161,26 @@ namespace Avalonia.Controls
             }
         }
 
+        internal void ClearDragDropState()
+        {
+            PseudoClassesHelper.Set(PseudoClasses, ":dragging", false);
+            PseudoClassesHelper.Set(PseudoClasses, ":drag-over-before", false);
+            PseudoClassesHelper.Set(PseudoClasses, ":drag-over-after", false);
+            PseudoClassesHelper.Set(PseudoClasses, ":drag-over-inside", false);
+        }
+
+        internal void SetDragging(bool dragging)
+        {
+            PseudoClassesHelper.Set(PseudoClasses, ":dragging", dragging);
+        }
+
+        internal void SetDropPosition(DataGridRowDropPosition? position)
+        {
+            PseudoClassesHelper.Set(PseudoClasses, ":drag-over-before", position == DataGridRowDropPosition.Before);
+            PseudoClassesHelper.Set(PseudoClasses, ":drag-over-after", position == DataGridRowDropPosition.After);
+            PseudoClassesHelper.Set(PseudoClasses, ":drag-over-inside", position == DataGridRowDropPosition.Inside);
+        }
+
         //TODO Animation
         internal void DetachFromDataGrid(bool recycle)
         {
@@ -186,6 +207,7 @@ namespace Avalonia.Controls
 
             Slot = -1;
             UpdateCurrentPseudoClass();
+            ClearDragDropState();
         }
 
         internal void InvalidateCellsIndex()

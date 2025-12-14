@@ -80,6 +80,12 @@
     <TabItem Header="Add/Delete Rows">
       <local:AddDeleteRowsPage />
     </TabItem>
+    <TabItem Header="Row Drag &amp; Drop">
+      <pages:RowDragDropPage />
+    </TabItem>
+    <TabItem Header="Hierarchical Drag &amp; Drop">
+      <pages:HierarchicalRowDragDropPage />
+    </TabItem>
     <TabItem Header="Variable Height Scrolling">
       <local:VariableHeightPage />
     </TabItem>

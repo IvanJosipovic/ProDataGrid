@@ -18,6 +18,7 @@
           <SolidColorBrush x:Key="DataGridRowGroupHeaderHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
           <SolidColorBrush x:Key="DataGridRowHoveredBackgroundColor" Color="{DynamicResource SystemListLowColor}" />
           <SolidColorBrush x:Key="DataGridRowInvalidBrush" Color="{DynamicResource SystemErrorTextColor}" />
+          <SolidColorBrush x:Key="DataGridRowDropIndicatorBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
@@ -330,5 +331,25 @@
     <Setter Property="Fill" Value="{TemplateBinding Foreground}" />
     <Setter Property="Stroke" Value="{TemplateBinding Foreground}" />
     <Setter Property="StrokeThickness" Value="1.2" />
+  </Style>
+
+  <Style Selector="DataGrid:row-drag-enabled:row-drag-handle-visible DataGridRowHeader">
+    <Setter Property="Cursor" Value="SizeAll" />
+  </Style>
+
+  <Style Selector="DataGrid:row-drag-enabled:row-drag-handle-visible DataGridRowHeader /template/ Path#DragGrip">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
+  <Style Selector="DataGridRow:placeholder DataGridRowHeader">
+    <Setter Property="Cursor" Value="Arrow" />
+  </Style>
+
+  <Style Selector="DataGridRow:placeholder DataGridRowHeader /template/ Path#DragGrip">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
+
+  <Style Selector="DataGridRow:dragging /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Opacity" Value="0.6" />
   </Style>
 </Styles>

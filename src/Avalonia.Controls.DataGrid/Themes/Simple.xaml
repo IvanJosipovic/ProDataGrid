@@ -5,6 +5,7 @@
   <Styles.Resources>
     <ResourceDictionary>
       <Thickness x:Key="DataGridTextColumnCellTextBlockMargin">4</Thickness>
+      <DynamicResource x:Key="DataGridRowDropIndicatorBrush" ResourceKey="HighlightBrush" />
       <!-- Funnel icon, centered and balanced for 16px: translated MDL2-style geometry -->
       <StreamGeometry x:Key="DataGridFilterIconPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
       <StreamGeometry x:Key="DataGridFilterIconFilledPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
@@ -305,7 +306,7 @@
       <Setter Property="Template">
         <ControlTemplate>
           <Grid x:Name="PART_Root"
-                ColumnDefinitions="Auto,*"
+                ColumnDefinitions="16,*"
                 RowDefinitions="*,*,Auto">
             <Border Grid.RowSpan="3"
                     Grid.ColumnSpan="2"
@@ -326,6 +327,18 @@
                        HorizontalAlignment="Stretch"
                        Fill="{TemplateBinding SeparatorBrush}"
                        IsVisible="{TemplateBinding AreSeparatorsVisible}" />
+
+            <Path x:Name="DragGrip"
+                  Grid.RowSpan="2"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  Width="12"
+                  Height="12"
+                  Stretch="Uniform"
+                  Fill="{TemplateBinding Foreground}"
+                  StrokeThickness="0"
+                  IsVisible="False"
+                  Data="M4 3 a1 1 0 1 1 0.001 0 M8 3 a1 1 0 1 1 0.001 0 M4 7 a1 1 0 1 1 0.001 0 M8 7 a1 1 0 1 1 0.001 0 M4 11 a1 1 0 1 1 0.001 0 M8 11 a1 1 0 1 1 0.001 0" />
 
             <ContentPresenter Grid.RowSpan="2"
                               Grid.Column="1"
@@ -393,6 +406,12 @@
       <Style Selector="^:selected">
         <Setter Property="Foreground" Value="{DynamicResource HighlightForegroundBrush}" />
       </Style>
+
+      <Style Selector="^:dragging /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="IsVisible" Value="True" />
+        <Setter Property="Opacity" Value="0.6" />
+      </Style>
+
     </ControlTheme>
 
     <ControlTheme x:Key="SimpleDataGridRowGroupExpanderButtonTheme"
@@ -549,4 +568,20 @@
     </ControlTheme>
     </ResourceDictionary>
   </Styles.Resources>
+
+  <Style Selector="DataGrid:row-drag-enabled:row-drag-handle-visible DataGridRowHeader">
+    <Setter Property="Cursor" Value="SizeAll" />
+  </Style>
+
+  <Style Selector="DataGrid:row-drag-enabled:row-drag-handle-visible DataGridRowHeader /template/ Path#DragGrip">
+    <Setter Property="IsVisible" Value="True" />
+  </Style>
+
+  <Style Selector="DataGridRow:placeholder DataGridRowHeader">
+    <Setter Property="Cursor" Value="Arrow" />
+  </Style>
+
+  <Style Selector="DataGridRow:placeholder DataGridRowHeader /template/ Path#DragGrip">
+    <Setter Property="IsVisible" Value="False" />
+  </Style>
 </Styles>

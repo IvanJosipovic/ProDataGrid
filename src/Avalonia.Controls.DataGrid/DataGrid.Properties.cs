@@ -5,6 +5,7 @@
 #nullable disable
 
 using Avalonia.Collections;
+using Avalonia.Controls.DataGridDragDrop;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.DataGridSorting;
@@ -101,6 +102,104 @@ namespace Avalonia.Controls
         {
             get { return GetValue(CanUserDeleteRowsProperty); }
             set { SetValue(CanUserDeleteRowsProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="CanUserReorderRows"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<bool> CanUserReorderRowsProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(nameof(CanUserReorderRows));
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether the user can reorder rows via drag-and-drop.
+        /// </summary>
+        public bool CanUserReorderRows
+        {
+            get { return GetValue(CanUserReorderRowsProperty); }
+            set { SetValue(CanUserReorderRowsProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="RowDragHandle"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<DataGridRowDragHandle> RowDragHandleProperty =
+            AvaloniaProperty.Register<DataGrid, DataGridRowDragHandle>(
+                nameof(RowDragHandle),
+                defaultValue: DataGridRowDragHandle.RowHeader);
+
+        /// <summary>
+        /// Gets or sets the row drag handle surface.
+        /// </summary>
+        public DataGridRowDragHandle RowDragHandle
+        {
+            get { return GetValue(RowDragHandleProperty); }
+            set { SetValue(RowDragHandleProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="RowDragHandleVisible"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<bool> RowDragHandleVisibleProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(
+                nameof(RowDragHandleVisible),
+                defaultValue: true);
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether the drag handle grip is visible in the row header.
+        /// </summary>
+        public bool RowDragHandleVisible
+        {
+            get => GetValue(RowDragHandleVisibleProperty);
+            set => SetValue(RowDragHandleVisibleProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="RowDragDropOptions"/> direct property.
+        /// </summary>
+        public static readonly DirectProperty<DataGrid, DataGridRowDragDropOptions> RowDragDropOptionsProperty =
+            AvaloniaProperty.RegisterDirect<DataGrid, DataGridRowDragDropOptions>(
+                nameof(RowDragDropOptions),
+                o => o.RowDragDropOptions,
+                (o, v) => o.RowDragDropOptions = v);
+
+        /// <summary>
+        /// Gets or sets row drag/drop options.
+        /// </summary>
+        public DataGridRowDragDropOptions RowDragDropOptions
+        {
+            get => _rowDragDropOptions;
+            set => SetAndRaise(RowDragDropOptionsProperty, ref _rowDragDropOptions, value ?? new DataGridRowDragDropOptions());
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="RowDropHandler"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<IDataGridRowDropHandler> RowDropHandlerProperty =
+            AvaloniaProperty.Register<DataGrid, IDataGridRowDropHandler>(nameof(RowDropHandler));
+
+        /// <summary>
+        /// Gets or sets the handler used to perform row drops.
+        /// </summary>
+        public IDataGridRowDropHandler RowDropHandler
+        {
+            get => GetValue(RowDropHandlerProperty);
+            set => SetValue(RowDropHandlerProperty, value);
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="RowDragDropControllerFactory"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<IDataGridRowDragDropControllerFactory> RowDragDropControllerFactoryProperty =
+            AvaloniaProperty.Register<DataGrid, IDataGridRowDragDropControllerFactory>(
+                nameof(RowDragDropControllerFactory));
+
+        /// <summary>
+        /// Gets or sets the controller factory used to wire drag/drop.
+        /// </summary>
+        public IDataGridRowDragDropControllerFactory RowDragDropControllerFactory
+        {
+            get => GetValue(RowDragDropControllerFactoryProperty);
+            set => SetValue(RowDragDropControllerFactoryProperty, value);
         }
 
         /// <summary>
