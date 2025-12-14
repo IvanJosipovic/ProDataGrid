@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ComboHyperlinkColumnsPage"
+             x:Name="Root"
+             x:DataType="viewModels:ComboHyperlinkColumnsViewModel">
+  <UserControl.DataContext>
+    <viewModels:ComboHyperlinkColumnsViewModel/>
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2">ComboBox &amp; Hyperlink columns</TextBlock>
+      <TextBlock Text="Lookup values via DataGridComboBoxColumn and clickable navigation via DataGridHyperlinkColumn. Combo boxes bind to a shared status list; hyperlinks bind to Uri values and can be edited as text."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Shuffle statuses"
+              Command="{Binding ShuffleStatusesCommand}" />
+      <Button Content="Set all active"
+              Command="{Binding SetAllActiveCommand}" />
+      <Button Content="Swap first link"
+              Command="{Binding SwapFirstLinkCommand}" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              ItemsSource="{Binding Contacts}"
+              AutoGenerateColumns="False"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              HeadersVisibility="All"
+              Height="460">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name"
+                            Binding="{Binding Name}" />
+        <DataGridTextColumn Header="Role"
+                            Binding="{Binding Title}" />
+        <DataGridComboBoxColumn Header="Status"
+                                ItemsSource="{Binding #Root.DataContext.Statuses}"
+                                SelectedItemBinding="{Binding Status}" />
+        <DataGridHyperlinkColumn Header="Website"
+                                 Binding="{Binding Link}"
+                                 ContentBinding="{Binding LinkText}"
+                                 TargetName="_blank" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

@@ -12,6 +12,9 @@ namespace DataGridSample.Models
         private string _lastName = string.Empty;
         private bool _isBanned;
         private int _age;
+        private PersonStatus _status;
+        private PersonStatus? _optionalStatus;
+        private Uri? _profileLink;
 
         public string FirstName
         {
@@ -69,6 +72,24 @@ namespace DataGridSample.Models
             }
         }
 
+        public PersonStatus Status
+        {
+            get => _status;
+            set => SetProperty(ref _status, value, nameof(Status));
+        }
+
+        public PersonStatus? OptionalStatus
+        {
+            get => _optionalStatus;
+            set => SetProperty(ref _optionalStatus, value, nameof(OptionalStatus));
+        }
+
+        public Uri? ProfileLink
+        {
+            get => _profileLink;
+            set => SetProperty(ref _profileLink, value, nameof(ProfileLink));
+        }
+
         private Dictionary<string, List<string>> _errorLookup = new Dictionary<string, List<string>>();
 
         private void SetError(string propertyName, string? error)
@@ -111,5 +132,13 @@ namespace DataGridSample.Models
             else
                 return Array.Empty<object>();
         }
+    }
+
+    public enum PersonStatus
+    {
+        New,
+        Active,
+        Suspended,
+        Disabled
     }
 }

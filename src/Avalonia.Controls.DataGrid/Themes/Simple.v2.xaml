@@ -44,6 +44,36 @@
                  Text="{Binding}" />
     </DataTemplate>
 
+    <ControlTheme x:Key="DataGridCellComboBoxTheme"
+                  TargetType="ComboBox"
+                  BasedOn="{StaticResource {x:Type ComboBox}}">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="4,0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+    </ControlTheme>
+    <ControlTheme x:Key="DataGridCellComboBoxDisplayTheme"
+                  TargetType="ComboBox"
+                  BasedOn="{StaticResource {x:Type ComboBox}}">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Focusable" Value="False" />
+      <Setter Property="IsHitTestVisible" Value="False" />
+    </ControlTheme>
+    <ControlTheme x:Key="DataGridCellHyperlinkButtonTheme"
+                  TargetType="HyperlinkButton"
+                  BasedOn="{StaticResource {x:Type HyperlinkButton}}">
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+    </ControlTheme>
+
     <ControlTheme x:Key="DataGridHierarchicalExpanderTheme" TargetType="ToggleButton">
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderBrush" Value="Transparent" />

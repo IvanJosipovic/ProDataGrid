@@ -33,6 +33,7 @@ namespace DataGridSample.ViewModels
 
             string[] firstNames = { "Alex", "Sam", "Jordan", "Taylor", "Morgan", "Jamie", "Casey", "Riley", "Avery", "Skyler" };
             string[] lastNames = { "Smith", "Johnson", "Brown", "Davis", "Miller", "Wilson", "Moore", "Taylor", "Anderson", "Thomas" };
+            var statuses = Enum.GetValues<PersonStatus>();
 
             for (int i = 0; i < ItemCount; i++)
             {
@@ -41,7 +42,10 @@ namespace DataGridSample.ViewModels
                     FirstName = firstNames[random.Next(firstNames.Length)],
                     LastName = lastNames[random.Next(lastNames.Length)],
                     Age = random.Next(18, 75),
-                    IsBanned = random.NextDouble() < 0.15
+                    IsBanned = random.NextDouble() < 0.15,
+                    Status = statuses[random.Next(statuses.Length)],
+                    OptionalStatus = random.NextDouble() < 0.3 ? statuses[random.Next(statuses.Length)] : null,
+                    ProfileLink = new Uri($"https://example.com/profile/{i + 1}")
                 };
                 Items.Add(person);
             }

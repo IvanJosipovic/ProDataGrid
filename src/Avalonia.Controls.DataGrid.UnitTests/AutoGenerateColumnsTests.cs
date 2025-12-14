@@ -109,5 +109,70 @@ namespace Avalonia.Controls.DataGridTests
                 });
         }
 
+        [Fact]
+        public void AutoGenerateColumns_Creates_ComboBox_For_Enum()
+        {
+            var grid = new DataGrid
+            {
+                AutoGenerateColumns = true,
+                ItemsSource = new[] { new EnumItem { Status = EnumItemStatus.Active } }
+            };
+
+            typeof(DataGrid)
+                .GetField("_measured", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(grid, true);
+
+            typeof(DataGrid)
+                .GetMethod("AutoGenerateColumnsPrivate", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(grid, null);
+
+            var column = Assert.Single(grid.ColumnDefinitions);
+            var comboColumn = Assert.IsType<DataGridComboBoxColumn>(column);
+            Assert.Equal("Status", comboColumn.Header);
+            Assert.NotNull(comboColumn.ItemsSource);
+            Assert.IsType<Binding>(comboColumn.SelectedItemBinding);
+        }
+
+        [Fact]
+        public void AutoGenerateColumns_Creates_Hyperlink_For_Uri()
+        {
+            var grid = new DataGrid
+            {
+                AutoGenerateColumns = true,
+                ItemsSource = new[] { new LinkItem { Link = new Uri("https://example.com") } }
+            };
+
+            typeof(DataGrid)
+                .GetField("_measured", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(grid, true);
+
+            typeof(DataGrid)
+                .GetMethod("AutoGenerateColumnsPrivate", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(grid, null);
+
+            var column = Assert.Single(grid.ColumnDefinitions);
+            var hyperlinkColumn = Assert.IsType<DataGridHyperlinkColumn>(column);
+            Assert.Equal("Link", hyperlinkColumn.Header);
+            Assert.IsType<Binding>(hyperlinkColumn.Binding);
+            Assert.IsType<Binding>(hyperlinkColumn.ContentBinding);
+        }
+
+        private sealed class EnumItem
+        {
+            public EnumItemStatus Status { get; set; }
+        }
+
+        private sealed class LinkItem
+        {
+            public Uri Link { get; set; } = new Uri("https://example.com");
+        }
+
+        private enum EnumItemStatus
+        {
+            Active,
+            Inactive,
+            Pending
+        }
+
     }
 }
