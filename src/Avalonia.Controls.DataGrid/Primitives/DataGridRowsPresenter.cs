@@ -31,6 +31,7 @@ namespace Avalonia.Controls.Primitives
         private EventHandler<ChildIndexChangedEventArgs>? _childIndexChanged;
         private int _virtualizationGuardDepth;
         private DataGrid? _owningGrid;
+        private double _lastArrangeHeight;
 
         public DataGridRowsPresenter()
         {
@@ -118,10 +119,21 @@ namespace Avalonia.Controls.Primitives
                 return base.ArrangeOverride(finalSize);
             }
 
-            if (OwningGrid.RowsPresenterAvailableSize.HasValue)
+            if (OwningGrid.RowsPresenterAvailableSize is { } measuredSize)
             {
-                var availableHeight = OwningGrid.RowsPresenterAvailableSize.Value.Height;
+                var measuredHeight = measuredSize.Height;
+                var arrangedHeight = finalSize.Height;
+                if (!double.IsInfinity(measuredHeight) && !double.IsNaN(measuredHeight) && !double.IsNaN(arrangedHeight))
+                {
+                    var threshold = Math.Max(OwningGrid.RowHeightEstimate, 1);
+                    if (measuredHeight - arrangedHeight > threshold)
+                    {
+                        InvalidateMeasure();
+                    }
+                }
             }
+
+            _lastArrangeHeight = finalSize.Height;
 
             OwningGrid.OnFillerColumnWidthNeeded(finalSize.Width);
 
@@ -186,17 +198,42 @@ namespace Avalonia.Controls.Primitives
         {
             if (double.IsInfinity(availableSize.Height))
             {
-                if (VisualRoot is TopLevel topLevel)
+                double? constrainedHeight = null;
+
+                if (!double.IsNaN(_lastArrangeHeight) && _lastArrangeHeight >= 0)
+                {
+                    constrainedHeight = _lastArrangeHeight;
+                }
+
+                if (OwningGrid is { } grid)
+                {
+                    var gridConstraint = LayoutHelper.ApplyLayoutConstraints(grid, availableSize).Height;
+                    if (!double.IsInfinity(gridConstraint) && !double.IsNaN(gridConstraint) && gridConstraint > 0)
+                    {
+                        constrainedHeight = gridConstraint;
+                    }
+                    else if (grid.Bounds.Height > 0)
+                    {
+                        constrainedHeight = grid.Bounds.Height;
+                    }
+                }
+
+                if (constrainedHeight is null && VisualRoot is TopLevel topLevel)
                 {
                     double maxHeight = topLevel.IsArrangeValid ?
                                         topLevel.Bounds.Height :
                                         LayoutHelper.ApplyLayoutConstraints(topLevel, availableSize).Height;
 
-                    availableSize = availableSize.WithHeight(maxHeight);
+                    constrainedHeight = maxHeight;
+                }
+
+                if (constrainedHeight is double height)
+                {
+                    availableSize = availableSize.WithHeight(height);
                 }
             }
 
-            if (availableSize.Height == 0 || OwningGrid == null)
+            if (OwningGrid == null)
             {
                 return base.MeasureOverride(availableSize);
             }
@@ -301,6 +338,23 @@ namespace Avalonia.Controls.Primitives
                 _onDispose?.Invoke();
                 _onDispose = null;
             }
+        }
+
+        internal void TrimRecycledContainers()
+        {
+            if (OwningGrid?.DisplayData == null || OwningGrid.RowsPresenterAvailableSize is null)
+            {
+                return;
+            }
+
+            var viewportHeight = OwningGrid.RowsPresenterAvailableSize.Value.Height;
+            if (double.IsInfinity(viewportHeight) || double.IsNaN(viewportHeight))
+            {
+                return;
+            }
+
+            var recycleLimit = Math.Max(PrefetchBufferRows + 1, 4);
+            OwningGrid.DisplayData.TrimRecycledPools(this, recycleLimit, recycleLimit);
         }
 
 #if DEBUG

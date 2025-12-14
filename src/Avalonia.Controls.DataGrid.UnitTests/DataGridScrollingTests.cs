@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Reflection;
 using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
@@ -391,6 +392,267 @@ public class DataGridScrollingTests
         
         // Assert
         Assert.Equal(target.UseLogicalScrollable, presenter.IsLogicalScrollEnabled);
+    }
+
+    #endregion
+
+    #region Viewport Resize Recycling
+
+    [AvaloniaFact]
+    public void Rows_Recycle_When_Viewport_Shrinks_With_LogicalScrollable()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 500).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateV2Target(items, height: 300, useLogicalScrollable: true);
+        var root = (Window)target.GetVisualRoot()!;
+        var presenter = GetRowsPresenter(target);
+
+        root.UpdateLayout();
+        var initialVisible = GetRows(target).Count;
+        var initialChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var initialRecycled = GetRecycledRowCount(target);
+
+        // Act - expand viewport significantly
+        root.Height = 900;
+        root.UpdateLayout();
+        var expandedVisible = GetRows(target).Count;
+        var expandedChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var expandedRecycled = GetRecycledRowCount(target);
+
+        // Sanity check that expansion realized more rows
+        Assert.True(expandedVisible > initialVisible,
+            $"Expected more realized rows after expansion. Initial: {initialVisible}, Expanded: {expandedVisible}");
+
+        // Act - shrink back to original height
+        root.Height = 300;
+        root.UpdateLayout();
+        var shrunkVisible = GetRows(target).Count;
+        var shrunkChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var shrunkRecycled = GetRecycledRowCount(target);
+
+        // Assert - rows should be recycled back down near the initial viewport size
+        Assert.True(shrunkVisible <= initialVisible + 2,
+            $"Rows were not recycled after shrinking. Initial: {initialVisible}, Shrunk: {shrunkVisible}, Expanded: {expandedVisible}");
+        Assert.True(shrunkVisible < expandedVisible,
+            $"Expected fewer realized rows after shrinking. Shrunk: {shrunkVisible}, Expanded: {expandedVisible}");
+
+        // Hidden/recycled containers should also be trimmed so the child collection does not grow unbounded
+        Assert.True(shrunkChildren <= initialChildren + 4,
+            $"RowsPresenter kept too many recycled children after shrinking. Initial children: {initialChildren}, Expanded: {expandedChildren}, Shrunk: {shrunkChildren}");
+
+        // The recycle pool should also be trimmed when the viewport contracts
+        const int recyclePoolLimit = 8;
+        Assert.True(shrunkRecycled <= recyclePoolLimit,
+            $"Recycle pool grew from {initialRecycled} to {shrunkRecycled} after shrink (expanded to {expandedRecycled}).");
+    }
+
+    [AvaloniaFact]
+    public void Tiny_Viewport_Does_Not_Realize_Excess_Rows()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 1000).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateV2Target(items, height: 40, useLogicalScrollable: true);
+        var presenter = GetRowsPresenter(target);
+
+        // Act
+        target.UpdateLayout();
+        var realizedRows = GetRows(target).Count;
+        var presenterChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var recycled = GetRecycledRowCount(target);
+
+        // Assert - viewport only fits ~2 rows; allow small buffer for prefetch/prefill
+        Assert.True(realizedRows <= 8, $"Realized rows={realizedRows}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for tiny viewport: {presenterChildren}");
+    }
+
+    [AvaloniaFact]
+    public void Fixed_Height_In_StackPanel_Does_Not_Realize_Whole_Window()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 1000).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 300,
+            Height = 400,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml")
+                },
+            }
+        };
+
+        var target = new DataGrid
+        {
+            Height = 40,
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = true,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        root.Content = new StackPanel
+        {
+            Orientation = Orientation.Vertical,
+            Children = { target }
+        };
+
+        root.Show();
+
+        // Act
+        root.UpdateLayout();
+        var rows = GetRows(target);
+        var presenter = GetRowsPresenter(target);
+        var presenterChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var recycled = GetRecycledRowCount(target);
+
+        // Assert - viewport is limited by Height=40; should not realize near full window height
+        Assert.True(rows.Count <= 8, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for fixed-height stackpanel: {presenterChildren}");
+    }
+
+    [AvaloniaFact]
+    public void Wrapped_ScrollViewer_With_Small_Viewport_Does_Not_Realize_Excess_Rows()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 1000).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 300,
+            Height = 300,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        var scrollViewer = new ScrollViewer
+        {
+            Height = 40,
+            Content = target,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+
+        root.Content = scrollViewer;
+        root.Show();
+
+        // Act
+        root.UpdateLayout();
+        var rows = GetRows(target);
+        var presenter = GetRowsPresenter(target);
+        var presenterChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var recycled = GetRecycledRowCount(target);
+
+        // Assert - wrap in external ScrollViewer should still respect viewport size
+        Assert.True(rows.Count <= 8, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for wrapped scrollviewer: {presenterChildren}");
+    }
+
+    [AvaloniaFact]
+    public void Shrinking_Viewport_To_Zero_Does_Not_Over_Materialize()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 1000).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateV2Target(items, height: 400, useLogicalScrollable: true);
+        var root = (Window)target.GetVisualRoot()!;
+        var presenter = GetRowsPresenter(target);
+
+        root.UpdateLayout();
+
+        // Gradually shrink the host height
+        root.Height = 250;
+        root.UpdateLayout();
+
+        root.Height = 120;
+        root.UpdateLayout();
+
+        root.Height = 1;
+        root.UpdateLayout();
+        target.UpdateLayout(); // ensure measure reruns after arrange change
+
+        var rows = GetRows(target);
+        var presenterChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var recycled = GetRecycledRowCount(target);
+
+        // Assert - with effectively zero viewport, realized rows should stay near prefetch budget
+        Assert.True(rows.Count <= 8, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly after shrinking to zero: {presenterChildren}");
+        Assert.True(recycled <= 12, $"Recycle pool grew unexpectedly after shrinking to zero: {recycled}");
+    }
+
+    [AvaloniaFact]
+    public void Infinite_Measure_With_Small_Arrange_Does_Not_Over_Materialize()
+    {
+        // Arrange - host measures with Infinity but arranges to a small height to mimic nested scroll viewers
+        var items = Enumerable.Range(0, 1000).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 300,
+            Height = 300,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml")
+                },
+            }
+        };
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = true,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        var host = new InfiniteMeasureHost
+        {
+            HostHeight = 40,
+            Child = target,
+        };
+
+        var spacer = new Border();
+        Grid.SetRow(spacer, 1);
+
+        root.Content = new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,*"),
+            Children = { host, spacer }
+        };
+
+        root.Show();
+
+        // Act
+        root.UpdateLayout();
+        var rows = GetRows(target);
+        var presenter = GetRowsPresenter(target);
+        var presenterChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var recycled = GetRecycledRowCount(target);
+
+        // Assert - even with infinite measure input, realized containers should match the small viewport
+        Assert.True(rows.Count <= 8, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for infinite-measure host: {presenterChildren}");
     }
 
     #endregion
@@ -1013,6 +1275,64 @@ public class DataGridScrollingTests
                 new StyleInclude((Uri?)null)
                 {
                     Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+            }
+        };
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = useLogicalScrollable,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        root.Content = target;
+        root.Show();
+        return target;
+    }
+
+    private class InfiniteMeasureHost : Decorator
+    {
+        public double HostHeight { get; set; } = 40;
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            Child?.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            return new Size(availableSize.Width, HostHeight);
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            var size = new Size(finalSize.Width, HostHeight);
+            Child?.Arrange(new Rect(size));
+            return size;
+        }
+    }
+
+    private static int GetRecycledRowCount(DataGrid target)
+    {
+        var displayData = target.DisplayData;
+        var field = typeof(DataGridDisplayData).GetField("_recycledRows", BindingFlags.NonPublic | BindingFlags.Instance);
+        var recycledRows = (Stack<DataGridRow>)field!.GetValue(displayData)!;
+        return recycledRows.Count;
+    }
+
+    private static DataGrid CreateV2Target(IList<ScrollTestModel> items, int height = 300, bool useLogicalScrollable = true)
+    {
+        var root = new Window
+        {
+            Width = 300,
+            Height = height,
+            Styles =
+            {
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
+                },
+                new StyleInclude((Uri?)null)
+                {
+                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml")
                 },
             }
         };

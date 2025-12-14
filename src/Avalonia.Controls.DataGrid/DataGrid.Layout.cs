@@ -102,6 +102,7 @@ namespace Avalonia.Controls
                 desiredSize = base.MeasureOverride(availableSize);
 
                 ComputeScrollBarsLayout();
+                _rowsPresenter?.TrimRecycledContainers();
             }
 
             return desiredSize;

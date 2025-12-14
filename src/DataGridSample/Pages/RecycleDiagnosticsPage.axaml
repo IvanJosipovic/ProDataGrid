@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.RecycleDiagnosticsPage">
+  <UserControl.DataContext>
+    <viewModels:RecycleDiagnosticsViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="0">
+    <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="6" Margin="0,0,0,8">
+      <TextBlock Classes="h2" Text="Resize recycling diagnostics" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Resize the window (maximize/restore) and watch the realized vs recycled row counts. The recycle pool should shrink back to the small viewport budget after restoring." />
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <TextBlock Text="Realized rows:" />
+        <TextBlock FontWeight="Bold" Text="{Binding RealizedRows}" />
+        <TextBlock Text="Recycled rows:" />
+        <TextBlock FontWeight="Bold" Text="{Binding RecycledRows}" />
+        <TextBlock Text="Viewport height:" />
+        <TextBlock FontWeight="Bold" Text="{Binding ViewportHeight,StringFormat=0.0}" />
+      </StackPanel>
+    </StackPanel>
+
+    <DataGrid x:Name="DiagnosticGrid"
+              Grid.Row="1"
+              Grid.ColumnSpan="2"
+              ItemsSource="{Binding Items}"
+              UseLogicalScrollable="True"
+              HeadersVisibility="All"
+              GridLinesVisibility="Horizontal"
+              RowBackground="#08000000">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="80" />
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="3*" />
+        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="2*" />
+        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="5*" />
+        <DataGridTextColumn Header="Notes" Binding="{Binding Notes}" Width="3*" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

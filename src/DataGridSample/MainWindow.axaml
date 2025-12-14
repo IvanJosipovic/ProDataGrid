@@ -101,6 +101,9 @@
     <TabItem Header="Large Uniform Rows">
       <local:LargeUniformPage />
     </TabItem>
+    <TabItem Header="Resize Recycling">
+      <pages:RecycleDiagnosticsPage />
+    </TabItem>
     <TabItem Header="Pixel Columns">
       <local:PixelColumnsPage />
     </TabItem>
