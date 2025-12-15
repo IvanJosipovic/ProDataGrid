@@ -1008,10 +1008,7 @@ namespace Avalonia.Controls
 
 
         internal int EditingColumnIndex
-        {
-            get;
-            private set;
-        }
+            => _editingColumnIndex;
 
 
         private void OnIsReadOnlyChanged(AvaloniaPropertyChangedEventArgs e)
