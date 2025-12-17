@@ -5,7 +5,7 @@
   <Styles.Resources>
     <ResourceDictionary>
       <Thickness x:Key="DataGridTextColumnCellTextBlockMargin">4</Thickness>
-      <DynamicResource x:Key="DataGridRowDropIndicatorBrush" ResourceKey="HighlightBrush" />
+      <StaticResource x:Key="DataGridRowDropIndicatorBrush" ResourceKey="HighlightBrush" />
       <!-- Funnel icon, centered and balanced for 16px: translated MDL2-style geometry -->
       <StreamGeometry x:Key="DataGridFilterIconPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
       <StreamGeometry x:Key="DataGridFilterIconFilledPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
