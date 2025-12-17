@@ -729,6 +729,8 @@ namespace Avalonia.Controls
             {
                 _lastEstimatedRow--;
             }
+
+            SyncRowGroupInfoSlots();
         }
 
         /// <summary>
@@ -795,6 +797,8 @@ namespace Avalonia.Controls
             {
                 _lastEstimatedRow++;
             }
+
+            SyncRowGroupInfoSlots();
         }
 
         private IEnumerable<DataGridRow> GetAllRows()

@@ -315,9 +315,22 @@ namespace Avalonia.Controls
                 {
                     totalSlots += CountAndPopulateGroupHeaders(group, totalSlots, 0);
                 }
+                SyncRowGroupInfoSlots();
             }
             SlotCount = DataConnection.Count + RowGroupHeadersTable.IndexCount;
             VisibleSlotCount = SlotCount;
+        }
+
+        private void SyncRowGroupInfoSlots()
+        {
+            foreach (int slot in RowGroupHeadersTable.GetIndexes())
+            {
+                var info = RowGroupHeadersTable.GetValueAt(slot);
+                if (info.Slot != slot)
+                {
+                    info.Slot = slot;
+                }
+            }
         }
 
 
@@ -678,6 +691,20 @@ namespace Avalonia.Controls
 
         internal void OnRowGroupHeaderToggled(DataGridRowGroupHeader groupHeader, bool newIsVisible, bool setCurrent)
         {
+            var collectionViewGroup = groupHeader.DataContext as DataGridCollectionViewGroup ??
+                                      groupHeader.RowGroupInfo?.CollectionViewGroup;
+            if (collectionViewGroup == null || collectionViewGroup.ItemCount == 0)
+            {
+                return;
+            }
+
+            // RowGroupInfo on the recycled header can become stale if slots shifted; always re-sync with the table
+            var currentInfo = RowGroupInfoFromCollectionViewGroup(collectionViewGroup) ?? groupHeader.RowGroupInfo;
+            if (!ReferenceEquals(groupHeader.RowGroupInfo, currentInfo))
+            {
+                groupHeader.RowGroupInfo = currentInfo;
+            }
+
             Debug.Assert(groupHeader.RowGroupInfo.CollectionViewGroup.ItemCount > 0);
 
             if (WaitForLostFocus(delegate { OnRowGroupHeaderToggled(groupHeader, newIsVisible, setCurrent); }) || !CommitEdit())
