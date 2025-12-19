@@ -414,6 +414,14 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
 
     private static (DataGrid Grid, Window Window) CreateGrid(IEnumerable items)
     {
+        var window = new Window
+        {
+            Width = 400,
+            Height = 300
+        };
+
+        window.SetThemeStyles();
+
         var grid = new DataGrid
         {
             ItemsSource = items,
@@ -422,30 +430,13 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
             AutoGenerateColumns = false
         };
 
-        grid.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-        });
-
         grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Value",
             Binding = new Binding("Value")
         });
-
-        var window = new Window
-        {
-            Width = 400,
-            Height = 300,
-            Content = grid,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                }
-            }
-        };
+        
+        window.Content = grid;
 
         window.Show();
         grid.ApplyTemplate();
@@ -457,6 +448,14 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
 
     private static (DataGrid Grid, Window Window, HierarchicalModel Model, HierarchicalNode Root) CreateHierarchicalGrid()
     {
+        var window = new Window
+        {
+            Width = 400,
+            Height = 300,
+        };
+
+        window.SetThemeStyles();
+
         var rootItem = new TreeNode("Root", new ObservableCollection<TreeNode>
         {
             new("Child 1", new ObservableCollection<TreeNode>
@@ -484,31 +483,14 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
             RowHeaderWidth = 28
         };
 
-        grid.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-        });
-
         grid.ColumnsInternal.Add(new DataGridTextColumn
         {
             Header = "Name",
             Binding = new Binding("Item.Name")
         });
 
-        var window = new Window
-        {
-            Width = 400,
-            Height = 300,
-            Content = grid,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                }
-            }
-        };
-
+        window.Content = grid;
+        
         window.Show();
         grid.ApplyTemplate();
         window.Measure(new Size(window.Width, window.Height));

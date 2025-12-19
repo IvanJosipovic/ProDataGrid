@@ -24,14 +24,9 @@ public class DataGridDataTableDisplayTests
         {
             Width = 400,
             Height = 400,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var dataGrid = new DataGrid
         {

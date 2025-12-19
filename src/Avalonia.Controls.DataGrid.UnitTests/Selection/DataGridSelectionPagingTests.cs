@@ -99,14 +99,9 @@ public class DataGridSelectionPagingTests
         {
             Width = 250,
             Height = 150,
-            Styles =
-            {
-                new StyleInclude((System.Uri?)null)
-                {
-                    Source = new System.Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var grid = new DataGrid
         {

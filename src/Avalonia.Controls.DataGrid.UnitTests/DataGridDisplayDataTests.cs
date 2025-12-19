@@ -364,14 +364,9 @@ public class DataGridDisplayDataTests
         {
             Width = 300,
             Height = 200,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var target = new DataGrid
         {
@@ -391,14 +386,9 @@ public class DataGridDisplayDataTests
         {
             Width = 300,
             Height = 200,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var collectionView = new DataGridCollectionView(items);
         collectionView.GroupDescriptions.Add(new DataGridPathGroupDescription(groupProperty));

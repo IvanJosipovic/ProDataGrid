@@ -174,14 +174,9 @@ public class DataGridContainerLifecycleTests
         {
             Width = 240,
             Height = 120,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        window.SetThemeStyles();
 
         var grid = new TrackingDataGrid
         {

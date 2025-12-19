@@ -340,16 +340,16 @@ public class DataGridClipboardExportTests
         var root = new Window
         {
             Width = 400,
-            Height = 300,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
+            Height = 300
         };
 
+        root.SetThemeStyles();
+
+        foreach (var style in ThemeHelper.GetThemeStyles(DataGridTheme.Simple))
+        {
+            root.Styles.Add(style);
+        }
+        
         var grid = new DataGrid
         {
             ItemsSource = items,

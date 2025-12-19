@@ -42,18 +42,9 @@ namespace Avalonia.Controls.DataGridTests.Selection;
             Width = 400,
             Height = 300,
             Content = tabs,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-                },
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                }
-            }
         };
+
+        window.SetThemeStyles();
 
         try
         {
@@ -119,18 +110,9 @@ namespace Avalonia.Controls.DataGridTests.Selection;
             Width = 400,
             Height = 300,
             Content = tabs,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-                },
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                }
-            }
         };
+
+        window.SetThemeStyles();
 
         try
         {
@@ -185,18 +167,9 @@ namespace Avalonia.Controls.DataGridTests.Selection;
                 Width = 400,
                 Height = 300,
                 Content = tabs,
-                Styles =
-                {
-                    new StyleInclude((Uri?)null)
-                    {
-                        Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-                    },
-                    new StyleInclude((Uri?)null)
-                    {
-                        Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                    }
-                }
             };
+
+            window.SetThemeStyles();
 
             try
             {

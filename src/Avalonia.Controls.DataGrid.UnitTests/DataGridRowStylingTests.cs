@@ -50,14 +50,9 @@ public class DataGridRowStylingTests
         {
             Width = 300,
             Height = 200,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var grid = new DataGrid
         {

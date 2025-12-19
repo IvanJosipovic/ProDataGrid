@@ -230,6 +230,14 @@ public class HierarchicalHeadlessTests
 
     private static DataGrid CreateGrid(Item root, string sortMemberPath)
     {
+        var window = new Window
+        {
+            Width = 400,
+            Height = 300,
+        };
+
+        window.SetThemeStyles();
+
         var model = new HierarchicalModel(new HierarchicalOptions
         {
             ChildrenSelector = o => ((Item)o).Children,
@@ -273,10 +281,6 @@ public class HierarchicalHeadlessTests
         grid.ItemsSource = view;
         grid.SortingModel = sortingModel;
         EnsureSortingAdapter(grid);
-        grid.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-        });
 
         grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
         {
@@ -286,19 +290,8 @@ public class HierarchicalHeadlessTests
             Width = new DataGridLength(1, DataGridLengthUnitType.Star)
         });
 
-        var window = new Window
-        {
-            Width = 400,
-            Height = 300,
-            Content = grid,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                }
-            }
-        };
+        window.Content = grid;
+        
         window.Show();
         grid.UpdateLayout();
         return grid;

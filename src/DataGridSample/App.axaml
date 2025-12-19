@@ -4,11 +4,15 @@
              RequestedThemeVariant="Default">
 
   <Application.Styles>
+
     <FluentTheme />
-    <!-- Include base Fluent theme for all component themes (DataGridCell, DataGridRow, etc.) -->
-    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" />
-    <!-- Include v2 theme which overrides only DataGrid with ScrollViewer-based template -->
+    <!-- <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml" /> -->
     <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.v2.xaml" />
+
+    <!-- <SimpleTheme /> -->
+    <!-- <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" /> -->
+    <!-- <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml" /> -->
+
   </Application.Styles>
 
 </Application>

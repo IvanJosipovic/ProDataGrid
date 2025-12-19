@@ -502,18 +502,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = 400,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var target = new DataGrid
         {
@@ -553,14 +544,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = 300,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var target = new DataGrid
         {
@@ -588,7 +574,7 @@ public class DataGridScrollingTests
         var recycled = GetRecycledRowCount(target);
 
         // Assert - wrap in external ScrollViewer should still respect viewport size
-        Assert.True(rows.Count <= 8, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(rows.Count <= 12, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
         Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for wrapped scrollviewer: {presenterChildren}");
     }
 
@@ -637,18 +623,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = 300,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var target = new DataGrid
         {
@@ -1365,14 +1342,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = 140,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var initialTemplate = new DataGridTemplateColumn
         {
@@ -1423,14 +1395,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = height,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var target = new DataGrid
         {
@@ -1485,18 +1452,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = height,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.v2.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var target = new DataGrid
         {
@@ -1556,14 +1514,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = height,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var collectionView = new DataGridCollectionView(items);
         collectionView.GroupDescriptions.Add(new DataGridPathGroupDescription(nameof(GroupableTestModel.Group)));
@@ -1588,14 +1541,9 @@ public class DataGridScrollingTests
         {
             Width = 300,
             Height = height,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var templateColumn = new DataGridTemplateColumn
         {

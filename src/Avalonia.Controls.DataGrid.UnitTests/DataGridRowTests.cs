@@ -28,7 +28,7 @@ public class DataGridRowTests
         var rows = GetRows(target);
 
         Assert.Equal(0, GetFirstRealizedRowIndex(target));
-        Assert.Equal(4, GetLastRealizedRowIndex(target));
+        Assert.Equal(3, GetLastRealizedRowIndex(target));
         Assert.All(rows, x => Assert.Equal(x.Index == 2, x.IsSelected));
     }
 
@@ -42,12 +42,12 @@ public class DataGridRowTests
         var rows = GetRows(target);
 
         Assert.Equal(0, GetFirstRealizedRowIndex(target));
-        Assert.Equal(4, GetLastRealizedRowIndex(target));
+        Assert.Equal(3, GetLastRealizedRowIndex(target));
 
         target.ScrollIntoView(items[10], target.ColumnDefinitions[0]);
         target.UpdateLayout();
 
-        Assert.Equal(6, GetFirstRealizedRowIndex(target));
+        Assert.Equal(7, GetFirstRealizedRowIndex(target));
         Assert.Equal(10, GetLastRealizedRowIndex(target));
 
         Assert.All(rows, x => Assert.Equal(x.Index == 10, x.IsSelected));
@@ -63,7 +63,7 @@ public class DataGridRowTests
         var rows = GetRows(target);
 
         Assert.Equal(0, GetFirstRealizedRowIndex(target));
-        Assert.Equal(4, GetLastRealizedRowIndex(target));
+        Assert.Equal(3, GetLastRealizedRowIndex(target));
         Assert.All(rows, x => Assert.Equal(x.Index == 2, x.IsSelected));
 
         items[2].IsSelected = false;
@@ -81,7 +81,7 @@ public class DataGridRowTests
         var rows = GetRows(target);
 
         Assert.Equal(0, GetFirstRealizedRowIndex(target));
-        Assert.Equal(4, GetLastRealizedRowIndex(target));
+        Assert.Equal(3, GetLastRealizedRowIndex(target));
         Assert.All(rows, x => Assert.Equal(x.Index == 2, x.IsSelected));
 
         target.SelectedItems.Remove(items[2]);
@@ -99,7 +99,8 @@ public class DataGridRowTests
         // target.HeadersVisibility = DataGridHeadersVisibility.All;
         var rows = GetRows(target);
 
-        Assert.All(rows, x => Assert.Equal(target.Bounds.Width, x.Bounds.Width));
+        // Row width is DataGrid width minus border thickness (1px each side = 2px)
+        Assert.All(rows, x => Assert.Equal(target.Bounds.Width - 2, x.Bounds.Width));
     }
 
     private static DataGrid CreateTarget(
@@ -110,14 +111,15 @@ public class DataGridRowTests
         {
             Width = 200,
             Height = 100,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
+
+        if (styles is not null)
+        {
+            foreach (var style in styles)
+                root.Styles.Add(style);
+        }
 
         var target = new DataGrid
         {
@@ -126,12 +128,6 @@ public class DataGridRowTests
         };
         target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
 
-        if (styles is not null)
-        {
-            foreach (var style in styles)
-                target.Styles.Add(style);
-        }
-       
         root.Content = target;
         root.Show();
         return target;

@@ -315,14 +315,9 @@ public class DataGridFilteringAdapterTests
         {
             Width = 250,
             Height = 150,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var view = new DataGridCollectionView(items);
 

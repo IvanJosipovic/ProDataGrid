@@ -220,24 +220,7 @@ public class DataGridEditingTests
             Height = 480
         };
 
-        AddResourceBackstops(root.Styles);
-        root.Styles.Add(new FluentTheme());
-        root.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-        });
-        root.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml")
-        });
-
-        var baseTheme = new FluentTheme();
-        AddBaseControlTheme(root, baseTheme, typeof(TextBox));
-        AddBaseControlTheme(root, baseTheme, typeof(CheckBox));
-        AddBaseControlTheme(root, baseTheme, typeof(ComboBox));
-        AddBaseControlTheme(root, baseTheme, typeof(HyperlinkButton));
-        EnsureFluentFallbackResources(root);
-        EnsureTooltipValidationResource(root, baseTheme);
+        root.SetThemeStyles();
 
         var grid = new DataGrid
         {
@@ -310,24 +293,7 @@ public class DataGridEditingTests
             Height = 240
         };
 
-        AddResourceBackstops(root.Styles);
-        root.Styles.Add(new FluentTheme());
-        root.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-        });
-        root.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml")
-        });
-
-        var baseTheme = new FluentTheme();
-        AddBaseControlTheme(root, baseTheme, typeof(TextBox));
-        AddBaseControlTheme(root, baseTheme, typeof(CheckBox));
-        AddBaseControlTheme(root, baseTheme, typeof(ComboBox));
-        AddBaseControlTheme(root, baseTheme, typeof(HyperlinkButton));
-        EnsureFluentFallbackResources(root);
-        EnsureTooltipValidationResource(root, baseTheme);
+        root.SetThemeStyles();
 
         var grid = new DataGrid
         {
@@ -353,80 +319,6 @@ public class DataGridEditingTests
         root.Show();
         grid.UpdateLayout();
         return (grid, root, items);
-    }
-
-    private static void AddBaseControlTheme(Window root, FluentTheme theme, Type controlType)
-    {
-        if (!theme.TryGetResource(controlType, ThemeVariant.Default, out var resource) || resource is null)
-        {
-            resource = new ControlTheme(controlType);
-        }
-
-        SetControlThemeResource(root.Resources, controlType, resource);
-
-        if (Application.Current is { } app)
-        {
-            SetControlThemeResource(app.Resources, controlType, resource);
-        }
-    }
-
-    private static void EnsureFluentFallbackResources(Window root)
-    {
-        EnsureResource(root.Resources, "SystemControlTransparentBrush", Brushes.Transparent);
-
-        if (Application.Current is { } app)
-        {
-            EnsureResource(app.Resources, "SystemControlTransparentBrush", Brushes.Transparent);
-        }
-    }
-
-    private static void EnsureTooltipValidationResource(Window root, FluentTheme theme)
-    {
-        var resource = TryGetResource(theme, "TooltipDataValidationErrors", () => new ControlTheme(typeof(ToolTip)));
-        EnsureResource(root.Resources, "TooltipDataValidationErrors", resource);
-
-        if (Application.Current is { } app)
-        {
-            EnsureResource(app.Resources, "TooltipDataValidationErrors", resource);
-        }
-    }
-
-    private static void AddResourceBackstops(Styles styles)
-    {
-        EnsureResource(styles.Resources, "SystemControlTransparentBrush", Brushes.Transparent);
-        EnsureResource(styles.Resources, "ListAccentLowOpacity", 0.15);
-        EnsureResource(styles.Resources, "ListAccentMediumOpacity", 0.3);
-
-        if (Application.Current is { } app)
-        {
-            EnsureResource(app.Resources, "SystemControlTransparentBrush", Brushes.Transparent);
-            EnsureResource(app.Resources, "ListAccentLowOpacity", 0.15);
-            EnsureResource(app.Resources, "ListAccentMediumOpacity", 0.3);
-        }
-    }
-
-    private static void EnsureResource(IResourceDictionary resources, string key, object value)
-    {
-        if (!resources.ContainsKey(key))
-        {
-            resources[key] = value;
-        }
-    }
-
-    private static object TryGetResource(FluentTheme theme, string key, Func<object> fallback)
-    {
-        return theme.TryGetResource(key, ThemeVariant.Default, out var resource) && resource is { }
-            ? resource
-            : fallback();
-    }
-
-    private static void SetControlThemeResource(IResourceDictionary resources, Type controlType, object resource)
-    {
-        resources[controlType] = resource;
-        if (controlType.FullName is { } key)
-        {
-            resources[key] = resource;
-        }
     }
 
     private static DataGridRow FindRow(EditItem item, DataGrid grid)

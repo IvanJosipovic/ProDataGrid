@@ -235,14 +235,9 @@ public class DataGridSortingHeaderTests
         {
             Width = 400,
             Height = 300,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var grid = new DataGrid
         {
@@ -284,14 +279,9 @@ public class DataGridSortingHeaderTests
         {
             Width = 400,
             Height = 300,
-            Styles =
-            {
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            }
         };
+
+        root.SetThemeStyles();
 
         var grid = new DataGrid
         {

@@ -56,20 +56,10 @@ public class DataGridComboBoxHyperlinkColumnHeadlessTests
         {
             Width = 600,
             Height = 400,
-            Styles =
-            {
-                new FluentTheme(),
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-                },
-                new StyleInclude((Uri?)null)
-                {
-                    Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-                },
-            },
             DataContext = vm
         };
+
+        window.SetThemeStyles();
 
         // Provide base control themes so DataGrid-specific themes can base themselves on them.
         var fluent = new FluentTheme();

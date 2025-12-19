@@ -96,11 +96,6 @@ public class HierarchicalFlyoutSelectionTests
                 Binding = new Binding("Item.Name")
             });
 
-            grid.Styles.Add(new StyleInclude((Uri?)null)
-            {
-                Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-            });
-
             grid.Bind(DataGrid.SelectionProperty, new Binding(nameof(FolderDestinationManagerVm.SelectionModel)) { Mode = BindingMode.OneTime });
             grid.Bind(DataGrid.HierarchicalModelProperty, new Binding(nameof(FolderDestinationManagerVm.HierarchicalModel)) { Mode = BindingMode.OneTime });
 
@@ -136,11 +131,7 @@ public class HierarchicalFlyoutSelectionTests
             Content = dropDown
         };
 
-        window.Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
-        window.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-        });
+        window.SetThemeStyles();
 
         window.Show();
         window.ApplyTemplate();
@@ -382,11 +373,6 @@ public class HierarchicalFlyoutSelectionTests
                 Binding = new Binding("Item.Name")
             });
 
-            grid.Styles.Add(new StyleInclude((Uri?)null)
-            {
-                Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml")
-            });
-
             grid.Bind(DataGrid.SelectionProperty, new Binding(nameof(FolderDestinationManagerVm.SelectionModel)) { Mode = BindingMode.OneTime });
             grid.Bind(DataGrid.HierarchicalModelProperty, new Binding(nameof(FolderDestinationManagerVm.HierarchicalModel)) { Mode = BindingMode.OneTime });
 
@@ -435,11 +421,7 @@ public class HierarchicalFlyoutSelectionTests
             Content = dropDown
         };
 
-        window.Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
-        window.Styles.Add(new StyleInclude((Uri?)null)
-        {
-            Source = new Uri("avares://Avalonia.Themes.Fluent/FluentTheme.xaml")
-        });
+        window.SetThemeStyles();
 
         return window;
     }
