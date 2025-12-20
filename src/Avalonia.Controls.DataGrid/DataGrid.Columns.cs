@@ -584,7 +584,7 @@ namespace Avalonia.Controls
                                         newCurrentCellCoordinates.Slot,
                                         ColumnsInternal.VisibleColumnCount == 1 /*forceCurrentCellSelection*/);
 
-                if (newDisplayIndex < FrozenColumnCountWithFiller)
+                if (newDisplayIndex < FrozenColumnCountWithFiller || FrozenColumnCountRightEffective > 0)
                 {
                     CorrectColumnFrozenStates();
                 }
@@ -988,7 +988,9 @@ namespace Avalonia.Controls
             bool invalidate = false;
             int numVisibleScrollingCols = 0;
             int visibleScrollingColumnsTmp = 0;
-            double displayWidth = CellsWidth;
+            double frozenLeftWidth = ColumnsInternal.GetVisibleFrozenLeftEdgedColumnsWidth();
+            double frozenRightWidth = ColumnsInternal.GetVisibleFrozenRightEdgedColumnsWidth();
+            double displayWidth = Math.Max(0, CellsWidth - frozenRightWidth);
             double cx = 0;
             int firstDisplayedFrozenCol = -1;
             int firstDisplayedScrollingCol = DisplayData.FirstDisplayedScrollingCol;
@@ -1002,7 +1004,7 @@ namespace Avalonia.Controls
                 return invalidate;
             }
 
-            foreach (DataGridColumn dataGridColumn in ColumnsInternal.GetVisibleFrozenColumns())
+            foreach (DataGridColumn dataGridColumn in ColumnsInternal.GetVisibleFrozenLeftColumns())
             {
                 if (firstDisplayedFrozenCol == -1)
                 {
@@ -1015,7 +1017,7 @@ namespace Avalonia.Controls
                 }
             }
 
-            Debug.Assert(cx <= ColumnsInternal.GetVisibleFrozenEdgedColumnsWidth());
+            Debug.Assert(cx <= frozenLeftWidth);
 
             if (cx < displayWidth && firstDisplayedScrollingCol >= 0)
             {
@@ -1040,7 +1042,7 @@ namespace Avalonia.Controls
                 {
                     cx += GetEdgedColumnWidth(dataGridColumn);
                     visibleScrollingColumnsTmp++;
-                    dataGridColumn = ColumnsInternal.GetNextVisibleColumn(dataGridColumn);
+                    dataGridColumn = ColumnsInternal.GetNextVisibleScrollingColumn(dataGridColumn);
                 }
                 numVisibleScrollingCols = visibleScrollingColumnsTmp;
 
@@ -1130,7 +1132,7 @@ namespace Avalonia.Controls
                     dataGridColumn = ColumnsItemsInternal[firstDisplayedScrollingCol];
                     for (int jump = 0; jump < jumpFromFirstVisibleScrollingCol; jump++)
                     {
-                        dataGridColumn = ColumnsInternal.GetNextVisibleColumn(dataGridColumn);
+                        dataGridColumn = ColumnsInternal.GetNextVisibleScrollingColumn(dataGridColumn);
                         Debug.Assert(dataGridColumn != null);
                     }
                     DisplayData.LastTotallyDisplayedScrollingCol = dataGridColumn.Index;
@@ -1170,7 +1172,7 @@ namespace Avalonia.Controls
                 {
                     break;
                 }
-                dataGridColumn = ColumnsInternal.GetNextVisibleColumn(dataGridColumn);
+                dataGridColumn = ColumnsInternal.GetNextVisibleScrollingColumn(dataGridColumn);
             }
 
             if (dataGridColumn == null)
@@ -1315,6 +1317,11 @@ namespace Avalonia.Controls
         }
 
         private void OnFrozenColumnCountChanged(AvaloniaPropertyChangedEventArgs e)
+        {
+            ProcessFrozenColumnCount();
+        }
+
+        private void OnFrozenColumnCountRightChanged(AvaloniaPropertyChangedEventArgs e)
         {
             ProcessFrozenColumnCount();
         }

@@ -1,0 +1,72 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.RightFrozenColumnsPage"
+             x:DataType="viewModels:RightFrozenColumnsViewModel">
+  <UserControl.DataContext>
+    <viewModels:RightFrozenColumnsViewModel/>
+  </UserControl.DataContext>
+  <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,0,4">
+    <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
+      <TextBlock Classes="h2" Text="Right Frozen Columns" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Pin columns on the right while the middle columns scroll. Adjust both sides to see the scrolling region compress between frozen zones."/>
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+      <TextBlock Text="Left frozen:" VerticalAlignment="Center"/>
+      <NumericUpDown Minimum="0"
+                     Maximum="4"
+                     Value="{Binding FrozenLeftColumnCount, Mode=TwoWay}"
+                     Width="100" />
+      <TextBlock Text="Right frozen:" VerticalAlignment="Center"/>
+      <NumericUpDown Minimum="0"
+                     Maximum="4"
+                     Value="{Binding FrozenRightColumnCount, Mode=TwoWay}"
+                     Width="100" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              ItemsSource="{Binding Items}"
+              UseLogicalScrollable="True"
+              FrozenColumnCount="{Binding FrozenLeftColumnCount}"
+              FrozenColumnCountRight="{Binding FrozenRightColumnCount}"
+              HorizontalScrollBarVisibility="Visible"
+              HeadersVisibility="All"
+              CanUserResizeColumns="True"
+              CanUserReorderColumns="True"
+              CanUserSortColumns="True"
+              RowBackground="#08000000"
+              GridLinesVisibility="Horizontal">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="ID"
+                            Binding="{Binding Id}"
+                            Width="80"
+                            x:DataType="models:PixelItem" />
+        <DataGridTextColumn Header="Name"
+                            Binding="{Binding Name}"
+                            Width="200"
+                            x:DataType="models:PixelItem" />
+        <DataGridTextColumn Header="Category"
+                            Binding="{Binding Category}"
+                            Width="200"
+                            x:DataType="models:PixelItem" />
+        <DataGridTextColumn Header="Description"
+                            Binding="{Binding Description}"
+                            Width="700"
+                            x:DataType="models:PixelItem" />
+        <DataGridTextColumn Header="Notes"
+                            Binding="{Binding Notes}"
+                            Width="600"
+                            x:DataType="models:PixelItem" />
+      </DataGrid.Columns>
+
+      <DataGrid.Styles>
+        <Style Selector="DataGridRow">
+          <Setter Property="Header" Value="{Binding $self.Index}"/>
+        </Style>
+      </DataGrid.Styles>
+    </DataGrid>
+  </Grid>
+</UserControl>

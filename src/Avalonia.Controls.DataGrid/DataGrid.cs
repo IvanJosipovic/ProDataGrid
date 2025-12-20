@@ -51,6 +51,7 @@ namespace Avalonia.Controls
     [TemplatePart(DATAGRID_elementBottomRightCornerHeaderName,     typeof(Visual))]
     [TemplatePart(DATAGRID_elementColumnHeadersPresenterName,      typeof(DataGridColumnHeadersPresenter))]
     [TemplatePart(DATAGRID_elementFrozenColumnScrollBarSpacerName, typeof(Control))]
+    [TemplatePart(DATAGRID_elementFrozenColumnScrollBarSpacerRightName, typeof(Control))]
     [TemplatePart(DATAGRID_elementHorizontalScrollbarName,         typeof(ScrollBar))]
     [TemplatePart(DATAGRID_elementRowsPresenterName,               typeof(DataGridRowsPresenter))]
     [TemplatePart(DATAGRID_elementScrollViewerName,                typeof(ScrollViewer))]
@@ -67,6 +68,7 @@ namespace Avalonia.Controls
         private const string DATAGRID_elementRowsPresenterName = "PART_RowsPresenter";
         private const string DATAGRID_elementColumnHeadersPresenterName = "PART_ColumnHeadersPresenter";
         private const string DATAGRID_elementFrozenColumnScrollBarSpacerName = "PART_FrozenColumnScrollBarSpacer";
+        private const string DATAGRID_elementFrozenColumnScrollBarSpacerRightName = "PART_FrozenColumnScrollBarSpacerRight";
         private const string DATAGRID_elementScrollViewerName = "PART_ScrollViewer";
         private const string DATAGRID_elementTopLeftCornerHeaderName = "PART_TopLeftCornerHeader";
         private const string DATAGRID_elementTopRightCornerHeaderName = "PART_TopRightCornerHeader";
@@ -176,6 +178,7 @@ namespace Avalonia.Controls
         private ContentControl _topLeftCornerHeader;
         private ContentControl _topRightCornerHeader;
         private Control _frozenColumnScrollBarSpacer;
+        private Control _frozenColumnScrollBarSpacerRight;
 
         // the sum of the widths in pixels of the scrolling columns preceding
         // the first displayed scrolling column
@@ -318,6 +321,7 @@ namespace Avalonia.Controls
             CanUserResizeColumnsProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnCanUserResizeColumnsChanged(e));
             ColumnWidthProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnColumnWidthChanged(e));
             FrozenColumnCountProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnFrozenColumnCountChanged(e));
+            FrozenColumnCountRightProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnFrozenColumnCountRightChanged(e));
             GridLinesVisibilityProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnGridLinesVisibilityChanged(e));
             HeadersVisibilityProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnHeadersVisibilityChanged(e));
             HorizontalGridLinesBrushProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnHorizontalGridLinesBrushChanged(e));
@@ -900,6 +904,16 @@ namespace Avalonia.Controls
         internal double GetVisibleFrozenColumnsWidth()
         {
             return ColumnsInternal.GetVisibleFrozenEdgedColumnsWidth();
+        }
+
+        internal double GetVisibleFrozenColumnsWidthLeft()
+        {
+            return ColumnsInternal.GetVisibleFrozenLeftEdgedColumnsWidth();
+        }
+
+        internal double GetVisibleFrozenColumnsWidthRight()
+        {
+            return ColumnsInternal.GetVisibleFrozenRightEdgedColumnsWidth();
         }
 
         /// <summary>

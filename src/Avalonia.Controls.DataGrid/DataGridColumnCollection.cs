@@ -456,6 +456,11 @@ namespace Avalonia.Controls
             return GetNextColumn(dataGridColumnStart, true /*isVisible*/, true /*isFrozen*/, null /*isReadOnly*/);
         }
 
+        internal DataGridColumn GetNextVisibleScrollingColumn(DataGridColumn dataGridColumnStart)
+        {
+            return GetNextColumn(dataGridColumnStart, true /*isVisible*/, false /*isFrozen*/, null /*isReadOnly*/);
+        }
+
         internal DataGridColumn GetNextVisibleWritableColumn(DataGridColumn dataGridColumnStart)
         {
             return GetNextColumn(dataGridColumnStart, true /*isVisible*/, null /*isFrozen*/, false /*isReadOnly*/);
@@ -520,6 +525,18 @@ namespace Avalonia.Controls
             return GetDisplayedColumns(filter);
         }
 
+        internal IEnumerable<DataGridColumn> GetVisibleFrozenLeftColumns()
+        {
+            Predicate<DataGridColumn> filter = column => column.IsVisible && column.IsFrozenLeft;
+            return GetDisplayedColumns(filter);
+        }
+
+        internal IEnumerable<DataGridColumn> GetVisibleFrozenRightColumns()
+        {
+            Predicate<DataGridColumn> filter = column => column.IsVisible && column.IsFrozenRight;
+            return GetDisplayedColumns(filter);
+        }
+
         internal double GetVisibleFrozenEdgedColumnsWidth()
         {
             double visibleFrozenColumnsWidth = 0;
@@ -528,6 +545,34 @@ namespace Avalonia.Controls
                 if (ItemsInternal[columnIndex].IsVisible && ItemsInternal[columnIndex].IsFrozen)
                 {
                     visibleFrozenColumnsWidth += ItemsInternal[columnIndex].ActualWidth;
+                }
+            }
+            return visibleFrozenColumnsWidth;
+        }
+
+        internal double GetVisibleFrozenLeftEdgedColumnsWidth()
+        {
+            double visibleFrozenColumnsWidth = 0;
+            for (int columnIndex = 0; columnIndex < ItemsInternal.Count; columnIndex++)
+            {
+                var column = ItemsInternal[columnIndex];
+                if (column.IsVisible && column.IsFrozenLeft)
+                {
+                    visibleFrozenColumnsWidth += column.ActualWidth;
+                }
+            }
+            return visibleFrozenColumnsWidth;
+        }
+
+        internal double GetVisibleFrozenRightEdgedColumnsWidth()
+        {
+            double visibleFrozenColumnsWidth = 0;
+            for (int columnIndex = 0; columnIndex < ItemsInternal.Count; columnIndex++)
+            {
+                var column = ItemsInternal[columnIndex];
+                if (column.IsVisible && column.IsFrozenRight)
+                {
+                    visibleFrozenColumnsWidth += column.ActualWidth;
                 }
             }
             return visibleFrozenColumnsWidth;

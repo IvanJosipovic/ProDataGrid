@@ -889,12 +889,14 @@
 
                 <Grid Grid.Column="1"
                       Grid.Row="3"
-                      ColumnDefinitions="Auto,*">
+                      ColumnDefinitions="Auto,*,Auto">
                   <Rectangle Name="PART_FrozenColumnScrollBarSpacer" />
                   <ScrollBar Name="PART_HorizontalScrollbar"
                              Grid.Column="1"
                              Orientation="Horizontal"
                              Height="{DynamicResource ScrollBarSize}" />
+                  <Rectangle Name="PART_FrozenColumnScrollBarSpacerRight"
+                             Grid.Column="2" />
                 </Grid>
                 <Border x:Name="PART_DisabledVisualElement"
                         Grid.ColumnSpan="3" Grid.Column="0"

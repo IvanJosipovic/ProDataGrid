@@ -165,13 +165,18 @@ namespace Avalonia.Controls.Primitives
 
             double dragIndicatorLeftEdge = 0;
             double frozenLeftEdge = 0;
+            double frozenLeftWidth = OwningGrid.GetVisibleFrozenColumnsWidthLeft();
+            double frozenRightWidth = OwningGrid.GetVisibleFrozenColumnsWidthRight();
+            double rightFrozenStart = frozenRightWidth > 0 ? Math.Max(0, OwningGrid.CellsWidth - frozenRightWidth) : double.PositiveInfinity;
+            double rightFrozenEdge = frozenRightWidth > 0 ? rightFrozenStart : 0;
             double scrollingLeftEdge = -OwningGrid.HorizontalOffset;
+            double lastScrollingRightEdge = frozenLeftWidth;
             foreach (DataGridColumn dataGridColumn in OwningGrid.ColumnsInternal.GetVisibleColumns())
             {
                 DataGridColumnHeader columnHeader = dataGridColumn.HeaderCell;
                 Debug.Assert(columnHeader.OwningColumn == dataGridColumn);
 
-                if (dataGridColumn.IsFrozen)
+                if (dataGridColumn.IsFrozenLeft)
                 {
                     columnHeader.Arrange(new Rect(frozenLeftEdge, 0, dataGridColumn.LayoutRoundedWidth, finalSize.Height));
                     columnHeader.Clip = null; // The layout system could have clipped this because it's not aware of our render transform
@@ -181,14 +186,25 @@ namespace Avalonia.Controls.Primitives
                     }
                     frozenLeftEdge += dataGridColumn.ActualWidth;
                 }
+                else if (dataGridColumn.IsFrozenRight)
+                {
+                    columnHeader.Arrange(new Rect(rightFrozenEdge, 0, dataGridColumn.LayoutRoundedWidth, finalSize.Height));
+                    columnHeader.Clip = null; // The layout system could have clipped this because it's not aware of our render transform
+                    if (DragColumn == dataGridColumn && DragIndicator != null)
+                    {
+                        dragIndicatorLeftEdge = rightFrozenEdge + DragIndicatorOffset;
+                    }
+                    rightFrozenEdge += dataGridColumn.ActualWidth;
+                }
                 else
                 {
                     columnHeader.Arrange(new Rect(scrollingLeftEdge, 0, dataGridColumn.LayoutRoundedWidth, finalSize.Height));
-                    EnsureColumnHeaderClip(columnHeader, dataGridColumn.ActualWidth, finalSize.Height, frozenLeftEdge, scrollingLeftEdge);
+                    EnsureColumnHeaderClip(columnHeader, dataGridColumn.ActualWidth, finalSize.Height, frozenLeftWidth, rightFrozenStart, scrollingLeftEdge);
                     if (DragColumn == dataGridColumn && DragIndicator != null)
                     {
                         dragIndicatorLeftEdge = scrollingLeftEdge + DragIndicatorOffset;
                     }
+                    lastScrollingRightEdge = Math.Max(lastScrollingRightEdge, scrollingLeftEdge + dataGridColumn.ActualWidth);
                 }
                 scrollingLeftEdge += dataGridColumn.ActualWidth;
             }
@@ -196,7 +212,7 @@ namespace Avalonia.Controls.Primitives
             {
                 if (DragIndicator != null)
                 {
-                    EnsureColumnReorderingClip(DragIndicator, finalSize.Height, frozenLeftEdge, dragIndicatorLeftEdge);
+                    EnsureColumnReorderingClip(DragIndicator, finalSize.Height, frozenLeftWidth, rightFrozenStart, dragIndicatorLeftEdge);
 
                     var height = DragIndicator.Bounds.Height;
                     if (height <= 0)
@@ -208,7 +224,7 @@ namespace Avalonia.Controls.Primitives
                 {
                     if (DropLocationIndicator is Control element)
                     {
-                        EnsureColumnReorderingClip(element, finalSize.Height, frozenLeftEdge, DropLocationIndicatorOffset);
+                        EnsureColumnReorderingClip(element, finalSize.Height, frozenLeftWidth, rightFrozenStart, DropLocationIndicatorOffset);
                     }
 
                     DropLocationIndicator.Arrange(new Rect(DropLocationIndicatorOffset, 0, DropLocationIndicator.Bounds.Width, DropLocationIndicator.Bounds.Height));
@@ -221,7 +237,7 @@ namespace Avalonia.Controls.Primitives
             if (fillerColumn.FillerWidth > 0)
             {
                 fillerColumn.HeaderCell.IsVisible = true;
-                fillerColumn.HeaderCell.Arrange(new Rect(scrollingLeftEdge, 0, fillerColumn.FillerWidth, finalSize.Height));
+                fillerColumn.HeaderCell.Arrange(new Rect(lastScrollingRightEdge, 0, fillerColumn.FillerWidth, finalSize.Height));
             }
             else
             {
@@ -237,15 +253,20 @@ namespace Avalonia.Controls.Primitives
             return finalSize;
         }
 
-        private static void EnsureColumnHeaderClip(DataGridColumnHeader columnHeader, double width, double height, double frozenLeftEdge, double columnHeaderLeftEdge)
+        private static void EnsureColumnHeaderClip(DataGridColumnHeader columnHeader, double width, double height, double frozenLeftWidth, double rightFrozenStart, double columnHeaderLeftEdge)
         {
-            // Clip the cell only if it's scrolled under frozen columns.  Unfortunately, we need to clip in this case
-            // because cells could be transparent
-            if (frozenLeftEdge > columnHeaderLeftEdge)
+            // Clip the header only if it's scrolled under frozen columns. Unfortunately, we need to clip in this case
+            // because headers could be transparent.
+            double leftClip = Math.Max(0, frozenLeftWidth - columnHeaderLeftEdge);
+            double rightClip = rightFrozenStart < double.PositiveInfinity
+                ? Math.Max(0, (columnHeaderLeftEdge + width) - rightFrozenStart)
+                : 0;
+
+            if (leftClip > 0 || rightClip > 0)
             {
                 RectangleGeometry rg = new RectangleGeometry();
-                double xClip = Math.Min(width, frozenLeftEdge - columnHeaderLeftEdge);
-                rg.Rect = new Rect(xClip, 0, width - xClip, height);
+                double clipWidth = Math.Max(0, width - leftClip - rightClip);
+                rg.Rect = new Rect(leftClip, 0, clipWidth, height);
                 columnHeader.Clip = rg;
             }
             else
@@ -261,25 +282,33 @@ namespace Avalonia.Controls.Primitives
         /// <param name="height">The available height</param>
         /// <param name="frozenColumnsWidth">The width of the frozen column region</param>
         /// <param name="controlLeftEdge">The left edge of the control to clip</param>
-        private void EnsureColumnReorderingClip(Control control, double height, double frozenColumnsWidth, double controlLeftEdge)
+        private void EnsureColumnReorderingClip(Control control, double height, double frozenLeftWidth, double rightFrozenStart, double controlLeftEdge)
         {
             double leftEdge = 0;
             double rightEdge = OwningGrid.CellsWidth;
             double width = control.Bounds.Width;
-            if (DragColumn.IsFrozen)
+            if (DragColumn.IsFrozenLeft)
             {
                 // If we're dragging a frozen column, we want to clip the corresponding DragIndicator control when it goes
                 // into the scrolling columns region, but not the DropLocationIndicator.
                 if (control == DragIndicator)
                 {
-                    rightEdge = Math.Min(rightEdge, frozenColumnsWidth);
+                    rightEdge = Math.Min(rightEdge, frozenLeftWidth);
                 }
             }
-            else if (OwningGrid.FrozenColumnCount > 0)
+            else if (DragColumn.IsFrozenRight)
+            {
+                if (control == DragIndicator)
+                {
+                    leftEdge = Math.Max(leftEdge, rightFrozenStart);
+                }
+            }
+            else
             {
                 // If we're dragging a scrolling column, we want to clip both the DragIndicator and the DropLocationIndicator
-                // controls when they go into the frozen column range.
-                leftEdge = frozenColumnsWidth;
+                // controls when they go into either frozen column range.
+                leftEdge = frozenLeftWidth;
+                rightEdge = Math.Min(rightEdge, rightFrozenStart);
             }
             RectangleGeometry rg = null;
             if (leftEdge > controlLeftEdge)

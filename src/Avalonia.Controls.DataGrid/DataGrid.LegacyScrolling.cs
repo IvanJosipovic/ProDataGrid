@@ -143,7 +143,7 @@ namespace Avalonia.Controls
             }
         }
 
-        private void UpdateHorizontalScrollBar(bool needHorizScrollbar, bool forceHorizScrollbar, double totalVisibleWidth, double totalVisibleFrozenWidth, double cellsWidth)
+        private void UpdateHorizontalScrollBar(bool needHorizScrollbar, bool forceHorizScrollbar, double totalVisibleWidth, double frozenLeftWidth, double frozenRightWidth, double cellsWidth)
         {
             if (_hScrollBar != null)
             {
@@ -165,10 +165,15 @@ namespace Avalonia.Controls
                     {
                         // maximum travel distance -- not the total width
                         _hScrollBar.Maximum = totalVisibleWidth - cellsWidth;
+                        double totalVisibleFrozenWidth = frozenLeftWidth + frozenRightWidth;
                         Debug.Assert(totalVisibleFrozenWidth >= 0);
                         if (_frozenColumnScrollBarSpacer != null)
                         {
-                            _frozenColumnScrollBarSpacer.Width = totalVisibleFrozenWidth;
+                            _frozenColumnScrollBarSpacer.Width = frozenLeftWidth;
+                        }
+                        if (_frozenColumnScrollBarSpacerRight != null)
+                        {
+                            _frozenColumnScrollBarSpacerRight.Width = frozenRightWidth;
                         }
                         Debug.Assert(_hScrollBar.Maximum >= 0);
 
@@ -498,7 +503,9 @@ namespace Avalonia.Controls
             bool needVertScrollbar = false;
 
             double totalVisibleWidth = ColumnsInternal.VisibleEdgedColumnsWidth;
-            double totalVisibleFrozenWidth = ColumnsInternal.GetVisibleFrozenEdgedColumnsWidth();
+            double frozenLeftWidth = ColumnsInternal.GetVisibleFrozenLeftEdgedColumnsWidth();
+            double frozenRightWidth = ColumnsInternal.GetVisibleFrozenRightEdgedColumnsWidth();
+            double totalVisibleFrozenWidth = frozenLeftWidth + frozenRightWidth;
 
             UpdateDisplayedRows(DisplayData.FirstScrollingSlot, CellsEstimatedHeight);
             double totalVisibleHeight = EdgedRowsHeightCalculated;
@@ -634,7 +641,7 @@ namespace Avalonia.Controls
                 needHorizScrollbar = totalVisibleWidth > cellsWidth && totalVisibleFrozenWidth < cellsWidth;
             }
 
-            UpdateHorizontalScrollBar(needHorizScrollbar, forceHorizScrollbar, totalVisibleWidth, totalVisibleFrozenWidth, cellsWidth);
+            UpdateHorizontalScrollBar(needHorizScrollbar, forceHorizScrollbar, totalVisibleWidth, frozenLeftWidth, frozenRightWidth, cellsWidth);
             UpdateVerticalScrollBar(needVertScrollbar, forceVertScrollbar, totalVisibleHeight, cellsHeight);
 
             if (_topRightCornerHeader != null)

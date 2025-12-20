@@ -322,12 +322,26 @@ namespace Avalonia.Controls
                 validate: ValidateFrozenColumnCount);
 
         /// <summary>
-        /// Gets or sets the number of columns that the user cannot scroll horizontally.
+        /// Gets or sets the number of columns frozen on the left side of the grid.
         /// </summary>
         public int FrozenColumnCount
         {
             get { return GetValue(FrozenColumnCountProperty); }
             set { SetValue(FrozenColumnCountProperty, value); }
+        }
+
+        public static readonly StyledProperty<int> FrozenColumnCountRightProperty =
+            AvaloniaProperty.Register<DataGrid, int>(
+                nameof(FrozenColumnCountRight),
+                validate: ValidateFrozenColumnCount);
+
+        /// <summary>
+        /// Gets or sets the number of columns frozen on the right side of the grid.
+        /// </summary>
+        public int FrozenColumnCountRight
+        {
+            get { return GetValue(FrozenColumnCountRightProperty); }
+            set { SetValue(FrozenColumnCountRightProperty, value); }
         }
 
         private static bool ValidateFrozenColumnCount(int value) => value >= 0;

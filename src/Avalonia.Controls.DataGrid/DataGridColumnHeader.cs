@@ -59,6 +59,7 @@ namespace Avalonia.Controls
         private static Point? _dragStart;
         private static DataGridColumn _dragColumn;
         private static double _frozenColumnsWidth;
+        private static double _frozenColumnsRightWidth;
         private static Lazy<Cursor> _resizeCursor = new Lazy<Cursor>(() => new Cursor(StandardCursorType.SizeWestEast));
         private DataGridColumn _owningColumn;
 
@@ -460,7 +461,8 @@ namespace Avalonia.Controls
             if (OwningGrid != null && OwningGrid.ColumnHeaders != null)
             {
                 _dragMode = DragMode.MouseDown;
-                _frozenColumnsWidth = OwningGrid.ColumnsInternal.GetVisibleFrozenEdgedColumnsWidth();
+                _frozenColumnsWidth = OwningGrid.GetVisibleFrozenColumnsWidthLeft();
+                _frozenColumnsRightWidth = OwningGrid.GetVisibleFrozenColumnsWidthRight();
                 _lastMousePositionHeaders = this.Translate(OwningGrid.ColumnHeaders, mousePosition);
 
                 double distanceFromLeft = mousePosition.X;
@@ -509,8 +511,7 @@ namespace Avalonia.Controls
                     // Find header we're hovering over
                     int targetIndex = GetReorderingTargetDisplayIndex(mousePositionHeaders);
 
-                    if (((!OwningColumn.IsFrozen && targetIndex >= OwningGrid.FrozenColumnCount)
-                          || (OwningColumn.IsFrozen && targetIndex < OwningGrid.FrozenColumnCount)))
+                    if (GetFrozenPositionForDisplayIndex(targetIndex) == OwningColumn.FrozenPosition)
                     {
                         OwningColumn.DisplayIndex = targetIndex;
 
@@ -632,13 +633,22 @@ namespace Avalonia.Controls
             scrollAmount = 0;
             double leftEdge = OwningGrid.ColumnsInternal.RowGroupSpacerColumn.IsRepresented ? OwningGrid.ColumnsInternal.RowGroupSpacerColumn.ActualWidth : 0;
             double rightEdge = OwningGrid.CellsWidth;
-            if (OwningColumn.IsFrozen)
+            double rightFrozenStart = _frozenColumnsRightWidth > 0
+                ? Math.Max(leftEdge, rightEdge - _frozenColumnsRightWidth)
+                : rightEdge;
+
+            if (OwningColumn.IsFrozenLeft)
             {
-                rightEdge = Math.Min(rightEdge, _frozenColumnsWidth);
+                rightEdge = Math.Min(rightEdge, Math.Max(leftEdge, _frozenColumnsWidth));
             }
-            else if (OwningGrid.FrozenColumnCount > 0)
+            else if (OwningColumn.IsFrozenRight)
             {
-                leftEdge = _frozenColumnsWidth;
+                leftEdge = Math.Max(leftEdge, rightFrozenStart);
+            }
+            else
+            {
+                leftEdge = Math.Max(leftEdge, _frozenColumnsWidth);
+                rightEdge = Math.Min(rightEdge, rightFrozenStart);
             }
 
             if (mousePositionHeaders.X < leftEdge)
@@ -693,6 +703,44 @@ namespace Avalonia.Controls
             {
                 return OwningGrid.ColumnDefinitions.Count - 1;
             }
+        }
+
+        private DataGridFrozenColumnPosition GetFrozenPositionForDisplayIndex(int displayIndex)
+        {
+            if (OwningGrid == null)
+            {
+                return DataGridFrozenColumnPosition.None;
+            }
+
+            int leftCount = OwningGrid.FrozenColumnCountWithFiller;
+            int rightCount = OwningGrid.FrozenColumnCountRightEffective;
+            int totalColumns = OwningGrid.ColumnsInternal.DisplayIndexMap.Count;
+            int rightStart = Math.Max(leftCount, totalColumns - rightCount);
+
+            if (displayIndex < leftCount)
+            {
+                return DataGridFrozenColumnPosition.Left;
+            }
+            if (displayIndex >= rightStart)
+            {
+                return DataGridFrozenColumnPosition.Right;
+            }
+            return DataGridFrozenColumnPosition.None;
+        }
+
+        private DataGridColumn GetLastColumnForPosition(DataGridFrozenColumnPosition position)
+        {
+            if (OwningGrid == null)
+            {
+                return null;
+            }
+
+            foreach (DataGridColumn column in OwningGrid.ColumnsInternal.GetDisplayedColumns(true, c => c.IsVisible && c.FrozenPosition == position))
+            {
+                return column;
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -882,16 +930,14 @@ namespace Avalonia.Controls
                 if (OwningGrid.ColumnHeaders.DropLocationIndicator != null)
                 {
                     Point targetPosition = new Point(0, 0);
-                    if (targetColumn == null || targetColumn == OwningGrid.ColumnsInternal.FillerColumn || targetColumn.IsFrozen != OwningColumn.IsFrozen)
+                    if (targetColumn == null || targetColumn == OwningGrid.ColumnsInternal.FillerColumn || targetColumn.FrozenPosition != OwningColumn.FrozenPosition)
                     {
-                        targetColumn =
-                            OwningGrid.ColumnsInternal.GetLastColumn(
-                                isVisible: true,
-                                isFrozen: OwningColumn.IsFrozen,
-                                isReadOnly: null);
-                        targetPosition = targetColumn.HeaderCell.Translate(OwningGrid.ColumnHeaders, targetPosition);
-
-                        targetPosition = targetPosition.WithX(targetPosition.X + targetColumn.ActualWidth);
+                        targetColumn = GetLastColumnForPosition(OwningColumn.FrozenPosition);
+                        if (targetColumn != null)
+                        {
+                            targetPosition = targetColumn.HeaderCell.Translate(OwningGrid.ColumnHeaders, targetPosition);
+                            targetPosition = targetPosition.WithX(targetPosition.X + targetColumn.ActualWidth);
+                        }
                     }
                     else
                     {

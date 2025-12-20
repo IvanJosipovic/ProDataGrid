@@ -103,24 +103,47 @@ namespace Avalonia.Controls
         private void CorrectColumnFrozenStates()
         {
             int index = 0;
-            double frozenColumnWidth = 0;
-            double oldFrozenColumnWidth = 0;
+            int totalColumns = ColumnsInternal.DisplayIndexMap.Count;
+            int leftCount = FrozenColumnCountWithFiller;
+            int rightCount = FrozenColumnCountRightEffective;
+            int rightStartIndex = Math.Max(leftCount, totalColumns - rightCount);
+
+            double oldLeftFrozenWidth = 0;
+            double newLeftFrozenWidth = 0;
+
             foreach (DataGridColumn column in ColumnsInternal.GetDisplayedColumns())
             {
-                if (column.IsFrozen)
+                if (column.IsFrozenLeft)
                 {
-                    oldFrozenColumnWidth += column.ActualWidth;
+                    oldLeftFrozenWidth += column.ActualWidth;
                 }
-                column.IsFrozen = index < FrozenColumnCountWithFiller;
-                if (column.IsFrozen)
+
+                DataGridFrozenColumnPosition frozenPosition;
+                if (index < leftCount)
                 {
-                    frozenColumnWidth += column.ActualWidth;
+                    frozenPosition = DataGridFrozenColumnPosition.Left;
                 }
+                else if (index >= rightStartIndex)
+                {
+                    frozenPosition = DataGridFrozenColumnPosition.Right;
+                }
+                else
+                {
+                    frozenPosition = DataGridFrozenColumnPosition.None;
+                }
+
+                if (frozenPosition == DataGridFrozenColumnPosition.Left)
+                {
+                    newLeftFrozenWidth += column.ActualWidth;
+                }
+
+                column.FrozenPosition = frozenPosition;
                 index++;
             }
-            if (HorizontalOffset > Math.Max(0, frozenColumnWidth - oldFrozenColumnWidth))
+
+            if (HorizontalOffset > Math.Max(0, newLeftFrozenWidth - oldLeftFrozenWidth))
             {
-                UpdateHorizontalOffset(HorizontalOffset - frozenColumnWidth + oldFrozenColumnWidth);
+                UpdateHorizontalOffset(HorizontalOffset - newLeftFrozenWidth + oldLeftFrozenWidth);
             }
             else
             {

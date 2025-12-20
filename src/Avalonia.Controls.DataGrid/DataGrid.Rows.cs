@@ -59,6 +59,28 @@ namespace Avalonia.Controls
             }
         }
 
+        internal int FrozenColumnCountRightEffective
+        {
+            get
+            {
+                if (ColumnsInternal == null)
+                {
+                    return 0;
+                }
+
+                int leftCount = FrozenColumnCountWithFiller;
+                int totalColumns = ColumnsInternal.DisplayIndexMap.Count;
+                int rightCount = FrozenColumnCountRight;
+
+                if (rightCount <= 0 || totalColumns <= leftCount)
+                {
+                    return 0;
+                }
+
+                return Math.Min(rightCount, totalColumns - leftCount);
+            }
+        }
+
         internal int LastVisibleSlot
         {
             get

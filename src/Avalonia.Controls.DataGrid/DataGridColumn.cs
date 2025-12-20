@@ -661,11 +661,20 @@ namespace Avalonia.Controls
             internal set;
         }
 
-        public bool IsFrozen
+        internal DataGridFrozenColumnPosition FrozenPosition
         {
             get;
-            internal set;
+            set;
         }
+
+        public bool IsFrozen
+        {
+            get => FrozenPosition != DataGridFrozenColumnPosition.None;
+            internal set => FrozenPosition = value ? DataGridFrozenColumnPosition.Left : DataGridFrozenColumnPosition.None;
+        }
+
+        internal bool IsFrozenLeft => FrozenPosition == DataGridFrozenColumnPosition.Left;
+        internal bool IsFrozenRight => FrozenPosition == DataGridFrozenColumnPosition.Right;
 
         public virtual bool IsReadOnly
         {

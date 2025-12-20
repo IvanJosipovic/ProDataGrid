@@ -3,6 +3,7 @@
 // Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 // All other rights reserved.
 
+using System;
 using System.Diagnostics;
 
 namespace Avalonia.Controls
@@ -38,18 +39,20 @@ namespace Avalonia.Controls
                 {
                     double xColumnLeftEdge = GetColumnXFromIndex(columnIndex);
                     double xColumnRightEdge = xColumnLeftEdge + GetEdgedColumnWidth(ColumnsItemsInternal[columnIndex]);
-                    double change = xColumnRightEdge - HorizontalOffset - CellsWidth;
+                    double frozenRightWidth = ColumnsInternal.GetVisibleFrozenRightEdgedColumnsWidth();
+                    double scrollableRightEdge = Math.Max(0, CellsWidth - frozenRightWidth);
+                    double change = xColumnRightEdge - HorizontalOffset - scrollableRightEdge;
                     double widthRemaining = change;
 
                     DataGridColumn newFirstDisplayedScrollingCol = ColumnsItemsInternal[DisplayData.FirstDisplayedScrollingCol];
-                    DataGridColumn nextColumn = ColumnsInternal.GetNextVisibleColumn(newFirstDisplayedScrollingCol);
+                    DataGridColumn nextColumn = ColumnsInternal.GetNextVisibleScrollingColumn(newFirstDisplayedScrollingCol);
                     double newColumnWidth = GetEdgedColumnWidth(newFirstDisplayedScrollingCol) - _negHorizontalOffset;
                     while (nextColumn != null && widthRemaining >= newColumnWidth)
                     {
                         widthRemaining -= newColumnWidth;
                         newFirstDisplayedScrollingCol = nextColumn;
                         newColumnWidth = GetEdgedColumnWidth(newFirstDisplayedScrollingCol);
-                        nextColumn = ColumnsInternal.GetNextVisibleColumn(newFirstDisplayedScrollingCol);
+                        nextColumn = ColumnsInternal.GetNextVisibleScrollingColumn(newFirstDisplayedScrollingCol);
                         _negHorizontalOffset = 0;
                     }
                     _negHorizontalOffset += widthRemaining;
@@ -57,12 +60,13 @@ namespace Avalonia.Controls
                     if (newFirstDisplayedScrollingCol.Index == columnIndex)
                     {
                         _negHorizontalOffset = 0;
-                        double frozenColumnWidth = ColumnsInternal.GetVisibleFrozenEdgedColumnsWidth();
+                        double frozenLeftWidth = ColumnsInternal.GetVisibleFrozenLeftEdgedColumnsWidth();
+                        double scrollableViewportWidth = Math.Max(0, CellsWidth - frozenLeftWidth - frozenRightWidth);
                         // If the entire column cannot be displayed, we want to start showing it from its LeftEdge
-                        if (newColumnWidth > (CellsWidth - frozenColumnWidth))
+                        if (newColumnWidth > scrollableViewportWidth)
                         {
                             DisplayData.LastTotallyDisplayedScrollingCol = -1;
-                            change = xColumnLeftEdge - HorizontalOffset - frozenColumnWidth;
+                            change = xColumnLeftEdge - HorizontalOffset - frozenLeftWidth;
                         }
                     }
                     DisplayData.FirstDisplayedScrollingCol = newFirstDisplayedScrollingCol.Index;
@@ -92,7 +96,7 @@ namespace Avalonia.Controls
                     dataGridColumnTmp = ColumnsItemsInternal[DisplayData.LastTotallyDisplayedScrollingCol];
                     while (colCount < columns && dataGridColumnTmp != null)
                     {
-                        dataGridColumnTmp = ColumnsInternal.GetNextVisibleColumn(dataGridColumnTmp);
+                        dataGridColumnTmp = ColumnsInternal.GetNextVisibleScrollingColumn(dataGridColumnTmp);
                         colCount++;
                     }
 
@@ -107,7 +111,7 @@ namespace Avalonia.Controls
                 colCount = 0;
                 while (colCount < columns && dataGridColumnTmp != null)
                 {
-                    dataGridColumnTmp = ColumnsInternal.GetNextVisibleColumn(dataGridColumnTmp);
+                    dataGridColumnTmp = ColumnsInternal.GetNextVisibleScrollingColumn(dataGridColumnTmp);
                     colCount++;
                 }
                 newFirstVisibleScrollingCol = dataGridColumnTmp;

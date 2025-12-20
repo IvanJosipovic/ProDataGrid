@@ -80,6 +80,7 @@ namespace Avalonia.Controls
             _scrollViewer = e.NameScope.Find<ScrollViewer>(DATAGRID_elementScrollViewerName);
 
             _frozenColumnScrollBarSpacer = e.NameScope.Find<Control>(DATAGRID_elementFrozenColumnScrollBarSpacerName);
+            _frozenColumnScrollBarSpacerRight = e.NameScope.Find<Control>(DATAGRID_elementFrozenColumnScrollBarSpacerRightName);
 
             // Setup legacy scroll bars (from DataGrid.LegacyScrolling.cs)
             SetupLegacyScrollBars(e.NameScope);

@@ -85,7 +85,13 @@ namespace Avalonia.Controls
 
             double rowHeaderWidth = OwningGrid.AreRowHeadersVisible ? OwningGrid.ActualRowHeaderWidth : 0;
             double horizontalOffset = OwnerRow.ApplyHorizontalOffset ? OwningGrid.HorizontalOffset : 0;
+            double frozenLeftWidth = rowHeaderWidth + OwningGrid.GetVisibleFrozenColumnsWidthLeft();
+            double frozenRightWidth = OwningGrid.GetVisibleFrozenColumnsWidthRight();
+            double rightFrozenStart = frozenRightWidth > 0
+                ? rowHeaderWidth + Math.Max(0, OwningGrid.CellsWidth - frozenRightWidth)
+                : double.PositiveInfinity;
             double frozenLeftEdge = rowHeaderWidth;
+            double rightFrozenEdge = frozenRightWidth > 0 ? rightFrozenStart : 0;
             double scrollingLeftEdge = rowHeaderWidth - horizontalOffset;
 
             foreach (var column in OwningGrid.ColumnsInternal.GetVisibleColumns())
@@ -93,16 +99,22 @@ namespace Avalonia.Controls
                 var cell = OwnerRow.Cells[column.Index];
                 cell.IsVisible = true;
 
-                if (column.IsFrozen)
+                if (column.IsFrozenLeft)
                 {
                     cell.Arrange(new Rect(frozenLeftEdge, 0, column.LayoutRoundedWidth, finalSize.Height));
                     cell.Clip = null;
                     frozenLeftEdge += column.ActualWidth;
                 }
+                else if (column.IsFrozenRight)
+                {
+                    cell.Arrange(new Rect(rightFrozenEdge, 0, column.LayoutRoundedWidth, finalSize.Height));
+                    cell.Clip = null;
+                    rightFrozenEdge += column.ActualWidth;
+                }
                 else
                 {
                     cell.Arrange(new Rect(scrollingLeftEdge, 0, column.LayoutRoundedWidth, finalSize.Height));
-                    EnsureCellClip(cell, column.ActualWidth, finalSize.Height, frozenLeftEdge, scrollingLeftEdge);
+                    EnsureCellClip(cell, column.ActualWidth, finalSize.Height, frozenLeftWidth, rightFrozenStart, scrollingLeftEdge);
                 }
 
                 scrollingLeftEdge += column.ActualWidth;
@@ -119,13 +131,24 @@ namespace Avalonia.Controls
             return finalSize;
         }
 
-        private static void EnsureCellClip(DataGridSummaryCell cell, double width, double height, double frozenLeftEdge, double cellLeftEdge)
+        private static void EnsureCellClip(DataGridSummaryCell cell, double width, double height, double frozenLeftWidth, double rightFrozenStart, double cellLeftEdge)
         {
-            if (!cell.Column.IsFrozen && frozenLeftEdge > cellLeftEdge)
+            if (cell.Column.IsFrozen)
+            {
+                cell.Clip = null;
+                return;
+            }
+
+            double leftClip = Math.Max(0, frozenLeftWidth - cellLeftEdge);
+            double rightClip = rightFrozenStart < double.PositiveInfinity
+                ? Math.Max(0, (cellLeftEdge + width) - rightFrozenStart)
+                : 0;
+
+            if (leftClip > 0 || rightClip > 0)
             {
                 var rect = new RectangleGeometry();
-                double xClip = Math.Round(Math.Min(width, frozenLeftEdge - cellLeftEdge));
-                rect.Rect = new Rect(xClip, 0, Math.Max(0, width - xClip), height);
+                double clipWidth = Math.Max(0, width - leftClip - rightClip);
+                rect.Rect = new Rect(leftClip, 0, clipWidth, height);
                 cell.Clip = rect;
             }
             else
