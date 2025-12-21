@@ -10,8 +10,8 @@
       <StreamGeometry x:Key="DataGridSortIconAscendingPath">M1965 947l-941 -941l-941 941l90 90l787 -787v1798h128v-1798l787 787z</StreamGeometry>
       <StreamGeometry x:Key="DataGridFilterIconPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
       <StreamGeometry x:Key="DataGridFilterIconFilledPath">M256 128 L1792 128 L1248 832 L1248 1664 L800 1408 L800 832 Z</StreamGeometry>
-      <StreamGeometry x:Key="DataGridRowGroupHeaderIconClosedPath">M515 93l930 931l-930 931l90 90l1022 -1021l-1022 -1021z</StreamGeometry>
-      <StreamGeometry x:Key="DataGridRowGroupHeaderIconOpenedPath">M109 486 19 576 1024 1581 2029 576 1939 486 1024 1401z</StreamGeometry>
+      <StreamGeometry x:Key="DataGridRowGroupHeaderIconClosedPath">M4.895 10 L4.895 10 M7.65 4.15c.2-.2.5-.2.7 0l5.49 5.46c.21.22.21.57 0 .78l-5.49 5.46a.5.5 0 0 1-.7-.7L12.8 10 7.65 4.85a.5.5 0 0 1 0-.7Z M16.595 10 L16.595 10</StreamGeometry>
+      <StreamGeometry x:Key="DataGridRowGroupHeaderIconOpenedPath">M10 4.895 L10 4.895 M15.85 7.65c.2.2.2.5 0 .7l-5.46 5.49a.55.55 0 0 1-.78 0L4.15 8.35a.5.5 0 1 1 .7-.7L10 12.8l5.15-5.16c.2-.2.5-.2.7 0Z M10 16.595 L10 16.595</StreamGeometry>
       <StreamGeometry x:Key="DataGridDragGripIconPath">M4 3 a1 1 0 1 1 0.001 0 M8 3 a1 1 0 1 1 0.001 0 M4 7 a1 1 0 1 1 0.001 0 M8 7 a1 1 0 1 1 0.001 0 M4 11 a1 1 0 1 1 0.001 0 M8 11 a1 1 0 1 1 0.001 0</StreamGeometry>
 
       <!-- Filter Resources (merged from DataGridFilterResources.xaml) -->
