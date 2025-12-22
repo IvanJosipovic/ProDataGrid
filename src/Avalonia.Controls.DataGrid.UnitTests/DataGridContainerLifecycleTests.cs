@@ -17,7 +17,7 @@ namespace Avalonia.Controls.DataGridTests;
 
 public class DataGridContainerLifecycleTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void NotifyRowPrepared_invokes_override_and_sets_state()
     {
         var grid = new TrackingDataGrid();
@@ -31,7 +31,7 @@ public class DataGridContainerLifecycleTests
         Assert.Contains(item, grid.PreparedItems);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NotifyRowRecycling_invokes_clear_and_cleanup_hooks()
     {
         var grid = new TrackingDataGrid();
@@ -54,7 +54,7 @@ public class DataGridContainerLifecycleTests
         Assert.Null(row.DataContext);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Prepare_sets_placeholder_flag_for_new_item_placeholder()
     {
         var grid = new TrackingDataGrid();
@@ -67,7 +67,7 @@ public class DataGridContainerLifecycleTests
         Assert.Same(placeholder, row.DataContext);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IsItemItsOwnContainerOverride_returns_true_for_rows()
     {
         var grid = new TrackingDataGrid();
@@ -76,7 +76,7 @@ public class DataGridContainerLifecycleTests
         Assert.False(grid.IsItemItsOwnContainer(new object()));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Own_container_is_prepared_and_loaded()
     {
         var grid = new TrackingDataGrid();
@@ -145,7 +145,7 @@ public class DataGridContainerLifecycleTests
         window.Close();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Placeholder_recycle_regenerates_cells_for_real_item()
     {
         var grid = new TrackingDataGrid();
