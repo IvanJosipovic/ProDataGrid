@@ -429,6 +429,12 @@ namespace Avalonia.Controls.Primitives
                 _owningGrid?.OnRowsPresenterViewportChanged(oldViewport, _viewport);
                 RaiseScrollInvalidated(EventArgs.Empty);
             }
+            else if (_owningGrid?.UseLogicalScrollable == true &&
+                     _viewport.Height <= 0 &&
+                     _owningGrid.DisplayData.FirstScrollingSlot != -1)
+            {
+                _owningGrid.OnRowsPresenterViewportChanged(oldViewport, _viewport);
+            }
         }
 
         /// <summary>

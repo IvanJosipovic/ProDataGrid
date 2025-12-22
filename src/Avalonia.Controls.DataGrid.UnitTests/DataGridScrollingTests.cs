@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -410,6 +411,7 @@ public class DataGridScrollingTests
         var presenter = GetRowsPresenter(target);
 
         root.UpdateLayout();
+        root.UpdateLayout(); // allow invalidated measure to run after arrange height mismatch
         var initialVisible = GetRows(target).Count;
         var initialChildren = presenter.Children.OfType<DataGridRow>().Count();
         var initialRecycled = GetRecycledRowCount(target);
@@ -423,7 +425,7 @@ public class DataGridScrollingTests
 
         // Sanity check that expansion realized more rows
         Assert.True(expandedVisible > initialVisible,
-            $"Expected more realized rows after expansion. Initial: {initialVisible}, Expanded: {expandedVisible}");
+            $"Expected more realized rows after expansion. Initial: {initialVisible}, Expanded: {expandedVisible}, RootHeight: {root.Bounds.Height}, GridHeight: {target.Bounds.Height}, Viewport: {presenter.Viewport.Height}, Available: {target.RowsPresenterAvailableSize?.Height}");
 
         // Act - shrink back to original height
         root.Height = 300;
@@ -531,7 +533,8 @@ public class DataGridScrollingTests
         var recycled = GetRecycledRowCount(target);
 
         // Assert - viewport is limited by Height=40; should not realize near full window height
-        Assert.True(rows.Count <= 8, $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}");
+        Assert.True(rows.Count <= 8,
+            $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}, RootHeight: {root.Bounds.Height}, GridHeight: {target.Bounds.Height}, Viewport: {presenter.Viewport.Height}, Available: {target.RowsPresenterAvailableSize?.Height}");
         Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for fixed-height stackpanel: {presenterChildren}");
     }
 
@@ -667,6 +670,95 @@ public class DataGridScrollingTests
     }
 
     [AvaloniaFact]
+    public void Large_Measure_Small_Arrange_Does_Not_Over_Materialize()
+    {
+        // Arrange - host measures larger than it arranges to simulate constrained layout
+        var items = Enumerable.Range(0, 1000).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 300,
+            Height = 300,
+        };
+
+        root.SetThemeStyles();
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = true,
+            TrimRecycledContainers = true,
+            KeepRecycledContainersInVisualTree = false,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        var host = new MismatchedMeasureHost
+        {
+            MeasureHeight = 400,
+            ArrangeHeight = 40,
+            Child = target,
+        };
+
+        root.Content = host;
+        root.Show();
+
+        // Act
+        root.UpdateLayout();
+        var rows = GetRows(target);
+        var presenter = GetRowsPresenter(target);
+        var presenterChildren = presenter.Children.OfType<DataGridRow>().Count();
+        var recycled = GetRecycledRowCount(target);
+        var viewportHeight = presenter.Viewport.Height;
+        var availableHeight = target.RowsPresenterAvailableSize?.Height;
+        var presenterHeight = presenter.Bounds.Height;
+        var targetHeight = target.Bounds.Height;
+
+        // Assert - realized containers should respect the arranged viewport
+        Assert.True(rows.Count <= 8,
+            $"Realized rows={rows.Count}, presenter children={presenterChildren}, recycled={recycled}, viewport={viewportHeight}, available={availableHeight}, presenterHeight={presenterHeight}, targetHeight={targetHeight}");
+        Assert.True(presenterChildren <= 12, $"Presenter children grew unexpectedly for mismatched measure/arrange: {presenterChildren}");
+    }
+
+    [AvaloniaFact]
+    public void Measure_With_Larger_Available_Height_Does_Not_Clamp_To_Stale_Bounds()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 300,
+            Height = 200,
+        };
+
+        root.SetThemeStyles();
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        root.Content = target;
+        root.Show();
+        root.UpdateLayout();
+
+        var initialHeight = target.Bounds.Height;
+        Assert.True(initialHeight > 0, "Expected a non-zero initial bounds height.");
+
+        // Act - force a measure pass with a larger available height while arrange is invalid.
+        target.InvalidateMeasure();
+        var measureHeight = initialHeight + 200;
+        target.Measure(new Size(root.Width, measureHeight));
+
+        // Assert
+        var available = target.RowsPresenterAvailableSize;
+        Assert.True(available.HasValue, "Expected RowsPresenterAvailableSize to be set during measure.");
+        Assert.True(available.Value.Height > initialHeight + 1,
+            $"Expected available height to exceed initial bounds. Initial={initialHeight}, Available={available.Value.Height}, Measure={measureHeight}.");
+    }
+
+    [AvaloniaFact]
     public void Recycled_Rows_Remain_In_VisualTree_When_Flag_Is_Enabled()
     {
         // Arrange
@@ -781,6 +873,140 @@ public class DataGridScrollingTests
         recycleRow!.Invoke(target.DisplayData, new object[] { row });
 
         Assert.Equal(before, row.Bounds);
+    }
+
+    #endregion
+
+    #region Scroll State Preservation Tests
+
+    [AvaloniaFact]
+    public void Reattaching_With_Mutated_ItemsSource_Does_Not_Preserve_Scroll_State()
+    {
+        // Arrange
+        var items = new ObservableCollection<ScrollTestModel>(
+            Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")));
+        var root = new Window
+        {
+            Width = 300,
+            Height = 200,
+        };
+
+        root.SetThemeStyles();
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        root.Content = target;
+        root.Show();
+        root.UpdateLayout();
+
+        target.ScrollIntoView(items[50], target.ColumnDefinitions[0]);
+        root.UpdateLayout();
+
+        Assert.True(GetFirstVisibleRowIndex(target) > 0, "Expected to scroll away from the first row before detaching.");
+
+        // Detach and mutate the source collection (keep count the same).
+        root.Content = null;
+        root.UpdateLayout();
+        items[0] = new ScrollTestModel("Item replacement");
+
+        // Reattach
+        root.Content = target;
+        root.UpdateLayout();
+        target.UpdateLayout();
+
+        var firstVisibleIndex = GetFirstVisibleRowIndex(target);
+        Assert.Equal(0, firstVisibleIndex);
+    }
+
+    [AvaloniaFact]
+    public void Reattaching_Preserves_RowHeightEstimator_State()
+    {
+        // Arrange
+        var items = new ObservableCollection<ScrollTestModel>(
+            Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")));
+        var root = new Window
+        {
+            Width = 300,
+            Height = 200,
+        };
+
+        root.SetThemeStyles();
+
+        var estimator = new StateTrackingRowHeightEstimator();
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            RowHeightEstimator = estimator,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        root.Content = target;
+        root.Show();
+        root.UpdateLayout();
+
+        target.ScrollIntoView(items[50], target.ColumnDefinitions[0]);
+        root.UpdateLayout();
+
+        estimator.StateToken = 42;
+
+        // Detach to capture state, then simulate a reset.
+        root.Content = null;
+        root.UpdateLayout();
+        Assert.True(estimator.CaptureCount > 0, "Expected estimator state capture on detach.");
+
+        estimator.Reset();
+        Assert.Equal(0, estimator.StateToken);
+
+        // Reattach and restore.
+        root.Content = target;
+        root.UpdateLayout();
+        target.UpdateLayout();
+
+        Assert.True(estimator.RestoreCount > 0, "Expected estimator state restore on reattach.");
+        Assert.Equal(42, estimator.StateToken);
+    }
+
+    [AvaloniaFact]
+    public void Hiding_DataGrid_Clears_Displayed_Rows()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 100).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 300,
+            Height = 200,
+        };
+
+        root.SetThemeStyles();
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            KeepRecycledContainersInVisualTree = false,
+        };
+        target.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", Binding = new Binding("Name") });
+
+        root.Content = target;
+        root.Show();
+        root.UpdateLayout();
+
+        Assert.True(target.DisplayData.FirstScrollingSlot >= 0, "Expected rows to be realized before hiding.");
+
+        // Act
+        target.IsVisible = false;
+        root.UpdateLayout();
+        target.UpdateLayout();
+
+        // Assert
+        Assert.Equal(-1, target.DisplayData.FirstScrollingSlot);
+        Assert.Equal(0, target.DisplayData.NumDisplayedScrollingElements);
     }
 
     #endregion
@@ -1427,6 +1653,206 @@ public class DataGridScrollingTests
             var size = new Size(finalSize.Width, HostHeight);
             Child?.Arrange(new Rect(size));
             return size;
+        }
+    }
+
+    private class MismatchedMeasureHost : Decorator
+    {
+        public double MeasureHeight { get; set; } = 300;
+        public double ArrangeHeight { get; set; } = 40;
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            var measureSize = new Size(availableSize.Width, MeasureHeight);
+            Child?.Measure(measureSize);
+            return measureSize;
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            var arrangeSize = new Size(finalSize.Width, ArrangeHeight);
+            Child?.Arrange(new Rect(arrangeSize));
+            return arrangeSize;
+        }
+    }
+
+    private sealed class StateTrackingRowHeightEstimator : IDataGridRowHeightEstimator, IDataGridRowHeightEstimatorStateful
+    {
+        private const double DefaultHeight = 22.0;
+        private readonly Dictionary<int, double> _measuredHeights = new();
+        private int _totalItemCount;
+        private double _rowHeightEstimate = DefaultHeight;
+        private double _rowDetailsHeightEstimate;
+
+        public int StateToken { get; set; }
+        public int CaptureCount { get; private set; }
+        public int RestoreCount { get; private set; }
+
+        public double DefaultRowHeight { get; set; } = DefaultHeight;
+
+        public double RowHeightEstimate => _rowHeightEstimate;
+
+        public double RowDetailsHeightEstimate => _rowDetailsHeightEstimate;
+
+        public double GetRowGroupHeaderHeightEstimate(int level) => DefaultHeight;
+
+        public void RecordMeasuredHeight(int slot, double measuredHeight, bool hasDetails = false, double detailsHeight = 0)
+        {
+            _measuredHeights[slot] = measuredHeight;
+            _rowHeightEstimate = measuredHeight;
+            if (hasDetails && detailsHeight > 0)
+            {
+                _rowDetailsHeightEstimate = detailsHeight;
+            }
+        }
+
+        public void RecordRowGroupHeaderHeight(int slot, int level, double measuredHeight)
+        {
+        }
+
+        public double GetEstimatedHeight(int slot, bool isRowGroupHeader = false, int rowGroupLevel = 0, bool hasDetails = false)
+        {
+            if (_measuredHeights.TryGetValue(slot, out var measured))
+            {
+                return measured + (hasDetails ? _rowDetailsHeightEstimate : 0);
+            }
+
+            return _rowHeightEstimate + (hasDetails ? _rowDetailsHeightEstimate : 0);
+        }
+
+        public double CalculateTotalHeight(int totalSlotCount, int collapsedSlotCount, int[] rowGroupHeaderCounts, int detailsVisibleCount)
+        {
+            if (totalSlotCount <= 0)
+            {
+                return 0;
+            }
+
+            int visibleSlotCount = totalSlotCount - collapsedSlotCount;
+            return visibleSlotCount * _rowHeightEstimate + detailsVisibleCount * _rowDetailsHeightEstimate;
+        }
+
+        public int EstimateSlotAtOffset(double verticalOffset, int totalSlotCount)
+        {
+            if (totalSlotCount <= 0 || _rowHeightEstimate <= 0)
+            {
+                return 0;
+            }
+
+            int slot = (int)(verticalOffset / _rowHeightEstimate);
+            return Math.Min(Math.Max(0, slot), totalSlotCount - 1);
+        }
+
+        public double EstimateOffsetToSlot(int slot)
+        {
+            if (slot <= 0)
+            {
+                return 0;
+            }
+
+            return slot * _rowHeightEstimate;
+        }
+
+        public void UpdateFromDisplayedRows(int firstDisplayedSlot, int lastDisplayedSlot, double[] displayedHeights, double verticalOffset, double negVerticalOffset, int collapsedSlotCount, int detailsCount)
+        {
+            if (displayedHeights == null || displayedHeights.Length == 0)
+            {
+                return;
+            }
+
+            double total = 0;
+            for (int i = 0; i < displayedHeights.Length; i++)
+            {
+                total += displayedHeights[i];
+            }
+
+            _rowHeightEstimate = total / displayedHeights.Length;
+        }
+
+        public void Reset()
+        {
+            _measuredHeights.Clear();
+            _rowHeightEstimate = DefaultRowHeight;
+            _rowDetailsHeightEstimate = 0;
+            _totalItemCount = 0;
+            StateToken = 0;
+        }
+
+        public void OnDataSourceChanged(int newItemCount)
+        {
+            _totalItemCount = newItemCount;
+        }
+
+        public void OnItemsInserted(int startIndex, int count)
+        {
+            _totalItemCount += count;
+        }
+
+        public void OnItemsRemoved(int startIndex, int count)
+        {
+            _totalItemCount = Math.Max(0, _totalItemCount - count);
+        }
+
+        public RowHeightEstimatorDiagnostics GetDiagnostics()
+        {
+            return new RowHeightEstimatorDiagnostics
+            {
+                AlgorithmName = "Tracking",
+                CurrentRowHeightEstimate = _rowHeightEstimate,
+                CachedHeightCount = _measuredHeights.Count,
+                TotalRowCount = _totalItemCount,
+                EstimatedTotalHeight = _totalItemCount * _rowHeightEstimate,
+                MinMeasuredHeight = _rowHeightEstimate,
+                MaxMeasuredHeight = _rowHeightEstimate,
+                AverageMeasuredHeight = _rowHeightEstimate,
+                AdditionalInfo = $"StateToken: {StateToken}"
+            };
+        }
+
+        public RowHeightEstimatorState CaptureState()
+        {
+            CaptureCount++;
+            return new TrackingState(_rowHeightEstimate, _rowDetailsHeightEstimate, new Dictionary<int, double>(_measuredHeights), _totalItemCount, StateToken);
+        }
+
+        public bool TryRestoreState(RowHeightEstimatorState state)
+        {
+            if (state is not TrackingState snapshot)
+            {
+                return false;
+            }
+
+            RestoreCount++;
+            _rowHeightEstimate = snapshot.RowHeightEstimate;
+            _rowDetailsHeightEstimate = snapshot.RowDetailsHeightEstimate;
+            _totalItemCount = snapshot.TotalItemCount;
+            StateToken = snapshot.StateToken;
+
+            _measuredHeights.Clear();
+            foreach (var entry in snapshot.MeasuredHeights)
+            {
+                _measuredHeights[entry.Key] = entry.Value;
+            }
+
+            return true;
+        }
+
+        private sealed class TrackingState : RowHeightEstimatorState
+        {
+            public TrackingState(double rowHeightEstimate, double rowDetailsHeightEstimate, Dictionary<int, double> measuredHeights, int totalItemCount, int stateToken)
+                : base(nameof(StateTrackingRowHeightEstimator))
+            {
+                RowHeightEstimate = rowHeightEstimate;
+                RowDetailsHeightEstimate = rowDetailsHeightEstimate;
+                MeasuredHeights = measuredHeights;
+                TotalItemCount = totalItemCount;
+                StateToken = stateToken;
+            }
+
+            public double RowHeightEstimate { get; }
+            public double RowDetailsHeightEstimate { get; }
+            public Dictionary<int, double> MeasuredHeights { get; }
+            public int TotalItemCount { get; }
+            public int StateToken { get; }
         }
     }
 

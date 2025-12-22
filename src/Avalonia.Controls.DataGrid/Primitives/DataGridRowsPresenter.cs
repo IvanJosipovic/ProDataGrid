@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Utilities;
 using Avalonia.VisualTree;
 using Avalonia;
 
@@ -32,6 +33,8 @@ namespace Avalonia.Controls.Primitives
         private int _virtualizationGuardDepth;
         private DataGrid? _owningGrid;
         private double _lastArrangeHeight;
+
+        internal double LastArrangeHeight => _lastArrangeHeight;
 
         public DataGridRowsPresenter()
         {
@@ -114,26 +117,124 @@ namespace Avalonia.Controls.Primitives
         /// </param>
         protected override Size ArrangeOverride(Size finalSize)
         {
-            if (finalSize.Height == 0 || OwningGrid == null)
+            if (OwningGrid == null)
             {
                 return base.ArrangeOverride(finalSize);
             }
 
+            if (finalSize.Height <= 0)
+            {
+                var viewportHeight = Math.Max(0, finalSize.Height);
+                if (OwningGrid.RowsPresenterAvailableSize is { } availableSize &&
+                    !double.IsNaN(availableSize.Height) &&
+                    !double.IsInfinity(availableSize.Height) &&
+                    !MathUtilities.AreClose(availableSize.Height, viewportHeight))
+                {
+                    OwningGrid.RowsPresenterAvailableSize = availableSize.WithHeight(viewportHeight);
+                }
+
+                var collapsedViewport = new Size(finalSize.Width, viewportHeight);
+                if (_viewport != collapsedViewport)
+                {
+                    UpdateScrollInfo(_extent, collapsedViewport);
+                }
+
+                _lastArrangeHeight = viewportHeight;
+                return base.ArrangeOverride(finalSize);
+            }
+
+            var threshold = Math.Max(OwningGrid.RowHeightEstimate, 1);
+            var rootLevel = OwningGrid.VisualRoot as TopLevel;
+            var hasTopLevelMismatch = false;
+            if (rootLevel != null &&
+                !double.IsNaN(rootLevel.Height) &&
+                rootLevel.Height > 0)
+            {
+                if (Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
+                    Math.Abs(OwningGrid.Bounds.Height - rootLevel.Bounds.Height) <= threshold)
+                {
+                    hasTopLevelMismatch = true;
+                }
+            }
+
+            var effectiveRowsHeight = finalSize.Height;
+            var headerHeight = 0.0;
+            if (OwningGrid.AreColumnHeadersVisible)
+            {
+                if (OwningGrid.ColumnHeaders != null && OwningGrid.ColumnHeaders.Bounds.Height > 0)
+                {
+                    headerHeight = OwningGrid.ColumnHeaders.Bounds.Height;
+                }
+                else if (!double.IsNaN(OwningGrid.ColumnHeaderHeight))
+                {
+                    headerHeight = OwningGrid.ColumnHeaderHeight;
+                }
+            }
+
+            if (hasTopLevelMismatch && rootLevel != null)
+            {
+                var topLevelRowsHeight = Math.Max(0, rootLevel.Height - headerHeight);
+                if (!double.IsNaN(topLevelRowsHeight) &&
+                    !double.IsInfinity(topLevelRowsHeight) &&
+                    Math.Abs(topLevelRowsHeight - effectiveRowsHeight) > threshold)
+                {
+                    effectiveRowsHeight = topLevelRowsHeight;
+                }
+            }
+            else if (OwningGrid.Bounds.Height > 0)
+            {
+                var gridRowsHeight = Math.Max(0, OwningGrid.Bounds.Height - headerHeight);
+                if (gridRowsHeight > 0 && gridRowsHeight + threshold < effectiveRowsHeight)
+                {
+                    effectiveRowsHeight = gridRowsHeight;
+                }
+            }
+
+            double measuredHeight = double.NaN;
             if (OwningGrid.RowsPresenterAvailableSize is { } measuredSize)
             {
-                var measuredHeight = measuredSize.Height;
-                var arrangedHeight = finalSize.Height;
-                if (!double.IsInfinity(measuredHeight) && !double.IsNaN(measuredHeight) && !double.IsNaN(arrangedHeight))
+                measuredHeight = measuredSize.Height;
+                if (!double.IsInfinity(measuredHeight) && !double.IsNaN(measuredHeight) &&
+                    !double.IsInfinity(effectiveRowsHeight) && !double.IsNaN(effectiveRowsHeight) &&
+                    Math.Abs(measuredHeight - effectiveRowsHeight) > threshold)
                 {
-                    var threshold = Math.Max(OwningGrid.RowHeightEstimate, 1);
-                    if (measuredHeight - arrangedHeight > threshold)
+                    OwningGrid.RowsPresenterAvailableSize = measuredSize.WithHeight(effectiveRowsHeight);
+                    if (measuredHeight - effectiveRowsHeight > threshold)
                     {
                         InvalidateMeasure();
                     }
                 }
             }
 
-            _lastArrangeHeight = finalSize.Height;
+            var viewport = new Size(finalSize.Width, effectiveRowsHeight);
+            if (_viewport != viewport)
+            {
+                UpdateScrollInfo(_extent, viewport);
+            }
+
+            if (OwningGrid.KeepRecycledContainersInVisualTree &&
+                !OwningGrid.TrimRecycledContainers &&
+                !double.IsNaN(OwningGrid.Height) &&
+                !double.IsInfinity(OwningGrid.Height) &&
+                OwningGrid.Height > 0)
+            {
+                var recycleLimit = Math.Max(PrefetchBufferRows + 1, 4);
+                var shouldTrim = !double.IsInfinity(measuredHeight) &&
+                                 !double.IsNaN(measuredHeight) &&
+                                 measuredHeight - effectiveRowsHeight > threshold;
+                if (!shouldTrim)
+                {
+                    var maxDesiredHeight = OwningGrid.RowHeightEstimate * recycleLimit;
+                    shouldTrim = effectiveRowsHeight <= maxDesiredHeight;
+                }
+
+                if (shouldTrim)
+                {
+                    OwningGrid.DisplayData.TrimRecycledPools(this, recycleLimit, recycleLimit, recycleLimit);
+                }
+            }
+
+            _lastArrangeHeight = effectiveRowsHeight;
 
             OwningGrid.OnFillerColumnWidthNeeded(finalSize.Width);
 
@@ -212,12 +313,22 @@ namespace Avalonia.Controls.Primitives
 
                 if (OwningGrid is { } grid)
                 {
-                    var gridConstraint = LayoutHelper.ApplyLayoutConstraints(grid, availableSize).Height;
-                    if (!double.IsInfinity(gridConstraint) && !double.IsNaN(gridConstraint) && gridConstraint > 0)
+                    if (constrainedHeight is null &&
+                        !double.IsNaN(grid.Height) &&
+                        !double.IsInfinity(grid.Height) &&
+                        grid.Height > 0)
                     {
-                        constrainedHeight = gridConstraint;
+                        constrainedHeight = grid.Height;
                     }
-                    else if (grid.Bounds.Height > 0)
+                    else
+                    {
+                        var gridConstraint = LayoutHelper.ApplyLayoutConstraints(grid, availableSize).Height;
+                        if (!double.IsInfinity(gridConstraint) && !double.IsNaN(gridConstraint) && gridConstraint > 0)
+                        {
+                            constrainedHeight = gridConstraint;
+                        }
+                    }
+                    if (constrainedHeight is null && grid.Bounds.Height > 0)
                     {
                         constrainedHeight = grid.Bounds.Height;
                     }
@@ -225,9 +336,9 @@ namespace Avalonia.Controls.Primitives
 
                 if (constrainedHeight is null && VisualRoot is TopLevel topLevel)
                 {
-                    double maxHeight = topLevel.IsArrangeValid ?
-                                        topLevel.Bounds.Height :
-                                        LayoutHelper.ApplyLayoutConstraints(topLevel, availableSize).Height;
+                    double maxHeight = topLevel.IsArrangeValid
+                        ? topLevel.Bounds.Height
+                        : LayoutHelper.ApplyLayoutConstraints(topLevel, availableSize).Height;
 
                     constrainedHeight = maxHeight;
                 }
@@ -235,6 +346,42 @@ namespace Avalonia.Controls.Primitives
                 if (constrainedHeight is double height)
                 {
                     availableSize = availableSize.WithHeight(height);
+                }
+            }
+
+            if (OwningGrid is { } constrainedGrid &&
+                !double.IsInfinity(availableSize.Height) &&
+                !double.IsNaN(availableSize.Height))
+            {
+                if (!double.IsNaN(constrainedGrid.Height) &&
+                    !double.IsInfinity(constrainedGrid.Height) &&
+                    constrainedGrid.Height > 0 &&
+                    constrainedGrid.Height < availableSize.Height)
+                {
+                    availableSize = availableSize.WithHeight(constrainedGrid.Height);
+                }
+
+                var gridConstraint = LayoutHelper.ApplyLayoutConstraints(constrainedGrid, availableSize).Height;
+                if (!double.IsInfinity(gridConstraint) && !double.IsNaN(gridConstraint) &&
+                    gridConstraint > 0 && gridConstraint < availableSize.Height)
+                {
+                    availableSize = availableSize.WithHeight(gridConstraint);
+                }
+            }
+
+            if (OwningGrid != null &&
+                OwningGrid.VisualRoot is TopLevel rootLevel &&
+                !double.IsNaN(rootLevel.Height) &&
+                rootLevel.Height > 0 &&
+                !double.IsInfinity(availableSize.Height) &&
+                !double.IsNaN(availableSize.Height))
+            {
+                var threshold = Math.Max(OwningGrid.RowHeightEstimate, 1);
+                if (Math.Abs(availableSize.Height - rootLevel.Bounds.Height) <= threshold &&
+                    Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
+                    Math.Abs(OwningGrid.Bounds.Height - rootLevel.Bounds.Height) <= threshold)
+                {
+                    availableSize = availableSize.WithHeight(rootLevel.Height);
                 }
             }
 

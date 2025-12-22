@@ -35,6 +35,30 @@ public class AdvancedRowHeightEstimatorTests : RowHeightEstimatorTestBase
 
     #endregion
 
+    #region State Preservation
+
+    [Fact]
+    public void State_Can_Be_Captured_And_Restored()
+    {
+        var estimator = CreateEstimator();
+        var stateful = Assert.IsAssignableFrom<IDataGridRowHeightEstimatorStateful>(estimator);
+
+        estimator.RecordMeasuredHeight(12, LargeRowHeight, hasDetails: true, detailsHeight: DetailsHeight);
+        estimator.RecordRowGroupHeaderHeight(0, 1, GroupHeaderHeight);
+
+        var state = stateful.CaptureState();
+
+        estimator.Reset();
+        Assert.Equal(DefaultRowHeight, estimator.RowHeightEstimate, Tolerance);
+
+        Assert.True(stateful.TryRestoreState(state));
+        Assert.Equal(GroupHeaderHeight, estimator.GetRowGroupHeaderHeightEstimate(1), Tolerance);
+        Assert.Equal(DetailsHeight, estimator.RowDetailsHeightEstimate, Tolerance);
+        Assert.Equal(LargeRowHeight + DetailsHeight, estimator.GetEstimatedHeight(12, hasDetails: true), Tolerance);
+    }
+
+    #endregion
+
     #region Same Height Rows - No Grouping
 
     [Fact]

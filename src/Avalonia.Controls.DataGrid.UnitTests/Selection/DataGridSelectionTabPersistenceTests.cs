@@ -2,57 +2,51 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
-using Avalonia.Layout;
-using Avalonia.Markup.Xaml.Styling;
-using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Selection;
 
-    public class DataGridSelectionTabPersistenceTests
+public class DataGridSelectionTabPersistenceTests
+{
+    private static readonly Size WindowSize = new(400, 300);
+
+    [AvaloniaFact]
+    public void Selection_Is_Restored_When_Switching_Tabs()
     {
-        [AvaloniaFact]
-        public void Selection_Is_Restored_When_Switching_Tabs()
+        var items1 = new ObservableCollection<TabPersistenceItem>
         {
-        var items1 = new ObservableCollection<string> { "Alpha", "Beta", "Gamma" };
-        var items2 = new ObservableCollection<string> { "One", "Two", "Three" };
+            new() { Name = "Alpha" },
+            new() { Name = "Beta" },
+            new() { Name = "Gamma" }
+        };
+        var items2 = new ObservableCollection<TabPersistenceItem>
+        {
+            new() { Name = "One" },
+            new() { Name = "Two" },
+            new() { Name = "Three" }
+        };
 
         var grid1 = CreateGrid(items1);
         var grid2 = CreateGrid(items2);
         grid1.SelectedItem = items1[1]; // Beta
 
-        var firstTab = new TabItem { Header = "First", Content = grid1 };
-        var secondTab = new TabItem { Header = "Second", Content = grid2 };
-
-        var tabs = new TabControl
-        {
-            Items = { firstTab, secondTab },
-            SelectedItem = firstTab
-        };
-
-        var window = new Window
-        {
-            Width = 400,
-            Height = 300,
-            Content = tabs,
-        };
-
-        window.SetThemeStyles();
+        var window = CreateWindow(grid1);
 
         try
         {
-            window.Show();
-            tabs.ApplyTemplate();
-            tabs.UpdateLayout();
+            ShowAndLayout(window, grid1);
             grid1.ApplyTemplate();
             grid1.UpdateLayout();
+
             var initialRow = RealizeRow(window, grid1, items1[1]);
             if (initialRow != null)
             {
@@ -64,12 +58,9 @@ namespace Avalonia.Controls.DataGridTests.Selection;
                 Assert.Equal(items1[1], grid1.SelectedItem);
             }
 
-            tabs.SelectedIndex = 1;
-            Dispatcher.UIThread.RunJobs();
-            window.UpdateLayout();
-            grid1.UpdateLayout();
+            SwitchContent(window, grid2);
+            SwitchContent(window, grid1);
 
-            tabs.SelectedIndex = 0;
             var restoredRow = RealizeRow(window, grid1, items1[1]);
             if (restoredRow != null)
             {
@@ -87,53 +78,34 @@ namespace Avalonia.Controls.DataGridTests.Selection;
         }
     }
 
-    [AvaloniaFact(Skip = "Known issue: scroll offset is not restored when switching tabs; enable once fixed.")]
-        public void Scroll_Offset_Is_Preserved_When_Switching_Tabs()
-        {
-            var items1 = new ObservableCollection<string>(Enumerable.Range(0, 200).Select(i => $"Item {i}"));
-            var items2 = new ObservableCollection<string>(Enumerable.Range(0, 5).Select(i => $"Other {i}"));
+    [AvaloniaFact]
+    public void Scroll_Offset_Is_Preserved_When_Switching_Tabs()
+    {
+        var items1 = new ObservableCollection<TabPersistenceItem>(
+            Enumerable.Range(0, 200).Select(i => new TabPersistenceItem { Name = $"Item {i}" }));
+        var items2 = new ObservableCollection<TabPersistenceItem>(
+            Enumerable.Range(0, 5).Select(i => new TabPersistenceItem { Name = $"Other {i}" }));
 
         var grid1 = CreateGrid(items1);
         var grid2 = CreateGrid(items2);
 
-        var firstTab = new TabItem { Header = "First", Content = grid1 };
-        var secondTab = new TabItem { Header = "Second", Content = grid2 };
-
-        var tabs = new TabControl
-        {
-            Items = { firstTab, secondTab },
-            SelectedItem = firstTab
-        };
-
-        var window = new Window
-        {
-            Width = 400,
-            Height = 300,
-            Content = tabs,
-        };
-
-        window.SetThemeStyles();
+        var window = CreateWindow(grid1);
 
         try
         {
-            window.Show();
-            tabs.ApplyTemplate();
+            ShowAndLayout(window, grid1);
             grid1.ApplyTemplate();
-            grid2.ApplyTemplate();
-            ForceLayout(window, new Size(400, 300));
+            grid1.UpdateLayout();
 
             var targetItem = items1[150];
-            grid1.ScrollIntoView(targetItem, grid1.ColumnDefinitions[0]);
-            ForceLayout(window, new Size(400, 300));
+            var realized = RealizeRow(window, grid1, targetItem);
+            Assert.True(realized != null, BuildGridDiagnostics(grid1));
 
             var offsetBefore = grid1.GetVerticalOffset();
-            Assert.True(offsetBefore > 0);
+            Assert.True(offsetBefore > 0, $"Expected scroll offset to be > 0, got {offsetBefore}.");
 
-            tabs.SelectedItem = secondTab;
-            ForceLayout(window, new Size(400, 300));
-
-            tabs.SelectedItem = firstTab;
-            ForceLayout(window, new Size(400, 300));
+            SwitchContent(window, grid2);
+            SwitchContent(window, grid1);
 
             var offsetAfter = grid1.GetVerticalOffset();
             Assert.InRange(offsetAfter, offsetBefore - 0.5, offsetBefore + 0.5);
@@ -144,63 +116,44 @@ namespace Avalonia.Controls.DataGridTests.Selection;
         }
     }
 
-    [AvaloniaFact(Skip = "Known issue: realized rows after tab switch can mismatch the expected viewport slice; enable when fixed.")]
+    [AvaloniaFact]
     public void Realized_Rows_Match_Viewport_After_Tab_Switch()
     {
-        var items1 = new ObservableCollection<string>(Enumerable.Range(0, 300).Select(i => $"Item {i}"));
-            var items2 = new ObservableCollection<string>(Enumerable.Range(0, 5).Select(i => $"Other {i}"));
+        var items1 = new ObservableCollection<TabPersistenceItem>(
+            Enumerable.Range(0, 300).Select(i => new TabPersistenceItem { Name = $"Item {i}" }));
+        var items2 = new ObservableCollection<TabPersistenceItem>(
+            Enumerable.Range(0, 5).Select(i => new TabPersistenceItem { Name = $"Other {i}" }));
 
-            var grid1 = CreateGrid(items1);
-            var grid2 = CreateGrid(items2);
+        var grid1 = CreateGrid(items1);
+        var grid2 = CreateGrid(items2);
 
-            var firstTab = new TabItem { Header = "First", Content = grid1 };
-            var secondTab = new TabItem { Header = "Second", Content = grid2 };
+        var window = CreateWindow(grid1);
 
-            var tabs = new TabControl
-            {
-                Items = { firstTab, secondTab },
-                SelectedItem = firstTab
-            };
+        try
+        {
+            ShowAndLayout(window, grid1);
+            grid1.ApplyTemplate();
+            grid1.UpdateLayout();
 
-            var window = new Window
-            {
-                Width = 400,
-                Height = 300,
-                Content = tabs,
-            };
+            var targetItem = items1[180];
+            var realized = RealizeRow(window, grid1, targetItem);
+            Assert.True(realized != null, BuildGridDiagnostics(grid1));
 
-            window.SetThemeStyles();
+            var beforeRows = GetRealizedRows(grid1).Select(r => r.DataContext).ToArray();
+            Assert.NotEmpty(beforeRows);
 
-            try
-            {
-                window.Show();
-                tabs.ApplyTemplate();
-                grid1.ApplyTemplate();
-                grid2.ApplyTemplate();
-                ForceLayout(window, new Size(400, 300));
+            SwitchContent(window, grid2);
+            SwitchContent(window, grid1);
 
-                var targetItem = items1[180];
-                grid1.ScrollIntoView(targetItem, grid1.ColumnDefinitions[0]);
-                ForceLayout(window, new Size(400, 300));
-
-                var beforeRows = GetRealizedRows(grid1).Select(r => r.DataContext).ToArray();
-                Assert.NotEmpty(beforeRows);
-
-                tabs.SelectedItem = secondTab;
-                ForceLayout(window, new Size(400, 300));
-
-                tabs.SelectedItem = firstTab;
-                ForceLayout(window, new Size(400, 300));
-
-                var afterRows = GetRealizedRows(grid1).Select(r => r.DataContext).ToArray();
-                Assert.Equal(beforeRows.Length, afterRows.Length);
-                Assert.True(beforeRows.SequenceEqual(afterRows));
-            }
-            finally
-            {
-                window.Close();
-            }
+            var afterRows = GetRealizedRows(grid1).Select(r => r.DataContext).ToArray();
+            Assert.Equal(beforeRows.Length, afterRows.Length);
+            Assert.True(beforeRows.SequenceEqual(afterRows));
         }
+        finally
+        {
+            window.Close();
+        }
+    }
 
     private static DataGrid CreateGrid(System.Collections.IEnumerable items)
     {
@@ -208,14 +161,42 @@ namespace Avalonia.Controls.DataGridTests.Selection;
         {
             AutoGenerateColumns = false,
             ItemsSource = items,
-            SelectionMode = DataGridSelectionMode.Extended
+            SelectionMode = DataGridSelectionMode.Extended,
+            HeadersVisibility = DataGridHeadersVisibility.Column
         };
         grid.ColumnsInternal.Add(new DataGridTextColumn
         {
-            Header = "Value",
-            Binding = new Binding(".")
+            Header = "Name",
+            Binding = new Binding(nameof(TabPersistenceItem.Name))
         });
         return grid;
+    }
+
+    private static Window CreateWindow(Control content)
+    {
+        var window = new Window
+        {
+            Width = WindowSize.Width,
+            Height = WindowSize.Height
+        };
+
+        window.SetThemeStyles();
+        window.Content = content;
+        return window;
+    }
+
+    private static void ShowAndLayout(Window window, Control content)
+    {
+        window.Show();
+        window.UpdateLayout();
+        content.UpdateLayout();
+    }
+
+    private static void SwitchContent(Window window, Control content)
+    {
+        window.Content = content;
+        window.UpdateLayout();
+        content.UpdateLayout();
     }
 
     private static DataGridRow? FindRow(DataGrid grid, object item)
@@ -230,15 +211,10 @@ namespace Avalonia.Controls.DataGridTests.Selection;
     {
         for (int i = 0; i < 5; i++)
         {
-            ForceLayout(window, new Size(400, 300));
-            ForceLayout(grid, new Size(400, 300));
-            window.UpdateLayout();
-            Dispatcher.UIThread.RunJobs();
-            grid.ApplyTemplate();
             grid.UpdateLayout();
             grid.ScrollIntoView(item, grid.ColumnDefinitions[0]);
             grid.UpdateLayout();
-            Dispatcher.UIThread.RunJobs();
+
             var row = FindRow(grid, item);
             if (row != null)
             {
@@ -249,14 +225,6 @@ namespace Avalonia.Controls.DataGridTests.Selection;
         return null;
     }
 
-    private static void ForceLayout(Control control, Size size)
-    {
-        control.Measure(size);
-        control.Arrange(new Rect(size));
-        Dispatcher.UIThread.RunJobs();
-        control.UpdateLayout();
-    }
-
     private static IReadOnlyList<DataGridRow> GetRealizedRows(DataGrid grid)
     {
         return grid
@@ -264,5 +232,18 @@ namespace Avalonia.Controls.DataGridTests.Selection;
             .OfType<DataGridRow>()
             .OrderBy(r => r.Index)
             .ToArray();
+    }
+
+    private static string BuildGridDiagnostics(DataGrid grid)
+    {
+        var itemsCount = grid.ItemsSource is System.Collections.ICollection collection ? collection.Count : -1;
+        var presenterCount = grid.GetSelfAndVisualDescendants().OfType<DataGridRowsPresenter>().Count();
+        var rowCount = grid.GetSelfAndVisualDescendants().OfType<DataGridRow>().Count();
+        return $"Row not realized. Bounds={grid.Bounds}, IsVisible={grid.IsVisible}, Root={grid.GetVisualRoot()}, Items={itemsCount}, Columns={grid.ColumnDefinitions.Count}, SlotCount={grid.SlotCount}, FirstSlot={grid.DisplayData.FirstScrollingSlot}, LastSlot={grid.DisplayData.LastScrollingSlot}, RowsPresenterSize={grid.RowsPresenterAvailableSize}, CellsWidth={grid.CellsWidth}, CellsEstimatedHeight={grid.CellsEstimatedHeight}, RowsPresenters={presenterCount}, Rows={rowCount}.";
+    }
+
+    private sealed class TabPersistenceItem
+    {
+        public string Name { get; set; } = string.Empty;
     }
 }

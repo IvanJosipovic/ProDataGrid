@@ -18,7 +18,7 @@ namespace Avalonia.Controls
     /// <item><description>Bidirectional estimation updates</description></item>
     /// </list>
     /// </summary>
-    public class AdvancedRowHeightEstimator : IDataGridRowHeightEstimator
+    public class AdvancedRowHeightEstimator : IDataGridRowHeightEstimator, IDataGridRowHeightEstimatorStateful
     {
         private const double DefaultHeight = 22.0;
         private const int MaxRowGroupLevels = 10;
@@ -389,6 +389,115 @@ namespace Avalonia.Controls
         }
 
         /// <inheritdoc/>
+        public RowHeightEstimatorState CaptureState()
+        {
+            var regionStats = new Dictionary<int, RegionStatisticsState>(_regionStats.Count);
+            foreach (var entry in _regionStats)
+            {
+                var stats = entry.Value;
+                regionStats[entry.Key] = new RegionStatisticsState(
+                    stats.Sum,
+                    stats.Count,
+                    stats.Min,
+                    stats.Max,
+                    new HashSet<int>(stats.MeasuredSlots));
+            }
+
+            return new AdvancedState(
+                _defaultRowHeight,
+                _globalRowHeightEstimate,
+                _rowDetailsHeightEstimate,
+                (double[])_rowGroupHeaderHeightsByLevel.Clone(),
+                _totalItemCount,
+                new Dictionary<int, double>(_measuredHeights),
+                new Dictionary<int, double>(_detailsHeights),
+                regionStats,
+                (double[])_fenwickSumTree.Clone(),
+                (int[])_fenwickCountTree.Clone(),
+                _fenwickSize,
+                _pendingCorrection,
+                _accumulatedError,
+                _minMeasuredSlot,
+                _maxMeasuredSlot,
+                _sumMeasuredHeights,
+                _measuredCount,
+                _minMeasuredHeight,
+                _maxMeasuredHeight,
+                _lastCollapsedSlotCount,
+                _lastDetailsCount);
+        }
+
+        /// <inheritdoc/>
+        public bool TryRestoreState(RowHeightEstimatorState state)
+        {
+            if (state is not AdvancedState snapshot)
+            {
+                return false;
+            }
+
+            _defaultRowHeight = snapshot.DefaultRowHeight;
+            _globalRowHeightEstimate = snapshot.GlobalRowHeightEstimate;
+            _rowDetailsHeightEstimate = snapshot.RowDetailsHeightEstimate;
+            _totalItemCount = snapshot.TotalItemCount;
+            _pendingCorrection = snapshot.PendingCorrection;
+            _accumulatedError = snapshot.AccumulatedError;
+            _minMeasuredSlot = snapshot.MinMeasuredSlot;
+            _maxMeasuredSlot = snapshot.MaxMeasuredSlot;
+            _sumMeasuredHeights = snapshot.SumMeasuredHeights;
+            _measuredCount = snapshot.MeasuredCount;
+            _minMeasuredHeight = snapshot.MinMeasuredHeight;
+            _maxMeasuredHeight = snapshot.MaxMeasuredHeight;
+            _lastCollapsedSlotCount = snapshot.LastCollapsedSlotCount;
+            _lastDetailsCount = snapshot.LastDetailsCount;
+
+            _measuredHeights.Clear();
+            foreach (var entry in snapshot.MeasuredHeights)
+            {
+                _measuredHeights[entry.Key] = entry.Value;
+            }
+
+            _detailsHeights.Clear();
+            foreach (var entry in snapshot.DetailsHeights)
+            {
+                _detailsHeights[entry.Key] = entry.Value;
+            }
+
+            _regionStats.Clear();
+            foreach (var entry in snapshot.RegionStats)
+            {
+                var stats = new RegionStatistics
+                {
+                    Sum = entry.Value.Sum,
+                    Count = entry.Value.Count,
+                    Min = entry.Value.Min,
+                    Max = entry.Value.Max
+                };
+                foreach (var slot in entry.Value.MeasuredSlots)
+                {
+                    stats.MeasuredSlots.Add(slot);
+                }
+                _regionStats[entry.Key] = stats;
+            }
+
+            _fenwickSumTree = snapshot.FenwickSumTree != null ? (double[])snapshot.FenwickSumTree.Clone() : Array.Empty<double>();
+            _fenwickCountTree = snapshot.FenwickCountTree != null ? (int[])snapshot.FenwickCountTree.Clone() : Array.Empty<int>();
+            _fenwickSize = snapshot.FenwickSize;
+
+            if (snapshot.RowGroupHeaderHeightsByLevel != null)
+            {
+                var length = Math.Min(snapshot.RowGroupHeaderHeightsByLevel.Length, MaxRowGroupLevels);
+                for (int i = 0; i < MaxRowGroupLevels; i++)
+                {
+                    _rowGroupHeaderHeightsByLevel[i] = i < length
+                        ? snapshot.RowGroupHeaderHeightsByLevel[i]
+                        : DefaultHeight;
+                }
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
         public RowHeightEstimatorDiagnostics GetDiagnostics()
         {
             var regionInfo = string.Join(", ", _regionStats.Take(5).Select(r => $"R{r.Key}:{r.Value.Average:F1}({r.Value.Count})"));
@@ -405,6 +514,96 @@ namespace Avalonia.Controls
                 AverageMeasuredHeight = _measuredCount > 0 ? _sumMeasuredHeights / _measuredCount : _globalRowHeightEstimate,
                 AdditionalInfo = $"Regions: {_regionStats.Count}, Range: [{_minMeasuredSlot}-{_maxMeasuredSlot}], PendingCorr: {_pendingCorrection:F1}, Regions: {regionInfo}"
             };
+        }
+
+        private sealed class AdvancedState : RowHeightEstimatorState
+        {
+            public AdvancedState(
+                double defaultRowHeight,
+                double globalRowHeightEstimate,
+                double rowDetailsHeightEstimate,
+                double[] rowGroupHeaderHeightsByLevel,
+                int totalItemCount,
+                Dictionary<int, double> measuredHeights,
+                Dictionary<int, double> detailsHeights,
+                Dictionary<int, RegionStatisticsState> regionStats,
+                double[] fenwickSumTree,
+                int[] fenwickCountTree,
+                int fenwickSize,
+                double pendingCorrection,
+                double accumulatedError,
+                int minMeasuredSlot,
+                int maxMeasuredSlot,
+                double sumMeasuredHeights,
+                int measuredCount,
+                double minMeasuredHeight,
+                double maxMeasuredHeight,
+                int lastCollapsedSlotCount,
+                int lastDetailsCount)
+                : base(nameof(AdvancedRowHeightEstimator))
+            {
+                DefaultRowHeight = defaultRowHeight;
+                GlobalRowHeightEstimate = globalRowHeightEstimate;
+                RowDetailsHeightEstimate = rowDetailsHeightEstimate;
+                RowGroupHeaderHeightsByLevel = rowGroupHeaderHeightsByLevel;
+                TotalItemCount = totalItemCount;
+                MeasuredHeights = measuredHeights;
+                DetailsHeights = detailsHeights;
+                RegionStats = regionStats;
+                FenwickSumTree = fenwickSumTree;
+                FenwickCountTree = fenwickCountTree;
+                FenwickSize = fenwickSize;
+                PendingCorrection = pendingCorrection;
+                AccumulatedError = accumulatedError;
+                MinMeasuredSlot = minMeasuredSlot;
+                MaxMeasuredSlot = maxMeasuredSlot;
+                SumMeasuredHeights = sumMeasuredHeights;
+                MeasuredCount = measuredCount;
+                MinMeasuredHeight = minMeasuredHeight;
+                MaxMeasuredHeight = maxMeasuredHeight;
+                LastCollapsedSlotCount = lastCollapsedSlotCount;
+                LastDetailsCount = lastDetailsCount;
+            }
+
+            public double DefaultRowHeight { get; }
+            public double GlobalRowHeightEstimate { get; }
+            public double RowDetailsHeightEstimate { get; }
+            public double[] RowGroupHeaderHeightsByLevel { get; }
+            public int TotalItemCount { get; }
+            public Dictionary<int, double> MeasuredHeights { get; }
+            public Dictionary<int, double> DetailsHeights { get; }
+            public Dictionary<int, RegionStatisticsState> RegionStats { get; }
+            public double[] FenwickSumTree { get; }
+            public int[] FenwickCountTree { get; }
+            public int FenwickSize { get; }
+            public double PendingCorrection { get; }
+            public double AccumulatedError { get; }
+            public int MinMeasuredSlot { get; }
+            public int MaxMeasuredSlot { get; }
+            public double SumMeasuredHeights { get; }
+            public int MeasuredCount { get; }
+            public double MinMeasuredHeight { get; }
+            public double MaxMeasuredHeight { get; }
+            public int LastCollapsedSlotCount { get; }
+            public int LastDetailsCount { get; }
+        }
+
+        private sealed class RegionStatisticsState
+        {
+            public RegionStatisticsState(double sum, int count, double min, double max, HashSet<int> measuredSlots)
+            {
+                Sum = sum;
+                Count = count;
+                Min = min;
+                Max = max;
+                MeasuredSlots = measuredSlots;
+            }
+
+            public double Sum { get; }
+            public int Count { get; }
+            public double Min { get; }
+            public double Max { get; }
+            public HashSet<int> MeasuredSlots { get; }
         }
 
         #endregion

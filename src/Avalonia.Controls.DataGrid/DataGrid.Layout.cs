@@ -203,6 +203,15 @@ namespace Avalonia.Controls
             }
         }
 
+        private void OnIsVisibleChanged(AvaloniaPropertyChangedEventArgs e)
+        {
+            if (e.NewValue is bool isVisible && !isVisible)
+            {
+                _scrollStateManager.Capture(preserveOnAttach: false);
+                ResetDisplayedRows();
+            }
+        }
+
 
         private void EnsureVerticalGridLines()
         {

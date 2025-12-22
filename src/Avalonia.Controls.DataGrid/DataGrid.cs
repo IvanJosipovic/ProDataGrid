@@ -167,6 +167,65 @@ namespace Avalonia.Controls
         /// <param name="newViewport">New viewport size.</param>
         protected internal virtual void OnRowsPresenterViewportChanged(Size oldViewport, Size newViewport)
         {
+            if (!UseLogicalScrollable || _rowsPresenter == null)
+            {
+                return;
+            }
+
+            var effectiveHeight = newViewport.Height;
+            if (!double.IsNaN(Height) && !double.IsInfinity(Height) && Height > 0)
+            {
+                var headerHeight = 0.0;
+                if (AreColumnHeadersVisible)
+                {
+                    if (_columnHeadersPresenter != null && _columnHeadersPresenter.Bounds.Height > 0)
+                    {
+                        headerHeight = _columnHeadersPresenter.Bounds.Height;
+                    }
+                    else if (!double.IsNaN(ColumnHeaderHeight))
+                    {
+                        headerHeight = ColumnHeaderHeight;
+                    }
+                }
+
+                var constrainedHeight = Math.Max(0, Height - headerHeight);
+                if (constrainedHeight > 0 && constrainedHeight < effectiveHeight)
+                {
+                    effectiveHeight = constrainedHeight;
+                }
+            }
+
+            if (MathUtilities.AreClose(oldViewport.Height, effectiveHeight) &&
+                !(MathUtilities.LessThanOrClose(effectiveHeight, 0) && DisplayData.FirstScrollingSlot != -1))
+            {
+                return;
+            }
+
+            if (MathUtilities.LessThanOrClose(effectiveHeight, 0))
+            {
+                ResetDisplayedRows();
+                return;
+            }
+
+            if (SlotCount == 0 || ColumnsItemsInternal.Count == 0)
+            {
+                return;
+            }
+
+            if (DisplayData.FirstScrollingSlot == -1)
+            {
+                int firstVisibleSlot = FirstVisibleSlot;
+                if (firstVisibleSlot == -1)
+                {
+                    return;
+                }
+
+                NegVerticalOffset = 0;
+                UpdateDisplayedRows(firstVisibleSlot, effectiveHeight);
+                return;
+            }
+
+            UpdateDisplayedRows(DisplayData.FirstScrollingSlot, effectiveHeight);
         }
 
         private INotifyCollectionChanged _topLevelGroup;
@@ -191,6 +250,7 @@ namespace Avalonia.Controls
         private bool _areHandlersSuspended;
         private bool _autoSizingColumns;
         private IndexToValueTable<bool> _collapsedSlotsTable;
+        private readonly IDataGridScrollStateManager _scrollStateManager;
 
         // used to store the current column during a Reset
 
@@ -347,6 +407,7 @@ namespace Avalonia.Controls
             SelectedItemProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnSelectedItemChanged(e));
             AutoScrollToSelectedItemProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnAutoScrollToSelectedItemChanged(e));
             IsEnabledProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.DataGrid_IsEnabledChanged(e));
+            Visual.IsVisibleProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnIsVisibleChanged(e));
             AreRowGroupHeadersFrozenProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnAreRowGroupHeadersFrozenChanged(e));
             RowDetailsTemplateProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowDetailsTemplateChanged(e));
             RowDetailsVisibilityModeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnRowDetailsVisibilityModeChanged(e));
@@ -404,6 +465,7 @@ namespace Avalonia.Controls
             _collapsedSlotsTable = new IndexToValueTable<bool>();
             _rowDragDropOptions = new DataGridRowDragDropOptions();
             _rowDropHandler = new DataGridRowReorderHandler();
+            _scrollStateManager = new ScrollStateManager(this);
 
             SetSortingModel(CreateSortingModel(), initializing: true);
             SetFilteringModel(CreateFilteringModel(), initializing: true);
@@ -562,6 +624,12 @@ namespace Avalonia.Controls
             {
                 if (_rowsPresenter != null)
                 {
+                    var arrangedHeight = _rowsPresenter.LastArrangeHeight;
+                    if (!double.IsNaN(arrangedHeight) && arrangedHeight > 0)
+                    {
+                        return arrangedHeight;
+                    }
+
                     return _rowsPresenter.Bounds.Height;
                 }
                 return 0;
@@ -623,7 +691,64 @@ namespace Avalonia.Controls
         {
             get
             {
-                return RowsPresenterAvailableSize?.Height ?? 0;
+                if (!IsAttachedToVisualTree || !IsVisible)
+                {
+                    return 0;
+                }
+
+                var presenterHeight = ActualRowsPresenterHeight;
+                if (RowsPresenterAvailableSize is { } measuredSize &&
+                    !double.IsNaN(measuredSize.Height) &&
+                    !double.IsInfinity(measuredSize.Height))
+                {
+                    var measuredHeight = Math.Max(0, measuredSize.Height);
+                    if (MathUtilities.GreaterThan(presenterHeight, 0) &&
+                        MathUtilities.LessThan(presenterHeight, measuredHeight))
+                    {
+                        var threshold = Math.Max(RowHeightEstimate, 1);
+                        if (VisualRoot is TopLevel rootLevel &&
+                            !double.IsNaN(rootLevel.Height) &&
+                            rootLevel.Height > 0 &&
+                            Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
+                            Math.Abs(Bounds.Height - rootLevel.Bounds.Height) <= threshold)
+                        {
+                            return measuredHeight;
+                        }
+
+                        return presenterHeight;
+                    }
+
+                    return measuredHeight;
+                }
+
+                if (MathUtilities.GreaterThan(presenterHeight, 0))
+                {
+                    return presenterHeight;
+                }
+
+                if (_scrollStateManager.PendingRestore)
+                {
+                    var gridHeight = Bounds.Height;
+                    if (MathUtilities.GreaterThan(gridHeight, 0))
+                    {
+                        var headerHeight = 0.0;
+                        if (AreColumnHeadersVisible)
+                        {
+                            if (_columnHeadersPresenter != null)
+                            {
+                                headerHeight = _columnHeadersPresenter.Bounds.Height;
+                            }
+                            else if (!double.IsNaN(ColumnHeaderHeight))
+                            {
+                                headerHeight = ColumnHeaderHeight;
+                            }
+                        }
+
+                        return Math.Max(0, gridHeight - headerHeight);
+                    }
+                }
+
+                return 0;
             }
         }
 
@@ -864,6 +989,11 @@ namespace Avalonia.Controls
                 {
                     // Transfer our current estimate to the new estimator if we've measured any rows
                 }
+            }
+
+            if (!ReferenceEquals(oldEstimator, newEstimator) && _scrollStateManager.PendingRestore)
+            {
+                _scrollStateManager.Clear();
             }
 
             // Force refresh of displayed rows

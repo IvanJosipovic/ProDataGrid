@@ -12,6 +12,7 @@ using Avalonia.Controls.Utils;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -124,6 +125,7 @@ namespace Avalonia.Controls
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnDetachedFromVisualTree(e);
+            _scrollStateManager.Capture(preserveOnAttach: true);
             // When wired to INotifyCollectionChanged, the DataGrid will be cleaned up by GC
             if (DataConnection.DataSource != null && DataConnection.EventsWired)
             {
@@ -142,6 +144,7 @@ namespace Avalonia.Controls
 
         internal void InitializeElements(bool recycleRows)
         {
+            bool preserveScrollState = _scrollStateManager.ShouldPreserveScrollState();
             try
             {
                 _noCurrentCellChangeCount++;
@@ -152,7 +155,14 @@ namespace Avalonia.Controls
                 CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
 
                 // Notify the estimator about the reset
-                RowHeightEstimator?.Reset();
+                if (!preserveScrollState)
+                {
+                    _scrollStateManager.Clear();
+                    DisplayData.PendingVerticalScrollHeight = 0;
+                    _verticalOffset = 0;
+                    NegVerticalOffset = 0;
+                    RowHeightEstimator?.Reset();
+                }
 
                 // We want to persist selection throughout a reset, so store away the selected items
                 List<object> selectedItemsCache = new List<object>(_selectedItems.SelectedItemsCache);
@@ -222,6 +232,7 @@ namespace Avalonia.Controls
             finally
             {
                 NoCurrentCellChangeCount--;
+                _scrollStateManager.ClearPreserveOnAttachFlag();
             }
         }
 

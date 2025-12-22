@@ -11,7 +11,7 @@ namespace Avalonia.Controls
     /// Advanced implementation of <see cref="IDataGridRowHeightEstimator"/> that caches
     /// individual row heights for more accurate scrolling with variable height rows.
     /// </summary>
-    public class CachingRowHeightEstimator : IDataGridRowHeightEstimator
+    public class CachingRowHeightEstimator : IDataGridRowHeightEstimator, IDataGridRowHeightEstimatorStateful
     {
         private const double DefaultHeight = 22.0;
         private const int MaxRowGroupLevels = 10;
@@ -384,6 +384,70 @@ namespace Avalonia.Controls
         }
 
         /// <inheritdoc/>
+        public RowHeightEstimatorState CaptureState()
+        {
+            return new CachingState(
+                _defaultRowHeight,
+                _rowHeightEstimate,
+                _rowDetailsHeightEstimate,
+                (double[])_rowGroupHeaderHeightsByLevel.Clone(),
+                _totalItemCount,
+                new Dictionary<int, double>(_measuredHeights),
+                new Dictionary<int, double>(_detailsHeights),
+                _sumMeasuredHeights,
+                _measuredCount,
+                _minMeasuredHeight,
+                _maxMeasuredHeight,
+                _lastCollapsedSlotCount,
+                _lastDetailsCount);
+        }
+
+        /// <inheritdoc/>
+        public bool TryRestoreState(RowHeightEstimatorState state)
+        {
+            if (state is not CachingState snapshot)
+            {
+                return false;
+            }
+
+            _defaultRowHeight = snapshot.DefaultRowHeight;
+            _rowHeightEstimate = snapshot.RowHeightEstimate;
+            _rowDetailsHeightEstimate = snapshot.RowDetailsHeightEstimate;
+            _totalItemCount = snapshot.TotalItemCount;
+            _sumMeasuredHeights = snapshot.SumMeasuredHeights;
+            _measuredCount = snapshot.MeasuredCount;
+            _minMeasuredHeight = snapshot.MinMeasuredHeight;
+            _maxMeasuredHeight = snapshot.MaxMeasuredHeight;
+            _lastCollapsedSlotCount = snapshot.LastCollapsedSlotCount;
+            _lastDetailsCount = snapshot.LastDetailsCount;
+
+            _measuredHeights.Clear();
+            foreach (var entry in snapshot.MeasuredHeights)
+            {
+                _measuredHeights[entry.Key] = entry.Value;
+            }
+
+            _detailsHeights.Clear();
+            foreach (var entry in snapshot.DetailsHeights)
+            {
+                _detailsHeights[entry.Key] = entry.Value;
+            }
+
+            if (snapshot.RowGroupHeaderHeightsByLevel != null)
+            {
+                var length = Math.Min(snapshot.RowGroupHeaderHeightsByLevel.Length, MaxRowGroupLevels);
+                for (int i = 0; i < MaxRowGroupLevels; i++)
+                {
+                    _rowGroupHeaderHeightsByLevel[i] = i < length
+                        ? snapshot.RowGroupHeaderHeightsByLevel[i]
+                        : DefaultHeight;
+                }
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
         public RowHeightEstimatorDiagnostics GetDiagnostics()
         {
             return new RowHeightEstimatorDiagnostics
@@ -398,6 +462,54 @@ namespace Avalonia.Controls
                 AverageMeasuredHeight = _measuredCount > 0 ? _sumMeasuredHeights / _measuredCount : _rowHeightEstimate,
                 AdditionalInfo = $"CacheSize: {_measuredHeights.Count}/{MaxCacheSize}, DetailsCount: {_detailsHeights.Count}"
             };
+        }
+
+        private sealed class CachingState : RowHeightEstimatorState
+        {
+            public CachingState(
+                double defaultRowHeight,
+                double rowHeightEstimate,
+                double rowDetailsHeightEstimate,
+                double[] rowGroupHeaderHeightsByLevel,
+                int totalItemCount,
+                Dictionary<int, double> measuredHeights,
+                Dictionary<int, double> detailsHeights,
+                double sumMeasuredHeights,
+                int measuredCount,
+                double minMeasuredHeight,
+                double maxMeasuredHeight,
+                int lastCollapsedSlotCount,
+                int lastDetailsCount)
+                : base(nameof(CachingRowHeightEstimator))
+            {
+                DefaultRowHeight = defaultRowHeight;
+                RowHeightEstimate = rowHeightEstimate;
+                RowDetailsHeightEstimate = rowDetailsHeightEstimate;
+                RowGroupHeaderHeightsByLevel = rowGroupHeaderHeightsByLevel;
+                TotalItemCount = totalItemCount;
+                MeasuredHeights = measuredHeights;
+                DetailsHeights = detailsHeights;
+                SumMeasuredHeights = sumMeasuredHeights;
+                MeasuredCount = measuredCount;
+                MinMeasuredHeight = minMeasuredHeight;
+                MaxMeasuredHeight = maxMeasuredHeight;
+                LastCollapsedSlotCount = lastCollapsedSlotCount;
+                LastDetailsCount = lastDetailsCount;
+            }
+
+            public double DefaultRowHeight { get; }
+            public double RowHeightEstimate { get; }
+            public double RowDetailsHeightEstimate { get; }
+            public double[] RowGroupHeaderHeightsByLevel { get; }
+            public int TotalItemCount { get; }
+            public Dictionary<int, double> MeasuredHeights { get; }
+            public Dictionary<int, double> DetailsHeights { get; }
+            public double SumMeasuredHeights { get; }
+            public int MeasuredCount { get; }
+            public double MinMeasuredHeight { get; }
+            public double MaxMeasuredHeight { get; }
+            public int LastCollapsedSlotCount { get; }
+            public int LastDetailsCount { get; }
         }
 
         private void TrimCache()

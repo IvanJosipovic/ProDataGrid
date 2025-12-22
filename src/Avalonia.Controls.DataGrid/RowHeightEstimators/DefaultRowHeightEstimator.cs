@@ -11,7 +11,7 @@ namespace Avalonia.Controls
     /// Default implementation of <see cref="IDataGridRowHeightEstimator"/> that uses
     /// a simple average-based estimation algorithm. This matches the original DataGrid behavior.
     /// </summary>
-    public class DefaultRowHeightEstimator : IDataGridRowHeightEstimator
+    public class DefaultRowHeightEstimator : IDataGridRowHeightEstimator, IDataGridRowHeightEstimatorStateful
     {
         private const double DefaultHeight = 22.0;
         private const int MaxRowGroupLevels = 10;
@@ -237,6 +237,46 @@ namespace Avalonia.Controls
         }
 
         /// <inheritdoc/>
+        public RowHeightEstimatorState CaptureState()
+        {
+            return new DefaultState(
+                _defaultRowHeight,
+                _rowHeightEstimate,
+                _rowDetailsHeightEstimate,
+                (double[])_rowGroupHeaderHeightsByLevel.Clone(),
+                _lastEstimatedRow,
+                _totalItemCount);
+        }
+
+        /// <inheritdoc/>
+        public bool TryRestoreState(RowHeightEstimatorState state)
+        {
+            if (state is not DefaultState snapshot)
+            {
+                return false;
+            }
+
+            _defaultRowHeight = snapshot.DefaultRowHeight;
+            _rowHeightEstimate = snapshot.RowHeightEstimate;
+            _rowDetailsHeightEstimate = snapshot.RowDetailsHeightEstimate;
+            _lastEstimatedRow = snapshot.LastEstimatedRow;
+            _totalItemCount = snapshot.TotalItemCount;
+
+            if (snapshot.RowGroupHeaderHeightsByLevel != null)
+            {
+                var length = Math.Min(snapshot.RowGroupHeaderHeightsByLevel.Length, MaxRowGroupLevels);
+                for (int i = 0; i < MaxRowGroupLevels; i++)
+                {
+                    _rowGroupHeaderHeightsByLevel[i] = i < length
+                        ? snapshot.RowGroupHeaderHeightsByLevel[i]
+                        : DefaultHeight;
+                }
+            }
+
+            return true;
+        }
+
+        /// <inheritdoc/>
         public RowHeightEstimatorDiagnostics GetDiagnostics()
         {
             return new RowHeightEstimatorDiagnostics
@@ -251,6 +291,33 @@ namespace Avalonia.Controls
                 AverageMeasuredHeight = _rowHeightEstimate,
                 AdditionalInfo = $"LastEstimatedRow: {_lastEstimatedRow}, RowGroupLevels: {string.Join(", ", _rowGroupHeaderHeightsByLevel.Take(3).Select(h => h.ToString("F1")))}"
             };
+        }
+
+        private sealed class DefaultState : RowHeightEstimatorState
+        {
+            public DefaultState(
+                double defaultRowHeight,
+                double rowHeightEstimate,
+                double rowDetailsHeightEstimate,
+                double[] rowGroupHeaderHeightsByLevel,
+                int lastEstimatedRow,
+                int totalItemCount)
+                : base(nameof(DefaultRowHeightEstimator))
+            {
+                DefaultRowHeight = defaultRowHeight;
+                RowHeightEstimate = rowHeightEstimate;
+                RowDetailsHeightEstimate = rowDetailsHeightEstimate;
+                RowGroupHeaderHeightsByLevel = rowGroupHeaderHeightsByLevel;
+                LastEstimatedRow = lastEstimatedRow;
+                TotalItemCount = totalItemCount;
+            }
+
+            public double DefaultRowHeight { get; }
+            public double RowHeightEstimate { get; }
+            public double RowDetailsHeightEstimate { get; }
+            public double[] RowGroupHeaderHeightsByLevel { get; }
+            public int LastEstimatedRow { get; }
+            public int TotalItemCount { get; }
         }
     }
 }

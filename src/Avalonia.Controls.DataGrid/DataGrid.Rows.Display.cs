@@ -23,6 +23,12 @@ namespace Avalonia.Controls
             double deltaY = -NegVerticalOffset;
             int visibleScrollingRows = 0;
 
+            if (_rowsPresenter == null)
+            {
+                ResetDisplayedRows();
+                return;
+            }
+
             if (MathUtilities.LessThanOrClose(displayHeight, 0) || SlotCount == 0 || ColumnsItemsInternal.Count == 0)
             {
                 ResetDisplayedRows();
@@ -97,6 +103,12 @@ namespace Avalonia.Controls
             double displayHeight = CellsEstimatedHeight;
             double deltaY = 0;
             int visibleScrollingRows = 0;
+
+            if (_rowsPresenter == null)
+            {
+                ResetDisplayedRows();
+                return;
+            }
 
             if (MathUtilities.LessThanOrClose(displayHeight, 0) || SlotCount == 0 || ColumnsItemsInternal.Count == 0)
             {
@@ -189,6 +201,11 @@ namespace Avalonia.Controls
         private bool SlotIsDisplayed(int slot)
         {
             Debug.Assert(slot >= 0);
+
+            if (_rowsPresenter == null)
+            {
+                return false;
+            }
 
             if (slot >= DisplayData.FirstScrollingSlot &&
             slot <= DisplayData.LastScrollingSlot)

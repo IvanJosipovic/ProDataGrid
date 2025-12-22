@@ -130,6 +130,41 @@ namespace Avalonia.Controls
     }
 
     /// <summary>
+    /// Extends <see cref="IDataGridRowHeightEstimator"/> with state capture/restore support.
+    /// </summary>
+    public interface IDataGridRowHeightEstimatorStateful
+    {
+        /// <summary>
+        /// Captures the current internal estimator state.
+        /// </summary>
+        /// <returns>A snapshot of the estimator state.</returns>
+        RowHeightEstimatorState CaptureState();
+
+        /// <summary>
+        /// Restores the estimator state from a previous snapshot.
+        /// </summary>
+        /// <param name="state">The state snapshot to restore.</param>
+        /// <returns>True if the state could be restored; otherwise, false.</returns>
+        bool TryRestoreState(RowHeightEstimatorState state);
+    }
+
+    /// <summary>
+    /// Base class for row height estimator state snapshots.
+    /// </summary>
+    public abstract class RowHeightEstimatorState
+    {
+        protected RowHeightEstimatorState(string estimatorType)
+        {
+            EstimatorType = estimatorType;
+        }
+
+        /// <summary>
+        /// Gets the estimator type identifier for this state.
+        /// </summary>
+        public string EstimatorType { get; }
+    }
+
+    /// <summary>
     /// Diagnostic information about the row height estimator state.
     /// </summary>
     public class RowHeightEstimatorDiagnostics

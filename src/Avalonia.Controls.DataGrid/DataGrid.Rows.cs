@@ -363,6 +363,8 @@ namespace Avalonia.Controls
                 ScrollSlotsByHeight(DisplayData.PendingVerticalScrollHeight);
                 DisplayData.PendingVerticalScrollHeight = 0;
             }
+
+            _scrollStateManager.TryRestore();
         }
 
         internal void RefreshRows(bool recycleRows, bool clearRows)
@@ -414,7 +416,18 @@ namespace Avalonia.Controls
 
                 if (HasLegacyVerticalScrollBar)
                 {
-                    DisplayData.PendingVerticalScrollHeight = Math.Min(verticalOffset, GetLegacyVerticalScrollMaximum());
+                    if (_scrollStateManager.PendingRestore)
+                    {
+                        DisplayData.PendingVerticalScrollHeight = 0;
+                    }
+                    else
+                    {
+                        DisplayData.PendingVerticalScrollHeight = Math.Min(verticalOffset, GetLegacyVerticalScrollMaximum());
+                    }
+                }
+                else if (_scrollStateManager.PendingRestore)
+                {
+                    DisplayData.PendingVerticalScrollHeight = 0;
                 }
             }
             else
@@ -441,6 +454,23 @@ namespace Avalonia.Controls
         internal bool ScrollSlotIntoView(int slot, bool scrolledHorizontally)
         {
             Debug.Assert(_collapsedSlotsTable.Contains(slot) || !IsSlotOutOfBounds(slot));
+
+            if (DisplayData.FirstScrollingSlot == -1)
+            {
+                if (SlotCount == 0 || ColumnsItemsInternal.Count == 0 || MathUtilities.LessThanOrClose(CellsEstimatedHeight, 0))
+                {
+                    return false;
+                }
+
+                var firstVisibleSlot = GetNextVisibleSlot(-1);
+                if (firstVisibleSlot == -1)
+                {
+                    return false;
+                }
+
+                NegVerticalOffset = 0;
+                UpdateDisplayedRows(firstVisibleSlot, CellsEstimatedHeight);
+            }
 
             if (scrolledHorizontally && DisplayData.FirstScrollingSlot <= slot && DisplayData.LastScrollingSlot >= slot)
             {
