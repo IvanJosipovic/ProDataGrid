@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -85,6 +86,21 @@ public class DataGridNumericColumnHeadlessTests
         Assert.Equal(Avalonia.Layout.HorizontalAlignment.Right, column.HorizontalContentAlignment);
     }
 
+    [AvaloniaFact]
+    public void NumericColumn_Applies_VerticalContentAlignment()
+    {
+        var column = new TestNumericColumn
+        {
+            VerticalContentAlignment = VerticalAlignment.Bottom
+        };
+
+        var displayElement = column.CreateDisplayElement(new DataGridCell(), new object());
+        var editingElement = column.CreateEditingElement(new DataGridCell(), new object());
+
+        Assert.Equal(VerticalAlignment.Bottom, displayElement.VerticalAlignment);
+        Assert.Equal(VerticalAlignment.Bottom, editingElement.VerticalContentAlignment);
+    }
+
     private static (Window window, DataGrid grid) CreateWindow(NumericTestViewModel vm, string? formatString = null)
     {
         var window = new Window
@@ -153,5 +169,14 @@ public class DataGridNumericColumnHeadlessTests
     {
         public string Name { get; set; } = string.Empty;
         public decimal Price { get; set; }
+    }
+
+    private sealed class TestNumericColumn : DataGridNumericColumn
+    {
+        public TextBlock CreateDisplayElement(DataGridCell cell, object dataItem) =>
+            (TextBlock)GenerateElement(cell, dataItem);
+
+        public NumericUpDown CreateEditingElement(DataGridCell cell, object dataItem) =>
+            (NumericUpDown)GenerateEditingElementDirect(cell, dataItem);
     }
 }

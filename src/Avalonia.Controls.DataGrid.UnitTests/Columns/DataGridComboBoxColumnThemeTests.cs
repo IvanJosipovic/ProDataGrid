@@ -3,8 +3,10 @@
 
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Styling;
 using Xunit;
 
@@ -66,6 +68,28 @@ public class DataGridComboBoxColumnThemeTests
         var post = column.GetThemes();
         Assert.Same(editTheme, post.editTheme);
         Assert.Same(displayTheme, post.displayTheme);
+    }
+
+    [AvaloniaFact]
+    public void ComboBoxColumn_Applies_ItemTemplate_And_ContentAlignment()
+    {
+        var template = new FuncDataTemplate<string>((_, _) => new TextBlock());
+        var column = new DerivedComboBoxColumn
+        {
+            ItemTemplate = template,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Bottom
+        };
+
+        var displayElement = column.CreateDisplayElement(new DataGridCell(), "A");
+        var editingElement = column.CreateEditingElement(new DataGridCell(), "A");
+
+        Assert.Same(template, displayElement.ItemTemplate);
+        Assert.Same(template, editingElement.ItemTemplate);
+        Assert.Equal(HorizontalAlignment.Center, displayElement.HorizontalContentAlignment);
+        Assert.Equal(VerticalAlignment.Bottom, displayElement.VerticalContentAlignment);
+        Assert.Equal(HorizontalAlignment.Center, editingElement.HorizontalContentAlignment);
+        Assert.Equal(VerticalAlignment.Bottom, editingElement.VerticalContentAlignment);
     }
 
     private class DerivedComboBoxColumn : DataGridComboBoxColumn

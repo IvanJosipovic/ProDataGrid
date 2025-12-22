@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml.Styling;
@@ -45,6 +46,20 @@ public class DataGridAutoCompleteColumnHeadlessTests
         };
 
         Assert.Equal(suggestions, column.ItemsSource);
+    }
+
+    [AvaloniaFact]
+    public void AutoCompleteColumn_Applies_ItemTemplate()
+    {
+        var template = new FuncDataTemplate<string>((_, _) => new TextBlock());
+        var column = new TestAutoCompleteColumn
+        {
+            ItemTemplate = template
+        };
+
+        var autoComplete = column.CreateEditingElement(new DataGridCell(), "Item");
+
+        Assert.Same(template, autoComplete.ItemTemplate);
     }
 
     [AvaloniaFact]
@@ -206,5 +221,11 @@ public class DataGridAutoCompleteColumnHeadlessTests
     {
         public string Name { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
+    }
+
+    private sealed class TestAutoCompleteColumn : DataGridAutoCompleteColumn
+    {
+        public AutoCompleteBox CreateEditingElement(DataGridCell cell, object dataItem) =>
+            (AutoCompleteBox)GenerateEditingElementDirect(cell, dataItem);
     }
 }

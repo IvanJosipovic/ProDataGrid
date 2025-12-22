@@ -6,7 +6,9 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Avalonia.Themes.Fluent;
@@ -82,6 +84,24 @@ public class DataGridDatePickerColumnHeadlessTests
         Assert.Equal(endDate, column.DisplayDateEnd);
     }
 
+    [AvaloniaFact]
+    public void DatePickerColumn_Applies_ContentAlignment()
+    {
+        var column = new TestDatePickerColumn
+        {
+            HorizontalContentAlignment = HorizontalAlignment.Right,
+            VerticalContentAlignment = VerticalAlignment.Bottom
+        };
+
+        var displayElement = column.CreateDisplayElement(new DataGridCell(), new object());
+        var editingElement = column.CreateEditingElement(new DataGridCell(), new object());
+
+        Assert.Equal(TextAlignment.Right, displayElement.TextAlignment);
+        Assert.Equal(VerticalAlignment.Bottom, displayElement.VerticalAlignment);
+        Assert.Equal(HorizontalAlignment.Right, editingElement.HorizontalContentAlignment);
+        Assert.Equal(VerticalAlignment.Bottom, editingElement.VerticalContentAlignment);
+    }
+
     private static (Window window, DataGrid grid) CreateWindow(DatePickerTestViewModel vm)
     {
         var window = new Window
@@ -143,5 +163,14 @@ public class DataGridDatePickerColumnHeadlessTests
     {
         public string Name { get; set; } = string.Empty;
         public DateTime? Date { get; set; }
+    }
+
+    private sealed class TestDatePickerColumn : DataGridDatePickerColumn
+    {
+        public TextBlock CreateDisplayElement(DataGridCell cell, object dataItem) =>
+            (TextBlock)GenerateElement(cell, dataItem);
+
+        public CalendarDatePicker CreateEditingElement(DataGridCell cell, object dataItem) =>
+            (CalendarDatePicker)GenerateEditingElementDirect(cell, dataItem);
     }
 }
