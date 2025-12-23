@@ -1,0 +1,131 @@
+<!--
+  Copyright (c) Wieslaw Soltes. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.HierarchicalPathSelectionPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    xmlns:hier="clr-namespace:Avalonia.Controls.DataGridHierarchical;assembly=Avalonia.Controls.DataGrid"
+    x:DataType="viewModels:HierarchicalPathSelectionViewModel"
+    d:DesignHeight="720"
+    d:DesignWidth="1100"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:HierarchicalPathSelectionViewModel />
+  </UserControl.DataContext>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,Auto,*"
+        RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Hierarchical selection by index path"
+                 FontWeight="Bold"
+                 FontSize="18" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Selection is driven by index paths (ItemPathSelector) to avoid relying on equality when names repeat. Enter a path like 0/1/0 or use the preset buttons to select a deep node." />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Expand all"
+              Command="{Binding ExpandAllCommand}" />
+      <Button Content="Collapse all"
+              Command="{Binding CollapseAllCommand}" />
+      <Button Content="Rebuild"
+              Command="{Binding RebuildCommand}" />
+    </StackPanel>
+
+    <Grid Grid.Row="2"
+          ColumnDefinitions="*,Auto"
+          ColumnSpacing="16">
+      <StackPanel Spacing="6">
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <TextBlock Text="Path:"
+                     VerticalAlignment="Center" />
+          <TextBox Width="120"
+                   Text="{Binding PathInput, Mode=TwoWay}" />
+          <Button Content="Select path"
+                  Command="{Binding ApplyPathCommand}" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8">
+          <Button Content="Select 0/0/0"
+                  Command="{Binding SelectPathCommand}"
+                  CommandParameter="0/0/0" />
+          <Button Content="Select 0/1/0"
+                  Command="{Binding SelectPathCommand}"
+                  CommandParameter="0/1/0" />
+          <Button Content="Select 1/0/1"
+                  Command="{Binding SelectPathCommand}"
+                  CommandParameter="1/0/1" />
+        </StackPanel>
+      </StackPanel>
+
+      <StackPanel Grid.Column="1"
+                  Spacing="4"
+                  VerticalAlignment="Center">
+        <TextBlock Text="{Binding SelectedLabel}"
+                   FontWeight="SemiBold" />
+        <TextBlock Text="{Binding SelectedPath, StringFormat=Path: {0}}" />
+        <TextBlock Text="{Binding Status}" />
+      </StackPanel>
+    </Grid>
+
+    <DataGrid Grid.Row="3"
+              AutoGenerateColumns="False"
+              HierarchicalModel="{Binding Model}"
+              HierarchicalRowsEnabled="True"
+              SelectionMode="Single"
+              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+              AutoScrollToSelectedItem="True"
+              AutoExpandSelectedItem="True"
+              HeadersVisibility="Column"
+              GridLinesVisibility="Horizontal"
+              x:DataType="viewModels:HierarchicalPathSelectionViewModel">
+      <DataGrid.Columns>
+        <DataGridHierarchicalColumn Header="Name"
+                                    Width="2*"
+                                    x:CompileBindings="False"
+                                    Binding="{Binding Item}">
+          <DataGridHierarchicalColumn.CellTemplate>
+            <DataTemplate x:DataType="viewModels:HierarchicalPathSelectionViewModel+TreeItem">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </DataGridHierarchicalColumn.CellTemplate>
+        </DataGridHierarchicalColumn>
+
+        <DataGridTemplateColumn Header="Id"
+                                Width="80"
+                                x:CompileBindings="False">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="hier:HierarchicalNode">
+              <TextBlock x:DataType="viewModels:HierarchicalPathSelectionViewModel+TreeItem"
+                         DataContext="{Binding Item}"
+                         Text="{Binding Id}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+
+        <DataGridTemplateColumn Header="Children"
+                                Width="90"
+                                x:CompileBindings="False">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="hier:HierarchicalNode">
+              <TextBlock x:DataType="viewModels:HierarchicalPathSelectionViewModel+TreeItem"
+                         DataContext="{Binding Item}"
+                         Text="{Binding Children.Count}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

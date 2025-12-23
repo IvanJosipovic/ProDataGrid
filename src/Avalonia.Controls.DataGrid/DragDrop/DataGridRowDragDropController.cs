@@ -471,41 +471,37 @@ namespace Avalonia.Controls.DataGridDragDrop
             var indices = new List<int>();
             var added = new HashSet<object?>(ReferenceEqualityComparer.Instance);
             var fromSelection = false;
+            var usedSelection = false;
+            var isHierarchical = _grid.HierarchicalRowsEnabled && _dragStartRow.DataContext is HierarchicalNode;
 
-            IEnumerable<object?> candidates;
-            if (_options.DragSelectedRows &&
-                _dragStartRow.IsSelected &&
-                _grid.SelectedItems is IList selected &&
-                selected.Count > 0)
+            if (_options.DragSelectedRows && _dragStartRow.IsSelected)
             {
-                candidates = selected.Cast<object?>();
-                fromSelection = true;
+                if (isHierarchical && TryAddHierarchicalSelection(items, indices, added))
+                {
+                    fromSelection = true;
+                    usedSelection = true;
+                }
+                else if (_grid.SelectedItems is IList selected && selected.Count > 0)
+                {
+                    foreach (var item in selected.Cast<object?>())
+                    {
+                        if (!TryAddDragItem(item, added, items, indices))
+                        {
+                            continue;
+                        }
+                    }
+
+                    if (items.Count > 0)
+                    {
+                        fromSelection = true;
+                        usedSelection = true;
+                    }
+                }
             }
-            else
+
+            if (!usedSelection)
             {
-                candidates = new[] { _dragStartRow.DataContext };
-            }
-
-            foreach (var item in candidates)
-            {
-                if (item == null || ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder))
-                {
-                    continue;
-                }
-
-                if (!added.Add(item))
-                {
-                    continue;
-                }
-
-                var index = ResolveIndex(item);
-                if (index < 0)
-                {
-                    continue;
-                }
-
-                items.Add(item);
-                indices.Add(index);
+                TryAddDragItem(_dragStartRow.DataContext, added, items, indices);
             }
 
             if (items.Count == 0)
@@ -514,6 +510,63 @@ namespace Avalonia.Controls.DataGridDragDrop
             }
 
             return new DataGridRowDragInfo(_grid, items, indices, fromSelection);
+        }
+
+        private bool TryAddHierarchicalSelection(
+            List<object> items,
+            List<int> indices,
+            HashSet<object?> added)
+        {
+            var selection = _grid.Selection;
+            var dataConnection = _grid.DataConnection;
+            if (selection?.SelectedIndexes == null || dataConnection == null)
+            {
+                return false;
+            }
+
+            foreach (var index in selection.SelectedIndexes)
+            {
+                if (index < 0)
+                {
+                    continue;
+                }
+
+                var item = dataConnection.GetDataItem(index);
+                if (!TryAddDragItem(item, added, items, indices, index))
+                {
+                    continue;
+                }
+            }
+
+            return items.Count > 0;
+        }
+
+        private bool TryAddDragItem(
+            object? item,
+            HashSet<object?> added,
+            List<object> items,
+            List<int> indices,
+            int? knownIndex = null)
+        {
+            if (item == null || ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder))
+            {
+                return false;
+            }
+
+            if (!added.Add(item))
+            {
+                return false;
+            }
+
+            var index = knownIndex ?? ResolveIndex(item);
+            if (index < 0)
+            {
+                return false;
+            }
+
+            items.Add(item);
+            indices.Add(index);
+            return true;
         }
 
         private int ResolveIndex(object item)

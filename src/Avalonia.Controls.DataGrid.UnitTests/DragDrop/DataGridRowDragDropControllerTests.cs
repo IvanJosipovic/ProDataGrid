@@ -348,6 +348,101 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
         window.Close();
     }
 
+    [AvaloniaFact]
+    public void Hierarchical_DragInfo_Uses_Nodes_From_Selection()
+    {
+        var (grid, window, model, rootItem) = CreateHierarchicalSelectionGrid();
+
+        var childA = rootItem.Children[0];
+        var childB = rootItem.Children[1];
+
+        grid.SelectedItems.Add(childA);
+        grid.SelectedItems.Add(childB);
+        grid.UpdateLayout();
+
+        Assert.All(grid.SelectedItems.Cast<object>(), item => Assert.IsType<TreeNode>(item));
+
+        var handler = new DataGridHierarchicalRowReorderHandler();
+        using var controller = new DataGridRowDragDropController(grid, handler, new DataGridRowDragDropOptions());
+
+        var row = FindRowForItem(grid, childA);
+        SetDragStartRow(controller, row);
+
+        var dragInfo = InvokeTryCreateDragInfo(controller);
+
+        Assert.NotNull(dragInfo);
+        Assert.True(dragInfo!.FromSelection);
+        Assert.All(dragInfo.Items, item => Assert.IsType<HierarchicalNode>(item));
+
+        var expectedIndices = dragInfo.Items
+            .Cast<HierarchicalNode>()
+            .Select(model.IndexOf)
+            .ToList();
+
+        Assert.Equal(expectedIndices, dragInfo.Indices);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void Hierarchical_Drop_Reorders_Selected_Nodes_From_DragInfo()
+    {
+        var (grid, window, model, rootItem) = CreateHierarchicalSelectionGrid();
+
+        var childA = rootItem.Children[0];
+        var childB = rootItem.Children[1];
+        var childC = rootItem.Children[2];
+
+        grid.SelectedItems.Add(childA);
+        grid.SelectedItems.Add(childB);
+        grid.UpdateLayout();
+
+        var handler = new DataGridHierarchicalRowReorderHandler();
+        using var controller = new DataGridRowDragDropController(grid, handler, new DataGridRowDragDropOptions());
+
+        var row = FindRowForItem(grid, childA);
+        SetDragStartRow(controller, row);
+
+        var dragInfo = InvokeTryCreateDragInfo(controller);
+        Assert.NotNull(dragInfo);
+
+        var targetNode = FindNode(model, childC);
+        var targetIndex = model.IndexOf(targetNode);
+        var insertIndex = targetIndex + 1;
+
+        var dragEvent = new DragEventArgs(
+            AvaloniaDragDrop.DropEvent,
+            new DataTransfer(),
+            grid,
+            new Avalonia.Point(),
+            KeyModifiers.None)
+        {
+            RoutedEvent = AvaloniaDragDrop.DropEvent,
+            Source = grid
+        };
+
+        var dropArgs = new DataGridRowDropEventArgs(
+            grid,
+            grid.ItemsSource as IList,
+            dragInfo!.Items,
+            dragInfo.Indices,
+            targetNode,
+            targetIndex,
+            insertIndex,
+            targetRow: null,
+            DataGridRowDropPosition.After,
+            isSameGrid: true,
+            DragDropEffects.Move,
+            dragEvent);
+
+        Assert.True(handler.Validate(dropArgs));
+        Assert.True(handler.Execute(dropArgs));
+
+        Assert.Equal(new[] { "C", "A", "B" }, rootItem.Children.Select(x => x.Name).ToArray());
+
+        window.Close();
+    }
+
     private static DataGridRowDropEventArgs CreateDropArgs(
         DataGrid grid,
         IList list,
@@ -410,6 +505,18 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
     {
         var method = typeof(DataGridRowDragDropController).GetMethod("CreateDropArgs", BindingFlags.NonPublic | BindingFlags.Instance);
         return method?.Invoke(controller, new object[] { info, e, effects }) as DataGridRowDropEventArgs;
+    }
+
+    private static DataGridRowDragInfo? InvokeTryCreateDragInfo(DataGridRowDragDropController controller)
+    {
+        var method = typeof(DataGridRowDragDropController).GetMethod("TryCreateDragInfo", BindingFlags.NonPublic | BindingFlags.Instance);
+        return method?.Invoke(controller, Array.Empty<object>()) as DataGridRowDragInfo;
+    }
+
+    private static void SetDragStartRow(DataGridRowDragDropController controller, DataGridRow row)
+    {
+        var field = typeof(DataGridRowDragDropController).GetField("_dragStartRow", BindingFlags.NonPublic | BindingFlags.Instance);
+        field?.SetValue(controller, row);
     }
 
     private static (DataGrid Grid, Window Window) CreateGrid(IEnumerable items)
@@ -498,6 +605,86 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
         grid.UpdateLayout();
 
         return (grid, window, untyped, untyped.Root!);
+    }
+
+    private static (DataGrid Grid, Window Window, HierarchicalModel Model, TreeNode RootItem) CreateHierarchicalSelectionGrid()
+    {
+        var window = new Window
+        {
+            Width = 500,
+            Height = 300,
+        };
+
+        window.SetThemeStyles();
+
+        var rootItem = new TreeNode("Root", new ObservableCollection<TreeNode>
+        {
+            new("A", new ObservableCollection<TreeNode>
+            {
+                new("A1")
+            }),
+            new("B"),
+            new("C")
+        });
+
+        var options = new HierarchicalOptions<TreeNode>
+        {
+            ChildrenSelector = x => x.Children,
+            AutoExpandRoot = true,
+            VirtualizeChildren = false
+        };
+
+        var model = new HierarchicalModel<TreeNode>(options);
+        model.SetRoot(rootItem);
+        var rootNode = model.Root ?? throw new InvalidOperationException("Root node not created.");
+        model.Expand(rootNode);
+        HierarchicalModel untyped = model;
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            CanUserReorderRows = true,
+            AutoGenerateColumns = false,
+            SelectionMode = DataGridSelectionMode.Extended,
+            RowHeaderWidth = 28
+        };
+
+        grid.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name")
+        });
+
+        window.Content = grid;
+        
+        window.Show();
+        grid.ApplyTemplate();
+        window.Measure(new Size(window.Width, window.Height));
+        window.Arrange(new Rect(0, 0, window.Width, window.Height));
+        grid.UpdateLayout();
+
+        return (grid, window, untyped, rootItem);
+    }
+
+    private static DataGridRow FindRowForItem(DataGrid grid, TreeNode item)
+    {
+        return grid.GetVisualDescendants()
+            .OfType<DataGridRow>()
+            .First(row => row.DataContext is HierarchicalNode node && ReferenceEquals(node.Item, item));
+    }
+
+    private static HierarchicalNode FindNode(HierarchicalModel model, TreeNode item)
+    {
+        foreach (var node in model.Flattened)
+        {
+            if (ReferenceEquals(node.Item, item))
+            {
+                return node;
+            }
+        }
+
+        throw new InvalidOperationException("Node not found.");
     }
 
     private class PlaceholderItem
