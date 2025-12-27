@@ -42,6 +42,8 @@ namespace Avalonia.Controls
         private string _searchText;
         private bool _isSearchCurrent;
         private SearchHighlightMode _highlightMode;
+        private bool _usesInlines;
+        private string _lastText;
 
         public IReadOnlyList<SearchMatch> SearchMatches
         {
@@ -101,6 +103,7 @@ namespace Avalonia.Controls
 
             if (change.Property == TextProperty)
             {
+                _lastText = Text;
                 UpdateInlines();
             }
         }
@@ -111,23 +114,34 @@ namespace Avalonia.Controls
                 SearchMatches == null ||
                 SearchMatches.Count == 0)
             {
-                Inlines?.Clear();
+                UpdatePlainInlines();
                 return;
             }
 
             var text = SearchText ?? Text ?? string.Empty;
             if (string.IsNullOrEmpty(text))
             {
-                Inlines?.Clear();
+                if (_usesInlines)
+                {
+                    Inlines?.Clear();
+                }
                 return;
             }
+            _lastText = text;
 
             var matchBrush = TryFindBrush("DataGridSearchMatchBrush");
             var currentBrush = TryFindBrush("DataGridSearchCurrentBrush") ?? matchBrush;
             var foregroundBrush = TryFindBrush("DataGridSearchMatchForegroundBrush");
             var highlightBrush = IsSearchCurrent ? currentBrush : matchBrush;
 
-            Inlines?.Clear();
+            var inlines = Inlines;
+            if (inlines == null)
+            {
+                return;
+            }
+
+            _usesInlines = true;
+            inlines.Clear();
 
             int lastIndex = 0;
             foreach (var match in SearchMatches)
@@ -161,14 +175,38 @@ namespace Avalonia.Controls
                     run.Foreground = foregroundBrush;
                 }
 
-                Inlines?.Add(run);
+                inlines.Add(run);
                 lastIndex = match.Start + safeLength;
             }
 
             if (lastIndex < text.Length)
             {
-                Inlines?.Add(new Run(text.Substring(lastIndex)));
+                inlines.Add(new Run(text.Substring(lastIndex)));
             }
+        }
+
+        private void UpdatePlainInlines()
+        {
+            if (!_usesInlines)
+            {
+                return;
+            }
+
+            var inlines = Inlines;
+            if (inlines == null)
+            {
+                return;
+            }
+
+            inlines.Clear();
+
+            var text = Text ?? _lastText ?? string.Empty;
+            if (string.IsNullOrEmpty(text))
+            {
+                return;
+            }
+
+            inlines.Add(new Run(text));
         }
 
         private IBrush TryFindBrush(string key)

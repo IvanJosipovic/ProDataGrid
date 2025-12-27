@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.StateSortingPage"
+             x:DataType="viewModels:StateSampleViewModel">
+  <UserControl.DataContext>
+    <viewModels:StateSampleViewModel />
+  </UserControl.DataContext>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Sorting state" FontSize="18" FontWeight="Bold" />
+      <TextBlock Text="Capture and restore sorting descriptors and model flags."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Capture sorting" Click="OnCapture" />
+      <Button Content="Restore sorting" Click="OnRestore" />
+      <Button Content="Apply sort (Name desc)" Click="OnApplySort" />
+      <Button Content="Clear sort" Click="OnClearSort" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              x:Name="Grid"
+              ItemsSource="{Binding ItemsView}"
+              HeadersVisibility="All"
+              CanUserReorderColumns="True"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="80" SortMemberPath="Id" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" SortMemberPath="Name" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*" SortMemberPath="Category" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Group" Binding="{Binding Group}" Width="*" SortMemberPath="Group" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" Width="*" SortMemberPath="Amount" x:DataType="models:StateSampleItem" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

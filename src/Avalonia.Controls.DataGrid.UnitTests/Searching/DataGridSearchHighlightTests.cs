@@ -115,6 +115,43 @@ public class DataGridSearchHighlightTests
     }
 
     [AvaloniaFact]
+    public void ClearingSearchResults_Restores_Text_For_TextHighlight()
+    {
+        var items = new ObservableCollection<Person>
+        {
+            new("Alpha", "Engineering")
+        };
+
+        var (grid, root) = CreateGrid(items);
+        try
+        {
+            grid.SearchModel.HighlightMode = SearchHighlightMode.TextAndCell;
+
+            grid.SearchModel.SetOrUpdate(new SearchDescriptor("Al", comparison: StringComparison.OrdinalIgnoreCase));
+            grid.UpdateLayout();
+
+            var row = FindRow(items[0], grid);
+            var cell = row.Cells[0];
+            var textBlock = Assert.IsType<DataGridSearchTextBlock>(cell.Content);
+
+            Assert.NotNull(textBlock.Inlines);
+            Assert.True(textBlock.Inlines!.Count > 0);
+
+            grid.SearchModel.Clear();
+            grid.UpdateLayout();
+
+            var runs = textBlock.Inlines?.OfType<Run>().ToList();
+            Assert.NotNull(runs);
+            Assert.True(runs!.Count > 0);
+            Assert.Equal("Alpha", string.Concat(runs.Select(run => run.Text)));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void MoveNext_Updates_Current_PseudoClass()
     {
         var items = new ObservableCollection<Person>

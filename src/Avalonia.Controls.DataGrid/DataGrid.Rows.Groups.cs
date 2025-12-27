@@ -798,6 +798,7 @@ namespace Avalonia.Controls
             }
 
             EnsureRowGroupSpacerColumnWidth(groupLevelCount);
+            UpdateGroupingIndentation();
         }
 
 

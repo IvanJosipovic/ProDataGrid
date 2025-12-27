@@ -175,6 +175,33 @@
     <TabItem Header="Column Search">
       <pages:ColumnSearchPage />
     </TabItem>
+    <TabItem Header="State - Full">
+      <pages:StateFullPage />
+    </TabItem>
+    <TabItem Header="State - Selection">
+      <pages:StateSelectionPage />
+    </TabItem>
+    <TabItem Header="State - Scroll">
+      <pages:StateScrollPage />
+    </TabItem>
+    <TabItem Header="State - Sorting">
+      <pages:StateSortingPage />
+    </TabItem>
+    <TabItem Header="State - Filtering">
+      <pages:StateFilteringPage />
+    </TabItem>
+    <TabItem Header="State - Search">
+      <pages:StateSearchPage />
+    </TabItem>
+    <TabItem Header="State - Columns">
+      <pages:StateColumnsPage />
+    </TabItem>
+    <TabItem Header="State - Grouping">
+      <pages:StateGroupingPage />
+    </TabItem>
+    <TabItem Header="State - Hierarchical">
+      <pages:StateHierarchicalPage />
+    </TabItem>
     <TabItem Header="DynamicData Sorting">
       <pages:DynamicDataSortingPage />
     </TabItem>

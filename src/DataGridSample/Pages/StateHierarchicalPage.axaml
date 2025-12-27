@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             xmlns:hier="clr-namespace:Avalonia.Controls.DataGridHierarchical;assembly=Avalonia.Controls.DataGrid"
+             x:Class="DataGridSample.Pages.StateHierarchicalPage"
+             x:DataType="viewModels:StateSampleHierarchicalViewModel"
+             d:DesignHeight="600"
+             d:DesignWidth="1000"
+             mc:Ignorable="d">
+  <UserControl.DataContext>
+    <viewModels:StateSampleHierarchicalViewModel />
+  </UserControl.DataContext>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Hierarchical state" FontSize="18" FontWeight="Bold" />
+      <TextBlock Text="Capture and restore expanded nodes in hierarchical mode."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Capture hierarchy" Click="OnCapture" />
+      <Button Content="Restore hierarchy" Click="OnRestore" />
+      <Button Content="Expand all" Click="OnExpandAll" />
+      <Button Content="Collapse all" Click="OnCollapseAll" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              x:Name="Grid"
+              AutoGenerateColumns="False"
+              HeadersVisibility="All"
+              HierarchicalModel="{Binding Model}"
+              HierarchicalRowsEnabled="True">
+      <DataGrid.Columns>
+        <DataGridHierarchicalColumn Header="Name"
+                                    Width="3*"
+                                    x:CompileBindings="False"
+                                    Binding="{Binding Item}">
+          <DataGridHierarchicalColumn.CellTemplate>
+            <DataTemplate x:DataType="viewModels:StateSampleHierarchicalViewModel+Node">
+              <TextBlock Text="{Binding Name}" />
+            </DataTemplate>
+          </DataGridHierarchicalColumn.CellTemplate>
+        </DataGridHierarchicalColumn>
+
+        <DataGridTemplateColumn Header="Id" Width="80" x:CompileBindings="False">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="hier:HierarchicalNode">
+              <TextBlock x:DataType="viewModels:StateSampleHierarchicalViewModel+Node"
+                         DataContext="{Binding Item}"
+                         Text="{Binding Id}" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

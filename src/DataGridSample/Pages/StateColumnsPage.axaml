@@ -1,0 +1,46 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.StateColumnsPage"
+             x:DataType="viewModels:StateSampleViewModel">
+  <UserControl.DataContext>
+    <viewModels:StateSampleViewModel />
+  </UserControl.DataContext>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*"
+        RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Column layout state" FontSize="18" FontWeight="Bold" />
+      <TextBlock Text="Capture and restore column order, visibility, and widths."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Capture layout" Click="OnCapture" />
+      <Button Content="Restore layout" Click="OnRestore" />
+      <Button Content="Shuffle columns" Click="OnShuffle" />
+      <Button Content="Toggle Category column" Click="OnToggleCategory" />
+      <Button Content="Reset widths" Click="OnResetWidths" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              x:Name="Grid"
+              ItemsSource="{Binding ItemsView}"
+              HeadersVisibility="All"
+              CanUserReorderColumns="True"
+              CanUserResizeColumns="True"
+              CanUserSortColumns="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="80" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="*" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Group" Binding="{Binding Group}" Width="*" x:DataType="models:StateSampleItem" />
+        <DataGridTextColumn Header="Amount" Binding="{Binding Amount}" Width="*" x:DataType="models:StateSampleItem" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

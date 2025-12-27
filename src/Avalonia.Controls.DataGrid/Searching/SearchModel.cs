@@ -532,6 +532,10 @@ namespace Avalonia.Controls.DataGridSearching
         {
             if (_descriptors.Count == 0)
             {
+                if (_results.Count > 0)
+                {
+                    UpdateResults(Array.Empty<SearchResult>());
+                }
                 return;
             }
 

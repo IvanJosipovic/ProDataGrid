@@ -41,7 +41,9 @@ namespace Avalonia.Controls
             private int _firstScrollingSlot;
             private double _negVerticalOffset;
             private double _verticalOffset;
+            private double _horizontalOffset;
             private RowHeightEstimatorState _rowHeightEstimatorState;
+            private Func<object, object> _itemKeySelector;
 
             public ScrollStateManager(DataGrid owner)
             {
@@ -66,6 +68,7 @@ namespace Avalonia.Controls
                     return;
                 }
 
+                _itemKeySelector = null;
                 _preserveOnAttach = preserveOnAttach;
                 _dataSource = _owner.DataConnection.DataSource;
                 _dataSourceCount = TryGetDataSourceCount(_owner.DataConnection.DataSource);
@@ -73,6 +76,7 @@ namespace Avalonia.Controls
                 _firstScrollingSlot = _owner.DisplayData.FirstScrollingSlot;
                 _negVerticalOffset = _owner.NegVerticalOffset;
                 _verticalOffset = _owner._verticalOffset;
+                _horizontalOffset = _owner.HorizontalOffset;
                 _rowHeightEstimatorState = CaptureEstimatorState();
                 _pendingRestore = true;
             }
@@ -92,7 +96,9 @@ namespace Avalonia.Controls
                 _firstScrollingSlot = -1;
                 _negVerticalOffset = 0;
                 _verticalOffset = 0;
+                _horizontalOffset = 0;
                 _rowHeightEstimatorState = null;
+                _itemKeySelector = null;
             }
 
             public void ClearPreserveOnAttachFlag()
@@ -167,9 +173,70 @@ namespace Avalonia.Controls
 
                 _owner._verticalOffset = Math.Max(0, _verticalOffset);
                 _owner.SetVerticalOffset(_owner._verticalOffset);
+                _owner.UpdateHorizontalOffset(Math.Max(0, _horizontalOffset));
 
                 Clear();
                 return true;
+            }
+
+            public DataGridScrollState CaptureState(DataGridStateOptions options)
+            {
+                if (_owner.DisplayData.FirstScrollingSlot < 0 || _owner.DataConnection?.DataSource == null)
+                {
+                    return null;
+                }
+
+                var dataSource = _owner.DataConnection.DataSource;
+                var dataSourceCount = TryGetDataSourceCount(dataSource);
+
+                return new DataGridScrollState
+                {
+                    DataSource = dataSource,
+                    DataSourceCount = dataSourceCount,
+                    Samples = BuildExternalSamples(dataSourceCount, options),
+                    FirstScrollingSlot = _owner.DisplayData.FirstScrollingSlot,
+                    NegVerticalOffset = _owner.NegVerticalOffset,
+                    VerticalOffset = _owner._verticalOffset,
+                    HorizontalOffset = _owner.HorizontalOffset,
+                    RowHeightEstimatorState = CaptureEstimatorState()
+                };
+            }
+
+            public bool TryRestore(DataGridScrollState state, DataGridStateOptions options)
+            {
+                if (state == null)
+                {
+                    return false;
+                }
+
+                IEnumerable dataSource = state.DataSource as IEnumerable;
+                if (dataSource == null)
+                {
+                    if (options?.ItemKeySelector == null)
+                    {
+                        return false;
+                    }
+
+                    dataSource = _owner.DataConnection?.DataSource;
+                    if (dataSource == null)
+                    {
+                        return false;
+                    }
+                }
+
+                _preserveOnAttach = false;
+                _pendingRestore = true;
+                _dataSource = dataSource;
+                _dataSourceCount = state.DataSourceCount;
+                _samples = ConvertExternalSamples(state.Samples);
+                _firstScrollingSlot = state.FirstScrollingSlot;
+                _negVerticalOffset = state.NegVerticalOffset;
+                _verticalOffset = state.VerticalOffset;
+                _horizontalOffset = state.HorizontalOffset;
+                _rowHeightEstimatorState = state.RowHeightEstimatorState;
+                _itemKeySelector = options?.ItemKeySelector;
+
+                return TryRestore();
             }
 
             private RowHeightEstimatorState CaptureEstimatorState()
@@ -199,7 +266,18 @@ namespace Avalonia.Controls
 
             private bool IsValid()
             {
-                if (_dataSource == null || !ReferenceEquals(_owner.DataConnection.DataSource, _dataSource))
+                if (_owner.DataConnection?.DataSource == null)
+                {
+                    return false;
+                }
+
+                if (_dataSource == null)
+                {
+                    return false;
+                }
+
+                if (_itemKeySelector == null &&
+                    !ReferenceEquals(_owner.DataConnection.DataSource, _dataSource))
                 {
                     return false;
                 }
@@ -342,8 +420,14 @@ namespace Avalonia.Controls
                 return null;
             }
 
-            private static bool ItemsMatch(object left, object right)
+            private bool ItemsMatch(object left, object right)
             {
+                if (_itemKeySelector != null)
+                {
+                    var rightKey = right != null ? _itemKeySelector(right) : null;
+                    return Equals(left, rightKey);
+                }
+
                 if (ReferenceEquals(left, right))
                 {
                     return true;
@@ -365,6 +449,80 @@ namespace Avalonia.Controls
                 }
 
                 return false;
+            }
+
+            private List<DataGridScrollSample> BuildExternalSamples(int? count, DataGridStateOptions options)
+            {
+                List<DataGridScrollSample> samples = null;
+
+                AddExternalSampleFromSlot(ref samples, _owner.DisplayData.FirstScrollingSlot, options);
+                AddExternalSampleFromSlot(ref samples, _owner.DisplayData.LastScrollingSlot, options);
+
+                if (count.HasValue && count.Value > 0)
+                {
+                    AddExternalSample(ref samples, 0, options);
+
+                    if (count.Value > 2)
+                    {
+                        AddExternalSample(ref samples, count.Value / 2, options);
+                    }
+
+                    if (count.Value > 1)
+                    {
+                        AddExternalSample(ref samples, count.Value - 1, options);
+                    }
+                }
+
+                return samples;
+            }
+
+            private void AddExternalSampleFromSlot(ref List<DataGridScrollSample> samples, int slot, DataGridStateOptions options)
+            {
+                if (slot < 0 || _owner.IsGroupSlot(slot))
+                {
+                    return;
+                }
+
+                AddExternalSample(ref samples, _owner.RowIndexFromSlot(slot), options);
+            }
+
+            private void AddExternalSample(ref List<DataGridScrollSample> samples, int index, DataGridStateOptions options)
+            {
+                if (index < 0)
+                {
+                    return;
+                }
+
+                if (samples != null)
+                {
+                    foreach (var sample in samples)
+                    {
+                        if (sample.Index == index)
+                        {
+                            return;
+                        }
+                    }
+                }
+
+                var item = _owner.DataConnection.GetDataItem(index);
+                var key = options?.ItemKeySelector != null ? options.ItemKeySelector(item) : item;
+                samples ??= new List<DataGridScrollSample>(4);
+                samples.Add(new DataGridScrollSample(index, key));
+            }
+
+            private static List<PreservedScrollStateSample> ConvertExternalSamples(IReadOnlyList<DataGridScrollSample> samples)
+            {
+                if (samples == null || samples.Count == 0)
+                {
+                    return null;
+                }
+
+                var list = new List<PreservedScrollStateSample>(samples.Count);
+                foreach (var sample in samples)
+                {
+                    list.Add(new PreservedScrollStateSample(sample.Index, sample.ItemKey));
+                }
+                return list;
             }
 
             private sealed class PreservedScrollStateSample

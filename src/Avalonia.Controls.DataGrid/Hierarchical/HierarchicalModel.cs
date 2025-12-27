@@ -469,7 +469,7 @@ namespace Avalonia.Controls.DataGridHierarchical
     #else
     internal
     #endif
-    class HierarchicalModel : IHierarchicalModel, IHierarchicalModelExpander
+    class HierarchicalModel : IHierarchicalModel, IHierarchicalModelExpander, IHierarchicalStateProviderWithKeyMode
     {
         private readonly ObservableRangeCollection<HierarchicalNode> _flattened;
         private readonly ReadOnlyObservableCollection<HierarchicalNode> _flattenedObservableView;
@@ -546,6 +546,8 @@ namespace Avalonia.Controls.DataGridHierarchical
         public event EventHandler<HierarchyChangedEventArgs>? HierarchyChanged;
 
         public event EventHandler<HierarchicalNodeRetryEventArgs>? NodeLoadRetryScheduled;
+
+        public ExpandedStateKeyMode ExpandedStateKeyMode => Options.ExpandedStateKeyMode;
 
         public void SetRoot(object rootItem)
         {
@@ -798,8 +800,13 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         private bool TryGetExpandedStateKey(HierarchicalNode node, out object key)
         {
+            return TryGetExpandedStateKey(node, Options.ExpandedStateKeyMode, out key);
+        }
+
+        private bool TryGetExpandedStateKey(HierarchicalNode node, ExpandedStateKeyMode keyMode, out object key)
+        {
             key = null;
-            switch (Options.ExpandedStateKeyMode)
+            switch (keyMode)
             {
                 case ExpandedStateKeyMode.Custom:
                     if (Options.ExpandedStateKeySelector == null)
@@ -824,12 +831,23 @@ namespace Avalonia.Controls.DataGridHierarchical
             bool applyAutoExpand,
             List<HierarchicalNode> expandedNodes)
         {
+            RestoreExpandedState(node, expandedItems, depth, applyAutoExpand, expandedNodes, Options.ExpandedStateKeyMode);
+        }
+
+        private void RestoreExpandedState(
+            HierarchicalNode node,
+            ISet<object> expandedItems,
+            int depth,
+            bool applyAutoExpand,
+            List<HierarchicalNode> expandedNodes,
+            ExpandedStateKeyMode keyMode)
+        {
             var shouldExpand = false;
             if (TryGetItemExpandedState(node.Item, out var itemExpanded))
             {
                 shouldExpand = itemExpanded;
             }
-            else if (TryGetExpandedStateKey(node, out var key) && expandedItems.Contains(key))
+            else if (TryGetExpandedStateKey(node, keyMode, out var key) && expandedItems.Contains(key))
             {
                 shouldExpand = true;
             }
@@ -850,7 +868,7 @@ namespace Avalonia.Controls.DataGridHierarchical
 
             foreach (var child in node.Children)
             {
-                RestoreExpandedState(child, expandedItems, depth + 1, applyAutoExpand, expandedNodes);
+                RestoreExpandedState(child, expandedItems, depth + 1, applyAutoExpand, expandedNodes, keyMode);
             }
         }
 
@@ -3029,6 +3047,80 @@ namespace Avalonia.Controls.DataGridHierarchical
             {
                 _onDispose?.Invoke();
                 _onDispose = null;
+            }
+        }
+
+        public IReadOnlyCollection<object> CaptureExpandedState()
+        {
+            return CaptureExpandedItems().ToList();
+        }
+
+        public void RestoreExpandedState(IEnumerable<object> keys)
+        {
+            RestoreExpandedStateInternal(keys, Options.ExpandedStateKeyMode);
+        }
+
+        public void RestoreExpandedState(IEnumerable<object> keys, ExpandedStateKeyMode keyMode)
+        {
+            RestoreExpandedStateInternal(keys, keyMode);
+        }
+
+        private void RestoreExpandedStateInternal(IEnumerable<object> keys, ExpandedStateKeyMode keyMode)
+        {
+            if (Root == null)
+            {
+                return;
+            }
+
+            var expandedItems = keys != null
+                ? new HashSet<object>(keys)
+                : new HashSet<object>(EqualityComparer<object>.Default);
+            var expandedNodes = new List<HierarchicalNode>();
+
+            if (_isVirtualRoot)
+            {
+                SetNodeExpandedState(Root, true);
+
+                if (keyMode == ExpandedStateKeyMode.Path)
+                {
+                    var path = new List<int>();
+                    for (int i = 0; i < Root.MutableChildren.Count; i++)
+                    {
+                        path.Add(i);
+                        RestoreExpandedStateByPath(Root.MutableChildren[i], expandedItems, depth: 0, Options.AutoExpandRoot, expandedNodes, path);
+                        path.RemoveAt(path.Count - 1);
+                    }
+                }
+                else
+                {
+                    foreach (var child in Root.MutableChildren)
+                    {
+                        RestoreExpandedState(child, expandedItems, depth: 0, Options.AutoExpandRoot, expandedNodes, keyMode);
+                    }
+                }
+
+                RecalculateExpandedCountsFrom(Root);
+                ReplaceFlattened(BuildFlattenedFromVirtualRoot(Root));
+            }
+            else
+            {
+                if (keyMode == ExpandedStateKeyMode.Path)
+                {
+                    var path = new List<int> { 0 };
+                    RestoreExpandedStateByPath(Root, expandedItems, depth: 0, Options.AutoExpandRoot, expandedNodes, path);
+                }
+                else
+                {
+                    RestoreExpandedState(Root, expandedItems, depth: 0, Options.AutoExpandRoot, expandedNodes, keyMode);
+                }
+
+                RecalculateExpandedCountsFrom(Root);
+                ReplaceFlattened(BuildFlattenedFromRoot(Root));
+            }
+
+            foreach (var expandedNode in expandedNodes)
+            {
+                OnNodeExpanded(expandedNode);
             }
         }
 

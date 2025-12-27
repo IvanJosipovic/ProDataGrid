@@ -2047,6 +2047,7 @@ internal
         private void SearchModel_ResultsChanged(object sender, SearchResultsChangedEventArgs e)
         {
             UpdateSearchResults(e.NewResults);
+            TryRestorePendingSearchCurrent();
         }
 
         private void SearchModel_CurrentChanged(object sender, SearchCurrentChangedEventArgs e)
@@ -2914,12 +2915,12 @@ internal
 
             if (IsAttachedToVisualTree)
             {
-                ScrollIntoView(result.Item, column);
-
-                if (_searchModel?.UpdateSelectionOnNavigate == true)
+                var slot = SlotFromRowIndex(result.RowIndex);
+                if (slot >= 0 && !IsSlotOutOfBounds(slot))
                 {
-                    var slot = SlotFromRowIndex(result.RowIndex);
-                    if (slot >= 0)
+                    ScrollIntoView(result.Item, column);
+
+                    if (_searchModel?.UpdateSelectionOnNavigate == true)
                     {
                         UpdateSelectionAndCurrency(column.Index, slot, DataGridSelectionAction.SelectCurrent, scrollIntoView: false);
                     }
