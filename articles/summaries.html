@@ -103,6 +103,7 @@
 &lt;/DataGrid&gt;
 </code></pre>
 <p>Built-in aggregates include <code>Sum</code>, <code>Average</code>, <code>Count</code>, <code>CountDistinct</code>, <code>Min</code>, <code>Max</code>, <code>First</code>, and <code>Last</code>.</p>
+<p><code>GroupSummaryPosition</code> supports <code>Header</code>, <code>Footer</code>, or <code>Both</code>. <code>TotalSummaryPosition</code> can be <code>Top</code> or <code>Bottom</code>.</p>
 <h2 id="summary-description-options">Summary Description Options</h2>
 <p>Each <code>DataGridSummaryDescription</code> supports:</p>
 <ul>
@@ -120,6 +121,12 @@
     StringFormat = &quot;N2&quot;
 });
 </code></pre>
+<h2 id="summary-row-styling-and-timing">Summary Row Styling and Timing</h2>
+<ul>
+<li><code>SummaryRowTheme</code> lets you theme total and group summary rows.</li>
+<li><code>SummaryRecalculationDelayMs</code> throttles recalculation during rapid updates.</li>
+<li><code>SummaryRecalculated</code> fires after recalculation completes.</li>
+</ul>
 <h2 id="notes">Notes</h2>
 <ul>
 <li>Summary values update as the view filters or expands hierarchical nodes.</li>
