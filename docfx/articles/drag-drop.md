@@ -32,6 +32,21 @@ public DataGridRowDragDropOptions Options { get; } = new DataGridRowDragDropOpti
 public IDataGridRowDropHandler DropHandler { get; } = new DataGridRowReorderHandler();
 ```
 
+## Drop Visuals and Styling
+
+Drag/drop exposes pseudo-classes you can style:
+
+- `DataGrid:row-drag-enabled`, `DataGrid:row-drag-handle-visible`
+- `DataGridRow:dragging`
+- `DataGridRow:drag-over-before`, `DataGridRow:drag-over-after`, `DataGridRow:drag-over-inside`
+
+The drop indicator uses `DropLocationIndicatorTemplate` and theme resources like `DataGridDropLocationIndicatorBrush` and `DataGridDropLocationIndicatorWidth` (see `Themes/Generic.xaml`).
+
+## Advanced Customization
+
+- Use `RowDragDropControllerFactory` to supply a custom controller (for example, to integrate custom drag data or hit-testing).
+- Implement `IDataGridRowDropHandler` to validate or reroute drops while keeping the built-in visuals and auto-scroll.
+
 ## Hierarchical Drag and Drop
 
 Use `DataGridHierarchicalRowReorderHandler` to support before/after/inside drop targets in tree-like data sets.

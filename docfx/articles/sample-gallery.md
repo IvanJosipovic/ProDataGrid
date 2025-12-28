@@ -1,4 +1,20 @@
 # Sample Gallery
 
-- The sample app (`src/DataGridSample`) includes pages for column types and validation, bindable columns, pixel-perfect and frozen columns, large datasets, row details, search models, summaries, state persistence, clipboard export, and routed events (`Pages/*Page.axaml`).
-- Run it locally with `dotnet run --project src/DataGridSample/DataGridSample.csproj` to see templates, estimators, `SelectedItems` binding, and the `DataTable.DefaultView` page that demonstrates the TypeDescriptor-based column binding.
+The sample app (`src/DataGridSample`) is the fastest way to explore ProDataGrid features and real-world configurations.
+
+Highlights include:
+
+- Column types, editing, and validation.
+- Bindable columns, auto-generation, and `DataTable.DefaultView` binding.
+- Sorting/filtering/search models, grouping, and paging.
+- Selection stability, selection origin logging, and current cell tracking.
+- Clipboard export formats and export customization.
+- Hierarchical data, hierarchical drag/drop, and tree-like mimics.
+- Virtualization and scrolling diagnostics (large datasets, row height estimators, recycling).
+- Styling showcases and column theme usage.
+
+Run it locally:
+
+```bash
+dotnet run --project src/DataGridSample/DataGridSample.csproj
+```

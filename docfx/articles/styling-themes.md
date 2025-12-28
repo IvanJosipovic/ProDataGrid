@@ -32,6 +32,22 @@ Use styles that target `DataGridRow` and `DataGridCell` to control selection vis
 </Style>
 ```
 
+Additional states you can style:
+
+- Drag and drop: `DataGridRow:dragging`, `DataGridRow:drag-over-before`, `DataGridRow:drag-over-after`, `DataGridRow:drag-over-inside`
+- Grid flags: `DataGrid:row-drag-enabled`, `DataGrid:row-drag-handle-visible`, `DataGrid:summary-top`, `DataGrid:summary-bottom`
+
+## Control Theme Overrides
+
+You can override control themes at the grid level:
+
+- `RowTheme` and `CellTheme`
+- `ColumnHeaderTheme` and `ColumnHeaderFilterTheme`
+- `RowGroupTheme`
+- `SummaryRowTheme`
+
+Use these when you need consistent styling across all rows/cells/headers without restyling templates.
+
 ## Column Themes
 
 Column-specific styles let you highlight key columns or adjust alignment, formatting, and glyphs. Derived columns can reuse built-in cell themes through protected accessors and `ControlTheme` resources keyed in your app:
@@ -52,3 +68,11 @@ The sample `Column Themes` page shows custom columns applying these themes to ge
 ## Current Row and Current Cell
 
 The current row and cell are exposed through `:current` so you can style focus and selection states independently.
+
+## Styling Resources
+
+Common resource keys in `Themes/Generic.xaml` include:
+
+- `DataGridFilterFlyoutPresenterTheme` for filter flyout presentation.
+- `DataGridDropLocationIndicatorBrush` and `DataGridDropLocationIndicatorWidth` for drag/drop indicators.
+- `DataGridRowHeaderDragGripSize` for the drag handle glyph.

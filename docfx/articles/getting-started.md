@@ -14,9 +14,9 @@ dotnet add package ProDataGrid
 
 ## Enable the v2 Templates
 
-The v2 templates provide the ScrollViewer-based layout and enable logical scrolling by default.
+The v2 templates provide the ScrollViewer-based layout and set `UseLogicalScrollable="True"` by default.
 
-## Add Themes in App.axaml
+### Add Themes in App.axaml
 
 Include the ProDataGrid theme styles in your `App.axaml` so the templates are available application-wide.
 
@@ -60,7 +60,6 @@ ProDataGrid ships a shared `Generic.xaml` with core control themes, and theme-sp
 ```xml
 <DataGrid ItemsSource="{Binding Items}"
           AutoGenerateColumns="False"
-          UseLogicalScrollable="True"
           CanUserResizeColumns="True">
   <DataGrid.Columns>
     <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="60" />
@@ -70,8 +69,16 @@ ProDataGrid ships a shared `Generic.xaml` with core control themes, and theme-sp
 </DataGrid>
 ```
 
+If you want a quick start with auto-generated columns, set `AutoGenerateColumns="True"` and omit the `Columns` collection.
+
 ## Run the Sample App
 
 ```bash
 dotnet run --project src/DataGridSample/DataGridSample.csproj
 ```
+
+## Next Steps
+
+- Column configuration and editing: [Columns and Editing](columns-and-editing.md)
+- Data sources and collection view: [Data Sources and Collection Views](data-sources-and-collection-views.md)
+- Sorting/filtering/search: [Data Operations](data-operations.md)

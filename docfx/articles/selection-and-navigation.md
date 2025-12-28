@@ -34,6 +34,8 @@ ProDataGrid routes row selection through Avalonia's `SelectionModel<object?>`, g
 - Multi-select gestures and `SelectionMode` map to the model (`SelectionMode=Single` maps to `SingleSelect=true`).
 - A thin adapter keeps row index to slot mapping internal, so custom selection models can be injected later.
 
+If you need a custom selection model implementation, set `SelectionModelFactory` in code before the grid is loaded or assign `Selection` directly to an `ISelectionModel` instance.
+
 ## SelectedItems and SelectedCells
 
 You can still bind `SelectedItems` and `SelectedCells` directly:

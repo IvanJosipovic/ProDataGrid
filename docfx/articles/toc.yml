@@ -2,12 +2,16 @@
   href: intro.md
 - name: Getting Started
   href: getting-started.md
+- name: Data Sources and Collection Views
+  href: data-sources-and-collection-views.md
 - name: Migration
   href: migration.md
 - name: Keyboard Shortcuts
   href: keyboard-shortcuts.md
 - name: Columns and Editing
   href: columns-and-editing.md
+- name: Column Types Reference
+  href: column-types-reference.md
 - name: Validation and Errors
   href: validation-and-errors.md
 - name: Selection and Navigation

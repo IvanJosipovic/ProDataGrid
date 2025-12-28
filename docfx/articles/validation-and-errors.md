@@ -1,6 +1,6 @@
 # Validation and Error States
 
-ProDataGrid uses Avalonia validation to surface invalid cells and rows. Any validation source that Avalonia recognizes (for example, `DataValidationException` or `INotifyDataErrorInfo`) will mark the cell and row as invalid.
+ProDataGrid uses Avalonia validation to surface invalid cells and rows. Any validation source that Avalonia recognizes (for example, `DataValidationException`, `INotifyDataErrorInfo`, or `IDataErrorInfo`) will mark the cell and row as invalid.
 
 ## Throw DataValidationException
 
@@ -39,6 +39,8 @@ Invalid rows and cells expose the `:invalid` pseudo-class:
   <Setter Property="Background" Value="#FFF7E6" />
 </Style>
 ```
+
+You can also restyle the `DataValidationErrors` theme used by cell templates via `DataGridCellDataValidationErrorsTheme` in `Themes/Generic.xaml`.
 
 ## Sample Reference
 

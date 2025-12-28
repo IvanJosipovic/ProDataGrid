@@ -2,6 +2,8 @@
 
 ProDataGrid supports rich data operations through `DataGridCollectionView` and model-driven sorting, filtering, grouping, and search. These models keep UI state explicit and allow adapters for custom pipelines.
 
+Model factories (`SortingModelFactory`, `FilteringModelFactory`, `SearchModelFactory`) and adapter factories (`SortingAdapterFactory`, `FilteringAdapterFactory`, `SearchAdapterFactory`) are regular CLR properties, so set them in code (or before the control loads) rather than expecting XAML binding.
+
 ## Sorting Model Integration
 
 Sorting is driven by a dedicated `ISortingModel` and adapter instead of directly mutating `SortDescriptions` from the header. This keeps sort state explicit, pluggable, and testable:
@@ -70,9 +72,11 @@ Or swap the model creation globally:
 dataGrid.SortingModelFactory = new MyCustomSortingFactory();
 ```
 
+`SortingModelFactory` and `SortingAdapterFactory` are CLR properties; set them in code (for example, in the window constructor) before the grid is fully initialized.
+
 ### DynamicData Integration (Sorting)
 
-To keep sorting upstream in a DynamicData pipeline (no local `SortDescriptions` churn), supply a custom adapter factory and feed a comparer subject into `Sort`:
+To keep sorting upstream in a DynamicData pipeline (no local `SortDescriptions` churn), supply a custom adapter factory and feed a comparer subject into `Sort`. The `DynamicDataSortingAdapterFactory` in `src/DataGridSample` is a reference implementation you can copy:
 
 ```csharp
 var source = new SourceList<Deployment>();
@@ -115,6 +119,8 @@ Filtering is also driven by a pluggable model/adapter pair so header filters sta
 - Per-column predicate factories avoid reflection: set `DataGridColumnFilter.PredicateFactory` to return a typed predicate/parser for that column; descriptors carry culture/string comparison.
 - Adapter guarantees: descriptor to predicate for string/between/in/custom cases, duplicate guards, observer-mode reconciliation, and selection stability are covered by unit tests.
 - The filter button glyphs and default editor templates (text/number/date/enum) live in `Themes/Generic.xaml` and can be reused across themes and samples.
+
+`FilteringModelFactory` and `FilteringAdapterFactory` are CLR properties; set them in code before the grid is loaded if you need custom creation.
 
 ```xml
 <DataGrid ItemsSource="{Binding Items}"
@@ -175,7 +181,7 @@ Use `ShowFilterButton="True"` if you want a filter glyph without a flyout (for e
 
 ### DynamicData Integration (Filtering)
 
-Keep filtering upstream in a DynamicData pipeline while the grid shows filter glyphs from `FilteringModel`:
+Keep filtering upstream in a DynamicData pipeline while the grid shows filter glyphs from `FilteringModel`. The `DynamicDataFilteringAdapterFactory` in `src/DataGridSample` is a reference implementation you can copy:
 
 ```csharp
 var source = new SourceList<Deployment>();
@@ -215,6 +221,8 @@ Search integrates with the model layer and can be scoped to columns for lightwei
 - Use `DataGridColumnSearch` attached properties to opt out or override the search member path/text.
 - Highlight styles are exposed as `:searchmatch` and `:searchcurrent` pseudo-classes on rows and cells.
 
+`SearchModelFactory` and `SearchAdapterFactory` are CLR properties; set them in code before the grid is loaded when you need custom creation or adapters.
+
 ```csharp
 using System;
 using Avalonia.Controls.DataGridSearching;
@@ -253,14 +261,17 @@ SearchModel.SetOrUpdate(new SearchDescriptor(
 Customize column search behavior without a prefix in XAML by using the attached properties in code:
 
 ```csharp
+using System.Globalization;
+
 DataGridColumnSearch.SetIsSearchable(StatusColumn, false);
 DataGridColumnSearch.SetSearchMemberPath(NameColumn, "Name");
 DataGridColumnSearch.SetTextProvider(NotesColumn, item => ((Person)item).Notes);
+DataGridColumnSearch.SetFormatProvider(ScoreColumn, CultureInfo.InvariantCulture);
 ```
 
 ### DynamicData Integration (Search)
 
-If you need search descriptors to drive an upstream query, set a custom `SearchAdapterFactory` in code-behind and keep the grid highlighting enabled:
+If you need search descriptors to drive an upstream query, set a custom `SearchAdapterFactory` in code-behind and keep the grid highlighting enabled. The `DynamicDataSearchAdapterFactory` in `src/DataGridSample` is a reference implementation you can copy:
 
 ```csharp
 grid.SearchModel = searchModel;

@@ -26,6 +26,8 @@ Enable total and group summaries on the grid and attach summary descriptions to 
 
 Built-in aggregates include `Sum`, `Average`, `Count`, `CountDistinct`, `Min`, `Max`, `First`, and `Last`.
 
+`GroupSummaryPosition` supports `Header`, `Footer`, or `Both`. `TotalSummaryPosition` can be `Top` or `Bottom`.
+
 ## Summary Description Options
 
 Each `DataGridSummaryDescription` supports:
@@ -47,6 +49,12 @@ column.Summaries.Add(new DataGridCustomSummaryDescription
     StringFormat = "N2"
 });
 ```
+
+## Summary Row Styling and Timing
+
+- `SummaryRowTheme` lets you theme total and group summary rows.
+- `SummaryRecalculationDelayMs` throttles recalculation during rapid updates.
+- `SummaryRecalculated` fires after recalculation completes.
 
 ## Notes
 

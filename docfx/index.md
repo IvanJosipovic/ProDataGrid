@@ -1,6 +1,6 @@
 # ProDataGrid for Avalonia
 
-**ProDataGrid** is a high-performance, feature-rich DataGrid control for [Avalonia](https://github.com/AvaloniaUI/Avalonia). It is a hard fork of the in-box `Avalonia.Controls.DataGrid`, tuned for stronger scrolling, richer selection, and advanced data operations while staying API compatible where it matters.
+**ProDataGrid** is a high-performance, feature-rich DataGrid control for [Avalonia](https://github.com/AvaloniaUI/Avalonia). It is a hard fork of the in-box `Avalonia.Controls.DataGrid`, tuned for stronger scrolling, richer selection, and model-driven data operations while staying API compatible where it matters.
 
 ## Getting Started
 
@@ -47,6 +47,12 @@ Run the sample gallery to explore features and configuration patterns:
 dotnet run --project src/DataGridSample/DataGridSample.csproj
 ```
 
+## Core Concepts
+
+- **Models**: `SelectionModel`, `SortingModel`, `FilteringModel`, `SearchModel`, and `HierarchicalModel` keep UI state explicit and easy to integrate.
+- **Collection view**: `DataGridCollectionView` provides sorting, filtering, grouping, paging, and currency over any `IEnumerable`.
+- **Templates**: v2 themes switch to a `ScrollViewer` + `ILogicalScrollable` pipeline for smoother scrolling and better scroll chaining.
+
 ## Highlights
 
 | Area | Highlights |
@@ -54,8 +60,10 @@ dotnet run --project src/DataGridSample/DataGridSample.csproj
 | Virtualization & scrolling | ScrollViewer-based `ILogicalScrollable`, snap points, row height estimators, frozen columns. |
 | Selection & navigation | Avalonia `SelectionModel` integration, stable selection across sorting/filtering/paging. |
 | Data operations | Sorting, filtering, grouping, paging, and search with pluggable models/adapters. |
-| Drag & drop | Row reordering with flat/hierarchical handlers and routed events. |
-| Styling | Updated templates, column themes, and richer visuals. |
+| Editing & columns | Rich built-in column types, flexible sizing, auto generation, row add/delete. |
+| Drag & drop | Row reordering with flat/hierarchical handlers, visuals, and routed events. |
+| Export & state | Clipboard export (text/CSV/HTML/JSON/Markdown/XML/YAML), state capture/restore. |
+| Styling | Updated templates, column themes, filter/search glyphs, and pseudo-classes. |
 
 ## Documentation Sections
 

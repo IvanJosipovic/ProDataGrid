@@ -1,6 +1,6 @@
 # Clipboard and Export
 
-ProDataGrid can copy selected rows or cells to the clipboard in multiple formats, with hooks for custom formatting.
+ProDataGrid can copy selected rows or cells to the clipboard in multiple formats, with hooks for custom formatting and export pipelines.
 
 ## Enable Clipboard Copy
 
@@ -12,6 +12,26 @@ Set `ClipboardCopyMode` and choose a selection unit. Plain text is always includ
           SelectionMode="Extended"
           SelectionUnit="CellOrRowHeader" />
 ```
+
+`ClipboardCopyMode` options:
+
+- `None`: disable copy handling.
+- `ExcludeHeader`: copy content only.
+- `IncludeHeader`: prepend headers to the clipboard payload.
+
+## Export Formats
+
+`ClipboardExportFormat` controls the optional extra format added alongside plain text:
+
+- `Text` (tab-separated)
+- `Csv`
+- `Html`
+- `Markdown`
+- `Xml`
+- `Yaml`
+- `Json`
+
+Plain text is always included for compatibility with basic clipboard targets.
 
 ## Copy On Demand
 
@@ -53,7 +73,7 @@ ItemsGrid.CopyingRowClipboardContent += (_, e) =>
 
 ## Custom Exporters
 
-Override `ClipboardExporter` or supply `ClipboardFormatExporters` to add or replace formats.
+Override `ClipboardExporter` or supply `ClipboardFormatExporters` to add or replace formats. Built-in format exporters include Text, CSV, HTML, Markdown, XML, YAML, and JSON.
 
 ```csharp
 using Avalonia.Controls;
