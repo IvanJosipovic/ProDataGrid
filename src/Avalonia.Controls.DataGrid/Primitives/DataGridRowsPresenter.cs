@@ -35,6 +35,7 @@ internal
         private int _virtualizationGuardDepth;
         private DataGrid? _owningGrid;
         private double _lastArrangeHeight;
+        private bool _lastArrangeMatchesDesired = true;
 
         internal double LastArrangeHeight => _lastArrangeHeight;
 
@@ -142,6 +143,7 @@ internal
                 }
 
                 _lastArrangeHeight = viewportHeight;
+                _lastArrangeMatchesDesired = false;
                 return base.ArrangeOverride(finalSize);
             }
 
@@ -237,6 +239,7 @@ internal
             }
 
             _lastArrangeHeight = effectiveRowsHeight;
+            _lastArrangeMatchesDesired = MatchesDesiredHeight(finalSize.Height);
 
             OwningGrid.OnFillerColumnWidthNeeded(finalSize.Width);
 
@@ -306,48 +309,59 @@ internal
         {
             if (double.IsInfinity(availableSize.Height))
             {
-                double? constrainedHeight = null;
+                var grid = OwningGrid;
+                var allowInfiniteHeight = grid != null &&
+                                          double.IsNaN(grid.Height) &&
+                                          double.IsInfinity(grid.MaxHeight);
 
-                if (!double.IsNaN(_lastArrangeHeight) && _lastArrangeHeight > 0 && !double.IsInfinity(_lastArrangeHeight))
+                if (!allowInfiniteHeight)
                 {
-                    constrainedHeight = _lastArrangeHeight;
-                }
+                    double? constrainedHeight = null;
 
-                if (OwningGrid is { } grid)
-                {
-                    if (constrainedHeight is null &&
-                        !double.IsNaN(grid.Height) &&
-                        !double.IsInfinity(grid.Height) &&
-                        grid.Height > 0)
+                    if (!_lastArrangeMatchesDesired &&
+                        !double.IsNaN(_lastArrangeHeight) &&
+                        _lastArrangeHeight > 0 &&
+                        !double.IsInfinity(_lastArrangeHeight))
                     {
-                        constrainedHeight = grid.Height;
+                        constrainedHeight = _lastArrangeHeight;
                     }
-                    else
+
+                    if (grid != null)
                     {
-                        var gridConstraint = LayoutHelper.ApplyLayoutConstraints(grid, availableSize).Height;
-                        if (!double.IsInfinity(gridConstraint) && !double.IsNaN(gridConstraint) && gridConstraint > 0)
+                        if (constrainedHeight is null &&
+                            !double.IsNaN(grid.Height) &&
+                            !double.IsInfinity(grid.Height) &&
+                            grid.Height > 0)
                         {
-                            constrainedHeight = gridConstraint;
+                            constrainedHeight = grid.Height;
+                        }
+                        else
+                        {
+                            var gridConstraint = LayoutHelper.ApplyLayoutConstraints(grid, availableSize).Height;
+                            if (!double.IsInfinity(gridConstraint) && !double.IsNaN(gridConstraint) && gridConstraint > 0)
+                            {
+                                constrainedHeight = gridConstraint;
+                            }
+                        }
+                        if (constrainedHeight is null && !_lastArrangeMatchesDesired && grid.Bounds.Height > 0)
+                        {
+                            constrainedHeight = grid.Bounds.Height;
                         }
                     }
-                    if (constrainedHeight is null && grid.Bounds.Height > 0)
+
+                    if (constrainedHeight is null && VisualRoot is TopLevel topLevel)
                     {
-                        constrainedHeight = grid.Bounds.Height;
+                        double maxHeight = topLevel.IsArrangeValid
+                            ? topLevel.Bounds.Height
+                            : LayoutHelper.ApplyLayoutConstraints(topLevel, availableSize).Height;
+
+                        constrainedHeight = maxHeight;
                     }
-                }
 
-                if (constrainedHeight is null && VisualRoot is TopLevel topLevel)
-                {
-                    double maxHeight = topLevel.IsArrangeValid
-                        ? topLevel.Bounds.Height
-                        : LayoutHelper.ApplyLayoutConstraints(topLevel, availableSize).Height;
-
-                    constrainedHeight = maxHeight;
-                }
-
-                if (constrainedHeight is double height)
-                {
-                    availableSize = availableSize.WithHeight(height);
+                    if (constrainedHeight is double height)
+                    {
+                        availableSize = availableSize.WithHeight(height);
+                    }
                 }
             }
 
@@ -466,6 +480,18 @@ internal
             SyncOffset(OwningGrid.HorizontalOffset, OwningGrid.GetVerticalOffset());
 
             return new Size(totalCellsWidth + headerWidth, totalHeight);
+        }
+
+        private bool MatchesDesiredHeight(double arrangedHeight)
+        {
+            var desiredHeight = DesiredSize.Height;
+            if (double.IsNaN(desiredHeight) || double.IsInfinity(desiredHeight) || desiredHeight <= 0)
+            {
+                return false;
+            }
+
+            var threshold = Math.Max(OwningGrid?.RowHeightEstimate ?? 1, 1);
+            return Math.Abs(arrangedHeight - desiredHeight) <= threshold;
         }
 
         private void OnScrollGesture(object? sender, ScrollGestureEventArgs e)

@@ -98,8 +98,8 @@ internal
         {
             get
             {
-                // If we're not displaying any rows or if we have infinite space the, relative height of our rows is 0
-                if (DisplayData.LastScrollingSlot == -1 || double.IsPositiveInfinity(AvailableSlotElementRoom))
+                // If we're not displaying any rows, the relative height of our rows is 0
+                if (DisplayData.LastScrollingSlot == -1)
                 {
                     return 0;
                 }

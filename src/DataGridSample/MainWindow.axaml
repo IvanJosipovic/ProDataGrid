@@ -293,6 +293,9 @@
     <TabItem Header="ListBox Mimic">
       <pages:ListBoxMimicPage />
     </TabItem>
+    <TabItem Header="Nested DataGrid Auto-Height">
+      <pages:NestedDataGridPage />
+    </TabItem>
     <TabItem Header="ListBox Mimic - Drag &amp; Drop">
       <pages:ListBoxMimicDragDropPage />
     </TabItem>

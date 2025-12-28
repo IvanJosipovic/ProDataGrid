@@ -775,28 +775,39 @@ internal
                 }
 
                 var presenterHeight = ActualRowsPresenterHeight;
-                if (RowsPresenterAvailableSize is { } measuredSize &&
-                    !double.IsNaN(measuredSize.Height) &&
-                    !double.IsInfinity(measuredSize.Height))
+                if (RowsPresenterAvailableSize is { } measuredSize)
                 {
-                    var measuredHeight = Math.Max(0, measuredSize.Height);
-                    if (MathUtilities.GreaterThan(presenterHeight, 0) &&
-                        MathUtilities.LessThan(presenterHeight, measuredHeight))
+                    if (double.IsPositiveInfinity(measuredSize.Height))
                     {
-                        var threshold = Math.Max(RowHeightEstimate, 1);
-                        if (VisualRoot is TopLevel rootLevel &&
-                            !double.IsNaN(rootLevel.Height) &&
-                            rootLevel.Height > 0 &&
-                            Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
-                            Math.Abs(Bounds.Height - rootLevel.Bounds.Height) <= threshold)
-                        {
-                            return measuredHeight;
-                        }
-
-                        return presenterHeight;
+                        return double.PositiveInfinity;
                     }
 
-                    return measuredHeight;
+                    if (!double.IsNaN(measuredSize.Height) && !double.IsInfinity(measuredSize.Height))
+                    {
+                        var measuredHeight = Math.Max(0, measuredSize.Height);
+                        if (MathUtilities.GreaterThan(presenterHeight, 0) &&
+                            MathUtilities.LessThan(presenterHeight, measuredHeight))
+                        {
+                            if (!IsArrangeValid || (_rowsPresenter != null && !_rowsPresenter.IsArrangeValid))
+                            {
+                                return measuredHeight;
+                            }
+
+                            var threshold = Math.Max(RowHeightEstimate, 1);
+                            if (VisualRoot is TopLevel rootLevel &&
+                                !double.IsNaN(rootLevel.Height) &&
+                                rootLevel.Height > 0 &&
+                                Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
+                                Math.Abs(Bounds.Height - rootLevel.Bounds.Height) <= threshold)
+                            {
+                                return measuredHeight;
+                            }
+
+                            return presenterHeight;
+                        }
+
+                        return measuredHeight;
+                    }
                 }
 
                 if (MathUtilities.GreaterThan(presenterHeight, 0))

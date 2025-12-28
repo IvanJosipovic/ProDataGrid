@@ -1029,6 +1029,8 @@ namespace Avalonia.Controls
                 {
                     _owner.PopSelectionSync(previousSyncingSelectionModel);
                 }
+
+                _owner.InvalidateMeasure();
             }
             finally
             {
