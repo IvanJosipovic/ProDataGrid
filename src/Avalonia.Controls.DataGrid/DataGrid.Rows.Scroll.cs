@@ -18,6 +18,17 @@ namespace Avalonia.Controls
     {
         private void ScrollSlotsByHeight(double height)
         {
+            if (SlotCount == 0)
+            {
+                return;
+            }
+
+            if (DisplayData.FirstScrollingSlot < 0)
+            {
+                DisplayData.FirstScrollingSlot = 0;
+                NegVerticalOffset = 0;
+            }
+
             Debug.Assert(DisplayData.FirstScrollingSlot >= 0);
             Debug.Assert(!MathUtilities.IsZero(height));
 
