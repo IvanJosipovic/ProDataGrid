@@ -92,6 +92,143 @@ public class SelectionModelItemSelectionTests
         Assert.Equal("B", selection.SelectedItems[0]);
     }
 
+    [Fact]
+    public void SelectionModel_SelectRange_By_Item_Uses_Source_Index()
+    {
+        var items = new List<string> { "A", "B", "C", "D" };
+        var selection = new SelectionModel<string> { Source = items, SingleSelect = false };
+
+        selection.SelectRange("B", "D");
+
+        Assert.Equal(3, selection.SelectedIndexes.Count);
+        Assert.Contains(1, selection.SelectedIndexes);
+        Assert.Contains(2, selection.SelectedIndexes);
+        Assert.Contains(3, selection.SelectedIndexes);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Item_Resolves_Hierarchical_Nodes()
+    {
+        var root = new NodeItem("root");
+        var childA = new NodeItem("childA");
+        var childB = new NodeItem("childB");
+        root.Children.Add(childA);
+        root.Children.Add(childB);
+
+        var model = CreateModel(root);
+        var selection = new SelectionModel<object> { Source = model.Flattened, SingleSelect = false };
+
+        selection.SelectRange(childA, childB);
+
+        Assert.Equal(2, selection.SelectedIndexes.Count);
+        Assert.Contains(1, selection.SelectedIndexes);
+        Assert.Contains(2, selection.SelectedIndexes);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Item_Throws_When_Not_Found()
+    {
+        var items = new List<string> { "A", "B" };
+        var selection = new SelectionModel<string> { Source = items, SingleSelect = false };
+
+        var exception = Assert.Throws<ArgumentException>(() => selection.SelectRange("A", "C"));
+        Assert.Contains("Item not found", exception.Message);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Item_With_Null_Source_Throws_For_MultiSelect()
+    {
+        var selection = new SelectionModel<string> { SingleSelect = false };
+
+        Assert.Throws<InvalidOperationException>(() => selection.SelectRange("A", "B"));
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Item_With_Null_Source_Sets_SelectedItem_When_SingleSelect()
+    {
+        var selection = new SelectionModel<string> { SingleSelect = true };
+
+        selection.SelectRange("A", "B");
+
+        Assert.Equal("B", selection.SelectedItem);
+        Assert.Single(selection.SelectedItems);
+        Assert.Equal("B", selection.SelectedItems[0]);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Items_Uses_Source_Index()
+    {
+        var items = new List<string> { "A", "B", "C", "D" };
+        var selection = new SelectionModel<string> { Source = items, SingleSelect = false };
+
+        selection.SelectRange(new[] { "B", "D" });
+
+        Assert.Equal(2, selection.SelectedIndexes.Count);
+        Assert.Contains(1, selection.SelectedIndexes);
+        Assert.Contains(3, selection.SelectedIndexes);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Items_Resolves_Hierarchical_Nodes()
+    {
+        var root = new NodeItem("root");
+        var childA = new NodeItem("childA");
+        var childB = new NodeItem("childB");
+        root.Children.Add(childA);
+        root.Children.Add(childB);
+
+        var model = CreateModel(root);
+        var selection = new SelectionModel<object> { Source = model.Flattened, SingleSelect = false };
+
+        selection.SelectRange(new object[] { childA, childB });
+
+        Assert.Equal(2, selection.SelectedIndexes.Count);
+        Assert.Contains(1, selection.SelectedIndexes);
+        Assert.Contains(2, selection.SelectedIndexes);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Items_Throws_When_Not_Found()
+    {
+        var items = new List<string> { "A", "B" };
+        var selection = new SelectionModel<string> { Source = items, SingleSelect = false };
+
+        var exception = Assert.Throws<ArgumentException>(() => selection.SelectRange(new[] { "A", "C" }));
+        Assert.Contains("Item not found", exception.Message);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Items_With_Null_Source_Throws_For_MultiSelect()
+    {
+        var selection = new SelectionModel<string> { SingleSelect = false };
+
+        Assert.Throws<InvalidOperationException>(() => selection.SelectRange(new[] { "A", "B" }));
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Items_With_Null_Source_Allows_Single_Item()
+    {
+        var selection = new SelectionModel<string> { SingleSelect = false };
+
+        selection.SelectRange(new[] { "A" });
+
+        Assert.Equal("A", selection.SelectedItem);
+        Assert.Single(selection.SelectedItems);
+        Assert.Equal("A", selection.SelectedItems[0]);
+    }
+
+    [Fact]
+    public void SelectionModel_SelectRange_By_Items_With_Null_Source_Sets_SelectedItem_When_SingleSelect()
+    {
+        var selection = new SelectionModel<string> { SingleSelect = true };
+
+        selection.SelectRange(new[] { "A", "B" });
+
+        Assert.Equal("B", selection.SelectedItem);
+        Assert.Single(selection.SelectedItems);
+        Assert.Equal("B", selection.SelectedItems[0]);
+    }
+
     [AvaloniaFact]
     public void DataGrid_Selection_Select_By_Item_Selects_Hierarchical_Item()
     {

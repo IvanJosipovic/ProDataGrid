@@ -5,6 +5,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using Avalonia.Controls.DataGridHierarchical;
 
 namespace Avalonia.Controls.Selection
@@ -42,6 +43,118 @@ namespace Avalonia.Controls.Selection
             else
             {
                 model.Select(index);
+            }
+        }
+
+        public static void SelectRange(this ISelectionModel model, object startItem, object endItem)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (model.Source == null)
+            {
+                if (model.SingleSelect || Equals(startItem, endItem))
+                {
+                    model.SelectedItem = endItem;
+                    return;
+                }
+
+                throw new InvalidOperationException("Selection model source is not set.");
+            }
+
+            var startIndex = ResolveIndex(model.Source, startItem);
+            if (startIndex < 0)
+            {
+                throw new ArgumentException("Item not found in selection model source.", nameof(startItem));
+            }
+
+            var endIndex = ResolveIndex(model.Source, endItem);
+            if (endIndex < 0)
+            {
+                throw new ArgumentException("Item not found in selection model source.", nameof(endItem));
+            }
+
+            if (model.SingleSelect)
+            {
+                model.SelectedIndex = endIndex;
+                return;
+            }
+
+            if (startIndex <= endIndex)
+            {
+                model.SelectRange(startIndex, endIndex);
+            }
+            else
+            {
+                model.SelectRange(endIndex, startIndex);
+            }
+        }
+
+        public static void SelectRange(this ISelectionModel model, IEnumerable items)
+        {
+            if (model == null)
+            {
+                throw new ArgumentNullException(nameof(model));
+            }
+
+            if (items == null)
+            {
+                throw new ArgumentNullException(nameof(items));
+            }
+
+            var list = items as IList;
+            if (list == null)
+            {
+                var materialized = new List<object>();
+                foreach (var item in items)
+                {
+                    materialized.Add(item);
+                }
+                list = materialized;
+            }
+
+            if (list.Count == 0)
+            {
+                return;
+            }
+
+            if (model.Source == null)
+            {
+                if (model.SingleSelect || list.Count == 1)
+                {
+                    model.SelectedItem = list[list.Count - 1];
+                    return;
+                }
+
+                throw new InvalidOperationException("Selection model source is not set.");
+            }
+
+            var indexes = new List<int>(list.Count);
+            for (var i = 0; i < list.Count; i++)
+            {
+                var index = ResolveIndex(model.Source, list[i]);
+                if (index < 0)
+                {
+                    throw new ArgumentException("Item not found in selection model source.", nameof(items));
+                }
+
+                indexes.Add(index);
+            }
+
+            if (model.SingleSelect)
+            {
+                model.SelectedIndex = indexes[indexes.Count - 1];
+                return;
+            }
+
+            using (model.BatchUpdate())
+            {
+                for (var i = 0; i < indexes.Count; i++)
+                {
+                    model.Select(indexes[i]);
+                }
             }
         }
 

@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Selection;
@@ -56,6 +57,8 @@ namespace DataGridSample.ViewModels
             SelectRootCommand = new RelayCommand(_ => SelectItem(Roots.Count > 0 ? Roots[0] : null));
             SelectDeepItemCommand = new RelayCommand(_ => SelectItem(_deepItem));
             SelectSiblingPairCommand = new RelayCommand(_ => SelectSiblings());
+            SelectRangeCommand = new RelayCommand(_ => SelectRange());
+            SelectItemsCommand = new RelayCommand(_ => SelectItems());
             ClearSelectionCommand = new RelayCommand(_ => SelectionModel.Clear());
         }
 
@@ -70,6 +73,10 @@ namespace DataGridSample.ViewModels
         public RelayCommand SelectDeepItemCommand { get; }
 
         public RelayCommand SelectSiblingPairCommand { get; }
+
+        public RelayCommand SelectRangeCommand { get; }
+
+        public RelayCommand SelectItemsCommand { get; }
 
         public RelayCommand ClearSelectionCommand { get; }
 
@@ -106,6 +113,60 @@ namespace DataGridSample.ViewModels
                 {
                     SelectionModel.Select(siblings[i]);
                 }
+            }
+        }
+
+        private void SelectRange()
+        {
+            if (SelectionModel.Source == null || Roots.Count == 0 || _deepItem == null)
+            {
+                return;
+            }
+
+            var start = Roots[0].Children.Count > 0 ? Roots[0].Children[0] : Roots[0];
+            using (SelectionModel.BatchUpdate())
+            {
+                SelectionModel.Clear();
+                SelectionModel.SelectRange(start, _deepItem);
+            }
+        }
+
+        private void SelectItems()
+        {
+            if (SelectionModel.Source == null || Roots.Count == 0)
+            {
+                return;
+            }
+
+            var items = new List<TreeItem>
+            {
+                Roots[0]
+            };
+
+            if (Roots[0].Children.Count > 0)
+            {
+                items.Add(Roots[0].Children[0]);
+            }
+
+            if (_deepItem != null)
+            {
+                items.Add(_deepItem);
+            }
+
+            if (Roots.Count > 1)
+            {
+                items.Add(Roots[Roots.Count - 1]);
+            }
+
+            if (items.Count == 0)
+            {
+                return;
+            }
+
+            using (SelectionModel.BatchUpdate())
+            {
+                SelectionModel.Clear();
+                SelectionModel.SelectRange(items);
             }
         }
 

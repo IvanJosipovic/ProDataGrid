@@ -29,7 +29,7 @@
       <TextBlock Classes="h2"
                  Text="SelectionModel Select by Item" />
       <TextBlock TextWrapping="Wrap"
-                 Text="Use SelectionModel.Select(item) to choose rows by the view-model object even when the selection source is hierarchical nodes." />
+                 Text="Use SelectionModel.Select(item), SelectRange(item, item), and SelectRange(items) to choose rows by the view-model object even when the selection source is hierarchical nodes." />
     </StackPanel>
 
     <WrapPanel Grid.Row="1"
@@ -42,6 +42,12 @@
               Margin="0 0 8 8" />
       <Button Content="Select first two siblings"
               Command="{Binding SelectSiblingPairCommand}"
+              Margin="0 0 8 8" />
+      <Button Content="Select range (first child to deep item)"
+              Command="{Binding SelectRangeCommand}"
+              Margin="0 0 8 8" />
+      <Button Content="Select specific items (list)"
+              Command="{Binding SelectItemsCommand}"
               Margin="0 0 8 8" />
       <Button Content="Clear selection"
               Command="{Binding ClearSelectionCommand}"
