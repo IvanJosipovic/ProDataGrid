@@ -270,10 +270,13 @@ namespace Avalonia.Collections
             // and will not refresh for now.
             _trackingEnumerator = _sourceCollection.GetEnumerator();
 
-            Debug.Assert(index == IndexOf(item), "IndexOf returned unexpected value");
+            if (!IsUsingSourceList)
+            {
+                Debug.Assert(index == IndexOf(item), "IndexOf returned unexpected value");
 
-            // remove the item from the internal list
-            _internalList.Remove(item);
+                // remove the item from the internal list
+                _internalList.Remove(item);
+            }
 
             if (IsGrouping)
             {
@@ -341,6 +344,12 @@ namespace Avalonia.Collections
         //TODO Paging
         private void ProcessAddEvent(object addedItem, int addIndex)
         {
+            if (IsUsingSourceList)
+            {
+                ProcessAddEventUsingSourceList(addedItem, addIndex);
+                return;
+            }
+
             // item to fire remove notification for if necessary
             object removeNotificationItem = null;
             if (PageSize > 0 && !IsGrouping)
@@ -465,6 +474,35 @@ namespace Avalonia.Collections
             }
         }
 
+        private void ProcessAddEventUsingSourceList(object addedItem, int addIndex)
+        {
+            int addedIndex = addIndex;
+            if (addedIndex < 0 || addedIndex >= Count)
+            {
+                addedIndex = IndexOf(addedItem);
+            }
+
+            if (addedIndex < 0)
+            {
+                return;
+            }
+
+            object oldCurrentItem = CurrentItem;
+            int oldCurrentPosition = CurrentPosition;
+            bool oldIsCurrentAfterLast = IsCurrentAfterLast;
+            bool oldIsCurrentBeforeFirst = IsCurrentBeforeFirst;
+
+            AdjustCurrencyForAdd(null, addedIndex);
+
+            OnCollectionChanged(
+            new NotifyCollectionChangedEventArgs(
+            NotifyCollectionChangedAction.Add,
+            addedItem,
+            addedIndex));
+
+            RaiseCurrencyChanges(false, oldCurrentItem, oldCurrentPosition, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);
+        }
+
         /// <summary>
         /// Process CollectionChanged event on source collection
         /// that implements INotifyCollectionChanged.
@@ -482,10 +520,13 @@ namespace Avalonia.Collections
 
             if (args.Action == NotifyCollectionChangedAction.Reset)
             {
-                // if we have no items now, clear our own internal list
-                if (!SourceCollection.GetEnumerator().MoveNext())
+                if (!IsUsingSourceList)
                 {
-                    _internalList.Clear();
+                    // if we have no items now, clear our own internal list
+                    if (!SourceCollection.GetEnumerator().MoveNext())
+                    {
+                        _internalList.Clear();
+                    }
                 }
 
                 // calling Refresh, will fire the collectionchanged event
@@ -495,6 +536,12 @@ namespace Avalonia.Collections
 
             if (args.Action == NotifyCollectionChangedAction.Move)
             {
+                if (IsUsingSourceList && (args.OldStartingIndex < 0 || args.NewStartingIndex < 0))
+                {
+                    RefreshOrDefer();
+                    return;
+                }
+
                 if (args.OldItems != null)
                 {
                     for (var i = 0; i < args.OldItems.Count; i++)
@@ -503,6 +550,15 @@ namespace Avalonia.Collections
                     }
                 }
 
+                return;
+            }
+
+            if (IsUsingSourceList &&
+                (args.Action == NotifyCollectionChangedAction.Remove ||
+                args.Action == NotifyCollectionChangedAction.Replace) &&
+                args.OldStartingIndex < 0)
+            {
+                RefreshOrDefer();
                 return;
             }
 
@@ -558,6 +614,12 @@ namespace Avalonia.Collections
         //TODO Paging
         private void ProcessRemoveEvent(object removedItem, bool isReplace, int? oldIndexHint = null)
         {
+            if (IsUsingSourceList)
+            {
+                ProcessRemoveEventUsingSourceList(removedItem, isReplace, oldIndexHint);
+                return;
+            }
+
             int internalRemoveIndex = -1;
             int removeIndex = -1;
 
@@ -680,6 +742,36 @@ namespace Avalonia.Collections
                     GetItemAt(PageSize - 1),
                     PageSize - 1));
                 }
+            }
+        }
+
+        private void ProcessRemoveEventUsingSourceList(object removedItem, bool isReplace, int? oldIndexHint)
+        {
+            int removeIndex = oldIndexHint ?? -1;
+            if (removeIndex < 0)
+            {
+                RefreshOrDefer();
+                return;
+            }
+
+            object oldCurrentItem = CurrentItem;
+            int oldCurrentPosition = CurrentPosition;
+            bool oldIsCurrentAfterLast = IsCurrentAfterLast;
+            bool oldIsCurrentBeforeFirst = IsCurrentBeforeFirst;
+
+            AdjustCurrencyForRemove(removeIndex);
+
+            OnCollectionChanged(
+            new NotifyCollectionChangedEventArgs(
+            NotifyCollectionChangedAction.Remove,
+            removedItem,
+            removeIndex));
+
+            RaiseCurrencyChanges(false, oldCurrentItem, oldCurrentPosition, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);
+
+            if (NeedToMoveToPreviousPage && !isReplace)
+            {
+                MoveToPreviousPage();
             }
         }
 
@@ -844,7 +936,7 @@ namespace Avalonia.Collections
             }
             else
             {
-                CopySourceToInternalList();
+                ResetInternalList();
             }
 
             // check if PageIndex is still valid after filter/sort

@@ -73,6 +73,8 @@ namespace Avalonia.Collections
                 newItem = _itemConstructor.Invoke(null);
             }
 
+            var countBeforeAdd = Count;
+
             try
             {
                 // temporarily disable the CollectionChanged event
@@ -102,16 +104,16 @@ namespace Avalonia.Collections
             {
                 // if the page is full (Count==PageSize), then replace last item (Count-1).
                 // otherwise, we just append at end (Count).
-                addIndex = Count - ((Count == PageSize) ? 1 : 0);
+                addIndex = countBeforeAdd - ((countBeforeAdd == PageSize) ? 1 : 0);
 
                 // if the page is full, remove the last item to make space for the new one.
-                removeIndex = (Count == PageSize) ? addIndex : -1;
+                removeIndex = (countBeforeAdd == PageSize) ? addIndex : -1;
             }
             else
             {
                 // for non-paged lists, we want to insert the item
                 // as the last item in the view
-                addIndex = Count;
+                addIndex = countBeforeAdd;
             }
 
             // if we need to remove an item from the view due to paging
@@ -130,8 +132,11 @@ namespace Avalonia.Collections
                 removeIndex));
             }
 
-            // add the new item to the internal list
-            _internalList.Insert(ConvertToInternalIndex(addIndex), newItem);
+            if (!IsUsingSourceList)
+            {
+                // add the new item to the internal list
+                _internalList.Insert(ConvertToInternalIndex(addIndex), newItem);
+            }
             OnPropertyChanged(nameof(ItemCount));
 
             object oldCurrentItem = CurrentItem;
@@ -296,8 +301,11 @@ namespace Avalonia.Collections
                     addIndex = Count - 1;
                 }
 
-                // remove the new item from the internal list
-                InternalList.Remove(newItem);
+                if (!IsUsingSourceList)
+                {
+                    // remove the new item from the internal list
+                    InternalList.Remove(newItem);
+                }
 
                 if (IsGrouping)
                 {
@@ -527,8 +535,11 @@ namespace Avalonia.Collections
             }
             else if (!Contains(editItem))
             {
-                // if the item did not belong to the collection, add it
-                InternalList.Add(editItem);
+                if (!IsUsingSourceList)
+                {
+                    // if the item did not belong to the collection, add it
+                    InternalList.Add(editItem);
+                }
             }
         }
 

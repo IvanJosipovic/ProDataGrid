@@ -85,6 +85,17 @@ namespace Avalonia.Collections
             }
         }
 
+        private void ResetInternalList()
+        {
+            if (!UsesLocalArray && CanUseSourceList)
+            {
+                _internalList = SourceList;
+                return;
+            }
+
+            CopySourceToInternalList();
+        }
+
         /// <summary>
         /// Subtracts from the deferLevel counter and calls Refresh() if there are no other defers
         /// </summary>

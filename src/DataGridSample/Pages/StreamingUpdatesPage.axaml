@@ -1,0 +1,61 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.StreamingUpdatesPage"
+             x:DataType="viewModels:StreamingUpdatesViewModel">
+  <UserControl.DataContext>
+    <viewModels:StreamingUpdatesViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*"
+        ColumnDefinitions="*,Auto"
+        Margin="12"
+        ColumnSpacing="12"
+        RowSpacing="8">
+    <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
+      <TextBlock Classes="h2">Streaming updates</TextBlock>
+      <TextBlock Text="Simulates a rolling window of adds/removes against a large ObservableCollection to exercise O(1) updates."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+      <Button Content="Start" Command="{Binding StartCommand}" />
+      <Button Content="Stop" Command="{Binding StopCommand}" />
+      <Button Content="Reset" Command="{Binding ResetCommand}" />
+      <TextBlock Text="Target" VerticalAlignment="Center" />
+      <TextBox Width="84" Text="{Binding TargetCount, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Text="Batch" VerticalAlignment="Center" />
+      <TextBox Width="56" Text="{Binding BatchSize, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Text="Interval (ms)" VerticalAlignment="Center" />
+      <TextBox Width="72" Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+      <TextBlock Text="{Binding ItemsCount, StringFormat='Items: {0}'}" />
+      <TextBlock Text="{Binding Updates, StringFormat='Updates: {0}'}" />
+      <TextBlock Text="{Binding RunState, StringFormat='State: {0}'}" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2" Grid.ColumnSpan="2"
+              ItemsSource="{Binding Items}"
+              UseLogicalScrollable="True"
+              RowHeight="24"
+              RowHeightEstimator="{x:Null}"
+              SelectionMode="Single"
+              SelectionUnit="FullRow"
+              AutoGenerateColumns="False"
+              CanUserReorderColumns="False"
+              CanUserResizeColumns="False"
+              HeadersVisibility="Column"
+              GridLinesVisibility="None"
+              IsReadOnly="True">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Id" Binding="{Binding Id}" Width="80" x:DataType="models:StreamingItem" />
+        <DataGridTextColumn Header="Symbol" Binding="{Binding Symbol}" Width="*" x:DataType="models:StreamingItem" />
+        <DataGridTextColumn Header="Price" Binding="{Binding PriceDisplay}" Width="100" x:DataType="models:StreamingItem" />
+        <DataGridTextColumn Header="Updated" Binding="{Binding UpdatedAtDisplay}" Width="120" x:DataType="models:StreamingItem" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

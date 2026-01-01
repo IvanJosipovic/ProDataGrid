@@ -89,6 +89,9 @@
     <TabItem Header="Collection Changes">
       <pages:CollectionChangesPage />
     </TabItem>
+    <TabItem Header="Streaming Updates">
+      <pages:StreamingUpdatesPage />
+    </TabItem>
     <TabItem Header="ItemsSource Swap">
       <pages:ItemsSourceSwapPage />
     </TabItem>
@@ -247,6 +250,12 @@
     </TabItem>
     <TabItem Header="DynamicData Search">
       <pages:DynamicDataSearchPage />
+    </TabItem>
+    <TabItem Header="DynamicData Streaming (SourceList)">
+      <pages:DynamicDataStreamingSourceListPage />
+    </TabItem>
+    <TabItem Header="DynamicData Streaming (SourceCache)">
+      <pages:DynamicDataStreamingSourceCachePage />
     </TabItem>
     <TabItem Header="Hierarchical Model">
       <pages:HierarchicalSamplePage />

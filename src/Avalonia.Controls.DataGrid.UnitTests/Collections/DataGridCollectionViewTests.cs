@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Data;
 using System.Linq;
+using System.Reflection;
 using Avalonia.Collections;
 using Xunit;
 
@@ -41,6 +42,34 @@ public class DataGridCollectionViewTests
                 var newItems = Assert.IsAssignableFrom<IList>(e.NewItems);
                 Assert.Equal(2, Assert.Single(newItems.Cast<int>()));
             });
+    }
+
+    [Fact]
+    public void Uses_SourceList_For_ObservableCollection_When_No_Local_Transforms()
+    {
+        var items = new ObservableCollection<int> { 1, 2, 3 };
+        var view = new DataGridCollectionView(items);
+
+        var internalList = GetInternalList(view);
+
+        Assert.Same(items, internalList);
+    }
+
+    [Fact]
+    public void Uses_Local_Array_When_Sorting_And_Reverts_When_Cleared()
+    {
+        var items = new ObservableCollection<int> { 2, 1 };
+        var view = new DataGridCollectionView(items);
+
+        view.SortDescriptions.Add(DataGridSortDescription.FromComparer(Comparer<int>.Default));
+
+        var sortedInternal = GetInternalList(view);
+        Assert.NotSame(items, sortedInternal);
+
+        view.SortDescriptions.Clear();
+
+        var restoredInternal = GetInternalList(view);
+        Assert.Same(items, restoredInternal);
     }
 
     [Fact]
@@ -111,6 +140,32 @@ public class DataGridCollectionViewTests
     }
 
     [Fact]
+    public void AddNew_Uses_PreAdd_Count_For_Index_When_Using_SourceList()
+    {
+        var items = new ObservableCollection<SimpleItem>
+        {
+            new() { Value = 1 },
+            new() { Value = 2 }
+        };
+        var view = new DataGridCollectionView(items);
+
+        var changes = new List<NotifyCollectionChangedEventArgs>();
+        view.CollectionChanged += (_, e) => changes.Add(e);
+
+        var newItem = Assert.IsType<SimpleItem>(view.AddNew());
+
+        Assert.Equal(3, view.Count);
+        Assert.Same(newItem, items[2]);
+        Assert.Equal(2, view.IndexOf(newItem));
+
+        var add = Assert.Single(changes);
+        Assert.Equal(NotifyCollectionChangedAction.Add, add.Action);
+        Assert.Equal(2, add.NewStartingIndex);
+
+        view.CommitNew();
+    }
+
+    [Fact]
     public void Remove_Raises_Remove_And_Updates_View()
     {
         var items = new ObservableCollection<int> { 1, 2, 3 };
@@ -128,6 +183,18 @@ public class DataGridCollectionViewTests
         var oldItems = Assert.IsAssignableFrom<IList>(remove.OldItems);
         Assert.Equal(2, Assert.Single(oldItems.Cast<int>()));
         Assert.Equal(1, remove.OldStartingIndex);
+    }
+
+    [Fact]
+    public void RemoveAt_Using_SourceList_Removes_Only_One_Duplicate()
+    {
+        var items = new ObservableCollection<int> { 1, 2, 2, 3 };
+        var view = new DataGridCollectionView(items);
+
+        view.RemoveAt(1);
+
+        Assert.Equal(new[] { 1, 2, 3 }, items.ToArray());
+        Assert.Equal(new[] { 1, 2, 3 }, view.Cast<int>().ToArray());
     }
 
     [Fact]
@@ -210,6 +277,19 @@ public class DataGridCollectionViewTests
     private class Row
     {
         public int Value { get; set; }
+    }
+
+    private class SimpleItem
+    {
+        public int Value { get; set; }
+    }
+
+    private static IList GetInternalList(DataGridCollectionView view)
+    {
+        var field = typeof(DataGridCollectionView)
+            .GetField("_internalList", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        return Assert.IsAssignableFrom<IList>(field!.GetValue(view));
     }
 
     [Fact]

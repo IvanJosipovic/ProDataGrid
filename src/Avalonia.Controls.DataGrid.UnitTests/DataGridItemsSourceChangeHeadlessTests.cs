@@ -4,6 +4,7 @@
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -199,6 +200,25 @@ public class DataGridItemsSourceChangeHeadlessTests
         window.Close();
     }
 
+    [AvaloniaFact]
+    public void ItemsSource_Add_Preserves_SourceList_Backing_For_View()
+    {
+        var items = CreateItems("A", 3);
+        var (window, grid) = CreateGrid(items, DataGridSelectionUnit.FullRow);
+        PumpLayout(grid);
+
+        var view = Assert.IsType<DataGridCollectionView>(grid.CollectionView);
+        Assert.Same(items, GetInternalList(view));
+
+        items.Add(new RowItem { Name = "A3", Value = 3, Group = "A" });
+        PumpLayout(grid);
+
+        Assert.Same(items, GetInternalList(view));
+        Assert.Equal(items.Count, view.Count);
+
+        window.Close();
+    }
+
     private static (Window Window, DataGrid Grid) CreateGrid(IEnumerable? itemsSource, DataGridSelectionUnit selectionUnit)
     {
         var window = new Window
@@ -336,7 +356,7 @@ public class DataGridItemsSourceChangeHeadlessTests
 
     private static void ClickCell(DataGridCell cell)
     {
-        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
         var properties = new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed);
         var args = new PointerPressedEventArgs(cell, pointer, cell, new Point(2, 2), 0, properties, KeyModifiers.None);
 
@@ -356,6 +376,14 @@ public class DataGridItemsSourceChangeHeadlessTests
             Assert.Same(expected, grid.SelectedItem);
             Assert.NotEmpty(grid.SelectedItems);
         }
+    }
+
+    private static IList GetInternalList(DataGridCollectionView view)
+    {
+        var field = typeof(DataGridCollectionView)
+            .GetField("_internalList", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        return Assert.IsAssignableFrom<IList>(field!.GetValue(view));
     }
 
     private static DataGridRowGroupHeader[] GetGroupHeaders(DataGrid grid)

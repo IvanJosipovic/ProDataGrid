@@ -1,4 +1,4 @@
-﻿// Copyright (c) Wiesław Šoltés. All rights reserved.
+// Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
@@ -17,17 +17,17 @@ namespace DataGridSample.Adapters
     /// Adapter factory that translates SortingModel descriptors into a comparer chain for DynamicData.
     /// It bypasses local SortDescriptions by overriding TryApplyModelToView.
     /// </summary>
-    public sealed class DynamicDataSortingAdapterFactory : IDataGridSortingAdapterFactory
+    public sealed class DynamicDataStreamingSortingAdapterFactory : IDataGridSortingAdapterFactory
     {
         private readonly Action<string> _log;
 
-        public DynamicDataSortingAdapterFactory(Action<string> log)
+        public DynamicDataStreamingSortingAdapterFactory(Action<string> log)
         {
             _log = log;
-            SortComparer = Comparer<Deployment>.Create(static (_, _) => 0);
+            SortComparer = Comparer<StreamingItem>.Create(static (_, _) => 0);
         }
 
-        public IComparer<Deployment> SortComparer { get; private set; }
+        public IComparer<StreamingItem> SortComparer { get; private set; }
 
         public DataGridSortingAdapter Create(DataGrid grid, ISortingModel model)
         {
@@ -40,20 +40,19 @@ namespace DataGridSample.Adapters
             _log($"Upstream comparer updated: {Describe(descriptors)}");
         }
 
-        private static IComparer<Deployment> BuildComparer(IReadOnlyList<SortingDescriptor> descriptors)
+        private static IComparer<StreamingItem> BuildComparer(IReadOnlyList<SortingDescriptor> descriptors)
         {
             if (descriptors == null || descriptors.Count == 0)
             {
-                return Comparer<Deployment>.Create(static (_, _) => 0);
+                return Comparer<StreamingItem>.Create(static (_, _) => 0);
             }
 
-            // If any descriptor uses a custom comparer, fall back to the manual chain so we can honor it.
             if (descriptors.Any(d => d?.Comparer != null))
             {
                 return BuildManualComparer(descriptors);
             }
 
-            SortExpressionComparer<Deployment>? comparer = null;
+            SortExpressionComparer<StreamingItem>? comparer = null;
 
             foreach (var descriptor in descriptors.Where(d => d != null))
             {
@@ -65,8 +64,8 @@ namespace DataGridSample.Adapters
 
                 comparer = comparer == null
                     ? descriptor.Direction == ListSortDirection.Ascending
-                        ? SortExpressionComparer<Deployment>.Ascending(selector)
-                        : SortExpressionComparer<Deployment>.Descending(selector)
+                        ? SortExpressionComparer<StreamingItem>.Ascending(selector)
+                        : SortExpressionComparer<StreamingItem>.Descending(selector)
                     : descriptor.Direction == ListSortDirection.Ascending
                         ? comparer.ThenByAscending(selector)
                         : comparer.ThenByDescending(selector);
@@ -74,13 +73,13 @@ namespace DataGridSample.Adapters
 
             if (comparer == null)
             {
-                return Comparer<Deployment>.Create(static (_, _) => 0);
+                return Comparer<StreamingItem>.Create(static (_, _) => 0);
             }
 
             return comparer;
         }
 
-        private static IComparer<Deployment> BuildManualComparer(IReadOnlyList<SortingDescriptor> descriptors)
+        private static IComparer<StreamingItem> BuildManualComparer(IReadOnlyList<SortingDescriptor> descriptors)
         {
             var compiled = descriptors
                 .Where(d => d != null)
@@ -90,10 +89,10 @@ namespace DataGridSample.Adapters
 
             if (compiled.Count == 0)
             {
-                return Comparer<Deployment>.Create(static (_, _) => 0);
+                return Comparer<StreamingItem>.Create(static (_, _) => 0);
             }
 
-            return Comparer<Deployment>.Create((left, right) =>
+            return Comparer<StreamingItem>.Create((left, right) =>
             {
                 foreach (var entry in compiled)
                 {
@@ -130,18 +129,15 @@ namespace DataGridSample.Adapters
 
             return propertyPath switch
             {
-                nameof(Deployment.Service) => new CompiledComparer(x => x.Service, descriptor.Direction, descriptor.Comparer),
-                nameof(Deployment.Status) => new CompiledComparer(x => x.Status, descriptor.Direction, descriptor.Comparer),
-                nameof(Deployment.Region) => new CompiledComparer(x => x.Region, descriptor.Direction, descriptor.Comparer),
-                nameof(Deployment.Ring) => new CompiledComparer(x => x.Ring, descriptor.Direction, descriptor.Comparer),
-                nameof(Deployment.Started) => new CompiledComparer(x => x.Started, descriptor.Direction, descriptor.Comparer),
-                nameof(Deployment.ErrorRate) => new CompiledComparer(x => x.ErrorRate, descriptor.Direction, descriptor.Comparer),
-                nameof(Deployment.Incidents) => new CompiledComparer(x => x.Incidents, descriptor.Direction, descriptor.Comparer),
+                nameof(StreamingItem.Id) => new CompiledComparer(x => x.Id, descriptor.Direction, descriptor.Comparer),
+                nameof(StreamingItem.Symbol) => new CompiledComparer(x => x.Symbol, descriptor.Direction, descriptor.Comparer),
+                nameof(StreamingItem.Price) => new CompiledComparer(x => x.Price, descriptor.Direction, descriptor.Comparer),
+                nameof(StreamingItem.UpdatedAt) => new CompiledComparer(x => x.UpdatedAt, descriptor.Direction, descriptor.Comparer),
                 _ => null
             };
         }
 
-        private static Func<Deployment, IComparable>? CreateSelector(SortingDescriptor descriptor)
+        private static Func<StreamingItem, IComparable>? CreateSelector(SortingDescriptor descriptor)
         {
             var propertyPath = descriptor.PropertyPath ?? descriptor.ColumnId?.ToString();
             if (string.IsNullOrEmpty(propertyPath))
@@ -151,13 +147,10 @@ namespace DataGridSample.Adapters
 
             return propertyPath switch
             {
-                nameof(Deployment.Service) => x => x.Service,
-                nameof(Deployment.Status) => x => x.Status,
-                nameof(Deployment.Region) => x => x.Region,
-                nameof(Deployment.Ring) => x => x.Ring,
-                nameof(Deployment.Started) => x => x.Started,
-                nameof(Deployment.ErrorRate) => x => x.ErrorRate,
-                nameof(Deployment.Incidents) => x => x.Incidents,
+                nameof(StreamingItem.Id) => x => x.Id,
+                nameof(StreamingItem.Symbol) => x => x.Symbol,
+                nameof(StreamingItem.Price) => x => x.Price,
+                nameof(StreamingItem.UpdatedAt) => x => x.UpdatedAt,
                 _ => null
             };
         }
@@ -214,14 +207,14 @@ namespace DataGridSample.Adapters
 
         private sealed class CompiledComparer
         {
-            public CompiledComparer(Func<Deployment, object?> getter, ListSortDirection direction, IComparer? customComparer)
+            public CompiledComparer(Func<StreamingItem, object?> getter, ListSortDirection direction, IComparer? customComparer)
             {
                 Getter = getter;
                 Direction = direction;
                 CustomComparer = customComparer;
             }
 
-            public Func<Deployment, object?> Getter { get; }
+            public Func<StreamingItem, object?> Getter { get; }
 
             public ListSortDirection Direction { get; }
 

@@ -255,7 +255,7 @@ internal
             _group.GroupDescriptionChanged += OnGroupDescriptionChanged;
             _group.GroupDescriptions.CollectionChanged += OnGroupByChanged;
 
-            CopySourceToInternalList();
+            ResetInternalList();
             _trackingEnumerator = source.GetEnumerator();
 
             // set currency
@@ -1169,6 +1169,16 @@ internal
         private IList SourceList
         {
             get { return SourceCollection as IList; }
+        }
+
+        private bool CanUseSourceList
+        {
+            get { return SourceList != null && _sourceCollection is INotifyCollectionChanged; }
+        }
+
+        private bool IsUsingSourceList
+        {
+            get { return ReferenceEquals(_internalList, SourceList); }
         }
 
         /// <summary>
