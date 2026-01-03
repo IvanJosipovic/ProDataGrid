@@ -92,6 +92,9 @@
     <TabItem Header="Streaming Updates">
       <pages:StreamingUpdatesPage />
     </TabItem>
+    <TabItem Header="Hierarchical Streaming Updates">
+      <pages:HierarchicalStreamingUpdatesPage />
+    </TabItem>
     <TabItem Header="ItemsSource Swap">
       <pages:ItemsSourceSwapPage />
     </TabItem>
