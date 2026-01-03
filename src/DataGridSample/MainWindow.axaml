@@ -272,6 +272,12 @@
     <TabItem Header="DynamicData Streaming (SourceCache)">
       <pages:DynamicDataStreamingSourceCachePage />
     </TabItem>
+    <TabItem Header="DynamicData Hierarchical (SourceList)">
+      <pages:DynamicDataHierarchicalSourceListPage />
+    </TabItem>
+    <TabItem Header="DynamicData Hierarchical (SourceCache)">
+      <pages:DynamicDataHierarchicalSourceCachePage />
+    </TabItem>
     <TabItem Header="Hierarchical Model">
       <pages:HierarchicalSamplePage />
     </TabItem>
