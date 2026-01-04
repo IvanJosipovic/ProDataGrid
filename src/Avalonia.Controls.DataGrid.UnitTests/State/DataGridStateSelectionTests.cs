@@ -1,6 +1,7 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -47,7 +48,7 @@ public class DataGridStateSelectionTests
                 .OrderBy(id => id)
                 .ToArray();
 
-            Assert.Equal(new[] { 1, 4 }, selectedIds);
+            Assert.Equal(new[] { 1, 2, 4 }, selectedIds);
             Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
             Assert.Equal(DataGridSelectionUnit.CellOrRowHeader, grid.SelectionUnit);
             Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 2 && cell.Column == nameColumn);
@@ -91,6 +92,50 @@ public class DataGridStateSelectionTests
     }
 
     [AvaloniaFact]
+    public void RestoreSelectionState_RestoresRowSelectionFromSelectedCells_WhenItemKeysMissing()
+    {
+        var items = StateTestHelper.CreateItems(6);
+        var (grid, root) = StateTestHelper.CreateGrid(items, g =>
+        {
+            g.SelectionMode = DataGridSelectionMode.Extended;
+            g.SelectionUnit = DataGridSelectionUnit.Cell;
+        });
+
+        try
+        {
+            var nameColumn = grid.ColumnsInternal[1];
+
+            grid.Selection.Select(0);
+            var bound = new ObservableCollection<DataGridCellInfo>();
+            grid.SelectedCells = bound;
+            bound.Add(new DataGridCellInfo(items[2], nameColumn, 2, nameColumn.Index, true));
+
+            var state = grid.CaptureSelectionState(StateTestHelper.CreateKeyedOptions(grid, items));
+
+            var newItems = items
+                .Select((item, index) => new StateTestItem(index == 0 ? item.Id : item.Id + 100, item.Name, item.Category, item.Group))
+                .ToList();
+            grid.ItemsSource = newItems;
+            grid.UpdateLayout();
+
+            grid.SelectedItems.Clear();
+            grid.SelectedCells.Clear();
+
+            grid.RestoreSelectionState(state, StateTestHelper.CreateKeyedOptions(grid, newItems));
+
+            var selected = grid.SelectedItems.Cast<StateTestItem>().ToList();
+            Assert.Equal(2, selected.Count);
+            Assert.Contains(newItems[0], selected);
+            Assert.Contains(newItems[2], selected);
+            Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 2 && cell.Column == nameColumn);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void RestoreSelectionState_IgnoresHiddenCurrentCell()
     {
         var items = StateTestHelper.CreateItems(6);
@@ -126,6 +171,57 @@ public class DataGridStateSelectionTests
 
             Assert.Equal(new[] { 1, 3 }, selectedIds);
             Assert.NotSame(nameColumn, grid.CurrentCell.Column);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void RestoreSelectionState_ClearsSelectedCells_WhenStateHasNoCells()
+    {
+        var items = StateTestHelper.CreateItems(6);
+        var (grid, root) = StateTestHelper.CreateGrid(items, g =>
+        {
+            g.SelectionMode = DataGridSelectionMode.Extended;
+            g.SelectionUnit = DataGridSelectionUnit.Cell;
+        });
+
+        try
+        {
+            var bound = new ObservableCollection<DataGridCellInfo>();
+            grid.SelectedCells = bound;
+            grid.UpdateLayout();
+
+            var nameColumn = grid.ColumnsInternal[1];
+
+            grid.Selection.Select(1);
+            bound.Add(new DataGridCellInfo(items[2], nameColumn, 2, nameColumn.Index, true));
+            grid.UpdateLayout();
+
+            Assert.NotEmpty(grid.SelectedCells);
+
+            bound.Clear();
+            grid.UpdateLayout();
+
+            var options = StateTestHelper.CreateKeyedOptions(grid, items);
+            var state = grid.CaptureSelectionState(options);
+
+            bound.Add(new DataGridCellInfo(items[3], nameColumn, 3, nameColumn.Index, true));
+            grid.UpdateLayout();
+
+            grid.RestoreSelectionState(state, options);
+            grid.UpdateLayout();
+
+            Assert.Empty(grid.SelectedCells);
+
+            var selectedIds = grid.SelectedItems.Cast<StateTestItem>()
+                .Select(item => item.Id)
+                .OrderBy(id => id)
+                .ToArray();
+
+            Assert.Equal(new[] { 1 }, selectedIds);
         }
         finally
         {

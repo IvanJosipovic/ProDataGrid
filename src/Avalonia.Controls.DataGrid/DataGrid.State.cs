@@ -225,7 +225,8 @@ namespace Avalonia.Controls
             SelectionMode = state.SelectionMode;
             SelectionUnit = state.SelectionUnit;
 
-            if (_selectionModelAdapter != null)
+            var selectionModelAvailable = _selectionModelAdapter != null;
+            if (selectionModelAvailable)
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
                 var previousSync = PushSelectionSync();
@@ -272,10 +273,9 @@ namespace Avalonia.Controls
                 }
 
                 ApplySelectionFromSelectionModel();
-                UpdateSelectionSnapshot();
             }
 
-            if (state.SelectedCells != null && state.SelectedCells.Count > 0)
+            if (state.SelectedCells != null)
             {
                 RestoreSelectedCellsFromState(state.SelectedCells, options);
             }
@@ -283,6 +283,11 @@ namespace Avalonia.Controls
             if (state.CurrentCell != null)
             {
                 RestoreCurrentCellFromState(state.CurrentCell, options);
+            }
+
+            if (selectionModelAvailable)
+            {
+                UpdateSelectionSnapshot();
             }
         }
 
@@ -887,11 +892,6 @@ namespace Avalonia.Controls
                 list.Add(new DataGridCellInfo(item, column, rowIndex, columnIndex, true));
             }
 
-            if (list.Count == 0)
-            {
-                return;
-            }
-
             using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
             var previousSync = _syncingSelectedCells;
             _syncingSelectedCells = true;
@@ -901,6 +901,7 @@ namespace Avalonia.Controls
                 ClearCellSelectionInternal(clearRows: false, raiseEvent: false);
 
                 var added = new List<DataGridCellInfo>();
+                HashSet<int> selectedRows = null;
                 foreach (var cell in list)
                 {
                     if (!TryNormalizeCell(cell, out var normalized))
@@ -908,7 +909,24 @@ namespace Avalonia.Controls
                         continue;
                     }
 
-                    AddCellSelectionInternal(normalized, added);
+                    if (AddCellSelectionInternal(normalized, added) &&
+                        SelectionUnit != DataGridSelectionUnit.FullRow)
+                    {
+                        selectedRows ??= new HashSet<int>();
+                        selectedRows.Add(normalized.RowIndex);
+                    }
+                }
+
+                if (selectedRows != null)
+                {
+                    foreach (var rowIndex in selectedRows)
+                    {
+                        int slot = SlotFromRowIndex(rowIndex);
+                        if (slot >= 0)
+                        {
+                            SetRowSelection(slot, isSelected: true, setAnchorSlot: false);
+                        }
+                    }
                 }
 
                 if (_selectedCellsBinding != null &&
