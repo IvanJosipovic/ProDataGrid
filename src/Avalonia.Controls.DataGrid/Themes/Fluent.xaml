@@ -18,6 +18,7 @@
           <SolidColorBrush x:Key="DataGridRowGroupHeaderForegroundBrush" Color="{DynamicResource SystemBaseHighColor}" />
           <SolidColorBrush x:Key="DataGridRowGroupHeaderHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
           <SolidColorBrush x:Key="DataGridRowHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
+          <SolidColorBrush x:Key="DataGridCellHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
           <SolidColorBrush x:Key="DataGridRowInvalidBrush" Color="{DynamicResource SystemErrorTextColor}" />
           <SolidColorBrush x:Key="DataGridRowWarningBrush" Color="#F59E0B" />
           <SolidColorBrush x:Key="DataGridRowInfoBrush" Color="#22C55E" />
@@ -26,6 +27,18 @@
           <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedBackgroundOpacity}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedHoveredBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedHoveredBackgroundOpacity}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedUnfocusedBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedUnfocusedBackgroundOpacity}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedHoveredUnfocusedBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedHoveredUnfocusedBackgroundOpacity}" />
           <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="{DynamicResource SystemBaseHighColor}" />
           <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="{DynamicResource SystemAltMediumColor}" />
           <SolidColorBrush x:Key="DataGridCellInvalidBrush" Color="{DynamicResource SystemErrorTextColor}" />
@@ -57,6 +70,7 @@
           <SolidColorBrush x:Key="DataGridRowGroupHeaderForegroundBrush" Color="{DynamicResource SystemBaseHighColor}" />
           <SolidColorBrush x:Key="DataGridRowGroupHeaderHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
           <SolidColorBrush x:Key="DataGridRowHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
+          <SolidColorBrush x:Key="DataGridCellHoveredBackgroundBrush" Color="{DynamicResource SystemListLowColor}" />
           <SolidColorBrush x:Key="DataGridRowInvalidBrush" Color="{DynamicResource SystemErrorTextColor}" />
           <SolidColorBrush x:Key="DataGridRowWarningBrush" Color="#F59E0B" />
           <SolidColorBrush x:Key="DataGridRowInfoBrush" Color="#22C55E" />
@@ -65,6 +79,18 @@
           <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
           <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="{DynamicResource SystemAccentColor}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedBackgroundOpacity}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedHoveredBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedHoveredBackgroundOpacity}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedUnfocusedBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedUnfocusedBackgroundOpacity}" />
+          <SolidColorBrush x:Key="DataGridCellSelectedHoveredUnfocusedBackgroundBrush"
+                           Color="{DynamicResource SystemAccentColor}"
+                           Opacity="{DynamicResource DataGridRowSelectedHoveredUnfocusedBackgroundOpacity}" />
           <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="{DynamicResource SystemBaseHighColor}" />
           <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="{DynamicResource SystemAltMediumColor}" />
           <SolidColorBrush x:Key="DataGridCellInvalidBrush" Color="{DynamicResource SystemErrorTextColor}" />

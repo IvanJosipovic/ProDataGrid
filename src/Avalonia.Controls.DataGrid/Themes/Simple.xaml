@@ -17,6 +17,7 @@
       <SolidColorBrush x:Key="DataGridRowGroupHeaderForegroundBrush" Color="{DynamicResource ThemeForegroundColor}" />
       <SolidColorBrush x:Key="DataGridRowGroupHeaderHoveredBackgroundBrush" Color="{DynamicResource ThemeControlHighColor}" />
       <SolidColorBrush x:Key="DataGridRowHoveredBackgroundBrush" Color="{DynamicResource ThemeControlHighColor}" />
+      <SolidColorBrush x:Key="DataGridCellHoveredBackgroundBrush" Color="{DynamicResource ThemeControlHighColor}" />
       <SolidColorBrush x:Key="DataGridRowInvalidBrush" Color="{DynamicResource ErrorColor}" />
       <SolidColorBrush x:Key="DataGridRowWarningBrush" Color="#F59E0B" />
       <SolidColorBrush x:Key="DataGridRowInfoBrush" Color="#22C55E" />
@@ -24,6 +25,18 @@
       <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="{DynamicResource ThemeAccentColor2}" />
       <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{DynamicResource ThemeAccentColor2}" />
       <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="{DynamicResource ThemeAccentColor2}" />
+      <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush"
+                       Color="{DynamicResource ThemeAccentColor2}"
+                       Opacity="{DynamicResource DataGridRowSelectedBackgroundOpacity}" />
+      <SolidColorBrush x:Key="DataGridCellSelectedHoveredBackgroundBrush"
+                       Color="{DynamicResource ThemeAccentColor2}"
+                       Opacity="{DynamicResource DataGridRowSelectedHoveredBackgroundOpacity}" />
+      <SolidColorBrush x:Key="DataGridCellSelectedUnfocusedBackgroundBrush"
+                       Color="{DynamicResource ThemeAccentColor2}"
+                       Opacity="{DynamicResource DataGridRowSelectedUnfocusedBackgroundOpacity}" />
+      <SolidColorBrush x:Key="DataGridCellSelectedHoveredUnfocusedBackgroundBrush"
+                       Color="{DynamicResource ThemeAccentColor2}"
+                       Opacity="{DynamicResource DataGridRowSelectedHoveredUnfocusedBackgroundOpacity}" />
       <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="{DynamicResource ThemeBorderHighColor}" />
       <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="{DynamicResource ThemeBorderMidColor}" />
       <SolidColorBrush x:Key="DataGridCellInvalidBrush" Color="{DynamicResource ErrorColor}" />

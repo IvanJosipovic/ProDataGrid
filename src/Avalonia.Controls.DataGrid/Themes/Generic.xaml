@@ -679,6 +679,18 @@
           <Setter Property="Background" Value="{DynamicResource DataGridSearchCurrentBrush}" />
           <Setter Property="Foreground" Value="{DynamicResource DataGridSearchMatchForegroundBrush}" />
         </Style>
+        <Style Selector="^:cell-selected">
+          <Setter Property="Background" Value="{DynamicResource DataGridCellSelectedUnfocusedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:pointerover">
+          <Setter Property="Background" Value="{DynamicResource DataGridCellSelectedHoveredUnfocusedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:focus">
+          <Setter Property="Background" Value="{DynamicResource DataGridCellSelectedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:pointerover:focus">
+          <Setter Property="Background" Value="{DynamicResource DataGridCellSelectedHoveredBackgroundBrush}" />
+        </Style>
         <Style Selector="^:invalid /template/ Rectangle#InvalidVisualElement">
           <Setter Property="IsVisible" Value="True" />
         </Style>
@@ -1307,6 +1319,42 @@
   </Style>
   <Style Selector="DataGridCell:info DataValidationErrors">
     <Setter Property="Theme" Value="{DynamicResource DataGridCellDataValidationInfoTheme}" />
+  </Style>
+
+  <!-- Selection-unit specific hover visuals -->
+  <Style Selector="DataGrid[SelectionUnit=Cell] DataGridRow:pointerover:not(:selected):not(:searchmatch):not(:searchcurrent) /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=CellOrRowHeader] DataGridRow:pointerover:not(:selected):not(:searchmatch):not(:searchcurrent) /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=Cell] DataGridRow:selected:pointerover:not(:searchmatch):not(:searchcurrent) /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=Cell] DataGridRow:selected:pointerover:focus:not(:searchmatch):not(:searchcurrent) /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=CellOrRowHeader] DataGridRow:selected:pointerover:not(:searchmatch):not(:searchcurrent) /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=CellOrRowHeader] DataGridRow:selected:pointerover:focus:not(:searchmatch):not(:searchcurrent) /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="Transparent" />
+    <Setter Property="Opacity" Value="0" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=Cell] DataGridCell:pointerover:not(:cell-selected):not(:searchmatch):not(:searchcurrent)">
+    <Setter Property="Background" Value="{DynamicResource DataGridCellHoveredBackgroundBrush}" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=CellOrRowHeader] DataGridCell:pointerover:not(:cell-selected):not(:searchmatch):not(:searchcurrent)">
+    <Setter Property="Background" Value="{DynamicResource DataGridCellHoveredBackgroundBrush}" />
+  </Style>
+  <Style Selector="DataGrid[SelectionUnit=CellOrRowHeader] DataGridRowHeader:pointerover /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{DynamicResource DataGridRowHoveredBackgroundBrush}" />
+    <Setter Property="Opacity" Value="1" />
   </Style>
 
   <!-- Drag and Drop Styles -->
