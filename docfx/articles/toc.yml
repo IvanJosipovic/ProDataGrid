@@ -1,80 +1,98 @@
-- name: Introduction
-  href: intro.md
-- name: Getting Started
-  href: getting-started.md
-- name: Data Sources and Collection Views
-  href: data-sources-and-collection-views.md
-- name: High-Frequency Updates
-  href: high-frequency-updates.md
-- name: Hierarchical High-Frequency Updates
-  href: hierarchical-high-frequency-updates.md
-- name: DynamicData Streaming (SourceList)
-  href: dynamicdata-streaming-sourcelist.md
-- name: DynamicData Streaming (SourceCache)
-  href: dynamicdata-streaming-sourcecache.md
-- name: DynamicData Hierarchical (SourceList)
-  href: dynamicdata-hierarchical-streaming-sourcelist.md
-- name: DynamicData Hierarchical (SourceCache)
-  href: dynamicdata-hierarchical-streaming-sourcecache.md
-- name: Migration
-  href: migration.md
-- name: Keyboard Shortcuts
-  href: keyboard-shortcuts.md
+- name: Overview
+  items:
+  - name: Introduction
+    href: intro.md
+  - name: Getting Started
+    href: getting-started.md
+  - name: Migration
+    href: migration.md
+  - name: API Comparison (WPF)
+    href: api-comparison.md
+  - name: License
+    href: license.md
+- name: Data and Models
+  items:
+  - name: Data Sources and Collection Views
+    href: data-sources-and-collection-views.md
+  - name: Hierarchical Data
+    href: hierarchical-data.md
+  - name: Observable Root Collections
+    href: hierarchical-root-items.md
+  - name: Data Operations
+    href: data-operations.md
+  - name: Summaries and Aggregation
+    href: summaries.md
+- name: Real-Time Updates
+  items:
+  - name: High-Frequency Updates
+    href: high-frequency-updates.md
+  - name: Hierarchical High-Frequency Updates
+    href: hierarchical-high-frequency-updates.md
+  - name: DynamicData Streaming (SourceList)
+    href: dynamicdata-streaming-sourcelist.md
+  - name: DynamicData Streaming (SourceCache)
+    href: dynamicdata-streaming-sourcecache.md
+  - name: DynamicData Hierarchical (SourceList)
+    href: dynamicdata-hierarchical-streaming-sourcelist.md
+  - name: DynamicData Hierarchical (SourceCache)
+    href: dynamicdata-hierarchical-streaming-sourcecache.md
 - name: Columns and Editing
-  href: columns-and-editing.md
-- name: Editing Interaction Model
-  href: editing-interaction-model.md
-- name: Column Types Reference
-  href: column-types-reference.md
-- name: Validation and Errors
-  href: validation-and-errors.md
-- name: Conditional Formatting
-  href: conditional-formatting.md
-- name: Selection and Navigation
-  href: selection-and-navigation.md
-- name: Selection Highlighting
-  href: selection-highlighting.md
-- name: Drag (Slide) Selection
-  href: drag-selection.md
-- name: Range Interaction Model
-  href: range-interaction-model.md
-- name: Fill Handle and Auto Fill
-  href: fill-handle-and-autofill.md
-- name: Clipboard and Export
-  href: clipboard-and-export.md
-- name: Clipboard Import Model
-  href: clipboard-import-model.md
-- name: Data Operations
-  href: data-operations.md
-- name: Scrolling and Virtualization
-  href: scrolling-virtualization.md
-- name: Row Details and Templates
-  href: row-details-and-templates.md
-- name: Drag and Drop
-  href: drag-drop.md
-- name: Hierarchical Data
-  href: hierarchical-data.md
-- name: Observable Root Collections
-  href: hierarchical-root-items.md
-- name: State and Persistence
-  href: state-persistence.md
-- name: Summaries and Aggregation
-  href: summaries.md
-- name: Styling and Themes
-  href: styling-themes.md
-- name: Events and Routing
-  href: events-and-routing.md
-- name: Diagnostics and Tooling
-  href: diagnostics-and-tooling.md
-- name: Metrics and Activities
-  href: metrics-and-activities.md
-- name: ProDiagnostics
-  href: prodiagnostics.md
-- name: Sample Gallery
-  href: sample-gallery.md
-- name: API Comparison (WPF)
-  href: api-comparison.md
-- name: Integration Samples
-  href: integration-samples.md
-- name: License
-  href: license.md
+  items:
+  - name: Columns and Editing
+    href: columns-and-editing.md
+  - name: Column Types Reference
+    href: column-types-reference.md
+  - name: Editing Interaction Model
+    href: editing-interaction-model.md
+  - name: Validation and Errors
+    href: validation-and-errors.md
+  - name: Conditional Formatting
+    href: conditional-formatting.md
+- name: Selection and Ranges
+  items:
+  - name: Selection and Navigation
+    href: selection-and-navigation.md
+  - name: Selection Highlighting
+    href: selection-highlighting.md
+  - name: Drag (Slide) Selection
+    href: drag-selection.md
+  - name: Range Interaction Model
+    href: range-interaction-model.md
+  - name: Fill Handle and Auto Fill
+    href: fill-handle-and-autofill.md
+- name: Clipboard and Input
+  items:
+  - name: Clipboard and Export
+    href: clipboard-and-export.md
+  - name: Clipboard Import Model
+    href: clipboard-import-model.md
+  - name: Keyboard Shortcuts
+    href: keyboard-shortcuts.md
+- name: Layout and Behavior
+  items:
+  - name: Scrolling and Virtualization
+    href: scrolling-virtualization.md
+  - name: Row Details and Templates
+    href: row-details-and-templates.md
+  - name: Drag and Drop
+    href: drag-drop.md
+  - name: State and Persistence
+    href: state-persistence.md
+  - name: Styling and Themes
+    href: styling-themes.md
+  - name: Events and Routing
+    href: events-and-routing.md
+- name: Diagnostics
+  items:
+  - name: Diagnostics and Tooling
+    href: diagnostics-and-tooling.md
+  - name: Metrics and Activities
+    href: metrics-and-activities.md
+  - name: ProDiagnostics
+    href: prodiagnostics.md
+- name: Samples
+  items:
+  - name: Sample Gallery
+    href: sample-gallery.md
+  - name: Integration Samples
+    href: integration-samples.md
