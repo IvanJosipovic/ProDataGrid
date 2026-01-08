@@ -40,6 +40,60 @@ public class HierarchicalIntegrationTests
         public long Size { get; set; }
     }
 
+    private class WrapperItem
+    {
+        public WrapperItem(string name, string nestedName)
+        {
+            Name = name;
+            Item = new NestedItem(nestedName);
+            Children = new ObservableCollection<WrapperItem>();
+        }
+
+        public string Name { get; set; }
+
+        public NestedItem Item { get; set; }
+
+        public ObservableCollection<WrapperItem> Children { get; }
+    }
+
+    private class NestedItem
+    {
+        public NestedItem(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; set; }
+    }
+
+    private class IndexerItem
+    {
+        public IndexerItem(string name)
+        {
+            Name = name;
+            Children = new ObservableCollection<IndexerItem>();
+        }
+
+        public string Name { get; set; }
+
+        public ObservableCollection<IndexerItem> Children { get; }
+
+        public string this[int index] => Name;
+    }
+
+    private class ItemWithItemProperty
+    {
+        public ItemWithItemProperty(string name)
+        {
+            Name = name;
+            Item = new object();
+        }
+
+        public string Name { get; set; }
+
+        public object Item { get; set; }
+    }
+
     private class CustomCollection<T> : ObservableCollection<T>
     {
         public void ReplaceRange(int index, IList oldItems, IList newItems)
@@ -194,6 +248,72 @@ public class HierarchicalIntegrationTests
         {
             path.Add(i);
             if (TryBuildPath(current.Children[i], target, path))
+            {
+                return true;
+            }
+
+            path.RemoveAt(path.Count - 1);
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<int>? BuildWrapperPath(WrapperItem root, WrapperItem target)
+    {
+        var path = new List<int>();
+        if (!TryBuildWrapperPath(root, target, path))
+        {
+            return null;
+        }
+
+        path.Insert(0, 0);
+        return path;
+    }
+
+    private static bool TryBuildWrapperPath(WrapperItem current, WrapperItem target, List<int> path)
+    {
+        if (ReferenceEquals(current, target))
+        {
+            return true;
+        }
+
+        for (int i = 0; i < current.Children.Count; i++)
+        {
+            path.Add(i);
+            if (TryBuildWrapperPath(current.Children[i], target, path))
+            {
+                return true;
+            }
+
+            path.RemoveAt(path.Count - 1);
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<int>? BuildIndexerPath(IndexerItem root, IndexerItem target)
+    {
+        var path = new List<int>();
+        if (!TryBuildIndexerPath(root, target, path))
+        {
+            return null;
+        }
+
+        path.Insert(0, 0);
+        return path;
+    }
+
+    private static bool TryBuildIndexerPath(IndexerItem current, IndexerItem target, List<int> path)
+    {
+        if (ReferenceEquals(current, target))
+        {
+            return true;
+        }
+
+        for (int i = 0; i < current.Children.Count; i++)
+        {
+            path.Add(i);
+            if (TryBuildIndexerPath(current.Children[i], target, path))
             {
                 return true;
             }
@@ -421,6 +541,263 @@ public class HierarchicalIntegrationTests
 
         Assert.Equal("a", ((Item)model.GetItem(1)!).Name);
         Assert.Equal("b", ((Item)model.GetItem(2)!).Name);
+    }
+
+    [Fact]
+    public void HierarchicalSortingAdapter_Uses_Item_Prefixed_SortPath()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("b"));
+        root.Children.Add(new Item("a"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            ItemPathSelector = o => BuildPath(root, (Item)o)
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var sorting = new SortingModel();
+        var column = new DataGridTemplateColumn { SortMemberPath = "Item.Name" };
+        var adapter = new Avalonia.Controls.DataGridHierarchical.HierarchicalSortingAdapter(
+            model,
+            sorting,
+            () => new[] { column });
+
+        var view = new DataGridCollectionView(new List<Item> { root });
+        adapter.AttachView(view);
+
+        adapter.HandleHeaderClick(column, KeyModifiers.None);
+
+        Assert.Equal("a", ((Item)model.GetItem(1)!).Name);
+        Assert.Equal("b", ((Item)model.GetItem(2)!).Name);
+    }
+
+    [Fact]
+    public void HierarchicalSortingAdapter_Uses_Item_Prefix_When_Item_Property_Exists()
+    {
+        var root = new WrapperItem("root", "root");
+        root.Children.Add(new WrapperItem("b", "a"));
+        root.Children.Add(new WrapperItem("a", "b"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((WrapperItem)o).Children,
+            ItemPathSelector = o => BuildWrapperPath(root, (WrapperItem)o)
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var sorting = new SortingModel();
+        var column = new DataGridTemplateColumn { SortMemberPath = "Item.Name" };
+        var adapter = new Avalonia.Controls.DataGridHierarchical.HierarchicalSortingAdapter(
+            model,
+            sorting,
+            () => new[] { column });
+
+        var view = new DataGridCollectionView(new List<WrapperItem> { root });
+        adapter.AttachView(view);
+
+        adapter.HandleHeaderClick(column, KeyModifiers.None);
+
+        Assert.Equal("a", ((WrapperItem)model.GetItem(1)!).Item.Name);
+        Assert.Equal("b", ((WrapperItem)model.GetItem(2)!).Item.Name);
+    }
+
+    [Fact]
+    public void HierarchicalSortingAdapter_Falls_Back_When_Item_Is_Indexer()
+    {
+        var root = new IndexerItem("root");
+        root.Children.Add(new IndexerItem("b"));
+        root.Children.Add(new IndexerItem("a"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((IndexerItem)o).Children,
+            ItemPathSelector = o => BuildIndexerPath(root, (IndexerItem)o)
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var sorting = new SortingModel();
+        var column = new DataGridTemplateColumn { SortMemberPath = "Item.Name" };
+        var adapter = new Avalonia.Controls.DataGridHierarchical.HierarchicalSortingAdapter(
+            model,
+            sorting,
+            () => new[] { column });
+
+        var view = new DataGridCollectionView(new List<IndexerItem> { root });
+        adapter.AttachView(view);
+
+        adapter.HandleHeaderClick(column, KeyModifiers.None);
+
+        Assert.Equal("a", ((IndexerItem)model.GetItem(1)!).Name);
+        Assert.Equal("b", ((IndexerItem)model.GetItem(2)!).Name);
+    }
+
+    [Fact]
+    public void HierarchicalSortingAdapter_Strips_Item_Prefix_When_Item_Path_Is_Invalid()
+    {
+        var left = new ItemWithItemProperty("a");
+        var right = new ItemWithItemProperty("b");
+
+        var descriptor = new SortingDescriptor(new object(), ListSortDirection.Ascending, "Item.Name");
+        var comparer = HierarchicalSiblingComparerBuilder.Build(new[] { descriptor }, null);
+
+        Assert.NotNull(comparer);
+        Assert.True(comparer!.Compare(left, right) < 0);
+        Assert.True(comparer.Compare(right, left) > 0);
+    }
+
+    [Fact]
+    public void HierarchicalSiblingComparerBuilder_Trims_Item_Prefix_With_Whitespace()
+    {
+        var left = new Item("a");
+        var right = new Item("b");
+
+        var descriptor = new SortingDescriptor(new object(), ListSortDirection.Ascending, "  Item. Name  ");
+        var comparer = HierarchicalSiblingComparerBuilder.Build(new[] { descriptor }, null);
+
+        Assert.NotNull(comparer);
+        Assert.True(comparer!.Compare(left, right) < 0);
+        Assert.True(comparer.Compare(right, left) > 0);
+    }
+
+    [Fact]
+    public void HierarchicalSiblingComparerBuilder_Uses_Identity_For_Item_Prefix_Only()
+    {
+        var descriptor = new SortingDescriptor(new object(), ListSortDirection.Ascending, "Item. ");
+        var comparer = HierarchicalSiblingComparerBuilder.Build(new[] { descriptor }, null);
+
+        Assert.NotNull(comparer);
+        Assert.True(comparer!.Compare("a", "b") < 0);
+        Assert.True(comparer.Compare("b", "a") > 0);
+    }
+
+    [Fact]
+    public void HierarchicalSiblingComparerBuilder_Uses_Identity_For_Whitespace_Path()
+    {
+        var descriptor = new SortingDescriptor(new object(), ListSortDirection.Ascending, "   ");
+        var comparer = HierarchicalSiblingComparerBuilder.Build(new[] { descriptor }, null);
+
+        Assert.NotNull(comparer);
+        Assert.True(comparer!.Compare("a", "b") < 0);
+        Assert.True(comparer.Compare("b", "a") > 0);
+    }
+
+    [Fact]
+    public void HierarchicalRowsEnabled_RecreatesSortingAdapter()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("a"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            ItemPathSelector = o => BuildPath(root, (Item)o)
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+
+        var adapterField = typeof(DataGrid).GetField("_sortingAdapter", BindingFlags.Instance | BindingFlags.NonPublic);
+        var before = adapterField!.GetValue(grid);
+        Assert.IsType<DataGridSortingAdapter>(before);
+
+        grid.HierarchicalRowsEnabled = true;
+
+        var after = adapterField.GetValue(grid);
+        Assert.IsType<Avalonia.Controls.DataGridHierarchical.HierarchicalSortingAdapter>(after);
+    }
+
+    [Fact]
+    public void RecreateSortingAdapter_PreservesDescriptors_WhenViewSortsNotOwned()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("b"));
+        root.Children.Add(new Item("a"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            ItemPathSelector = o => BuildPath(root, (Item)o)
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+
+        var column = new DataGridTextColumn { SortMemberPath = "Name" };
+        grid.ColumnsInternal.Add(column);
+
+        grid.OwnsSortDescriptions = false;
+        grid.SortingModel.Apply(new[] { new SortingDescriptor(column, ListSortDirection.Ascending, "Name") });
+
+        Assert.NotNull(grid.DataConnection?.CollectionView);
+        Assert.Empty(grid.DataConnection!.CollectionView.SortDescriptions);
+        Assert.Single(grid.SortingModel.Descriptors);
+
+        var recreateMethod = typeof(DataGrid).GetMethod("RecreateSortingAdapter", BindingFlags.Instance | BindingFlags.NonPublic);
+        recreateMethod!.Invoke(grid, new object?[] { null, null });
+
+        Assert.Single(grid.SortingModel.Descriptors);
+        Assert.Equal("Name", grid.SortingModel.Descriptors[0].PropertyPath);
+    }
+
+    [Fact]
+    public void HierarchicalModelChange_PreservesDescriptors_WhenViewSortsNotOwned()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("b"));
+        root.Children.Add(new Item("a"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            ItemPathSelector = o => BuildPath(root, (Item)o)
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+
+        var column = new DataGridTextColumn { SortMemberPath = "Name" };
+        grid.ColumnsInternal.Add(column);
+
+        grid.OwnsSortDescriptions = false;
+        grid.SortingModel.Apply(new[] { new SortingDescriptor(column, ListSortDirection.Ascending, "Name") });
+
+        var replacement = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            ItemPathSelector = o => BuildPath(root, (Item)o)
+        });
+        replacement.SetRoot(root);
+        replacement.Expand(replacement.Root!);
+
+        grid.HierarchicalModel = replacement;
+
+        Assert.Single(grid.SortingModel.Descriptors);
+        Assert.Equal("Name", grid.SortingModel.Descriptors[0].PropertyPath);
     }
 
     [Fact]

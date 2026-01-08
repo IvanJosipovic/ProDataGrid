@@ -32,7 +32,7 @@
       <TextBlock Classes="h2"
                  Text="Hierarchical templated cells" />
       <TextBlock TextWrapping="Wrap"
-                 Text="The first column uses Fluent icons inside a templated hierarchical cell. Expand or collapse nodes to verify icons remain aligned even as rows are virtualized and recycled." />
+                 Text="The first column uses Fluent icons inside a templated hierarchical cell. Expand or collapse nodes to verify icons remain aligned even as rows are virtualized and recycled. Click Name or Icon Key to sort templated columns." />
     </StackPanel>
 
     <StackPanel Grid.Row="1"
@@ -76,6 +76,7 @@
         </DataGridHierarchicalColumn>
 
         <DataGridTemplateColumn Header="Name"
+                                SortMemberPath="Item.Name"
                                 Width="*"
                                 x:CompileBindings="False">
           <DataGridTemplateColumn.CellTemplate>
@@ -86,6 +87,7 @@
         </DataGridTemplateColumn>
 
         <DataGridTemplateColumn Header="Icon Key"
+                                SortMemberPath="Item.IconKey"
                                 Width="120"
                                 x:CompileBindings="False">
           <DataGridTemplateColumn.CellTemplate>

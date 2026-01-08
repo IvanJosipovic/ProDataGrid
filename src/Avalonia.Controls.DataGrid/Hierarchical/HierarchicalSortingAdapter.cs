@@ -158,6 +158,20 @@ namespace Avalonia.Controls.DataGridHierarchical
                     return Identity;
                 }
 
+                propertyPath = propertyPath.Trim();
+                const string itemPrefix = "Item.";
+                string[]? fallbackParts = null;
+                if (propertyPath.StartsWith(itemPrefix, StringComparison.Ordinal))
+                {
+                    var strippedPath = propertyPath.Substring(itemPrefix.Length);
+                    if (string.IsNullOrWhiteSpace(strippedPath))
+                    {
+                        return Identity;
+                    }
+
+                    fallbackParts = strippedPath.Split('.');
+                }
+
                 var parts = propertyPath.Split('.');
                 var cache = new Dictionary<Type, PropertyInfo[]>();
 
@@ -171,28 +185,11 @@ namespace Avalonia.Controls.DataGridHierarchical
                     var type = target.GetType();
                     if (!cache.TryGetValue(type, out var properties))
                     {
-                        properties = new PropertyInfo[parts.Length];
-                        var currentType = type;
-
-                        for (int i = 0; i < parts.Length; i++)
+                        properties = ResolveParts(type, parts)
+                            ?? (fallbackParts != null ? ResolveParts(type, fallbackParts) : null);
+                        if (properties == null)
                         {
-                            var part = parts[i].Trim();
-                            if (string.IsNullOrEmpty(part))
-                            {
-                                return null;
-                            }
-
-                            var property = currentType.GetProperty(
-                                part,
-                                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-
-                            if (property == null)
-                            {
-                                return null;
-                            }
-
-                            properties[i] = property;
-                            currentType = property.PropertyType;
+                            return null;
                         }
 
                         cache[type] = properties;
@@ -211,6 +208,43 @@ namespace Avalonia.Controls.DataGridHierarchical
 
                     return current;
                 });
+            }
+
+            private static PropertyInfo[]? ResolveParts(Type targetType, string[] parts)
+            {
+                var properties = new PropertyInfo[parts.Length];
+                var currentType = targetType;
+
+                for (int i = 0; i < parts.Length; i++)
+                {
+                    var part = parts[i].Trim();
+                    if (string.IsNullOrEmpty(part))
+                    {
+                        return null;
+                    }
+
+                    var property = GetProperty(currentType, part);
+                    if (property == null)
+                    {
+                        return null;
+                    }
+
+                    properties[i] = property;
+                    currentType = property.PropertyType;
+                }
+
+                return properties;
+            }
+
+            private static PropertyInfo? GetProperty(Type targetType, string name)
+            {
+                return targetType.GetProperty(
+                    name,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                    binder: null,
+                    returnType: null,
+                    types: Type.EmptyTypes,
+                    modifiers: null);
             }
         }
     }

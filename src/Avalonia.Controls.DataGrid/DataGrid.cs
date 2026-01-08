@@ -1960,6 +1960,9 @@ internal
                     DetachHierarchicalItemsSource();
                 }
                 UpdateSelectionProxy();
+                var descriptorSnapshot = _sortingModel?.Descriptors?.ToList();
+                var ownsViewSorts = _sortingModel?.OwnsViewSorts ?? true;
+                RecreateSortingAdapter(descriptorSnapshot, ownsViewSorts);
             }
         }
 
@@ -3255,6 +3258,32 @@ internal
             RefreshColumnSortStates();
         }
 
+        private void RecreateSortingAdapter(
+            IReadOnlyList<SortingDescriptor>? descriptorSnapshot = null,
+            bool? ownsViewSortsOverride = null)
+        {
+            if (_sortingModel == null)
+            {
+                return;
+            }
+
+            descriptorSnapshot ??= _sortingModel.Descriptors?.ToList();
+            var ownsViewSorts = ownsViewSortsOverride ?? _sortingModel.OwnsViewSorts;
+
+            _sortingAdapter?.Dispose();
+            _sortingAdapter = CreateSortingAdapter(_sortingModel);
+            UpdateSortingAdapterView();
+
+            var usesHierarchicalAdapter = _sortingAdapter is Avalonia.Controls.DataGridHierarchical.HierarchicalSortingAdapter;
+            if (!ownsViewSorts &&
+                usesHierarchicalAdapter &&
+                descriptorSnapshot is { Count: > 0 } &&
+                _sortingModel.Descriptors.Count == 0)
+            {
+                _sortingModel.Apply(descriptorSnapshot);
+            }
+        }
+
         private void UpdateFilteringAdapterView()
         {
             _filteringAdapter?.AttachView(DataConnection?.CollectionView);
@@ -3819,8 +3848,12 @@ internal
                 _hierarchicalAdapter = CreateHierarchicalAdapter(_hierarchicalModel);
             }
 
+            var descriptorSnapshot = _sortingModel?.Descriptors?.ToList();
+            var ownsViewSorts = _sortingModel?.OwnsViewSorts ?? true;
+
             EnsureHierarchicalItemsSource();
             UpdateSelectionProxy();
+            RecreateSortingAdapter(descriptorSnapshot, ownsViewSorts);
             RaisePropertyChanged(HierarchicalModelProperty, oldModel, _hierarchicalModel);
         }
 

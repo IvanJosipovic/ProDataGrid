@@ -54,6 +54,61 @@ public class HierarchicalHeadlessTests
     }
 
     [AvaloniaFact]
+    public void Header_Click_Sorts_Templated_Columns_With_Item_Prefix()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("b"));
+        root.Children.Add(new Item("a"));
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = o => ((Item)o).Children,
+            AutoExpandRoot = true,
+            MaxAutoExpandDepth = 1,
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            CanUserSortColumns = true,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            ItemsSource = model.ObservableFlattened
+        };
+
+        grid.ColumnsInternal.Add(new DataGridTemplateColumn
+        {
+            Header = "Name",
+            SortMemberPath = "Item.Name",
+            CellTemplate = new FuncDataTemplate<HierarchicalNode>((_, _) => new TextBlock
+            {
+                [!TextBlock.TextProperty] = new Binding("Item.Name")
+            })
+        });
+
+        var window = new Window
+        {
+            Width = 400,
+            Height = 300
+        };
+
+        window.SetThemeStyles();
+        window.Content = grid;
+        window.Show();
+        PumpLayout(grid);
+
+        ClickHeader(grid, "Name");
+        grid.UpdateLayout();
+
+        Assert.Equal(new[] { "a", "b" }, GetRowOrder(grid));
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Alt_SubtreeToggle_Expands_All_Nodes()
     {
         var root = new Item("root");
