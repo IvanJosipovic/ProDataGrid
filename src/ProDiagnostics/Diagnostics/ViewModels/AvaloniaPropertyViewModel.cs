@@ -43,6 +43,16 @@ namespace Avalonia.Diagnostics.ViewModels
             {
                 try
                 {
+                    if (ReferenceEquals(value, BindingOperations.DoNothing))
+                    {
+                        return;
+                    }
+
+                    if (!Property.IsValidValue(value))
+                    {
+                        return;
+                    }
+
                     _target.SetValue(Property, value);
                     Update();
                 }

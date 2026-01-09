@@ -24,6 +24,7 @@ internal
     class DataGridTemplateColumn : DataGridColumn
     {
         private IDataTemplate _cellTemplate;
+        private bool _reuseCellContent;
 
         public static readonly DirectProperty<DataGridTemplateColumn, IDataTemplate> CellTemplateProperty =
             AvaloniaProperty.RegisterDirect<DataGridTemplateColumn, IDataTemplate>(
@@ -37,6 +38,26 @@ internal
         {
             get { return _cellTemplate; }
             set { SetAndRaise(CellTemplateProperty, ref _cellTemplate, value); }
+        }
+
+        /// <summary>
+        /// Gets or sets whether existing cell content can be reused for recycled rows when the
+        /// template does not support <see cref="IRecyclingDataTemplate"/>.
+        /// </summary>
+        public static readonly DirectProperty<DataGridTemplateColumn, bool> ReuseCellContentProperty =
+            AvaloniaProperty.RegisterDirect<DataGridTemplateColumn, bool>(
+                nameof(ReuseCellContent),
+                o => o.ReuseCellContent,
+                (o, v) => o.ReuseCellContent = v);
+
+        /// <summary>
+        /// When enabled, the column will keep the existing cell content control for recycled rows
+        /// instead of rebuilding the template, as long as the template is not a recycling template.
+        /// </summary>
+        public bool ReuseCellContent
+        {
+            get => _reuseCellContent;
+            set => SetAndRaise(ReuseCellContentProperty, ref _reuseCellContent, value);
         }
 
         private IDataTemplate _newRowCellTemplate;
@@ -131,6 +152,13 @@ internal
                     _forceGenerateCellFromTemplate = false;
                     return CellTemplate.Build(dataItem);
                 }
+
+                if (ReuseCellContent &&
+                    recycledContent != null &&
+                    CellTemplate is not IRecyclingDataTemplate)
+                {
+                    return recycledContent;
+                }
                 return (CellTemplate is IRecyclingDataTemplate recyclingDataTemplate)
                     ? recyclingDataTemplate.Build(dataItem, recycledContent)
                     : CellTemplate.Build(dataItem);
@@ -176,6 +204,7 @@ internal
             var cell = element?.Parent as DataGridCell;
             if(cell is not null && (propertyName == nameof(CellTemplate) || propertyName == nameof(NewRowCellTemplate)))
             {
+                _forceGenerateCellFromTemplate = true;
                 cell.Content = GenerateElement(cell, cell.DataContext);
             }
 

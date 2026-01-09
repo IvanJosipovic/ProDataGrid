@@ -15,22 +15,11 @@ namespace Avalonia.Diagnostics.Controls
     {
         private readonly EventHandler<RoutedEventArgs> clearHandler;
         private Button? _clearButton = default;
-        private readonly ColorView _colorView = new()
-        {
-            HexInputAlphaPosition = AlphaComponentPosition.Leading, // Always match XAML
-        };
+        private ColorView? _colorView;
+        private Flyout? _flyout;
 
         public BrushEditor()
         {
-            FlyoutBase.SetAttachedFlyout(this, new Flyout { Content = _colorView });
-            _colorView.ColorChanged += (_, e) =>
-            {
-                // Avoid unnecessary value setters by checking if color was actually changed.
-                if (Brush is null || Brush is not ISolidColorBrush oldSolidBrush || oldSolidBrush.Color != e.NewColor)
-                {
-                    Brush = new ImmutableSolidColorBrush(e.NewColor);
-                }
-            };
             clearHandler = (s, e) => Brush = default;
         }
 
@@ -73,7 +62,10 @@ namespace Avalonia.Diagnostics.Controls
             {
                 if (Brush is ISolidColorBrush scb)
                 {
-                    _colorView.Color = scb.Color;
+                    if (_colorView != null)
+                    {
+                        _colorView.Color = scb.Color;
+                    }
                 }
                 ToolTip.SetTip(this, Brush?.GetType().Name ?? "(null)");
                 InvalidateVisual();
@@ -84,6 +76,7 @@ namespace Avalonia.Diagnostics.Controls
         {
             base.OnPointerPressed(e);
 
+            EnsureColorView();
             FlyoutBase.ShowAttachedFlyout(this);
         }
 
@@ -123,6 +116,37 @@ namespace Avalonia.Diagnostics.Controls
                 return l < 0.5 ? Brushes.White : Brushes.Black;
             }
             return Brushes.White;
+        }
+
+        private void EnsureColorView()
+        {
+            if (_colorView != null)
+            {
+                return;
+            }
+
+            _colorView = new ColorView
+            {
+                HexInputAlphaPosition = AlphaComponentPosition.Leading, // Always match XAML
+            };
+
+            _colorView.ColorChanged += (_, e) =>
+            {
+                // Avoid unnecessary value setters by checking if color was actually changed.
+                if (Brush is null || Brush is not ISolidColorBrush oldSolidBrush || oldSolidBrush.Color != e.NewColor)
+                {
+                    Brush = new ImmutableSolidColorBrush(e.NewColor);
+                }
+            };
+
+            if (Brush is ISolidColorBrush scb)
+            {
+                _colorView.Color = scb.Color;
+            }
+
+            _flyout ??= new Flyout();
+            _flyout.Content = _colorView;
+            FlyoutBase.SetAttachedFlyout(this, _flyout);
         }
     }
 }

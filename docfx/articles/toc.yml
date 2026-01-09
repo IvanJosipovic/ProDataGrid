@@ -72,6 +72,8 @@
   items:
   - name: Scrolling and Virtualization
     href: scrolling-virtualization.md
+  - name: Cell Template Reuse
+    href: cell-template-reuse.md
   - name: Row Details and Templates
     href: row-details-and-templates.md
   - name: Drag and Drop

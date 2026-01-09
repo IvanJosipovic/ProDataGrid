@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Reflection;
+using Avalonia.Data;
 
 namespace Avalonia.Diagnostics.ViewModels
 {
@@ -50,6 +51,11 @@ namespace Avalonia.Diagnostics.ViewModels
             {
                 try
                 {
+                    if (ReferenceEquals(value, BindingOperations.DoNothing) || !Property.CanWrite)
+                    {
+                        return;
+                    }
+
                     Property.SetValue(_target, value);
                     Update();
                 }
