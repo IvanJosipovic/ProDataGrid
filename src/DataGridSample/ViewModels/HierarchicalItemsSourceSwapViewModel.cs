@@ -66,7 +66,7 @@ namespace DataGridSample.ViewModels
         private void UseModel(HierarchicalModel<TreeNode> model, string label)
         {
             Model = model;
-            ItemsSource = model.ObservableFlattened;
+            ItemsSource = ((HierarchicalModel)model).ObservableFlattened;
             ActiveModel = label;
             UpdateStatus();
         }

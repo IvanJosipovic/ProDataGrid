@@ -119,7 +119,8 @@
               <DataTemplate x:DataType="hier:HierarchicalNode">
                 <TextBlock x:DataType="viewModels:SelectionModelItemSelectionViewModel+TreeItem"
                            DataContext="{Binding Item}"
-                           Text="{Binding Name}" />
+                           Text="{Binding Name}"
+                           x:CompileBindings="False" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

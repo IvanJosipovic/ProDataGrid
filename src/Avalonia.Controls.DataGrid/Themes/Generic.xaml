@@ -151,7 +151,8 @@
         <Setter Property="Template">
           <ControlTemplate TargetType="DataValidationErrors">
             <DockPanel LastChildFill="True">
-              <ContentControl Content="{Binding (DataValidationErrors.Errors)}"
+              <ContentControl x:DataType="Control"
+                              Content="{Binding (DataValidationErrors.Errors)}"
                               ContentTemplate="{TemplateBinding ErrorTemplate}"
                               DataContext="{TemplateBinding Owner}"
                               DockPanel.Dock="Right"
@@ -170,7 +171,7 @@
           </ControlTemplate>
         </Setter>
         <Setter Property="ErrorTemplate">
-          <DataTemplate>
+          <DataTemplate x:DataType="x:Object">
             <Panel Name="PART_InlineErrorTemplatePanel"
                    Background="Transparent">
               <Panel.Styles>
@@ -204,7 +205,8 @@
         <Setter Property="Template">
           <ControlTemplate TargetType="DataValidationErrors">
             <DockPanel LastChildFill="True">
-              <ContentControl Content="{Binding (DataValidationErrors.Errors)}"
+              <ContentControl x:DataType="Control"
+                              Content="{Binding (DataValidationErrors.Errors)}"
                               ContentTemplate="{TemplateBinding ErrorTemplate}"
                               DataContext="{TemplateBinding Owner}"
                               DockPanel.Dock="Right"
@@ -223,7 +225,7 @@
           </ControlTemplate>
         </Setter>
         <Setter Property="ErrorTemplate">
-          <DataTemplate>
+          <DataTemplate x:DataType="x:Object">
             <Panel Name="PART_InlineErrorTemplatePanel"
                    Background="Transparent">
               <Panel.Styles>
@@ -257,7 +259,8 @@
         <Setter Property="Template">
           <ControlTemplate TargetType="DataValidationErrors">
             <DockPanel LastChildFill="True">
-              <ContentControl Content="{Binding (DataValidationErrors.Errors)}"
+              <ContentControl x:DataType="Control"
+                              Content="{Binding (DataValidationErrors.Errors)}"
                               ContentTemplate="{TemplateBinding ErrorTemplate}"
                               DataContext="{TemplateBinding Owner}"
                               DockPanel.Dock="Right"
@@ -276,7 +279,7 @@
           </ControlTemplate>
         </Setter>
         <Setter Property="ErrorTemplate">
-          <DataTemplate>
+          <DataTemplate x:DataType="x:Object">
             <Panel Name="PART_InlineErrorTemplatePanel"
                    Background="Transparent">
               <Panel.Styles>
@@ -508,7 +511,8 @@
       </ControlTheme>
 
       <!-- DataGridHierarchicalCellTemplate -->
-      <DataTemplate x:Key="DataGridHierarchicalCellTemplate">
+      <DataTemplate x:Key="DataGridHierarchicalCellTemplate"
+                    x:DataType="x:Object">
         <TextBlock Theme="{StaticResource DataGridCellTextBlockTheme}"
                    VerticalAlignment="Center"
                    Text="{Binding}" />

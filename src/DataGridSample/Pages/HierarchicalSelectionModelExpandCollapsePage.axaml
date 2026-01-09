@@ -111,7 +111,8 @@
               <DataTemplate x:DataType="hier:HierarchicalNode">
                 <TextBlock x:DataType="viewModels:HierarchicalSelectionModelExpandCollapseViewModel+TreeItem"
                            DataContext="{Binding Item}"
-                           Text="{Binding Name}" />
+                           Text="{Binding Name}"
+                           x:CompileBindings="False" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

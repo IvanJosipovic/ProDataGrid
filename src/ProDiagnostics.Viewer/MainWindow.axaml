@@ -193,7 +193,7 @@
                                                          MinLineBrush="{StaticResource ThresholdMinBrush}"
                                                          MaxLineBrush="{StaticResource ThresholdMaxBrush}"
                                                          AverageLineBrush="{StaticResource ThresholdAvgBrush}"
-                                                         TimeRange="{Binding DataContext.SelectedSession.TrendRange, ElementName=Root}"
+                                                         TimeRange="{Binding ((vm:MainViewModel)DataContext).SelectedSession.TrendRange, ElementName=Root}"
                                                          EnablePan="True"
                                                          EnableWheelZoom="True" />
                             </Border>
