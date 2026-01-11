@@ -68,33 +68,142 @@ namespace Avalonia.Controls
 
             if (column is DataGridImageColumn imageColumn)
             {
-                imageColumn.Watermark = Watermark;
+                if (Watermark != null)
+                {
+                    imageColumn.Watermark = Watermark;
+                }
+                else
+                {
+                    imageColumn.ClearValue(DataGridImageColumn.WatermarkProperty);
+                }
 
                 if (ImageWidth.HasValue)
                 {
                     imageColumn.ImageWidth = ImageWidth.Value;
+                }
+                else
+                {
+                    imageColumn.ClearValue(DataGridImageColumn.ImageWidthProperty);
                 }
 
                 if (ImageHeight.HasValue)
                 {
                     imageColumn.ImageHeight = ImageHeight.Value;
                 }
+                else
+                {
+                    imageColumn.ClearValue(DataGridImageColumn.ImageHeightProperty);
+                }
 
                 if (Stretch.HasValue)
                 {
                     imageColumn.Stretch = Stretch.Value;
+                }
+                else
+                {
+                    imageColumn.ClearValue(DataGridImageColumn.StretchProperty);
                 }
 
                 if (StretchDirection.HasValue)
                 {
                     imageColumn.StretchDirection = StretchDirection.Value;
                 }
+                else
+                {
+                    imageColumn.ClearValue(DataGridImageColumn.StretchDirectionProperty);
+                }
 
                 if (AllowEditing.HasValue)
                 {
                     imageColumn.AllowEditing = AllowEditing.Value;
                 }
+                else
+                {
+                    imageColumn.ClearValue(DataGridImageColumn.AllowEditingProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridImageColumn imageColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(Watermark):
+                    if (Watermark != null)
+                    {
+                        imageColumn.Watermark = Watermark;
+                    }
+                    else
+                    {
+                        imageColumn.ClearValue(DataGridImageColumn.WatermarkProperty);
+                    }
+                    return true;
+                case nameof(ImageWidth):
+                    if (ImageWidth.HasValue)
+                    {
+                        imageColumn.ImageWidth = ImageWidth.Value;
+                    }
+                    else
+                    {
+                        imageColumn.ClearValue(DataGridImageColumn.ImageWidthProperty);
+                    }
+                    return true;
+                case nameof(ImageHeight):
+                    if (ImageHeight.HasValue)
+                    {
+                        imageColumn.ImageHeight = ImageHeight.Value;
+                    }
+                    else
+                    {
+                        imageColumn.ClearValue(DataGridImageColumn.ImageHeightProperty);
+                    }
+                    return true;
+                case nameof(Stretch):
+                    if (Stretch.HasValue)
+                    {
+                        imageColumn.Stretch = Stretch.Value;
+                    }
+                    else
+                    {
+                        imageColumn.ClearValue(DataGridImageColumn.StretchProperty);
+                    }
+                    return true;
+                case nameof(StretchDirection):
+                    if (StretchDirection.HasValue)
+                    {
+                        imageColumn.StretchDirection = StretchDirection.Value;
+                    }
+                    else
+                    {
+                        imageColumn.ClearValue(DataGridImageColumn.StretchDirectionProperty);
+                    }
+                    return true;
+                case nameof(AllowEditing):
+                    if (AllowEditing.HasValue)
+                    {
+                        imageColumn.AllowEditing = AllowEditing.Value;
+                    }
+                    else
+                    {
+                        imageColumn.ClearValue(DataGridImageColumn.AllowEditingProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

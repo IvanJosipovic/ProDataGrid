@@ -89,48 +89,199 @@ namespace Avalonia.Controls
 
             if (column is DataGridSliderColumn sliderColumn)
             {
-                sliderColumn.ValueTextFormat = ValueTextFormat;
+                if (ValueTextFormat != null)
+                {
+                    sliderColumn.ValueTextFormat = ValueTextFormat;
+                }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.ValueTextFormatProperty);
+                }
 
                 if (Minimum.HasValue)
                 {
                     sliderColumn.Minimum = Minimum.Value;
+                }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.MinimumProperty);
                 }
 
                 if (Maximum.HasValue)
                 {
                     sliderColumn.Maximum = Maximum.Value;
                 }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.MaximumProperty);
+                }
 
                 if (SmallChange.HasValue)
                 {
                     sliderColumn.SmallChange = SmallChange.Value;
+                }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.SmallChangeProperty);
                 }
 
                 if (LargeChange.HasValue)
                 {
                     sliderColumn.LargeChange = LargeChange.Value;
                 }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.LargeChangeProperty);
+                }
 
                 if (TickFrequency.HasValue)
                 {
                     sliderColumn.TickFrequency = TickFrequency.Value;
+                }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.TickFrequencyProperty);
                 }
 
                 if (IsSnapToTickEnabled.HasValue)
                 {
                     sliderColumn.IsSnapToTickEnabled = IsSnapToTickEnabled.Value;
                 }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.IsSnapToTickEnabledProperty);
+                }
 
                 if (TickPlacement.HasValue)
                 {
                     sliderColumn.TickPlacement = TickPlacement.Value;
+                }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.TickPlacementProperty);
                 }
 
                 if (ShowValueText.HasValue)
                 {
                     sliderColumn.ShowValueText = ShowValueText.Value;
                 }
+                else
+                {
+                    sliderColumn.ClearValue(DataGridSliderColumn.ShowValueTextProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridSliderColumn sliderColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(ValueTextFormat):
+                    if (ValueTextFormat != null)
+                    {
+                        sliderColumn.ValueTextFormat = ValueTextFormat;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.ValueTextFormatProperty);
+                    }
+                    return true;
+                case nameof(Minimum):
+                    if (Minimum.HasValue)
+                    {
+                        sliderColumn.Minimum = Minimum.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.MinimumProperty);
+                    }
+                    return true;
+                case nameof(Maximum):
+                    if (Maximum.HasValue)
+                    {
+                        sliderColumn.Maximum = Maximum.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.MaximumProperty);
+                    }
+                    return true;
+                case nameof(SmallChange):
+                    if (SmallChange.HasValue)
+                    {
+                        sliderColumn.SmallChange = SmallChange.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.SmallChangeProperty);
+                    }
+                    return true;
+                case nameof(LargeChange):
+                    if (LargeChange.HasValue)
+                    {
+                        sliderColumn.LargeChange = LargeChange.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.LargeChangeProperty);
+                    }
+                    return true;
+                case nameof(TickFrequency):
+                    if (TickFrequency.HasValue)
+                    {
+                        sliderColumn.TickFrequency = TickFrequency.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.TickFrequencyProperty);
+                    }
+                    return true;
+                case nameof(IsSnapToTickEnabled):
+                    if (IsSnapToTickEnabled.HasValue)
+                    {
+                        sliderColumn.IsSnapToTickEnabled = IsSnapToTickEnabled.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.IsSnapToTickEnabledProperty);
+                    }
+                    return true;
+                case nameof(TickPlacement):
+                    if (TickPlacement.HasValue)
+                    {
+                        sliderColumn.TickPlacement = TickPlacement.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.TickPlacementProperty);
+                    }
+                    return true;
+                case nameof(ShowValueText):
+                    if (ShowValueText.HasValue)
+                    {
+                        sliderColumn.ShowValueText = ShowValueText.Value;
+                    }
+                    else
+                    {
+                        sliderColumn.ClearValue(DataGridSliderColumn.ShowValueTextProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

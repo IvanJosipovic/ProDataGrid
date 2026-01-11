@@ -100,43 +100,190 @@ namespace Avalonia.Controls
                     dateColumn.ClearValue(DataGridDatePickerColumn.CustomDateFormatStringProperty);
                 }
 
-                dateColumn.Watermark = Watermark;
+                if (Watermark != null)
+                {
+                    dateColumn.Watermark = Watermark;
+                }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.WatermarkProperty);
+                }
 
                 if (DisplayDateStart.HasValue)
                 {
                     dateColumn.DisplayDateStart = DisplayDateStart.Value;
+                }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.DisplayDateStartProperty);
                 }
 
                 if (DisplayDateEnd.HasValue)
                 {
                     dateColumn.DisplayDateEnd = DisplayDateEnd.Value;
                 }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.DisplayDateEndProperty);
+                }
 
                 if (FirstDayOfWeek.HasValue)
                 {
                     dateColumn.FirstDayOfWeek = FirstDayOfWeek.Value;
+                }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.FirstDayOfWeekProperty);
                 }
 
                 if (IsTodayHighlighted.HasValue)
                 {
                     dateColumn.IsTodayHighlighted = IsTodayHighlighted.Value;
                 }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.IsTodayHighlightedProperty);
+                }
 
                 if (SelectedDateFormat.HasValue)
                 {
                     dateColumn.SelectedDateFormat = SelectedDateFormat.Value;
+                }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.SelectedDateFormatProperty);
                 }
 
                 if (HorizontalContentAlignment.HasValue)
                 {
                     dateColumn.HorizontalContentAlignment = HorizontalContentAlignment.Value;
                 }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.HorizontalContentAlignmentProperty);
+                }
 
                 if (VerticalContentAlignment.HasValue)
                 {
                     dateColumn.VerticalContentAlignment = VerticalContentAlignment.Value;
                 }
+                else
+                {
+                    dateColumn.ClearValue(DataGridDatePickerColumn.VerticalContentAlignmentProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridDatePickerColumn dateColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(CustomDateFormatString):
+                    if (!string.IsNullOrEmpty(CustomDateFormatString))
+                    {
+                        dateColumn.CustomDateFormatString = CustomDateFormatString;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.CustomDateFormatStringProperty);
+                    }
+                    return true;
+                case nameof(Watermark):
+                    if (Watermark != null)
+                    {
+                        dateColumn.Watermark = Watermark;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.WatermarkProperty);
+                    }
+                    return true;
+                case nameof(DisplayDateStart):
+                    if (DisplayDateStart.HasValue)
+                    {
+                        dateColumn.DisplayDateStart = DisplayDateStart.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.DisplayDateStartProperty);
+                    }
+                    return true;
+                case nameof(DisplayDateEnd):
+                    if (DisplayDateEnd.HasValue)
+                    {
+                        dateColumn.DisplayDateEnd = DisplayDateEnd.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.DisplayDateEndProperty);
+                    }
+                    return true;
+                case nameof(FirstDayOfWeek):
+                    if (FirstDayOfWeek.HasValue)
+                    {
+                        dateColumn.FirstDayOfWeek = FirstDayOfWeek.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.FirstDayOfWeekProperty);
+                    }
+                    return true;
+                case nameof(IsTodayHighlighted):
+                    if (IsTodayHighlighted.HasValue)
+                    {
+                        dateColumn.IsTodayHighlighted = IsTodayHighlighted.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.IsTodayHighlightedProperty);
+                    }
+                    return true;
+                case nameof(SelectedDateFormat):
+                    if (SelectedDateFormat.HasValue)
+                    {
+                        dateColumn.SelectedDateFormat = SelectedDateFormat.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.SelectedDateFormatProperty);
+                    }
+                    return true;
+                case nameof(HorizontalContentAlignment):
+                    if (HorizontalContentAlignment.HasValue)
+                    {
+                        dateColumn.HorizontalContentAlignment = HorizontalContentAlignment.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.HorizontalContentAlignmentProperty);
+                    }
+                    return true;
+                case nameof(VerticalContentAlignment):
+                    if (VerticalContentAlignment.HasValue)
+                    {
+                        dateColumn.VerticalContentAlignment = VerticalContentAlignment.Value;
+                    }
+                    else
+                    {
+                        dateColumn.ClearValue(DataGridDatePickerColumn.VerticalContentAlignmentProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

@@ -45,10 +45,71 @@ namespace Avalonia.Controls
 
             if (column is DataGridHyperlinkColumn hyperlinkColumn)
             {
-                hyperlinkColumn.TargetName = TargetName;
-                hyperlinkColumn.Watermark = Watermark;
+                if (TargetName != null)
+                {
+                    hyperlinkColumn.TargetName = TargetName;
+                }
+                else
+                {
+                    hyperlinkColumn.ClearValue(DataGridHyperlinkColumn.TargetNameProperty);
+                }
+
+                if (Watermark != null)
+                {
+                    hyperlinkColumn.Watermark = Watermark;
+                }
+                else
+                {
+                    hyperlinkColumn.ClearValue(DataGridHyperlinkColumn.WatermarkProperty);
+                }
+
                 hyperlinkColumn.ContentBinding = ContentBinding?.CreateBinding();
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridHyperlinkColumn hyperlinkColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(TargetName):
+                    if (TargetName != null)
+                    {
+                        hyperlinkColumn.TargetName = TargetName;
+                    }
+                    else
+                    {
+                        hyperlinkColumn.ClearValue(DataGridHyperlinkColumn.TargetNameProperty);
+                    }
+                    return true;
+                case nameof(Watermark):
+                    if (Watermark != null)
+                    {
+                        hyperlinkColumn.Watermark = Watermark;
+                    }
+                    else
+                    {
+                        hyperlinkColumn.ClearValue(DataGridHyperlinkColumn.WatermarkProperty);
+                    }
+                    return true;
+                case nameof(ContentBinding):
+                    hyperlinkColumn.ContentBinding = ContentBinding?.CreateBinding();
+                    return true;
+            }
+
+            return false;
         }
     }
 }

@@ -61,20 +61,123 @@ namespace Avalonia.Controls
 
             if (column is DataGridToggleButtonColumn toggleColumn)
             {
-                toggleColumn.Content = Content;
-                toggleColumn.CheckedContent = CheckedContent;
-                toggleColumn.UncheckedContent = UncheckedContent;
+                if (Content != null)
+                {
+                    toggleColumn.Content = Content;
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleButtonColumn.ContentProperty);
+                }
+
+                if (CheckedContent != null)
+                {
+                    toggleColumn.CheckedContent = CheckedContent;
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleButtonColumn.CheckedContentProperty);
+                }
+
+                if (UncheckedContent != null)
+                {
+                    toggleColumn.UncheckedContent = UncheckedContent;
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleButtonColumn.UncheckedContentProperty);
+                }
 
                 if (IsThreeState.HasValue)
                 {
                     toggleColumn.IsThreeState = IsThreeState.Value;
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleButtonColumn.IsThreeStateProperty);
                 }
 
                 if (ClickMode.HasValue)
                 {
                     toggleColumn.ClickMode = ClickMode.Value;
                 }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleButtonColumn.ClickModeProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridToggleButtonColumn toggleColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(Content):
+                    if (Content != null)
+                    {
+                        toggleColumn.Content = Content;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleButtonColumn.ContentProperty);
+                    }
+                    return true;
+                case nameof(CheckedContent):
+                    if (CheckedContent != null)
+                    {
+                        toggleColumn.CheckedContent = CheckedContent;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleButtonColumn.CheckedContentProperty);
+                    }
+                    return true;
+                case nameof(UncheckedContent):
+                    if (UncheckedContent != null)
+                    {
+                        toggleColumn.UncheckedContent = UncheckedContent;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleButtonColumn.UncheckedContentProperty);
+                    }
+                    return true;
+                case nameof(IsThreeState):
+                    if (IsThreeState.HasValue)
+                    {
+                        toggleColumn.IsThreeState = IsThreeState.Value;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleButtonColumn.IsThreeStateProperty);
+                    }
+                    return true;
+                case nameof(ClickMode):
+                    if (ClickMode.HasValue)
+                    {
+                        toggleColumn.ClickMode = ClickMode.Value;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleButtonColumn.ClickModeProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

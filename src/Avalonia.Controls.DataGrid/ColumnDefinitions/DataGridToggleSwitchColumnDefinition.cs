@@ -61,20 +61,123 @@ namespace Avalonia.Controls
 
             if (column is DataGridToggleSwitchColumn toggleColumn)
             {
-                toggleColumn.OnContent = OnContent;
-                toggleColumn.OffContent = OffContent;
-                toggleColumn.OnContentTemplate = OnContentTemplateKey != null
-                    ? context?.ResolveResource<IDataTemplate>(OnContentTemplateKey)
-                    : null;
-                toggleColumn.OffContentTemplate = OffContentTemplateKey != null
-                    ? context?.ResolveResource<IDataTemplate>(OffContentTemplateKey)
-                    : null;
+                if (OnContent != null)
+                {
+                    toggleColumn.OnContent = OnContent;
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleSwitchColumn.OnContentProperty);
+                }
+
+                if (OffContent != null)
+                {
+                    toggleColumn.OffContent = OffContent;
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleSwitchColumn.OffContentProperty);
+                }
+
+                if (OnContentTemplateKey != null)
+                {
+                    toggleColumn.OnContentTemplate = context?.ResolveResource<IDataTemplate>(OnContentTemplateKey);
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleSwitchColumn.OnContentTemplateProperty);
+                }
+
+                if (OffContentTemplateKey != null)
+                {
+                    toggleColumn.OffContentTemplate = context?.ResolveResource<IDataTemplate>(OffContentTemplateKey);
+                }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleSwitchColumn.OffContentTemplateProperty);
+                }
 
                 if (IsThreeState.HasValue)
                 {
                     toggleColumn.IsThreeState = IsThreeState.Value;
                 }
+                else
+                {
+                    toggleColumn.ClearValue(DataGridToggleSwitchColumn.IsThreeStateProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridToggleSwitchColumn toggleColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(OnContent):
+                    if (OnContent != null)
+                    {
+                        toggleColumn.OnContent = OnContent;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleSwitchColumn.OnContentProperty);
+                    }
+                    return true;
+                case nameof(OffContent):
+                    if (OffContent != null)
+                    {
+                        toggleColumn.OffContent = OffContent;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleSwitchColumn.OffContentProperty);
+                    }
+                    return true;
+                case nameof(OnContentTemplateKey):
+                    if (OnContentTemplateKey != null)
+                    {
+                        toggleColumn.OnContentTemplate = context?.ResolveResource<IDataTemplate>(OnContentTemplateKey);
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleSwitchColumn.OnContentTemplateProperty);
+                    }
+                    return true;
+                case nameof(OffContentTemplateKey):
+                    if (OffContentTemplateKey != null)
+                    {
+                        toggleColumn.OffContentTemplate = context?.ResolveResource<IDataTemplate>(OffContentTemplateKey);
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleSwitchColumn.OffContentTemplateProperty);
+                    }
+                    return true;
+                case nameof(IsThreeState):
+                    if (IsThreeState.HasValue)
+                    {
+                        toggleColumn.IsThreeState = IsThreeState.Value;
+                    }
+                    else
+                    {
+                        toggleColumn.ClearValue(DataGridToggleSwitchColumn.IsThreeStateProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

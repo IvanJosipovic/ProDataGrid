@@ -48,7 +48,48 @@ namespace Avalonia.Controls
                 {
                     hierarchicalColumn.Indent = Indent.Value;
                 }
+                else
+                {
+                    hierarchicalColumn.ClearValue(DataGridHierarchicalColumn.IndentProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridHierarchicalColumn hierarchicalColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(CellTemplateKey):
+                    hierarchicalColumn.CellTemplate = CellTemplateKey != null
+                        ? context?.ResolveResource<IDataTemplate>(CellTemplateKey)
+                        : null;
+                    return true;
+                case nameof(Indent):
+                    if (Indent.HasValue)
+                    {
+                        hierarchicalColumn.Indent = Indent.Value;
+                    }
+                    else
+                    {
+                        hierarchicalColumn.ClearValue(DataGridHierarchicalColumn.IndentProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

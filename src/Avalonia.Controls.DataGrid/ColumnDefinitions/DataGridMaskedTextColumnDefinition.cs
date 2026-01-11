@@ -82,35 +82,180 @@ namespace Avalonia.Controls
 
             if (column is DataGridMaskedTextColumn maskedColumn)
             {
-                maskedColumn.Mask = Mask;
-                maskedColumn.Culture = Culture;
-                maskedColumn.Watermark = Watermark;
+                if (Mask != null)
+                {
+                    maskedColumn.Mask = Mask;
+                }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.MaskProperty);
+                }
+
+                if (Culture != null)
+                {
+                    maskedColumn.Culture = Culture;
+                }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.CultureProperty);
+                }
+
+                if (Watermark != null)
+                {
+                    maskedColumn.Watermark = Watermark;
+                }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.WatermarkProperty);
+                }
 
                 if (PromptChar.HasValue)
                 {
                     maskedColumn.PromptChar = PromptChar.Value;
+                }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.PromptCharProperty);
                 }
 
                 if (AsciiOnly.HasValue)
                 {
                     maskedColumn.AsciiOnly = AsciiOnly.Value;
                 }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.AsciiOnlyProperty);
+                }
 
                 if (HidePromptOnLeave.HasValue)
                 {
                     maskedColumn.HidePromptOnLeave = HidePromptOnLeave.Value;
+                }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.HidePromptOnLeaveProperty);
                 }
 
                 if (ResetOnPrompt.HasValue)
                 {
                     maskedColumn.ResetOnPrompt = ResetOnPrompt.Value;
                 }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.ResetOnPromptProperty);
+                }
 
                 if (ResetOnSpace.HasValue)
                 {
                     maskedColumn.ResetOnSpace = ResetOnSpace.Value;
                 }
+                else
+                {
+                    maskedColumn.ClearValue(DataGridMaskedTextColumn.ResetOnSpaceProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridMaskedTextColumn maskedColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(Mask):
+                    if (Mask != null)
+                    {
+                        maskedColumn.Mask = Mask;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.MaskProperty);
+                    }
+                    return true;
+                case nameof(Culture):
+                    if (Culture != null)
+                    {
+                        maskedColumn.Culture = Culture;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.CultureProperty);
+                    }
+                    return true;
+                case nameof(Watermark):
+                    if (Watermark != null)
+                    {
+                        maskedColumn.Watermark = Watermark;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.WatermarkProperty);
+                    }
+                    return true;
+                case nameof(PromptChar):
+                    if (PromptChar.HasValue)
+                    {
+                        maskedColumn.PromptChar = PromptChar.Value;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.PromptCharProperty);
+                    }
+                    return true;
+                case nameof(AsciiOnly):
+                    if (AsciiOnly.HasValue)
+                    {
+                        maskedColumn.AsciiOnly = AsciiOnly.Value;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.AsciiOnlyProperty);
+                    }
+                    return true;
+                case nameof(HidePromptOnLeave):
+                    if (HidePromptOnLeave.HasValue)
+                    {
+                        maskedColumn.HidePromptOnLeave = HidePromptOnLeave.Value;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.HidePromptOnLeaveProperty);
+                    }
+                    return true;
+                case nameof(ResetOnPrompt):
+                    if (ResetOnPrompt.HasValue)
+                    {
+                        maskedColumn.ResetOnPrompt = ResetOnPrompt.Value;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.ResetOnPromptProperty);
+                    }
+                    return true;
+                case nameof(ResetOnSpace):
+                    if (ResetOnSpace.HasValue)
+                    {
+                        maskedColumn.ResetOnSpace = ResetOnSpace.Value;
+                    }
+                    else
+                    {
+                        maskedColumn.ClearValue(DataGridMaskedTextColumn.ResetOnSpaceProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

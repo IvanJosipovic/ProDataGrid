@@ -69,20 +69,137 @@ namespace Avalonia.Controls
         {
             if (column is DataGridButtonColumn buttonColumn)
             {
-                buttonColumn.Content = Content;
-                buttonColumn.ContentTemplate = ContentTemplateKey != null
-                    ? context?.ResolveResource<IDataTemplate>(ContentTemplateKey)
-                    : null;
-                buttonColumn.Command = Command;
-                buttonColumn.CommandParameter = CommandParameter;
+                if (Content != null)
+                {
+                    buttonColumn.Content = Content;
+                }
+                else
+                {
+                    buttonColumn.ClearValue(DataGridButtonColumn.ContentProperty);
+                }
+
+                if (ContentTemplateKey != null)
+                {
+                    buttonColumn.ContentTemplate = context?.ResolveResource<IDataTemplate>(ContentTemplateKey);
+                }
+                else
+                {
+                    buttonColumn.ClearValue(DataGridButtonColumn.ContentTemplateProperty);
+                }
+
+                if (Command != null)
+                {
+                    buttonColumn.Command = Command;
+                }
+                else
+                {
+                    buttonColumn.ClearValue(DataGridButtonColumn.CommandProperty);
+                }
+
+                if (CommandParameter != null)
+                {
+                    buttonColumn.CommandParameter = CommandParameter;
+                }
+                else
+                {
+                    buttonColumn.ClearValue(DataGridButtonColumn.CommandParameterProperty);
+                }
 
                 if (ClickMode.HasValue)
                 {
                     buttonColumn.ClickMode = ClickMode.Value;
                 }
+                else
+                {
+                    buttonColumn.ClearValue(DataGridButtonColumn.ClickModeProperty);
+                }
 
-                buttonColumn.HotKey = HotKey;
+                if (HotKey != null)
+                {
+                    buttonColumn.HotKey = HotKey;
+                }
+                else
+                {
+                    buttonColumn.ClearValue(DataGridButtonColumn.HotKeyProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (column is not DataGridButtonColumn buttonColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(Content):
+                    if (Content != null)
+                    {
+                        buttonColumn.Content = Content;
+                    }
+                    else
+                    {
+                        buttonColumn.ClearValue(DataGridButtonColumn.ContentProperty);
+                    }
+                    return true;
+                case nameof(ContentTemplateKey):
+                    if (ContentTemplateKey != null)
+                    {
+                        buttonColumn.ContentTemplate = context?.ResolveResource<IDataTemplate>(ContentTemplateKey);
+                    }
+                    else
+                    {
+                        buttonColumn.ClearValue(DataGridButtonColumn.ContentTemplateProperty);
+                    }
+                    return true;
+                case nameof(Command):
+                    if (Command != null)
+                    {
+                        buttonColumn.Command = Command;
+                    }
+                    else
+                    {
+                        buttonColumn.ClearValue(DataGridButtonColumn.CommandProperty);
+                    }
+                    return true;
+                case nameof(CommandParameter):
+                    if (CommandParameter != null)
+                    {
+                        buttonColumn.CommandParameter = CommandParameter;
+                    }
+                    else
+                    {
+                        buttonColumn.ClearValue(DataGridButtonColumn.CommandParameterProperty);
+                    }
+                    return true;
+                case nameof(ClickMode):
+                    if (ClickMode.HasValue)
+                    {
+                        buttonColumn.ClickMode = ClickMode.Value;
+                    }
+                    else
+                    {
+                        buttonColumn.ClearValue(DataGridButtonColumn.ClickModeProperty);
+                    }
+                    return true;
+                case nameof(HotKey):
+                    if (HotKey != null)
+                    {
+                        buttonColumn.HotKey = HotKey;
+                    }
+                    else
+                    {
+                        buttonColumn.ClearValue(DataGridButtonColumn.HotKeyProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

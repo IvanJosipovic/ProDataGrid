@@ -75,30 +75,161 @@ namespace Avalonia.Controls
 
             if (column is DataGridProgressBarColumn progressColumn)
             {
-                progressColumn.ProgressTextFormat = ProgressTextFormat;
-                progressColumn.Foreground = Foreground;
-                progressColumn.Background = Background;
+                if (ProgressTextFormat != null)
+                {
+                    progressColumn.ProgressTextFormat = ProgressTextFormat;
+                }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.ProgressTextFormatProperty);
+                }
+
+                if (Foreground != null)
+                {
+                    progressColumn.Foreground = Foreground;
+                }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.ForegroundProperty);
+                }
+
+                if (Background != null)
+                {
+                    progressColumn.Background = Background;
+                }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.BackgroundProperty);
+                }
 
                 if (Minimum.HasValue)
                 {
                     progressColumn.Minimum = Minimum.Value;
+                }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.MinimumProperty);
                 }
 
                 if (Maximum.HasValue)
                 {
                     progressColumn.Maximum = Maximum.Value;
                 }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.MaximumProperty);
+                }
 
                 if (ShowProgressText.HasValue)
                 {
                     progressColumn.ShowProgressText = ShowProgressText.Value;
+                }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.ShowProgressTextProperty);
                 }
 
                 if (Height.HasValue)
                 {
                     progressColumn.Height = Height.Value;
                 }
+                else
+                {
+                    progressColumn.ClearValue(DataGridProgressBarColumn.HeightProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridProgressBarColumn progressColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(ProgressTextFormat):
+                    if (ProgressTextFormat != null)
+                    {
+                        progressColumn.ProgressTextFormat = ProgressTextFormat;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.ProgressTextFormatProperty);
+                    }
+                    return true;
+                case nameof(Foreground):
+                    if (Foreground != null)
+                    {
+                        progressColumn.Foreground = Foreground;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.ForegroundProperty);
+                    }
+                    return true;
+                case nameof(Background):
+                    if (Background != null)
+                    {
+                        progressColumn.Background = Background;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.BackgroundProperty);
+                    }
+                    return true;
+                case nameof(Minimum):
+                    if (Minimum.HasValue)
+                    {
+                        progressColumn.Minimum = Minimum.Value;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.MinimumProperty);
+                    }
+                    return true;
+                case nameof(Maximum):
+                    if (Maximum.HasValue)
+                    {
+                        progressColumn.Maximum = Maximum.Value;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.MaximumProperty);
+                    }
+                    return true;
+                case nameof(ShowProgressText):
+                    if (ShowProgressText.HasValue)
+                    {
+                        progressColumn.ShowProgressText = ShowProgressText.Value;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.ShowProgressTextProperty);
+                    }
+                    return true;
+                case nameof(Height):
+                    if (Height.HasValue)
+                    {
+                        progressColumn.Height = Height.Value;
+                    }
+                    else
+                    {
+                        progressColumn.ClearValue(DataGridProgressBarColumn.HeightProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

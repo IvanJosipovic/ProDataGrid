@@ -143,26 +143,67 @@ namespace Avalonia.Controls
         {
             if (column is DataGridComboBoxColumn comboColumn)
             {
-                comboColumn.ItemsSource = ItemsSource;
-                comboColumn.DisplayMemberPath = DisplayMemberPath;
-                comboColumn.SelectedValuePath = SelectedValuePath;
-                comboColumn.ItemTemplate = ItemTemplateKey != null
-                    ? context?.ResolveResource<IDataTemplate>(ItemTemplateKey)
-                    : null;
+                if (ItemsSource != null)
+                {
+                    comboColumn.ItemsSource = ItemsSource;
+                }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.ItemsSourceProperty);
+                }
+
+                if (DisplayMemberPath != null)
+                {
+                    comboColumn.DisplayMemberPath = DisplayMemberPath;
+                }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.DisplayMemberPathProperty);
+                }
+
+                if (SelectedValuePath != null)
+                {
+                    comboColumn.SelectedValuePath = SelectedValuePath;
+                }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.SelectedValuePathProperty);
+                }
+
+                if (ItemTemplateKey != null)
+                {
+                    comboColumn.ItemTemplate = context?.ResolveResource<IDataTemplate>(ItemTemplateKey);
+                }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.ItemTemplateProperty);
+                }
 
                 if (IsEditable.HasValue)
                 {
                     comboColumn.IsEditable = IsEditable.Value;
+                }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.IsEditableProperty);
                 }
 
                 if (HorizontalContentAlignment.HasValue)
                 {
                     comboColumn.HorizontalContentAlignment = HorizontalContentAlignment.Value;
                 }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.HorizontalContentAlignmentProperty);
+                }
 
                 if (VerticalContentAlignment.HasValue)
                 {
                     comboColumn.VerticalContentAlignment = VerticalContentAlignment.Value;
+                }
+                else
+                {
+                    comboColumn.ClearValue(DataGridComboBoxColumn.VerticalContentAlignmentProperty);
                 }
 
                 comboColumn.SelectedItemBinding = SelectedItemBinding?.CreateBinding();
@@ -184,6 +225,130 @@ namespace Avalonia.Controls
                 {
                     DataGridColumnMetadata.SetValueAccessor(column, accessor);
                 }
+            }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (column is not DataGridComboBoxColumn comboColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(ItemsSource):
+                    if (ItemsSource != null)
+                    {
+                        comboColumn.ItemsSource = ItemsSource;
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.ItemsSourceProperty);
+                    }
+                    return true;
+                case nameof(DisplayMemberPath):
+                    if (DisplayMemberPath != null)
+                    {
+                        comboColumn.DisplayMemberPath = DisplayMemberPath;
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.DisplayMemberPathProperty);
+                    }
+                    return true;
+                case nameof(SelectedValuePath):
+                    if (SelectedValuePath != null)
+                    {
+                        comboColumn.SelectedValuePath = SelectedValuePath;
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.SelectedValuePathProperty);
+                    }
+                    return true;
+                case nameof(ItemTemplateKey):
+                    if (ItemTemplateKey != null)
+                    {
+                        comboColumn.ItemTemplate = context?.ResolveResource<IDataTemplate>(ItemTemplateKey);
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.ItemTemplateProperty);
+                    }
+                    return true;
+                case nameof(IsEditable):
+                    if (IsEditable.HasValue)
+                    {
+                        comboColumn.IsEditable = IsEditable.Value;
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.IsEditableProperty);
+                    }
+                    return true;
+                case nameof(HorizontalContentAlignment):
+                    if (HorizontalContentAlignment.HasValue)
+                    {
+                        comboColumn.HorizontalContentAlignment = HorizontalContentAlignment.Value;
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.HorizontalContentAlignmentProperty);
+                    }
+                    return true;
+                case nameof(VerticalContentAlignment):
+                    if (VerticalContentAlignment.HasValue)
+                    {
+                        comboColumn.VerticalContentAlignment = VerticalContentAlignment.Value;
+                    }
+                    else
+                    {
+                        comboColumn.ClearValue(DataGridComboBoxColumn.VerticalContentAlignmentProperty);
+                    }
+                    return true;
+                case nameof(SelectedItemBinding):
+                    comboColumn.SelectedItemBinding = SelectedItemBinding?.CreateBinding();
+                    ApplyBindingMetadata(column);
+                    return true;
+                case nameof(SelectedValueBinding):
+                    comboColumn.SelectedValueBinding = SelectedValueBinding?.CreateBinding();
+                    ApplyBindingMetadata(column);
+                    return true;
+                case nameof(TextBinding):
+                    comboColumn.TextBinding = TextBinding?.CreateBinding();
+                    ApplyBindingMetadata(column);
+                    return true;
+                case nameof(ValueAccessor):
+                case nameof(ValueType):
+                    ApplyBindingMetadata(column);
+                    return true;
+            }
+
+            return false;
+        }
+
+        private void ApplyBindingMetadata(DataGridColumn column)
+        {
+            if (ValueAccessor != null)
+            {
+                return;
+            }
+
+            var accessor = SelectedItemBinding?.ValueAccessor
+                ?? SelectedValueBinding?.ValueAccessor
+                ?? TextBinding?.ValueAccessor;
+
+            var valueType = SelectedItemBinding?.ValueType
+                ?? SelectedValueBinding?.ValueType
+                ?? TextBinding?.ValueType;
+
+            if (accessor != null && (ValueType == null || ValueType == valueType))
+            {
+                DataGridColumnMetadata.SetValueAccessor(column, accessor);
             }
         }
     }

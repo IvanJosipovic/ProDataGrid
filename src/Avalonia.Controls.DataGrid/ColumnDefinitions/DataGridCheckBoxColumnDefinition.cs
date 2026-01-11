@@ -29,10 +29,44 @@ namespace Avalonia.Controls
         {
             base.ApplyColumnProperties(column, context);
 
-            if (column is DataGridCheckBoxColumn checkBoxColumn && IsThreeState.HasValue)
+            if (column is DataGridCheckBoxColumn checkBoxColumn)
             {
-                checkBoxColumn.IsThreeState = IsThreeState.Value;
+                if (IsThreeState.HasValue)
+                {
+                    checkBoxColumn.IsThreeState = IsThreeState.Value;
+                }
+                else
+                {
+                    checkBoxColumn.ClearValue(DataGridCheckBoxColumn.IsThreeStateProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (propertyName == nameof(IsThreeState) && column is DataGridCheckBoxColumn checkBoxColumn)
+            {
+                if (IsThreeState.HasValue)
+                {
+                    checkBoxColumn.IsThreeState = IsThreeState.Value;
+                }
+                else
+                {
+                    checkBoxColumn.ClearValue(DataGridCheckBoxColumn.IsThreeStateProperty);
+                }
+
+                return true;
+            }
+
+            return false;
         }
     }
 }

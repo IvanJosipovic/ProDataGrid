@@ -139,5 +139,97 @@ namespace Avalonia.Controls
                 }
             }
         }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridTextColumn textColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(FontFamily):
+                    if (FontFamily != null)
+                    {
+                        textColumn.FontFamily = FontFamily;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.FontFamilyProperty);
+                    }
+                    return true;
+                case nameof(Foreground):
+                    if (Foreground != null)
+                    {
+                        textColumn.Foreground = Foreground;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.ForegroundProperty);
+                    }
+                    return true;
+                case nameof(Watermark):
+                    if (Watermark != null)
+                    {
+                        textColumn.Watermark = Watermark;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.WatermarkProperty);
+                    }
+                    return true;
+                case nameof(FontSize):
+                    if (FontSize.HasValue)
+                    {
+                        textColumn.FontSize = FontSize.Value;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.FontSizeProperty);
+                    }
+                    return true;
+                case nameof(FontStyle):
+                    if (FontStyle.HasValue)
+                    {
+                        textColumn.FontStyle = FontStyle.Value;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.FontStyleProperty);
+                    }
+                    return true;
+                case nameof(FontWeight):
+                    if (FontWeight.HasValue)
+                    {
+                        textColumn.FontWeight = FontWeight.Value;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.FontWeightProperty);
+                    }
+                    return true;
+                case nameof(FontStretch):
+                    if (FontStretch.HasValue)
+                    {
+                        textColumn.FontStretch = FontStretch.Value;
+                    }
+                    else
+                    {
+                        textColumn.ClearValue(DataGridTextColumn.FontStretchProperty);
+                    }
+                    return true;
+            }
+
+            return false;
+        }
     }
 }

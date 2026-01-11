@@ -53,16 +53,70 @@ namespace Avalonia.Controls
         {
             if (column is DataGridTemplateColumn templateColumn)
             {
-                var reuseCellContent = ReuseCellContent ?? templateColumn.ReuseCellContent;
-                templateColumn.CellTemplate = ResolveTemplate(context, CellTemplateKey, reuseCellContent);
-                templateColumn.CellEditingTemplate = ResolveTemplate(context, CellEditingTemplateKey, reuseCellContent);
-                templateColumn.NewRowCellTemplate = ResolveTemplate(context, NewRowCellTemplateKey, reuseCellContent);
-
                 if (ReuseCellContent.HasValue)
                 {
                     templateColumn.ReuseCellContent = ReuseCellContent.Value;
                 }
+                else
+                {
+                    templateColumn.ClearValue(DataGridTemplateColumn.ReuseCellContentProperty);
+                }
+
+                var reuseCellContent = templateColumn.ReuseCellContent;
+                templateColumn.CellTemplate = ResolveTemplate(context, CellTemplateKey, reuseCellContent);
+                templateColumn.CellEditingTemplate = ResolveTemplate(context, CellEditingTemplateKey, reuseCellContent);
+                templateColumn.NewRowCellTemplate = ResolveTemplate(context, NewRowCellTemplateKey, reuseCellContent);
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (column is not DataGridTemplateColumn templateColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(CellTemplateKey):
+                    templateColumn.CellTemplate = ResolveTemplate(
+                        context,
+                        CellTemplateKey,
+                        ReuseCellContent ?? templateColumn.ReuseCellContent);
+                    return true;
+                case nameof(CellEditingTemplateKey):
+                    templateColumn.CellEditingTemplate = ResolveTemplate(
+                        context,
+                        CellEditingTemplateKey,
+                        ReuseCellContent ?? templateColumn.ReuseCellContent);
+                    return true;
+                case nameof(NewRowCellTemplateKey):
+                    templateColumn.NewRowCellTemplate = ResolveTemplate(
+                        context,
+                        NewRowCellTemplateKey,
+                        ReuseCellContent ?? templateColumn.ReuseCellContent);
+                    return true;
+                case nameof(ReuseCellContent):
+                    if (ReuseCellContent.HasValue)
+                    {
+                        templateColumn.ReuseCellContent = ReuseCellContent.Value;
+                    }
+                    else
+                    {
+                        templateColumn.ClearValue(DataGridTemplateColumn.ReuseCellContentProperty);
+                    }
+
+                    var reuseCellContent = templateColumn.ReuseCellContent;
+                    templateColumn.CellTemplate = ResolveTemplate(context, CellTemplateKey, reuseCellContent);
+                    templateColumn.CellEditingTemplate = ResolveTemplate(context, CellEditingTemplateKey, reuseCellContent);
+                    templateColumn.NewRowCellTemplate = ResolveTemplate(context, NewRowCellTemplateKey, reuseCellContent);
+                    return true;
+            }
+
+            return false;
         }
 
         private static IDataTemplate ResolveTemplate(

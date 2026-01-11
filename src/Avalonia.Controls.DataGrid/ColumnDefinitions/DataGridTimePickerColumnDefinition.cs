@@ -81,17 +81,101 @@ namespace Avalonia.Controls
                 {
                     timeColumn.MinuteIncrement = MinuteIncrement.Value;
                 }
+                else
+                {
+                    timeColumn.ClearValue(DataGridTimePickerColumn.MinuteIncrementProperty);
+                }
 
                 if (SecondIncrement.HasValue)
                 {
                     timeColumn.SecondIncrement = SecondIncrement.Value;
+                }
+                else
+                {
+                    timeColumn.ClearValue(DataGridTimePickerColumn.SecondIncrementProperty);
                 }
 
                 if (UseSeconds.HasValue)
                 {
                     timeColumn.UseSeconds = UseSeconds.Value;
                 }
+                else
+                {
+                    timeColumn.ClearValue(DataGridTimePickerColumn.UseSecondsProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridTimePickerColumn timeColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(ClockIdentifier):
+                    if (!string.IsNullOrEmpty(ClockIdentifier))
+                    {
+                        timeColumn.ClockIdentifier = ClockIdentifier;
+                    }
+                    else
+                    {
+                        timeColumn.ClearValue(DataGridTimePickerColumn.ClockIdentifierProperty);
+                    }
+                    return true;
+                case nameof(FormatString):
+                    if (!string.IsNullOrEmpty(FormatString))
+                    {
+                        timeColumn.FormatString = FormatString;
+                    }
+                    else
+                    {
+                        timeColumn.ClearValue(DataGridTimePickerColumn.FormatStringProperty);
+                    }
+                    return true;
+                case nameof(MinuteIncrement):
+                    if (MinuteIncrement.HasValue)
+                    {
+                        timeColumn.MinuteIncrement = MinuteIncrement.Value;
+                    }
+                    else
+                    {
+                        timeColumn.ClearValue(DataGridTimePickerColumn.MinuteIncrementProperty);
+                    }
+                    return true;
+                case nameof(SecondIncrement):
+                    if (SecondIncrement.HasValue)
+                    {
+                        timeColumn.SecondIncrement = SecondIncrement.Value;
+                    }
+                    else
+                    {
+                        timeColumn.ClearValue(DataGridTimePickerColumn.SecondIncrementProperty);
+                    }
+                    return true;
+                case nameof(UseSeconds):
+                    if (UseSeconds.HasValue)
+                    {
+                        timeColumn.UseSeconds = UseSeconds.Value;
+                    }
+                    else
+                    {
+                        timeColumn.ClearValue(DataGridTimePickerColumn.UseSecondsProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }

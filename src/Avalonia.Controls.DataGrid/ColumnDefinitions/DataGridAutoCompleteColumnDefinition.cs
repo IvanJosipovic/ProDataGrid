@@ -84,37 +84,180 @@ namespace Avalonia.Controls
 
             if (column is DataGridAutoCompleteColumn autoColumn)
             {
-                autoColumn.ItemsSource = ItemsSource;
-                autoColumn.ItemTemplate = ItemTemplateKey != null
-                    ? context?.ResolveResource<IDataTemplate>(ItemTemplateKey)
-                    : null;
-                autoColumn.Watermark = Watermark;
+                if (ItemsSource != null)
+                {
+                    autoColumn.ItemsSource = ItemsSource;
+                }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.ItemsSourceProperty);
+                }
+
+                if (ItemTemplateKey != null)
+                {
+                    autoColumn.ItemTemplate = context?.ResolveResource<IDataTemplate>(ItemTemplateKey);
+                }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.ItemTemplateProperty);
+                }
+
+                if (Watermark != null)
+                {
+                    autoColumn.Watermark = Watermark;
+                }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.WatermarkProperty);
+                }
 
                 if (FilterMode.HasValue)
                 {
                     autoColumn.FilterMode = FilterMode.Value;
+                }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.FilterModeProperty);
                 }
 
                 if (MinimumPrefixLength.HasValue)
                 {
                     autoColumn.MinimumPrefixLength = MinimumPrefixLength.Value;
                 }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.MinimumPrefixLengthProperty);
+                }
 
                 if (MinimumPopulateDelay.HasValue)
                 {
                     autoColumn.MinimumPopulateDelay = MinimumPopulateDelay.Value;
+                }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.MinimumPopulateDelayProperty);
                 }
 
                 if (MaxDropDownHeight.HasValue)
                 {
                     autoColumn.MaxDropDownHeight = MaxDropDownHeight.Value;
                 }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.MaxDropDownHeightProperty);
+                }
 
                 if (IsTextCompletionEnabled.HasValue)
                 {
                     autoColumn.IsTextCompletionEnabled = IsTextCompletionEnabled.Value;
                 }
+                else
+                {
+                    autoColumn.ClearValue(DataGridAutoCompleteColumn.IsTextCompletionEnabledProperty);
+                }
             }
+        }
+
+        protected override bool ApplyColumnPropertyChange(
+            DataGridColumn column,
+            DataGridColumnDefinitionContext context,
+            string propertyName)
+        {
+            if (base.ApplyColumnPropertyChange(column, context, propertyName))
+            {
+                return true;
+            }
+
+            if (column is not DataGridAutoCompleteColumn autoColumn)
+            {
+                return false;
+            }
+
+            switch (propertyName)
+            {
+                case nameof(ItemsSource):
+                    if (ItemsSource != null)
+                    {
+                        autoColumn.ItemsSource = ItemsSource;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.ItemsSourceProperty);
+                    }
+                    return true;
+                case nameof(ItemTemplateKey):
+                    if (ItemTemplateKey != null)
+                    {
+                        autoColumn.ItemTemplate = context?.ResolveResource<IDataTemplate>(ItemTemplateKey);
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.ItemTemplateProperty);
+                    }
+                    return true;
+                case nameof(Watermark):
+                    if (Watermark != null)
+                    {
+                        autoColumn.Watermark = Watermark;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.WatermarkProperty);
+                    }
+                    return true;
+                case nameof(FilterMode):
+                    if (FilterMode.HasValue)
+                    {
+                        autoColumn.FilterMode = FilterMode.Value;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.FilterModeProperty);
+                    }
+                    return true;
+                case nameof(MinimumPrefixLength):
+                    if (MinimumPrefixLength.HasValue)
+                    {
+                        autoColumn.MinimumPrefixLength = MinimumPrefixLength.Value;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.MinimumPrefixLengthProperty);
+                    }
+                    return true;
+                case nameof(MinimumPopulateDelay):
+                    if (MinimumPopulateDelay.HasValue)
+                    {
+                        autoColumn.MinimumPopulateDelay = MinimumPopulateDelay.Value;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.MinimumPopulateDelayProperty);
+                    }
+                    return true;
+                case nameof(MaxDropDownHeight):
+                    if (MaxDropDownHeight.HasValue)
+                    {
+                        autoColumn.MaxDropDownHeight = MaxDropDownHeight.Value;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.MaxDropDownHeightProperty);
+                    }
+                    return true;
+                case nameof(IsTextCompletionEnabled):
+                    if (IsTextCompletionEnabled.HasValue)
+                    {
+                        autoColumn.IsTextCompletionEnabled = IsTextCompletionEnabled.Value;
+                    }
+                    else
+                    {
+                        autoColumn.ClearValue(DataGridAutoCompleteColumn.IsTextCompletionEnabledProperty);
+                    }
+                    return true;
+            }
+
+            return false;
         }
     }
 }
