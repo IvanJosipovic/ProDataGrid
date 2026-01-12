@@ -37,6 +37,7 @@ namespace Avalonia.Controls.DataGridDragDrop
         private DataGridRowDropPosition? _indicatorPosition;
         private bool _disposed;
         private IPointer? _capturedPointer;
+        private bool _capturePending;
         private readonly bool _setAllowDrop;
         private Canvas? _dropAdorner;
         private bool _hideDropAdorner;
@@ -363,12 +364,10 @@ namespace Avalonia.Controls.DataGridDragDrop
                 return;
             }
 
-            e.Pointer.Capture(_grid);
-            _capturedPointer = e.Pointer;
-
             _pointerId = e.Pointer.Id;
-            _pointerStart = e.GetPosition(_grid);
+            _pointerStart = gridPoint;
             _dragStartRow = row;
+            _capturePending = true;
         }
 
         private void OnPointerMoved(object? sender, PointerEventArgs e)
@@ -397,6 +396,16 @@ namespace Avalonia.Controls.DataGridDragDrop
                 return;
             }
 
+            if (_capturePending)
+            {
+                _capturePending = false;
+                if (e.Pointer.Captured == null)
+                {
+                    e.Pointer.Capture(_grid);
+                }
+                _capturedPointer = e.Pointer;
+            }
+
             StartDragAsync(e);
         }
 
@@ -416,6 +425,7 @@ namespace Avalonia.Controls.DataGridDragDrop
             _pointerStart = default;
             _dragStartRow = null;
             _dragInfo = null;
+            _capturePending = false;
             _capturedPointer?.Capture(null);
             _capturedPointer = null;
         }

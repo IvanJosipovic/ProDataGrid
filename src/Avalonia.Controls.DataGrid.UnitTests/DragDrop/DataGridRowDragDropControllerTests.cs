@@ -102,6 +102,37 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
     }
 
     [AvaloniaFact]
+    public void PointerPressed_Defers_Capture_For_Row_Drag()
+    {
+        var items = new ObservableCollection<RowItem>
+        {
+            new("A"),
+            new("B")
+        };
+        var (grid, window) = CreateGrid(items);
+        grid.CanUserReorderRows = true;
+        grid.RowDragHandle = DataGridRowDragHandle.Row;
+        grid.UpdateLayout();
+
+        var handler = new DataGridRowReorderHandler();
+        using var controller = new DataGridRowDragDropController(grid, handler, new DataGridRowDragDropOptions());
+
+        var row = grid.GetVisualDescendants().OfType<DataGridRow>().First();
+        var point = row.TranslatePoint(new Point(2, 2), grid) ?? new Point(2, 2);
+
+        var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        row.RaiseEvent(CreatePointerPressedArgs(row, window, pointer, point));
+
+        Assert.Null(pointer.Captured);
+        Assert.True(GetCapturePending(controller));
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, window, pointer, point));
+        Assert.False(GetCapturePending(controller));
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void Drop_Reorders_Items()
     {
         var items = new ObservableCollection<RowItem>
@@ -519,6 +550,12 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
         field?.SetValue(controller, row);
     }
 
+    private static bool GetCapturePending(DataGridRowDragDropController controller)
+    {
+        var field = typeof(DataGridRowDragDropController).GetField("_capturePending", BindingFlags.NonPublic | BindingFlags.Instance);
+        return (bool)(field?.GetValue(controller) ?? false);
+    }
+
     private static (DataGrid Grid, Window Window) CreateGrid(IEnumerable items)
     {
         var window = new Window
@@ -551,6 +588,18 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
         window.Arrange(new Rect(0, 0, window.Width, window.Height));
         grid.UpdateLayout();
         return (grid, window);
+    }
+
+    private static PointerPressedEventArgs CreatePointerPressedArgs(Control source, Visual root, IPointer pointer, Point position)
+    {
+        var properties = new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed);
+        return new PointerPressedEventArgs(source, pointer, root, position, 0, properties, KeyModifiers.None);
+    }
+
+    private static PointerReleasedEventArgs CreatePointerReleasedArgs(Control source, Visual root, IPointer pointer, Point position)
+    {
+        var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
+        return new PointerReleasedEventArgs(source, pointer, root, position, 0, properties, KeyModifiers.None, MouseButton.Left);
     }
 
     private static (DataGrid Grid, Window Window, HierarchicalModel Model, HierarchicalNode Root) CreateHierarchicalGrid()

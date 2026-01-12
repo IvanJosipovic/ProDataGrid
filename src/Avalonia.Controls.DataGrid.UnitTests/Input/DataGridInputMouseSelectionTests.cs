@@ -137,6 +137,86 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
+    public void SelectionDrag_Defers_Pointer_Capture_Until_Threshold()
+    {
+        var (grid, _) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot = grid.SlotFromRowIndex(0);
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+
+        var cell = row!.Cells[0];
+        var startPoint = GetCenterPoint(cell, grid);
+        var movePoint = startPoint + new Point(10, 0);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        cell.RaiseEvent(CreatePointerPressedArgs(cell, grid, pointer, startPoint, KeyModifiers.None));
+        Assert.Null(pointer.Captured);
+
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, movePoint, KeyModifiers.None));
+        Assert.Same(grid, pointer.Captured);
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, movePoint, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public void RowHeaderSelectionDrag_Defers_Pointer_Capture_Until_Threshold()
+    {
+        var (grid, _) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
+        grid.HeadersVisibility = DataGridHeadersVisibility.All;
+        grid.RowHeaderWidth = 28;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot = grid.SlotFromRowIndex(0);
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+        Assert.True(row!.HasHeaderCell);
+
+        var header = row.HeaderCell;
+        var startPoint = GetCenterPoint(header, grid);
+        var movePoint = startPoint + new Point(10, 0);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        header.RaiseEvent(CreatePointerPressedArgs(header, grid, pointer, startPoint, KeyModifiers.None));
+        Assert.Null(pointer.Captured);
+
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, movePoint, KeyModifiers.None));
+        Assert.Same(grid, pointer.Captured);
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, movePoint, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public void DoubleTapped_Raises_On_Unselected_Row()
+    {
+        var (grid, _) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot = grid.SlotFromRowIndex(1);
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+
+        var cell = row!.Cells[0];
+        var point = GetCenterPoint(cell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        var doubleTapped = 0;
+        row.DoubleTapped += (_, _) => doubleTapped++;
+
+        cell.RaiseEvent(CreatePointerPressedArgs(cell, grid, pointer, point, KeyModifiers.None, clickCount: 1));
+        cell.RaiseEvent(CreatePointerReleasedArgs(cell, grid, pointer, point, KeyModifiers.None));
+
+        cell.RaiseEvent(CreatePointerPressedArgs(cell, grid, pointer, point, KeyModifiers.None, clickCount: 2));
+        cell.RaiseEvent(CreatePointerReleasedArgs(cell, grid, pointer, point, KeyModifiers.None));
+
+        Assert.Equal(1, doubleTapped);
+    }
+
+    [AvaloniaFact]
     public void MouseDrag_RowSelection_Shrinks_When_Reversing()
     {
         var (grid, items) = CreateGrid(rowCount: 4, selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
@@ -970,10 +1050,10 @@ public class DataGridInputMouseSelectionTests
         return control.TranslatePoint(center, relativeTo) ?? center;
     }
 
-    private static PointerPressedEventArgs CreatePointerPressedArgs(Control source, Visual root, IPointer pointer, Point position, KeyModifiers modifiers)
+    private static PointerPressedEventArgs CreatePointerPressedArgs(Control source, Visual root, IPointer pointer, Point position, KeyModifiers modifiers, int clickCount = 1)
     {
         var properties = new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed);
-        return new PointerPressedEventArgs(source, pointer, root, position, 0, properties, modifiers);
+        return new PointerPressedEventArgs(source, pointer, root, position, 0, properties, modifiers, clickCount);
     }
 
     private static PointerEventArgs CreatePointerMovedArgs(Control source, Visual root, IPointer pointer, Point position, KeyModifiers modifiers)

@@ -40,7 +40,7 @@ internal
         private int _dragLastColumnIndex = -1;
         private bool _dragCapturePending;
 
-        internal void TryBeginSelectionDrag(PointerPressedEventArgs e, int columnIndex, bool startDragging, bool deferCapture)
+        internal void TryBeginSelectionDrag(PointerPressedEventArgs e, int columnIndex, bool startDragging)
         {
             if (!startDragging)
             {
@@ -77,7 +77,8 @@ internal
             _dragLastColumnIndex = CurrentColumnIndex;
             _dragAnchorSlot = AnchorSlot != -1 ? AnchorSlot : CurrentSlot;
             _dragAnchorCell = null;
-            _dragCapturePending = deferCapture;
+            // Defer capture until drag threshold so taps/double taps keep original source.
+            _dragCapturePending = true;
 
             if (!_isRowSelectionDragging)
             {
@@ -112,10 +113,7 @@ internal
                 }
             }
 
-            if (!deferCapture)
-            {
-                _dragPointer.Capture(this);
-            }
+            // Capture happens once the drag threshold is met.
         }
 
         private bool ShouldDragSelectRows(int columnIndex)
