@@ -181,6 +181,21 @@ public class SelectedItemsViewTests
         Assert.False(model.IsSelected(2));
     }
 
+    [Fact]
+    public void SelectedItemsView_Handles_Source_Items_With_Invalid_Type()
+    {
+        var model = new SelectionModel<Node>
+        {
+            SingleSelect = false,
+            Source = new object[] { new List<Node> { new Node("a") } }
+        };
+
+        var view = new SelectedItemsView(model);
+        model.Select(0);
+
+        Assert.Empty(view.Cast<Node>());
+    }
+
     private sealed class Node
     {
         public Node(string value)

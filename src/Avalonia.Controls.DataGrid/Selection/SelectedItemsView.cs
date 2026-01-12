@@ -428,6 +428,10 @@ namespace Avalonia.Controls.DataGridSelection
                 {
                     yield break;
                 }
+                catch (InvalidCastException)
+                {
+                    yield break;
+                }
 
                 if (!moved)
                 {
@@ -440,6 +444,10 @@ namespace Avalonia.Controls.DataGridSelection
                     current = enumerator.Current;
                 }
                 catch (ArgumentOutOfRangeException)
+                {
+                    continue;
+                }
+                catch (InvalidCastException)
                 {
                     continue;
                 }
