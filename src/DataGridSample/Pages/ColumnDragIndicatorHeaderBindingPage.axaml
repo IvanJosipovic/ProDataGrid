@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ColumnDragIndicatorHeaderBindingPage"
+             x:DataType="viewModels:ColumnDragIndicatorHeaderBindingViewModel">
+  <UserControl.DataContext>
+    <viewModels:ColumnDragIndicatorHeaderBindingViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*"
+        RowSpacing="12"
+        Margin="12">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2" Text="Column Drag Indicator - Header Binding" />
+      <TextBlock Text="The template column header binds to a view-model string. Drag the header to reorder and confirm the indicator uses the header text."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+      <TextBlock Text="Header text" VerticalAlignment="Center" />
+      <TextBox Width="220"
+               Text="{Binding LockStateColumnHeader, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+    </StackPanel>
+
+    <DataGrid Grid.Row="2"
+              x:Name="HeaderBindingGrid"
+              ItemsSource="{Binding Items}"
+              AutoGenerateColumns="False"
+              IsReadOnly="True"
+              CanUserReorderColumns="True"
+              HeadersVisibility="Column"
+              RowHeight="32">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="First"
+                            Binding="{Binding FirstName}"
+                            Width="2*"
+                            x:DataType="models:Person" />
+        <DataGridTextColumn Header="Last"
+                            Binding="{Binding LastName}"
+                            Width="2*"
+                            x:DataType="models:Person" />
+        <DataGridTextColumn Header="Age"
+                            Binding="{Binding Age}"
+                            Width="1*"
+                            x:DataType="models:Person" />
+        <DataGridTemplateColumn Header="{Binding DataContext.LockStateColumnHeader, ElementName=HeaderBindingGrid}"
+                                MinWidth="90"
+                                Width="Auto"
+                                CanUserSort="False"
+                                SortMemberPath="IsBanned">
+          <DataGridTemplateColumn.HeaderTemplate>
+            <DataTemplate x:DataType="x:String">
+              <TextBlock Text="{Binding}" FontWeight="SemiBold" />
+            </DataTemplate>
+          </DataGridTemplateColumn.HeaderTemplate>
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="models:Person">
+              <CheckBox IsChecked="{Binding IsBanned}"
+                        IsEnabled="False"
+                        HorizontalAlignment="Center" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>
