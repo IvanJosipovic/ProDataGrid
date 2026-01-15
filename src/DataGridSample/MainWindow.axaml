@@ -89,11 +89,17 @@
     <TabItem Header="Collection Changes">
       <pages:CollectionChangesPage />
     </TabItem>
+    <TabItem Header="Range Collection Changes">
+      <pages:RangeCollectionChangesPage />
+    </TabItem>
     <TabItem Header="Streaming Updates">
       <pages:StreamingUpdatesPage />
     </TabItem>
     <TabItem Header="Hierarchical Streaming Updates">
       <pages:HierarchicalStreamingUpdatesPage />
+    </TabItem>
+    <TabItem Header="Hierarchical Range Collection Changes">
+      <pages:HierarchicalRangeCollectionChangesPage />
     </TabItem>
     <TabItem Header="ItemsSource Swap">
       <pages:ItemsSourceSwapPage />
