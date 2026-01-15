@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System.Collections;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
@@ -219,6 +220,56 @@ public class DataGridItemsSourceChangeHeadlessTests
         window.Close();
     }
 
+    [AvaloniaFact]
+    public void ItemsSource_AddRange_Inserts_All_Rows()
+    {
+        var items = new ObservableRangeCollection<RowItem>(CreateItems("A", 2));
+        var (window, grid) = CreateGrid(items, DataGridSelectionUnit.FullRow);
+        PumpLayout(grid);
+
+        items.AddRange(new[]
+        {
+            new RowItem { Name = "A2", Value = 2, Group = "A" },
+            new RowItem { Name = "A3", Value = 3, Group = "A" }
+        });
+        PumpLayout(grid);
+
+        AssertRowsMatchItems(grid, items);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void ItemsSource_InsertRange_Inserts_All_Rows()
+    {
+        var items = new ObservableRangeCollection<RowItem>(CreateItems("A", 3));
+        var (window, grid) = CreateGrid(items, DataGridSelectionUnit.FullRow);
+        PumpLayout(grid);
+
+        items.InsertRange(1, new[]
+        {
+            new RowItem { Name = "AX", Value = 100, Group = "X" },
+            new RowItem { Name = "AY", Value = 101, Group = "X" }
+        });
+        PumpLayout(grid);
+
+        AssertRowsMatchItems(grid, items);
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void ItemsSource_RemoveRange_Removes_All_Rows()
+    {
+        var items = new ObservableRangeCollection<RowItem>(CreateItems("A", 5));
+        var (window, grid) = CreateGrid(items, DataGridSelectionUnit.FullRow);
+        PumpLayout(grid);
+
+        items.RemoveRange(1, 2);
+        PumpLayout(grid);
+
+        AssertRowsMatchItems(grid, items);
+        window.Close();
+    }
+
     private static (Window Window, DataGrid Grid) CreateGrid(IEnumerable? itemsSource, DataGridSelectionUnit selectionUnit)
     {
         var window = new Window
@@ -340,6 +391,14 @@ public class DataGridItemsSourceChangeHeadlessTests
         grid.UpdateLayout();
     }
 
+    private static DataGridRow GetRow(DataGrid grid, int rowIndex)
+    {
+        var slot = grid.SlotFromRowIndex(rowIndex);
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+        return row!;
+    }
+
     private static DataGridCell GetCell(DataGrid grid, int rowIndex, int columnIndex)
     {
         var slot = grid.SlotFromRowIndex(rowIndex);
@@ -352,6 +411,15 @@ public class DataGridItemsSourceChangeHeadlessTests
         Assert.NotNull(cell);
 
         return cell;
+    }
+
+    private static void AssertRowsMatchItems(DataGrid grid, IList<RowItem> items)
+    {
+        for (var i = 0; i < items.Count; i++)
+        {
+            var row = GetRow(grid, i);
+            Assert.Same(items[i], row.DataContext);
+        }
     }
 
     private static void ClickCell(DataGridCell cell)
