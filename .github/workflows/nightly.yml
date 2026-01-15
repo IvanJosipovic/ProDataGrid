@@ -3,7 +3,7 @@ name: Nightly Packages
 on:
   push:
     branches:
-      - main
+      - master
 
 env:
   DOTNET_NOLOGO: true
