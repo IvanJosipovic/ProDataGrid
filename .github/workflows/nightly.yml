@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 env:
   DOTNET_NOLOGO: true
@@ -15,7 +14,6 @@ jobs:
   nightly:
     name: Build and Publish Nightly
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
