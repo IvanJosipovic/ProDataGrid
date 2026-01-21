@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -1899,6 +1900,304 @@ public class LeakTests
         GC.KeepAlive(result);
     }
 
+
+    [Fact]
+    [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
+    public void DataGrid_DragSelectionAutoScroll_DoesNotLeak()
+    {
+        if (!dotMemoryApi.IsEnabled)
+        {
+            return;
+        }
+
+        var items = new ObservableCollection<RowItem>
+        {
+            new RowItem("A"),
+            new RowItem("B")
+        };
+
+        var run = async () =>
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(Application));
+
+            return await session.Dispatch(
+                () =>
+                {
+                    var grid = new DataGrid
+                    {
+                        AutoGenerateColumns = true,
+                        ItemsSource = items
+                    };
+
+                    var window = new Window
+                    {
+                        Content = grid
+                    };
+
+                    window.SetThemeStyles();
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.IsType<DataGrid>(window.Presenter?.Child);
+
+                    StartDragAutoScroll(grid);
+
+                    window.Content = null;
+                    Dispatcher.UIThread.RunJobs();
+
+                    return window;
+                },
+                CancellationToken.None);
+        };
+
+        var result = run().GetAwaiter().GetResult();
+
+        dotMemory.Check(memory =>
+            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGrid>()).ObjectsCount));
+
+        GC.KeepAlive(items);
+        GC.KeepAlive(result);
+    }
+
+    [Fact]
+    [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
+    public void DataGrid_FillHandleAutoScroll_DoesNotLeak()
+    {
+        if (!dotMemoryApi.IsEnabled)
+        {
+            return;
+        }
+
+        var items = new ObservableCollection<RowItem>
+        {
+            new RowItem("A"),
+            new RowItem("B")
+        };
+
+        var run = async () =>
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(Application));
+
+            return await session.Dispatch(
+                () =>
+                {
+                    var grid = new DataGrid
+                    {
+                        AutoGenerateColumns = true,
+                        ItemsSource = items
+                    };
+
+                    var window = new Window
+                    {
+                        Content = grid
+                    };
+
+                    window.SetThemeStyles();
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.IsType<DataGrid>(window.Presenter?.Child);
+
+                    StartFillAutoScroll(grid);
+
+                    window.Content = null;
+                    Dispatcher.UIThread.RunJobs();
+
+                    return window;
+                },
+                CancellationToken.None);
+        };
+
+        var result = run().GetAwaiter().GetResult();
+
+        dotMemory.Check(memory =>
+            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGrid>()).ObjectsCount));
+
+        GC.KeepAlive(items);
+        GC.KeepAlive(result);
+    }
+
+    [Fact]
+    [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
+    public void DataGrid_RowDragDropAutoScroll_DoesNotLeak()
+    {
+        if (!dotMemoryApi.IsEnabled)
+        {
+            return;
+        }
+
+        var items = new ObservableCollection<RowItem>
+        {
+            new RowItem("A"),
+            new RowItem("B")
+        };
+
+        var run = async () =>
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(Application));
+
+            return await session.Dispatch(
+                () =>
+                {
+                    var grid = new DataGrid
+                    {
+                        AutoGenerateColumns = true,
+                        CanUserReorderRows = true,
+                        ItemsSource = items
+                    };
+
+                    var window = new Window
+                    {
+                        Content = grid
+                    };
+
+                    window.SetThemeStyles();
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.IsType<DataGrid>(window.Presenter?.Child);
+
+                    StartRowDragDropAutoScroll(grid);
+
+                    window.Content = null;
+                    Dispatcher.UIThread.RunJobs();
+
+                    return window;
+                },
+                CancellationToken.None);
+        };
+
+        var result = run().GetAwaiter().GetResult();
+
+        dotMemory.Check(memory =>
+            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGrid>()).ObjectsCount));
+
+        GC.KeepAlive(items);
+        GC.KeepAlive(result);
+    }
+
+    [Fact]
+    [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
+    public void DataGrid_HierarchicalGuardTimer_DoesNotLeak()
+    {
+        if (!dotMemoryApi.IsEnabled)
+        {
+            return;
+        }
+
+        var roots = new ObservableCollection<TreeItem>
+        {
+            new TreeItem("Root", new List<TreeItem>
+            {
+                new TreeItem("Child")
+            })
+        };
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((TreeItem)item).Children
+        });
+        model.SetRoots(roots);
+
+        var run = async () =>
+        {
+            using var session = HeadlessUnitTestSession.StartNew(typeof(Application));
+
+            return await session.Dispatch(
+                () =>
+                {
+                    var grid = new DataGrid
+                    {
+                        AutoGenerateColumns = false,
+                        HierarchicalModel = model,
+                        HierarchicalRowsEnabled = true
+                    };
+
+                    grid.Columns.Add(new DataGridTextColumn
+                    {
+                        Header = "Name",
+                        Binding = new Binding(nameof(TreeItem.Name))
+                    });
+
+                    var window = new Window
+                    {
+                        Content = grid
+                    };
+
+                    window.SetThemeStyles();
+                    window.Show();
+                    Dispatcher.UIThread.RunJobs();
+                    Assert.IsType<DataGrid>(window.Presenter?.Child);
+
+                    Assert.True(grid.TryToggleHierarchicalAtSlot(0));
+
+                    window.Content = null;
+                    Dispatcher.UIThread.RunJobs();
+
+                    return window;
+                },
+                CancellationToken.None);
+        };
+
+        var result = run().GetAwaiter().GetResult();
+
+        dotMemory.Check(memory =>
+            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGrid>()).ObjectsCount));
+
+        GC.KeepAlive(roots);
+        GC.KeepAlive(model);
+        GC.KeepAlive(result);
+    }
+
+    private static void StartDragAutoScroll(DataGrid grid)
+    {
+        SetPrivateField(grid, "_isDraggingSelection", true);
+        InvokePrivateMethod(grid, "StartDragAutoScroll");
+    }
+
+    private static void StartFillAutoScroll(DataGrid grid)
+    {
+        SetPrivateField(grid, "_isFillHandleDragging", true);
+        InvokePrivateMethod(grid, "StartFillAutoScroll");
+    }
+
+    private static void StartRowDragDropAutoScroll(DataGrid grid)
+    {
+        var controller = GetPrivateField(grid, "_rowDragDropController");
+        Assert.NotNull(controller);
+        InvokePrivateMethod(controller!, "StartAutoScroll", new[] { typeof(int) }, new object[] { 1 });
+    }
+
+    private static object? GetPrivateField(object instance, string fieldName)
+    {
+        var field = instance.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        return field!.GetValue(instance);
+    }
+
+    private static void SetPrivateField<T>(object instance, string fieldName, T value)
+    {
+        var field = instance.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(field);
+        field!.SetValue(instance, value);
+    }
+
+    private static void InvokePrivateMethod(object instance, string methodName)
+    {
+        var method = instance.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method!.Invoke(instance, null);
+    }
+
+    private static void InvokePrivateMethod(object instance, string methodName, Type[] parameterTypes, object[] arguments)
+    {
+        var method = instance.GetType().GetMethod(
+            methodName,
+            BindingFlags.Instance | BindingFlags.NonPublic,
+            binder: null,
+            types: parameterTypes,
+            modifiers: null);
+        Assert.NotNull(method);
+        method!.Invoke(instance, arguments);
+    }
+
     private sealed class SwapItem
     {
         public SwapItem(string name)
@@ -2053,6 +2352,19 @@ public class LeakTests
             Model = new TrackingClipboardImportModel();
             return Model;
         }
+    }
+
+    private sealed class TreeItem
+    {
+        public TreeItem(string name, List<TreeItem>? children = null)
+        {
+            Name = name;
+            Children = children ?? new List<TreeItem>();
+        }
+
+        public string Name { get; }
+
+        public List<TreeItem> Children { get; }
     }
 
     private sealed class GroupedRowItem
