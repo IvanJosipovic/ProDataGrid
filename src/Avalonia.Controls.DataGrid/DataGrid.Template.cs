@@ -170,6 +170,7 @@ internal
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnDetachedFromVisualTree(e);
+            DetachExternalEditingElement();
             _scrollStateManager.Capture(preserveOnAttach: true);
             _suppressCellContentUpdates = true;
             try
