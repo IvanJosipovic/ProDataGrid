@@ -1,38 +1,17 @@
 param(
     [string]$Configuration = "Release",
     [string]$Filter = "FullyQualifiedName~LeakTests",
-    [string]$ResultsDir = "artifacts/dotmemory",
-    [string]$DotMemoryLogLevel = "VERBOSE",
+    [string]$ResultsDir = "artifacts/test",
     [string]$TestVerbosity = "detailed",
-    [string]$TestLogger = "console;verbosity=detailed"
+    [string]$TestLogger = "console;verbosity=detailed",
+    [string]$TrxLogger = "trx;LogFileName=leak-tests.trx",
+    [int]$HeartbeatSeconds = 60
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-if (-not $IsWindows) {
-    Write-Error "dotMemory Unit runner is Windows-only; run this script on Windows."
-    exit 1
-}
-
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$packagesProps = Join-Path $repoRoot "Directory.Packages.props"
-if (-not (Test-Path $packagesProps)) {
-    throw "Directory.Packages.props not found at $packagesProps"
-}
-
-[xml]$packagesXml = Get-Content $packagesProps
-$version = ($packagesXml.Project.ItemGroup.PackageVersion |
-    Where-Object { $_.Include -eq "JetBrains.dotMemoryUnit" } |
-    Select-Object -First 1).Version
-if (-not $version) {
-    throw "JetBrains.dotMemoryUnit version not found in Directory.Packages.props"
-}
-
-$dotMemoryUnit = Join-Path $env:USERPROFILE ".nuget\\packages\\jetbrains.dotmemoryunit\\$version\\lib\\tools\\dotMemoryUnit.exe"
-if (-not (Test-Path $dotMemoryUnit)) {
-    throw "dotMemoryUnit.exe not found at $dotMemoryUnit. Run 'dotnet restore' first."
-}
 
 $dotnet = (Get-Command dotnet).Source
 if (-not $dotnet) {
@@ -47,18 +26,7 @@ if (-not (Test-Path $testProject)) {
 $resultsDirFull = Join-Path $repoRoot $ResultsDir
 New-Item -ItemType Directory -Path $resultsDirFull -Force | Out-Null
 
-$workspaceList = Join-Path $resultsDirFull "dotmemory-workspaces.txt"
-$dotMemoryLog = Join-Path $resultsDirFull "dotmemory-unit.log"
-
 $arguments = @(
-    $dotnet
-    "--work-dir=$repoRoot"
-    "--workspace-dir=$resultsDirFull"
-    "--output-file=$workspaceList"
-    "--propagate-exit-code"
-    "--log-level=$DotMemoryLogLevel"
-    "--log-file=$dotMemoryLog"
-    "--"
     "test"
     $testProject
     "-c"
@@ -67,13 +35,31 @@ $arguments = @(
     $TestVerbosity
     "--logger"
     $TestLogger
+    "--logger"
+    $TrxLogger
+    "--results-directory"
+    $resultsDirFull
     "--filter"
     $Filter
 )
 
-Write-Host "dotMemoryUnit: $dotMemoryUnit"
 Write-Host "dotnet: $dotnet"
 Write-Host "Test project: $testProject"
-Write-Host "dotMemory log: $dotMemoryLog"
+Write-Host "Results dir: $resultsDirFull"
 
-& $dotMemoryUnit @arguments
+$process = Start-Process -FilePath $dotnet -ArgumentList $arguments -NoNewWindow -PassThru
+$startTime = Get-Date
+
+if ($HeartbeatSeconds -gt 0) {
+    while (-not $process.WaitForExit($HeartbeatSeconds * 1000)) {
+        $elapsed = (Get-Date) - $startTime
+        Write-Host ("Leak tests still running... elapsed {0:hh\\:mm\\:ss}" -f $elapsed)
+    }
+} else {
+    $process.WaitForExit()
+}
+
+$process.Refresh()
+if ($process.ExitCode -ne 0) {
+    throw "Leak tests exited with code $($process.ExitCode)."
+}

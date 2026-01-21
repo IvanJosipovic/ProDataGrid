@@ -93,7 +93,7 @@ Run standard tests:
 dotnet test
 ```
 
-Leak tests use JetBrains dotMemory Unit and only run on Windows. Use the helper script:
+Leak tests use Avalonia-style WeakReference/GC checks. Use the helper script to run only leak tests:
 
 ```powershell
 .\tools\run-leak-tests.ps1
