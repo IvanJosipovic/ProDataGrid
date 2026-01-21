@@ -167,6 +167,7 @@ public class LeakTests
         GC.KeepAlive(itemsB);
         GC.KeepAlive(result);
     }
+
     [Fact]
     [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
     public void ContentControl_TemplateSwap_DoesNotLeak_DataGrid()
@@ -206,6 +207,7 @@ public class LeakTests
                     }));
 
                     var window = new Window { Content = contentControl };
+                    window.SetThemeStyles();
                     window.Show();
                     Dispatcher.UIThread.RunJobs();
 
@@ -229,7 +231,10 @@ public class LeakTests
         var result = run().GetAwaiter().GetResult();
 
         dotMemory.Check(memory =>
-            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGrid>()).ObjectsCount));
+        {
+            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGrid>()).ObjectsCount);
+            Assert.Equal(0, memory.GetObjects(where => where.Type.Is<DataGridCollectionView>()).ObjectsCount);
+        });
 
         GC.KeepAlive(result);
     }
@@ -307,6 +312,7 @@ public class LeakTests
                         DataContext = viewModel
                     };
 
+                    window.SetThemeStyles();
                     window.Show();
                     Dispatcher.UIThread.RunJobs();
                 },
@@ -1027,7 +1033,6 @@ public class LeakTests
         GC.KeepAlive(result);
     }
 
-
     [Fact]
     [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
     public void DataGrid_ExternalEditingElement_DoesNotLeak()
@@ -1339,7 +1344,6 @@ public class LeakTests
         GC.KeepAlive(result);
     }
 
-
     [Fact]
     [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
     public void DataGrid_ClipboardImport_DoesNotLeak()
@@ -1578,7 +1582,6 @@ public class LeakTests
         GC.KeepAlive(items);
         GC.KeepAlive(result);
     }
-
 
     [Fact]
     [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
@@ -1899,7 +1902,6 @@ public class LeakTests
         GC.KeepAlive(items);
         GC.KeepAlive(result);
     }
-
 
     [Fact]
     [SuppressMessage("Usage", "xUnit1031:Do not use blocking task operations in test method", Justification = "Needed for dotMemoryUnit to work")]
