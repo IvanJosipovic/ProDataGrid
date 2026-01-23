@@ -349,6 +349,8 @@ internal
                 _totalSummaryRow.Scope = DataGridSummaryScope.Total;
 
                 ApplyTotalSummaryRowTheme();
+                _totalSummaryRow.IsVisible = _showTotalSummary;
+                _totalSummaryRow.EnsureCells();
             }
         }
 
@@ -489,6 +491,28 @@ internal
         {
             _totalSummaryRow?.UpdateCellLayout();
             UpdateGroupSummaryRowLayout();
+        }
+
+        private void DetachSummaryRows()
+        {
+            _totalSummaryRow?.DetachFromGrid();
+
+            if (DisplayData == null)
+            {
+                return;
+            }
+
+            foreach (var element in DisplayData.GetScrollingElements())
+            {
+                if (element is DataGridRowGroupHeader groupHeader)
+                {
+                    groupHeader.SummaryRow?.DetachFromGrid();
+                }
+                else if (element is DataGridRowGroupFooter groupFooter)
+                {
+                    groupFooter.SummaryRow?.DetachFromGrid();
+                }
+            }
         }
 
         internal void OnGroupSummaryColumnAdded(DataGridColumn column, int index)

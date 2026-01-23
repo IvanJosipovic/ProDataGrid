@@ -6,6 +6,7 @@
 using Avalonia;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
+using Avalonia.Utilities;
 using System.Globalization;
 using System.Linq;
 
@@ -71,14 +72,20 @@ internal
             {
                 if (_column != null)
                 {
-                    _column.PropertyChanged -= OnColumnPropertyChanged;
+                    WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryCell>(
+                        _column,
+                        nameof(AvaloniaObject.PropertyChanged),
+                        OnColumnPropertyChanged);
                 }
 
                 _column = value;
 
                 if (_column != null)
                 {
-                    _column.PropertyChanged += OnColumnPropertyChanged;
+                    WeakEventHandlerManager.Subscribe<AvaloniaObject, AvaloniaPropertyChangedEventArgs, DataGridSummaryCell>(
+                        _column,
+                        nameof(AvaloniaObject.PropertyChanged),
+                        OnColumnPropertyChanged);
                 }
 
                 ApplyColumnTheme();
@@ -130,14 +137,20 @@ internal
         {
             if (_description != null)
             {
-                _description.PropertyChanged -= OnDescriptionPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryCell>(
+                    _description,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnDescriptionPropertyChanged);
             }
 
             _description = Description;
 
             if (_description != null)
             {
-                _description.PropertyChanged += OnDescriptionPropertyChanged;
+                WeakEventHandlerManager.Subscribe<AvaloniaObject, AvaloniaPropertyChangedEventArgs, DataGridSummaryCell>(
+                    _description,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnDescriptionPropertyChanged);
             }
 
             UpdatePseudoClasses();
@@ -221,12 +234,18 @@ internal
         {
             if (_column != null)
             {
-                _column.PropertyChanged -= OnColumnPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryCell>(
+                    _column,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnColumnPropertyChanged);
             }
 
             if (_description != null)
             {
-                _description.PropertyChanged -= OnDescriptionPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryCell>(
+                    _description,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnDescriptionPropertyChanged);
             }
 
             _owningRow = null;
