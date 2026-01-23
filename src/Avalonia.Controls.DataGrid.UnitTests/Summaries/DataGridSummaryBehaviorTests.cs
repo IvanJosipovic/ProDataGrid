@@ -166,6 +166,58 @@ public class DataGridSummaryBehaviorTests
     }
 
     [AvaloniaFact]
+    public void TotalSummaryRow_Detaches_When_Grid_Unloaded()
+    {
+        var items = new ObservableCollection<SummaryItem>
+        {
+            new() { Value = 1 }
+        };
+
+        var window = new Window
+        {
+            Width = 400,
+            Height = 300
+        };
+        window.SetThemeStyles();
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ItemsSource = items,
+            ShowTotalSummary = true
+        };
+
+        var column = new DataGridTextColumn
+        {
+            Header = "Value",
+            Binding = new Binding(nameof(SummaryItem.Value))
+        };
+        column.Summaries.Add(new DataGridAggregateSummaryDescription
+        {
+            Aggregate = DataGridAggregateType.Sum
+        });
+
+        grid.ColumnsInternal.Add(column);
+
+        window.Content = grid;
+        window.Show();
+        grid.UpdateLayout();
+
+        var summaryRow = grid.TotalSummaryRow;
+
+        Assert.NotNull(summaryRow);
+        Assert.Same(grid, summaryRow.OwningGrid);
+
+        window.Content = null;
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Null(summaryRow.OwningGrid);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void SummaryService_Updates_Timer_Interval_When_Delay_Changes()
     {
         var grid = new DataGrid();
