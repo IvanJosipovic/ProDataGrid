@@ -139,13 +139,15 @@ public class DataGridSelectionTabPersistenceTests
             var realized = RealizeRow(window, grid1, targetItem);
             Assert.True(realized != null, BuildGridDiagnostics(grid1));
 
-            var beforeRows = GetRealizedRows(grid1).Select(r => r.DataContext).ToArray();
+            var beforeRealized = GetRealizedRows(grid1);
+            var beforeRows = beforeRealized.Select(r => r.DataContext).ToArray();
             Assert.NotEmpty(beforeRows);
 
             SwitchContent(window, grid2);
             SwitchContent(window, grid1);
 
-            var afterRows = GetRealizedRows(grid1).Select(r => r.DataContext).ToArray();
+            var afterRealized = GetRealizedRows(grid1);
+            var afterRows = afterRealized.Select(r => r.DataContext).ToArray();
             Assert.Equal(beforeRows.Length, afterRows.Length);
             Assert.True(beforeRows.SequenceEqual(afterRows));
         }
@@ -227,9 +229,15 @@ public class DataGridSelectionTabPersistenceTests
 
     private static IReadOnlyList<DataGridRow> GetRealizedRows(DataGrid grid)
     {
-        return grid
-            .GetSelfAndVisualDescendants()
+        var viewportHeight = grid.RowsPresenterAvailableSize?.Height ?? grid.Bounds.Height;
+        const double tolerance = 0.5;
+
+        return grid.DisplayData.GetScrollingElements()
             .OfType<DataGridRow>()
+            // Only compare fully visible rows to avoid partial-visibility jitter.
+            .Where(row => row.IsVisible &&
+                row.Bounds.Top >= -tolerance &&
+                row.Bounds.Bottom <= viewportHeight + tolerance)
             .OrderBy(r => r.Index)
             .ToArray();
     }
