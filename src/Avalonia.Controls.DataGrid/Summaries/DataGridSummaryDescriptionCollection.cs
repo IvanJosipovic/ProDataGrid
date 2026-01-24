@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using Avalonia;
+using Avalonia.Utilities;
 using System.Collections.ObjectModel;
 
 namespace Avalonia.Controls
@@ -33,7 +34,10 @@ internal
             base.InsertItem(index, item);
             if (item != null)
             {
-                item.PropertyChanged += OnSummaryDescriptionPropertyChanged;
+                WeakEventHandlerManager.Subscribe<AvaloniaObject, AvaloniaPropertyChangedEventArgs, DataGridSummaryDescriptionCollection>(
+                    item,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnSummaryDescriptionPropertyChanged);
             }
         }
 
@@ -42,14 +46,20 @@ internal
             var oldItem = this[index];
             if (oldItem != null)
             {
-                oldItem.PropertyChanged -= OnSummaryDescriptionPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryDescriptionCollection>(
+                    oldItem,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnSummaryDescriptionPropertyChanged);
             }
 
             base.SetItem(index, item);
 
             if (item != null)
             {
-                item.PropertyChanged += OnSummaryDescriptionPropertyChanged;
+                WeakEventHandlerManager.Subscribe<AvaloniaObject, AvaloniaPropertyChangedEventArgs, DataGridSummaryDescriptionCollection>(
+                    item,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnSummaryDescriptionPropertyChanged);
             }
         }
 
@@ -58,7 +68,10 @@ internal
             var oldItem = this[index];
             if (oldItem != null)
             {
-                oldItem.PropertyChanged -= OnSummaryDescriptionPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryDescriptionCollection>(
+                    oldItem,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnSummaryDescriptionPropertyChanged);
             }
 
             base.RemoveItem(index);
@@ -68,7 +81,10 @@ internal
         {
             foreach (var item in this)
             {
-                item.PropertyChanged -= OnSummaryDescriptionPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<AvaloniaPropertyChangedEventArgs, DataGridSummaryDescriptionCollection>(
+                    item,
+                    nameof(AvaloniaObject.PropertyChanged),
+                    OnSummaryDescriptionPropertyChanged);
             }
 
             base.ClearItems();

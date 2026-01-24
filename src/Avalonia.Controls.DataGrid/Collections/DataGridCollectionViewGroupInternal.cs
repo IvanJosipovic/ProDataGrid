@@ -58,14 +58,20 @@ namespace Avalonia.Collections
 
                 if (_groupBy != null)
                 {
-                    ((INotifyPropertyChanged)_groupBy).PropertyChanged -= OnGroupByChanged;
+                    WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridCollectionViewGroupInternal>(
+                        _groupBy,
+                        nameof(INotifyPropertyChanged.PropertyChanged),
+                        OnGroupByChanged);
                 }
 
                 _groupBy = value;
 
                 if (_groupBy != null)
                 {
-                    ((INotifyPropertyChanged)_groupBy).PropertyChanged += OnGroupByChanged;
+                    WeakEventHandlerManager.Subscribe<DataGridGroupDescription, PropertyChangedEventArgs, DataGridCollectionViewGroupInternal>(
+                        _groupBy,
+                        nameof(INotifyPropertyChanged.PropertyChanged),
+                        OnGroupByChanged);
                 }
 
                 if (oldIsBottomLevel != IsBottomLevel)

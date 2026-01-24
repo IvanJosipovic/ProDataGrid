@@ -4,6 +4,8 @@
 #nullable disable
 
 using Avalonia.Styling;
+using Avalonia.Utilities;
+using System.Collections.Specialized;
 
 namespace Avalonia.Controls
 {
@@ -36,7 +38,10 @@ internal
                 if (_summaries == null)
                 {
                     _summaries = new DataGridSummaryDescriptionCollection { OwningColumn = this };
-                    _summaries.CollectionChanged += OnSummariesCollectionChanged;
+                    WeakEventHandlerManager.Subscribe<INotifyCollectionChanged, NotifyCollectionChangedEventArgs, DataGridColumn>(
+                        _summaries,
+                        nameof(INotifyCollectionChanged.CollectionChanged),
+                        OnSummariesCollectionChanged);
                 }
                 return _summaries;
             }

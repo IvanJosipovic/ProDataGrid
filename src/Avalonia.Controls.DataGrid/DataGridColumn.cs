@@ -22,6 +22,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Metadata;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using Avalonia.Utilities;
 using System.Collections.Specialized;
 
 namespace Avalonia.Controls
@@ -541,7 +542,10 @@ internal
         private Classes CreateHeaderStyleClasses()
         {
             var classes = new Classes();
-            classes.CollectionChanged += HeaderStyleClassesChanged;
+            WeakEventHandlerManager.Subscribe<INotifyCollectionChanged, NotifyCollectionChangedEventArgs, DataGridColumn>(
+                classes,
+                nameof(INotifyCollectionChanged.CollectionChanged),
+                HeaderStyleClassesChanged);
             return classes;
         }
 

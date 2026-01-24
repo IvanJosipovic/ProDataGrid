@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls.DataGridFiltering;
+using Avalonia.Utilities;
 using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Templates;
@@ -258,14 +259,20 @@ namespace Avalonia.Controls
 
                 if (_options != null)
                 {
-                    _options.PropertyChanged -= Options_PropertyChanged;
+                    WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridColumnDefinition>(
+                        _options,
+                        nameof(INotifyPropertyChanged.PropertyChanged),
+                        Options_PropertyChanged);
                 }
 
                 _options = value;
 
                 if (_options != null)
                 {
-                    _options.PropertyChanged += Options_PropertyChanged;
+                    WeakEventHandlerManager.Subscribe<DataGridColumnDefinitionOptions, PropertyChangedEventArgs, DataGridColumnDefinition>(
+                        _options,
+                        nameof(INotifyPropertyChanged.PropertyChanged),
+                        Options_PropertyChanged);
                 }
 
                 NotifyPropertyChanged(nameof(Options));
