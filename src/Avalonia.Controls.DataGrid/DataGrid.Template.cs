@@ -188,6 +188,8 @@ internal
                 AttachExternalSubscriptions();
             }
 
+            TryRestorePendingGroupingState();
+
             if (_rowDragDropController == null && CanUserReorderRows)
             {
                 RefreshRowDragDropController();
@@ -204,6 +206,7 @@ internal
             CancelPendingLayoutRefreshes();
             CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
             DetachExternalEditingElement();
+            CapturePendingGroupingState();
             _scrollStateManager.Capture(preserveOnAttach: true);
             _suppressCellContentUpdates = true;
             try

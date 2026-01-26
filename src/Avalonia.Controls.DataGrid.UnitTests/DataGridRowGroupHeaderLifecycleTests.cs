@@ -5,6 +5,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -101,6 +102,46 @@ public class DataGridRowGroupHeaderLifecycleTests
         }
     }
 
+    [AvaloniaFact]
+    public void RowGroupCollapse_State_Persists_On_Reattach()
+    {
+        var (grid, root) = CreateGroupedGrid();
+
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+
+            var header = GetGroupHeaders(grid).First();
+            var key = header.RowGroupInfo.CollectionViewGroup.Key;
+
+            var toggle = typeof(DataGridRowGroupHeader).GetMethod(
+                "ToggleExpandCollapse",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.NotNull(toggle);
+            toggle.Invoke(header, new object[] { false, true });
+
+            Assert.False(header.RowGroupInfo.IsVisible);
+
+            root.Content = null;
+            Dispatcher.UIThread.RunJobs();
+
+            root.Content = grid;
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+
+            var restoredInfo = GetGroupInfos(grid)
+                .FirstOrDefault(info => Equals(info.CollectionViewGroup.Key, key));
+
+            Assert.NotNull(restoredInfo);
+            Assert.False(restoredInfo.IsVisible);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
     private static (DataGrid grid, Window root) CreateGroupedGrid(
         bool showGroupSummary = false,
         DataGridGroupSummaryPosition groupSummaryPosition = DataGridGroupSummaryPosition.Header)
@@ -158,6 +199,15 @@ public class DataGridRowGroupHeaderLifecycleTests
     {
         return grid.GetVisualDescendants()
             .OfType<DataGridRowGroupFooter>()
+            .ToList();
+    }
+
+    private static IReadOnlyList<DataGridRowGroupInfo> GetGroupInfos(DataGrid grid)
+    {
+        return grid.RowGroupHeadersTable
+            .GetIndexes()
+            .Select(slot => grid.RowGroupHeadersTable.GetValueAt(slot))
+            .Where(info => info != null)
             .ToList();
     }
 

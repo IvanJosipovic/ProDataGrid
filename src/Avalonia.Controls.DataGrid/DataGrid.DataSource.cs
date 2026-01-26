@@ -35,6 +35,8 @@ internal
         {
             using var selectionScope = BeginSelectionChangeScope(DataGridSelectionChangeSource.ItemsSourceChange, sticky: true);
 
+            _pendingGroupingState = null;
+
             var oldValue = (IEnumerable)e.OldValue;
             var newItemsSource = (IEnumerable)e.NewValue;
             var switchingFromOwnedHierarchical = ReferenceEquals(oldValue, _hierarchicalItemsSource) && _ownsHierarchicalItemsSource && !ReferenceEquals(oldValue, newItemsSource);

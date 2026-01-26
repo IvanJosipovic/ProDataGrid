@@ -28,6 +28,7 @@ namespace Avalonia.Controls
     {
         private DataGridSearchCurrentState _pendingSearchCurrentState;
         private DataGridStateOptions _pendingSearchOptions;
+        private DataGridGroupingState _pendingGroupingState;
 
         public DataGridState CaptureState(DataGridStateSections sections = DataGridStateSections.All, DataGridStateOptions options = null)
         {
@@ -769,6 +770,7 @@ namespace Avalonia.Controls
         {
             RefreshGroupingLayout();
             RequestGroupingIndentationRefresh();
+            TryRestorePendingGroupingState();
         }
 
         private void UpdateGroupingIndentation()
@@ -1576,6 +1578,25 @@ namespace Avalonia.Controls
             {
                 _pendingSearchCurrentState = null;
                 _pendingSearchOptions = null;
+            }
+        }
+
+        private void CapturePendingGroupingState()
+        {
+            _pendingGroupingState = CaptureGroupingState();
+        }
+
+        private void TryRestorePendingGroupingState()
+        {
+            if (_pendingGroupingState == null)
+            {
+                return;
+            }
+
+            if (DataConnection?.CollectionView is IDataGridCollectionView view && view.Groups != null)
+            {
+                RestoreGroupingState(_pendingGroupingState);
+                _pendingGroupingState = null;
             }
         }
 
