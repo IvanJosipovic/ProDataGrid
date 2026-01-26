@@ -21,4 +21,8 @@ public enum DevToolsViewKind
     /// The Combined Tree diagnostic view
     /// </summary>
     CombinedTree = 3,
+    /// <summary>
+    /// Resources diagnostic view
+    /// </summary>
+    Resources = 4,
 }

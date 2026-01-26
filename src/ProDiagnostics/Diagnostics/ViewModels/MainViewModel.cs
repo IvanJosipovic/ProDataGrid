@@ -19,6 +19,7 @@ namespace Avalonia.Diagnostics.ViewModels
         private readonly TreePageViewModel _logicalTree;
         private readonly TreePageViewModel _visualTree;
         private readonly TreePageViewModel _combinedTree;
+        private readonly ResourcesPageViewModel _resources;
         private readonly EventsPageViewModel _events;
         private readonly HotKeyPageViewModel _hotKeys;
         private readonly IDisposable _pointerOverSubscription;
@@ -45,9 +46,14 @@ namespace Avalonia.Diagnostics.ViewModels
             var logicalProvider = new LogicalTreeNodeProvider();
             var visualProvider = new VisualTreeNodeProvider();
             var combinedProvider = new CombinedTreeNodeProvider(templateProvider);
+            var resourceFormatter = new ResourceNodeFormatter();
+            var resourceNodeFactory = new ResourceTreeNodeFactory(resourceFormatter);
+            var resourceProvider = new ResourceTreeNodeProvider(resourceNodeFactory);
+            var resourceModelFactory = new ResourceHierarchyModelFactory();
             _logicalTree = new TreePageViewModel(this, logicalProvider.Create(root), treeModelFactory, _pinnedProperties);
             _visualTree = new TreePageViewModel(this, visualProvider.Create(root), treeModelFactory, _pinnedProperties);
             _combinedTree = new TreePageViewModel(this, combinedProvider.Create(root), treeModelFactory, _pinnedProperties);
+            _resources = new ResourcesPageViewModel(this, resourceProvider.Create(root), resourceModelFactory, resourceFormatter);
             _events = new EventsPageViewModel(this);
             _hotKeys = new HotKeyPageViewModel();
 
@@ -205,9 +211,12 @@ namespace Avalonia.Diagnostics.ViewModels
                         Content = _visualTree;
                         break;
                     case 3:
-                        Content = _events;
+                        Content = _resources;
                         break;
                     case 4:
+                        Content = _events;
+                        break;
+                    case 5:
                         Content = _hotKeys;
                         break;
                     default:
@@ -249,14 +258,20 @@ namespace Avalonia.Diagnostics.ViewModels
 
         public void ShowHotKeys()
         {
-            SelectedTab = 4;
+            SelectedTab = 5;
         }
 
         public void SelectControl(Control control)
         {
-            var tree = Content as TreePageViewModel;
-
-            tree?.SelectControl(control);
+            switch (Content)
+            {
+                case TreePageViewModel tree:
+                    tree.SelectControl(control);
+                    break;
+                case ResourcesPageViewModel resources:
+                    resources.SelectResourceHost(control);
+                    break;
+            }
         }
 
         public void EnableSnapshotStyles(bool enable)
@@ -275,6 +290,7 @@ namespace Avalonia.Diagnostics.ViewModels
             _logicalTree.Dispose();
             _visualTree.Dispose();
             _combinedTree.Dispose();
+            _resources.Dispose();
             _events.Dispose();
             _currentFocusHighlightAdorner?.Dispose();
             if (TryGetRenderer() is { } renderer)
@@ -373,6 +389,10 @@ namespace Avalonia.Diagnostics.ViewModels
             {
                 viewModel.UpdatePropertiesView();
             }
+            else if (Content is ResourcesPageViewModel resourcesViewModel)
+            {
+                resourcesViewModel.UpdateDetailsView();
+            }
         }
 
         public bool ShowDetailsPropertyType
@@ -404,7 +424,8 @@ namespace Avalonia.Diagnostics.ViewModels
                 DevToolsViewKind.CombinedTree => 0,
                 DevToolsViewKind.LogicalTree => 1,
                 DevToolsViewKind.VisualTree => 2,
-                DevToolsViewKind.Events => 3,
+                DevToolsViewKind.Resources => 3,
+                DevToolsViewKind.Events => 4,
                 _ => 0
             };
         }

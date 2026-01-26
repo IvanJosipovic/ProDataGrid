@@ -259,6 +259,7 @@
       <TabStripItem Content="Combined Tree" />
       <TabStripItem Content="Logical Tree" />
       <TabStripItem Content="Visual Tree" />
+      <TabStripItem Content="Resources" />
       <TabStripItem Content="Events" />
       <TabStripItem Content="HotKeys" IsVisible="False" />
     </TabStrip>

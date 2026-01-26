@@ -1,0 +1,158 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Avalonia.Diagnostics.ViewModels"
+             xmlns:views="using:Avalonia.Diagnostics.Views"
+             x:Class="Avalonia.Diagnostics.Views.ResourcesPageView"
+             x:DataType="vm:ResourcesPageViewModel">
+  <Grid ColumnDefinitions="0.45*,4,0.55*">
+    <Grid RowDefinitions="Auto,*">
+      <StackPanel Margin="8,6,8,4" Spacing="2">
+        <TextBlock Text="Resource Providers" FontWeight="Bold"/>
+        <TextBlock Text="Control-specific resources and template resources are not shown."
+                   Foreground="Gray"
+                   TextWrapping="Wrap"/>
+      </StackPanel>
+
+      <DataGrid Grid.Row="1"
+                Name="resourcesTree"
+                BorderThickness="0"
+                AutoGenerateColumns="False"
+                HierarchicalModel="{Binding HierarchicalModel}"
+                HierarchicalRowsEnabled="True"
+                HeadersVisibility="None"
+                GridLinesVisibility="None"
+                SelectionMode="Single"
+                IsReadOnly="True"
+                UseLogicalScrollable="True"
+                HorizontalScrollBarVisibility="Auto"
+                AutoExpandSelectedItem="True"
+                AutoScrollToSelectedItem="True"
+                CanUserSortColumns="False"
+                CanUserResizeColumns="False"
+                CanUserReorderColumns="False"
+                SelectedItem="{Binding SelectedNode, Mode=TwoWay}"
+                PointerMoved="UpdateAdorner"
+                PointerExited="RemoveAdorner">
+        <DataGrid.Columns>
+          <DataGridHierarchicalColumn Width="*"
+                                      x:CompileBindings="False"
+                                      Binding="{Binding Item}">
+            <DataGridHierarchicalColumn.CellTemplate>
+              <DataTemplate x:DataType="vm:ResourceTreeNode">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <TextBlock Text="{Binding Name}"/>
+                  <TextBlock Text="{Binding SecondaryText}"
+                             Foreground="Gray"
+                             IsVisible="{Binding SecondaryText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+              </DataTemplate>
+            </DataGridHierarchicalColumn.CellTemplate>
+          </DataGridHierarchicalColumn>
+        </DataGrid.Columns>
+      </DataGrid>
+    </Grid>
+
+    <GridSplitter Background="{DynamicResource ThemeControlMidBrush}" Width="1" Grid.Column="1"/>
+
+    <Grid Grid.Column="2" RowDefinitions="Auto,Auto,Auto,Auto,*">
+      <StackPanel Grid.Row="0" Margin="8,6,8,4" Spacing="2">
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <TextBlock Text="Resources" FontWeight="Bold"/>
+          <TextBlock Text="{Binding ResourceCount, StringFormat=Resources: {0}}"
+                     Foreground="Gray"/>
+        </StackPanel>
+        <TextBlock Text="{Binding SelectedScopePath, StringFormat=Scope: {0}}"
+                   Foreground="Gray"
+                   TextTrimming="CharacterEllipsis"
+                   IsVisible="{Binding HasSelectedNode}"/>
+        <TextBlock Text="Select a resource provider to view its resources."
+                   Foreground="Gray"
+                   TextWrapping="Wrap"
+                   IsVisible="{Binding ShowNoSelectionMessage}"/>
+        <TextBlock Text="Adding new resources is not yet supported."
+                   Foreground="Gray"
+                   TextWrapping="Wrap"/>
+      </StackPanel>
+
+      <Expander Grid.Row="1"
+                Header="Provider Details"
+                Margin="8,0,8,4"
+                IsExpanded="False"
+                IsVisible="{Binding HasSelectedNode}">
+        <ContentControl Content="{Binding Details}"/>
+      </Expander>
+
+      <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="8,0,8,4">
+        <CheckBox Content="Include nested"
+                  IsChecked="{Binding IncludeNested}"
+                  VerticalAlignment="Center"/>
+        <TextBlock Text="Sort by" VerticalAlignment="Center"/>
+        <ComboBox ItemsSource="{Binding SortModes}"
+                  SelectedItem="{Binding SortMode}"
+                  Width="120"/>
+        <TextBlock Text="Order" VerticalAlignment="Center"/>
+        <ComboBox ItemsSource="{Binding SortDirections}"
+                  SelectedItem="{Binding SortDirection}"
+                  Width="120"/>
+      </StackPanel>
+
+      <FilterTextBox Grid.Row="3"
+                     Margin="8,0,8,4"
+                     DataContext="{Binding ResourcesFilter}"
+                     Text="{Binding FilterString}"
+                     Watermark="Search resources"
+                     UseCaseSensitiveFilter="{Binding UseCaseSensitiveFilter}"
+                     UseWholeWordFilter="{Binding UseWholeWordFilter}"
+                     UseRegexFilter="{Binding UseRegexFilter}"/>
+
+      <Grid Grid.Row="4">
+        <DataGrid ItemsSource="{Binding ResourcesView}"
+                  SelectedItem="{Binding SelectedResource, Mode=TwoWay}"
+                  AutoGenerateColumns="False"
+                  HeadersVisibility="Column"
+                  BorderThickness="0"
+                  SelectionMode="Single"
+                  HorizontalScrollBarVisibility="Auto"
+                  CanUserResizeColumns="True"
+                  CanUserReorderColumns="False"
+                  CanUserSortColumns="False">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Key"
+                                Binding="{Binding KeyDisplay}"
+                                IsReadOnly="True"
+                                Width="2*"
+                                x:DataType="vm:ResourceEntryViewModel"/>
+            <DataGridTemplateColumn Header="Value" Width="3*">
+              <DataGridTemplateColumn.CellTemplate>
+                <DataTemplate x:DataType="vm:ResourceEntryViewModel">
+                  <views:PropertyValueEditorView DataContext="{Binding ValueProperty}" />
+                </DataTemplate>
+              </DataGridTemplateColumn.CellTemplate>
+            </DataGridTemplateColumn>
+            <DataGridTextColumn Header="Type"
+                                Binding="{Binding ValueTypeName}"
+                                IsReadOnly="True"
+                                Width="2*"
+                                x:DataType="vm:ResourceEntryViewModel"/>
+            <DataGridTextColumn Header="Scope"
+                                Binding="{Binding ScopePath}"
+                                IsReadOnly="True"
+                                Width="3*"
+                                x:DataType="vm:ResourceEntryViewModel"/>
+            <DataGridTextColumn Header="Theme"
+                                Binding="{Binding ThemeVariant}"
+                                IsReadOnly="True"
+                                Width="1.5*"
+                                x:DataType="vm:ResourceEntryViewModel"/>
+          </DataGrid.Columns>
+        </DataGrid>
+
+        <TextBlock Text="No resources found in this scope."
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   Foreground="Gray"
+                   IsVisible="{Binding ShowNoResourcesMessage}"/>
+      </Grid>
+    </Grid>
+  </Grid>
+</UserControl>

@@ -1,0 +1,64 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Avalonia.Diagnostics.ViewModels"
+             xmlns:views="using:Avalonia.Diagnostics.Views"
+             x:Class="Avalonia.Diagnostics.Views.ResourceDetailsView"
+             x:DataType="vm:ResourceDetailsViewModel">
+  <Grid RowDefinitions="Auto,Auto,*" Margin="8">
+    <StackPanel Grid.Row="0" Spacing="6">
+      <TextBlock Text="{Binding Title}" FontWeight="Bold"/>
+      <TextBlock Text="{Binding Subtitle}"
+                 Foreground="Gray"
+                 IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:ResourceDetailItem">
+            <Grid ColumnDefinitions="0.35*,0.65*">
+              <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+              <TextBlock Text="{Binding Value}"
+                         Grid.Column="1"
+                         TextWrapping="Wrap"/>
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <FilterTextBox Grid.Row="1"
+                   Margin="0,8,0,4"
+                   Text="{Binding PropertiesFilter.FilterString}"
+                   Watermark="Filter properties"
+                   UseCaseSensitiveFilter="{Binding PropertiesFilter.UseCaseSensitiveFilter}"
+                   UseWholeWordFilter="{Binding PropertiesFilter.UseWholeWordFilter}"
+                   UseRegexFilter="{Binding PropertiesFilter.UseRegexFilter}"
+                   IsVisible="{Binding HasProperties}"/>
+
+    <DataGrid Grid.Row="2"
+              ItemsSource="{Binding PropertiesView}"
+              SelectedItem="{Binding SelectedProperty, Mode=TwoWay}"
+              AutoGenerateColumns="False"
+              HeadersVisibility="Column"
+              BorderThickness="0"
+              CanUserResizeColumns="True"
+              IsReadOnly="False"
+              IsVisible="{Binding HasProperties}">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Property"
+                            Binding="{Binding Name}"
+                            IsReadOnly="True"
+                            x:DataType="vm:PropertyViewModel"/>
+        <DataGridTemplateColumn Header="Value">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate x:DataType="vm:PropertyViewModel">
+              <views:PropertyValueEditorView />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Type"
+                            Binding="{Binding Type}"
+                            IsReadOnly="True"
+                            x:DataType="vm:PropertyViewModel"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>
