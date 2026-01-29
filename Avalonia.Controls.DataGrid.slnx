@@ -11,12 +11,20 @@
     </Folder>
     <Folder Name="/src/">
         <Project Path="src/Avalonia.Controls.DataGrid/Avalonia.Controls.DataGrid.csproj" />
+        <Project Path="src/ProCharts/ProCharts.csproj" />
+        <Project Path="src/ProCharts.Skia/ProCharts.Skia.csproj" />
+        <Project Path="src/ProCharts.Avalonia/ProCharts.Avalonia.csproj" />
+        <Project Path="src/ProDataGrid.Charting/ProDataGrid.Charting.csproj" />
+        <Project Path="src/ProDataGrid.FormulaEngine/ProDataGrid.FormulaEngine.csproj" />
+        <Project Path="src/ProDataGrid.FormulaEngine.Excel/ProDataGrid.FormulaEngine.Excel.csproj" />
         <Project Path="src/ProDiagnostics/ProDiagnostics.csproj" />
         <Project Path="src/ProDiagnostics.Transport/ProDiagnostics.Transport.csproj" />
     </Folder>
     <Folder Name="/tests/">
         <Project Path="src/Avalonia.Controls.DataGrid.UnitTests/Avalonia.Controls.DataGrid.UnitTests.csproj" />
         <Project Path="src/Avalonia.Controls.DataGrid.LeakTests/Avalonia.Controls.DataGrid.LeakTests.csproj" />
+        <Project Path="src/ProDataGrid.FormulaEngine.UnitTests/ProDataGrid.FormulaEngine.UnitTests.csproj" />
+        <Project Path="tests/ProDataGrid.FormulaEngine.Benchmarks/ProDataGrid.FormulaEngine.Benchmarks.csproj" />
         <Project Path="src/ProDiagnostics.UnitTests/ProDiagnostics.UnitTests.csproj" />
     </Folder>
     <Folder Name="/samples/">
