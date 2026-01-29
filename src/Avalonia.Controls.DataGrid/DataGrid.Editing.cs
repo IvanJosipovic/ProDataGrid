@@ -738,6 +738,10 @@ internal
             {
                 return true;
             }
+            if (EditingRow.Slot < 0 || EditingRow.Slot >= SlotCount)
+            {
+                return true;
+            }
             Debug.Assert(EditingRow != null && EditingRow.Index >= -1);
             Debug.Assert(EditingRow.Slot < SlotCount);
             Debug.Assert(CurrentColumn != null);
@@ -771,6 +775,10 @@ internal
         private bool CommitRowEdit(bool exitEditingMode)
         {
             if (EditingRow == null)
+            {
+                return true;
+            }
+            if (EditingRow.Slot < 0 || EditingRow.Slot >= SlotCount)
             {
                 return true;
             }
