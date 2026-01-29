@@ -2,8 +2,7 @@
 <!-- Licensed under the MIT license. See LICENSE file in the project root for details. -->
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="clr-namespace:Avalonia.Controls"
-        x:Class="Avalonia.Controls.DataGridThemes.DataGridFluentV2Theme">
+        xmlns:controls="clr-namespace:Avalonia.Controls">
   <!-- Fluent v2 keeps the v1 styling and only swaps the DataGrid template to the ScrollViewer-based version.
        All colors, column/cell themes, and resources continue to come from Fluent.xaml. -->
   <StyleInclude Source="/Themes/Fluent.xaml" />

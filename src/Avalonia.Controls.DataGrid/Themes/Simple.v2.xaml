@@ -2,8 +2,7 @@
 <!-- Licensed under the MIT license. See LICENSE file in the project root for details. -->
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="clr-namespace:Avalonia.Controls"
-        x:Class="Avalonia.Controls.DataGridThemes.DataGridSimpleV2Theme">
+        xmlns:controls="clr-namespace:Avalonia.Controls">
   <!-- Simple v2 keeps the base Simple styling and only swaps the DataGrid template to the ScrollViewer-based version. -->
   <StyleInclude Source="/Themes/Simple.xaml" />
   <Styles.Resources>
