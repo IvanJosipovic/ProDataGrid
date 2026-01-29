@@ -377,6 +377,15 @@ internal
             var deltaY = newOffset.Y - oldOffset.Y;
             var deltaX = newOffset.X - oldOffset.X;
 
+            if (OwningGrid.IsScrollStateRestoreActive)
+            {
+                if (deltaY != 0)
+                {
+                    OwningGrid.DisplayData.PendingVerticalScrollHeight = 0;
+                }
+                return;
+            }
+
             if (deltaY != 0)
             {
                 // Use the DataGrid's existing vertical scroll handling

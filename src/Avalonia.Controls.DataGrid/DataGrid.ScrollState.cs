@@ -120,8 +120,11 @@ namespace Avalonia.Controls
 
                 if (!IsValid())
                 {
-                    Clear();
-                    return false;
+                    if (!_owner._forceScrollStateRestore)
+                    {
+                        Clear();
+                        return false;
+                    }
                 }
 
                 if (!TryRestoreEstimatorState())

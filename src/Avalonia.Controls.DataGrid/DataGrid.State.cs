@@ -16,6 +16,7 @@ using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.DataGridSelection;
 using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Selection;
+using Avalonia.Utilities;
 
 namespace Avalonia.Controls
 {
@@ -28,7 +29,37 @@ namespace Avalonia.Controls
     {
         private DataGridSearchCurrentState _pendingSearchCurrentState;
         private DataGridStateOptions _pendingSearchOptions;
+        private DataGridScrollState _pendingScrollState;
+        private DataGridStateOptions _pendingScrollOptions;
+        private bool _suppressSearchScroll;
+        private bool _forceScrollStateRestore;
+        private bool _pendingScrollLayoutRestore;
+        private int _scrollRestoreGuard;
+        private int? _restoredScrollSlot;
         private DataGridGroupingState _pendingGroupingState;
+        internal bool IsScrollStateRestoreActive =>
+            _forceScrollStateRestore || _pendingScrollState != null || _pendingScrollLayoutRestore || _scrollRestoreGuard > 0 || _scrollStateManager?.PendingRestore == true;
+
+        private void MarkScrollStateRestored(int? slot)
+        {
+            _scrollRestoreGuard = Math.Max(_scrollRestoreGuard, 2);
+            if (slot.HasValue)
+            {
+                _restoredScrollSlot = slot.Value;
+            }
+            else if (DisplayData != null && DisplayData.FirstScrollingSlot >= 0)
+            {
+                _restoredScrollSlot = DisplayData.FirstScrollingSlot;
+            }
+        }
+
+        private void TickScrollRestoreGuard()
+        {
+            if (_scrollRestoreGuard > 0)
+            {
+                _scrollRestoreGuard--;
+            }
+        }
 
         public DataGridState CaptureState(DataGridStateSections sections = DataGridStateSections.All, DataGridStateOptions options = null)
         {
@@ -90,6 +121,20 @@ namespace Avalonia.Controls
             }
 
             var target = sections == DataGridStateSections.All ? state.Sections : sections;
+            _pendingScrollState = null;
+            _pendingScrollOptions = null;
+            var deferScrollRestore = HasSection(target, DataGridStateSections.Searching)
+                && HasSection(target, DataGridStateSections.Scroll)
+                && state.Search != null
+                && state.Scroll != null;
+            if (HasSection(target, DataGridStateSections.Scroll) && state.Scroll != null)
+            {
+                _forceScrollStateRestore = true;
+            }
+            if (deferScrollRestore)
+            {
+                _suppressSearchScroll = true;
+            }
 
             if (HasSection(target, DataGridStateSections.Columns))
             {
@@ -113,6 +158,13 @@ namespace Avalonia.Controls
 
             if (HasSection(target, DataGridStateSections.Searching))
             {
+                if (deferScrollRestore)
+                {
+                    _pendingScrollState = state.Scroll;
+                    _pendingScrollOptions = options;
+                    QueueLayoutScrollRestore();
+                }
+
                 RestoreSearchState(state.Search, options);
             }
 
@@ -133,7 +185,35 @@ namespace Avalonia.Controls
 
             if (HasSection(target, DataGridStateSections.Scroll))
             {
-                TryRestoreScrollState(state.Scroll, options);
+                if (!deferScrollRestore)
+                {
+                    if (!TryRestoreScrollState(state.Scroll, options) && state.Scroll != null && _scrollStateManager?.PendingRestore != true)
+                    {
+                        _pendingScrollState = state.Scroll;
+                        _pendingScrollOptions = options;
+                        InvalidateMeasure();
+                        QueueLayoutScrollRestore();
+                    }
+                    ClearSearchScrollSuppressionIfComplete();
+                }
+
+                if (IsAttachedToVisualTree && IsVisible)
+                {
+                    UpdateLayout();
+                }
+
+                if (!ForceRestoreScrollStateIfNeeded(state.Scroll) && state.Scroll != null)
+                {
+                    _pendingScrollState = state.Scroll;
+                    _pendingScrollOptions = options;
+                    InvalidateMeasure();
+                    QueueLayoutScrollRestore();
+                }
+            }
+
+            if (_scrollStateManager?.PendingRestore == true)
+            {
+                InvalidateMeasure();
             }
         }
 
@@ -319,7 +399,12 @@ namespace Avalonia.Controls
         {
             if (_scrollStateManager is ScrollStateManager manager)
             {
-                return manager.TryRestore(state, options);
+                if (manager.TryRestore(state, options))
+                {
+                    MarkScrollStateRestored(state.FirstScrollingSlot);
+                    return true;
+                }
+                return false;
             }
 
             return false;
@@ -1569,16 +1654,206 @@ namespace Avalonia.Controls
 
         private void TryRestorePendingSearchCurrent()
         {
-            if (_pendingSearchCurrentState == null)
+            if (_pendingSearchCurrentState != null)
+            {
+                if (TryRestoreSearchCurrent(_pendingSearchCurrentState, _pendingSearchOptions))
+                {
+                    _pendingSearchCurrentState = null;
+                    _pendingSearchOptions = null;
+                }
+            }
+
+            if (_pendingScrollState != null && SearchModel?.Results != null)
+            {
+                var restored = TryRestoreScrollState(_pendingScrollState, _pendingScrollOptions);
+                if (!_forceScrollStateRestore && (restored || _scrollStateManager?.PendingRestore == true))
+                {
+                    _pendingScrollState = null;
+                    _pendingScrollOptions = null;
+                    DisplayData.PendingVerticalScrollHeight = 0;
+                    if (_scrollStateManager?.PendingRestore == true)
+                    {
+                        InvalidateMeasure();
+                    }
+                }
+                else
+                {
+                    InvalidateMeasure();
+                    QueueLayoutScrollRestore();
+                }
+                ClearSearchScrollSuppressionIfComplete();
+            }
+        }
+
+        private void ClearSearchScrollSuppressionIfComplete()
+        {
+            if (_pendingScrollState == null && _scrollStateManager?.PendingRestore != true)
+            {
+                _suppressSearchScroll = false;
+                _forceScrollStateRestore = false;
+            }
+        }
+
+        private void TryRestorePendingScrollStateOnMeasure()
+        {
+            if (_pendingScrollState == null)
             {
                 return;
             }
 
-            if (TryRestoreSearchCurrent(_pendingSearchCurrentState, _pendingSearchOptions))
+            if (_scrollStateManager?.PendingRestore == true)
             {
-                _pendingSearchCurrentState = null;
-                _pendingSearchOptions = null;
+                return;
             }
+
+            if (ForceRestoreScrollStateIfNeeded(_pendingScrollState))
+            {
+                _pendingScrollState = null;
+                _pendingScrollOptions = null;
+                DisplayData.PendingVerticalScrollHeight = 0;
+                ClearSearchScrollSuppressionIfComplete();
+            }
+            else
+            {
+                QueueLayoutScrollRestore();
+            }
+        }
+
+        private void TryRestorePendingScrollStateAfterViewRefresh()
+        {
+            if (_pendingScrollState == null)
+            {
+                return;
+            }
+
+            if (ForceRestoreScrollStateIfNeeded(_pendingScrollState))
+            {
+                _pendingScrollState = null;
+                _pendingScrollOptions = null;
+                DisplayData.PendingVerticalScrollHeight = 0;
+                ClearSearchScrollSuppressionIfComplete();
+            }
+            else
+            {
+                QueueLayoutScrollRestore();
+            }
+        }
+
+        private void QueueLayoutScrollRestore()
+        {
+            if (_pendingScrollLayoutRestore || _pendingScrollState == null)
+            {
+                return;
+            }
+
+            _pendingScrollLayoutRestore = true;
+            LayoutUpdated += DataGrid_LayoutUpdatedScrollRestore;
+        }
+
+        private void DataGrid_LayoutUpdatedScrollRestore(object sender, EventArgs e)
+        {
+            if (!_pendingScrollLayoutRestore)
+            {
+                return;
+            }
+
+            if (_pendingScrollState == null)
+            {
+                _pendingScrollLayoutRestore = false;
+                LayoutUpdated -= DataGrid_LayoutUpdatedScrollRestore;
+                return;
+            }
+
+            if (ForceRestoreScrollStateIfNeeded(_pendingScrollState))
+            {
+                _pendingScrollState = null;
+                _pendingScrollOptions = null;
+                _pendingScrollLayoutRestore = false;
+                LayoutUpdated -= DataGrid_LayoutUpdatedScrollRestore;
+                ClearSearchScrollSuppressionIfComplete();
+            }
+        }
+
+        private bool ForceRestoreScrollStateIfNeeded(DataGridScrollState state)
+        {
+            if (state == null || DisplayData == null)
+            {
+                return false;
+            }
+
+            if (DisplayData.FirstScrollingSlot == state.FirstScrollingSlot)
+            {
+                return true;
+            }
+
+            if (SlotCount == 0 || ColumnsItemsInternal.Count == 0)
+            {
+                return false;
+            }
+
+            var estimatedHeight = CellsEstimatedHeight;
+            if (MathUtilities.LessThanOrClose(estimatedHeight, 0))
+            {
+                var gridHeight = Bounds.Height;
+                if (MathUtilities.GreaterThan(gridHeight, 0))
+                {
+                    var headerHeight = 0.0;
+                    if (AreColumnHeadersVisible)
+                    {
+                        if (_columnHeadersPresenter != null)
+                        {
+                            headerHeight = _columnHeadersPresenter.Bounds.Height;
+                        }
+                        else if (!double.IsNaN(ColumnHeaderHeight))
+                        {
+                            headerHeight = ColumnHeaderHeight;
+                        }
+                    }
+
+                    estimatedHeight = Math.Max(0, gridHeight - headerHeight);
+                }
+            }
+
+            if (MathUtilities.LessThanOrClose(estimatedHeight, 0))
+            {
+                return false;
+            }
+
+            DisplayData.PendingVerticalScrollHeight = 0;
+
+            int targetSlot = Math.Min(state.FirstScrollingSlot, SlotCount - 1);
+            if (targetSlot < 0)
+            {
+                return false;
+            }
+
+            if (_collapsedSlotsTable.Contains(targetSlot))
+            {
+                targetSlot = GetNextVisibleSlot(targetSlot);
+                if (targetSlot == -1)
+                {
+                    return false;
+                }
+            }
+
+            NegVerticalOffset = Math.Max(0, state.NegVerticalOffset);
+            UpdateDisplayedRows(targetSlot, estimatedHeight);
+
+            double firstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
+            if (MathUtilities.GreaterThanOrClose(NegVerticalOffset, firstHeight))
+            {
+                NegVerticalOffset = Math.Max(0, firstHeight - MathUtilities.DoubleEpsilon);
+            }
+
+            _verticalOffset = Math.Max(0, state.VerticalOffset);
+            SetVerticalOffset(_verticalOffset);
+            UpdateHorizontalOffset(Math.Max(0, state.HorizontalOffset));
+            var restored = DisplayData.FirstScrollingSlot == state.FirstScrollingSlot;
+            if (restored)
+            {
+                MarkScrollStateRestored(state.FirstScrollingSlot);
+            }
+            return restored;
         }
 
         private void CapturePendingGroupingState()

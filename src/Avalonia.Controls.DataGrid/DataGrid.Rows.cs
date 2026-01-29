@@ -499,15 +499,25 @@ internal
 
         internal void OnRowsMeasure()
         {
-            if (!MathUtilities.IsZero(DisplayData.PendingVerticalScrollHeight))
+            if (IsScrollStateRestoreActive)
             {
+                DisplayData.PendingVerticalScrollHeight = 0;
+            }
+            else if (!MathUtilities.IsZero(DisplayData.PendingVerticalScrollHeight))
+            {
+                _restoredScrollSlot = null;
                 ScrollSlotsByHeight(DisplayData.PendingVerticalScrollHeight);
                 DisplayData.PendingVerticalScrollHeight = 0;
             }
 
-            _scrollStateManager.TryRestore();
+            if (_scrollStateManager != null && _scrollStateManager.TryRestore())
+            {
+                MarkScrollStateRestored(null);
+            }
+            TryRestorePendingScrollStateOnMeasure();
 
             SyncLogicalScrollableOffset();
+            TickScrollRestoreGuard();
         }
 
         private void SyncLogicalScrollableOffset()
@@ -544,9 +554,10 @@ internal
                 // column position back to what it was before the refresh
                 _desiredCurrentColumnIndex = CurrentColumnIndex;
                 var preserveLogicalOffset = UseLogicalScrollable &&
-                                            _pendingHierarchicalScrollOffset.HasValue &&
                                             DisplayData.FirstScrollingSlot >= 0 &&
-                                            !clearRows;
+                                            !clearRows &&
+                                            (_pendingHierarchicalScrollOffset.HasValue ||
+                                             (_restoredScrollSlot.HasValue && _restoredScrollSlot.Value == DisplayData.FirstScrollingSlot));
                 double verticalOffset = _verticalOffset;
                 if (UseLogicalScrollable && _rowsPresenter != null)
                 {
@@ -620,9 +631,11 @@ internal
 
                 EnsureRowGroupSpacerColumn();
 
+                var suppressPendingScrollHeight = IsScrollStateRestoreActive ||
+                                                 (_restoredScrollSlot.HasValue && _restoredScrollSlot.Value == DisplayData.FirstScrollingSlot);
                 if (HasLegacyVerticalScrollBar)
                 {
-                    if (_scrollStateManager.PendingRestore)
+                    if (suppressPendingScrollHeight)
                     {
                         DisplayData.PendingVerticalScrollHeight = 0;
                     }
@@ -631,7 +644,7 @@ internal
                         DisplayData.PendingVerticalScrollHeight = Math.Min(verticalOffset, GetLegacyVerticalScrollMaximum());
                     }
                 }
-                else if (_scrollStateManager.PendingRestore)
+                else if (suppressPendingScrollHeight)
                 {
                     DisplayData.PendingVerticalScrollHeight = 0;
                 }
