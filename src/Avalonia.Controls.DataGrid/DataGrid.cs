@@ -2870,6 +2870,17 @@ internal
                     return false;
                 }
 
+                var slot = SlotFromRowIndex(change.Index);
+                if (slot < 0 || slot > SlotCount)
+                {
+                    return false;
+                }
+
+                if (change.OldCount > 0 && slot >= SlotCount)
+                {
+                    return false;
+                }
+
                 if (change.OldCount > 0 || change.NewCount > 0)
                 {
                     hasChanges = true;
