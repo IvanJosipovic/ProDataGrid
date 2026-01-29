@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Avalonia.Controls.DataGridPivoting;
+using Avalonia.Utilities;
 using ProCharts;
 
 namespace ProDataGrid.Charting
@@ -193,7 +194,10 @@ namespace ProDataGrid.Charting
                 return;
             }
 
-            _pivotChart.ChartChanged += PivotChartOnChartChanged;
+            WeakEventHandlerManager.Subscribe<PivotChartModel, PivotChartChangedEventArgs, PivotChartDataSource>(
+                _pivotChart,
+                nameof(PivotChartModel.ChartChanged),
+                PivotChartOnChartChanged);
         }
 
         private void DetachPivot()
@@ -203,7 +207,10 @@ namespace ProDataGrid.Charting
                 return;
             }
 
-            _pivotChart.ChartChanged -= PivotChartOnChartChanged;
+            WeakEventHandlerManager.Unsubscribe<PivotChartChangedEventArgs, PivotChartDataSource>(
+                _pivotChart,
+                nameof(PivotChartModel.ChartChanged),
+                PivotChartOnChartChanged);
         }
 
         private void PivotChartOnChartChanged(object? sender, PivotChartChangedEventArgs e)

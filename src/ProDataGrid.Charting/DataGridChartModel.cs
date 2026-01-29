@@ -12,6 +12,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using Avalonia.Collections;
+using Avalonia.Utilities;
 using ProCharts;
 using ProDataGrid.FormulaEngine;
 using ProDataGrid.FormulaEngine.Excel;
@@ -383,7 +384,10 @@ namespace ProDataGrid.Charting
         public DataGridChartModel()
         {
             Series = new ObservableCollection<DataGridChartSeriesDefinition>();
-            Series.CollectionChanged += OnSeriesCollectionChanged;
+            WeakEventHandlerManager.Subscribe<INotifyCollectionChanged, NotifyCollectionChangedEventArgs, DataGridChartModel>(
+                Series,
+                nameof(INotifyCollectionChanged.CollectionChanged),
+                OnSeriesCollectionChanged);
             _formulaSettings = new FormulaCalculationSettings
             {
                 Culture = _culture,
@@ -838,10 +842,16 @@ namespace ProDataGrid.Charting
 
         public void Dispose()
         {
-            Series.CollectionChanged -= OnSeriesCollectionChanged;
+            WeakEventHandlerManager.Unsubscribe<NotifyCollectionChangedEventArgs, DataGridChartModel>(
+                Series,
+                nameof(INotifyCollectionChanged.CollectionChanged),
+                OnSeriesCollectionChanged);
             foreach (var definition in Series)
             {
-                definition.PropertyChanged -= OnSeriesDefinitionPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridChartModel>(
+                    definition,
+                    nameof(INotifyPropertyChanged.PropertyChanged),
+                    OnSeriesDefinitionPropertyChanged);
             }
 
             ClearItemTracking();
@@ -3300,7 +3310,10 @@ namespace ProDataGrid.Charting
                 {
                     if (item is DataGridChartSeriesDefinition definition)
                     {
-                        definition.PropertyChanged -= OnSeriesDefinitionPropertyChanged;
+                        WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridChartModel>(
+                            definition,
+                            nameof(INotifyPropertyChanged.PropertyChanged),
+                            OnSeriesDefinitionPropertyChanged);
                         _formulaStates.Remove(definition);
                     }
                 }
@@ -3312,7 +3325,10 @@ namespace ProDataGrid.Charting
                 {
                     if (item is DataGridChartSeriesDefinition definition)
                     {
-                        definition.PropertyChanged += OnSeriesDefinitionPropertyChanged;
+                        WeakEventHandlerManager.Subscribe<DataGridChartSeriesDefinition, PropertyChangedEventArgs, DataGridChartModel>(
+                            definition,
+                            nameof(INotifyPropertyChanged.PropertyChanged),
+                            OnSeriesDefinitionPropertyChanged);
                     }
                 }
             }
@@ -3342,7 +3358,10 @@ namespace ProDataGrid.Charting
                 _collectionSource = nextSource;
                 if (_collectionSource != null)
                 {
-                    _collectionSource.CollectionChanged += OnCollectionChanged;
+                    WeakEventHandlerManager.Subscribe<INotifyCollectionChanged, NotifyCollectionChangedEventArgs, DataGridChartModel>(
+                        _collectionSource,
+                        nameof(INotifyCollectionChanged.CollectionChanged),
+                        OnCollectionChanged);
                 }
             }
 
@@ -3358,7 +3377,10 @@ namespace ProDataGrid.Charting
                 return;
             }
 
-            _collectionSource.CollectionChanged -= OnCollectionChanged;
+            WeakEventHandlerManager.Unsubscribe<NotifyCollectionChangedEventArgs, DataGridChartModel>(
+                _collectionSource,
+                nameof(INotifyCollectionChanged.CollectionChanged),
+                OnCollectionChanged);
             _collectionSource = null;
             ClearGroupCollectionSource();
         }
@@ -3375,7 +3397,10 @@ namespace ProDataGrid.Charting
             _groupCollectionSource = nextSource;
             if (_groupCollectionSource != null)
             {
-                _groupCollectionSource.CollectionChanged += OnGroupCollectionChanged;
+                WeakEventHandlerManager.Subscribe<INotifyCollectionChanged, NotifyCollectionChangedEventArgs, DataGridChartModel>(
+                    _groupCollectionSource,
+                    nameof(INotifyCollectionChanged.CollectionChanged),
+                    OnGroupCollectionChanged);
             }
         }
 
@@ -3386,7 +3411,10 @@ namespace ProDataGrid.Charting
                 return;
             }
 
-            _groupCollectionSource.CollectionChanged -= OnGroupCollectionChanged;
+            WeakEventHandlerManager.Unsubscribe<NotifyCollectionChangedEventArgs, DataGridChartModel>(
+                _groupCollectionSource,
+                nameof(INotifyCollectionChanged.CollectionChanged),
+                OnGroupCollectionChanged);
             _groupCollectionSource = null;
         }
 
@@ -3440,7 +3468,10 @@ namespace ProDataGrid.Charting
         {
             foreach (var tracked in _trackedItems)
             {
-                tracked.PropertyChanged -= OnItemPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridChartModel>(
+                    tracked,
+                    nameof(INotifyPropertyChanged.PropertyChanged),
+                    OnItemPropertyChanged);
             }
 
             _trackedItems.Clear();
@@ -3487,7 +3518,10 @@ namespace ProDataGrid.Charting
         {
             if (item is INotifyPropertyChanged inpc && _trackedItems.Add(inpc))
             {
-                inpc.PropertyChanged += OnItemPropertyChanged;
+                WeakEventHandlerManager.Subscribe<INotifyPropertyChanged, PropertyChangedEventArgs, DataGridChartModel>(
+                    inpc,
+                    nameof(INotifyPropertyChanged.PropertyChanged),
+                    OnItemPropertyChanged);
             }
         }
 
@@ -3495,7 +3529,10 @@ namespace ProDataGrid.Charting
         {
             if (item is INotifyPropertyChanged inpc && _trackedItems.Remove(inpc))
             {
-                inpc.PropertyChanged -= OnItemPropertyChanged;
+                WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridChartModel>(
+                    inpc,
+                    nameof(INotifyPropertyChanged.PropertyChanged),
+                    OnItemPropertyChanged);
             }
         }
 

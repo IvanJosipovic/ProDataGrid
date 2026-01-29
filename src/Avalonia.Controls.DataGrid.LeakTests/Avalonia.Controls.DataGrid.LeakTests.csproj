@@ -15,6 +15,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Avalonia.Controls.DataGrid/Avalonia.Controls.DataGrid.csproj" />
+    <ProjectReference Include="../ProCharts.Avalonia/ProCharts.Avalonia.csproj" />
+    <ProjectReference Include="../ProDataGrid.Charting/ProDataGrid.Charting.csproj" />
   </ItemGroup>
 
   <ItemGroup>

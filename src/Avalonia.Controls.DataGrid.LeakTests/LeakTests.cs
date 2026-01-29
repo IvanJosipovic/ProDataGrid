@@ -19,9 +19,13 @@ using Avalonia.Controls.DataGridClipboard;
 using Avalonia.Controls.DataGridConditionalFormatting;
 using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Controls.DataGridPivoting;
 using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Selection;
+using ProCharts;
+using ProCharts.Avalonia;
+using ProDataGrid.Charting;
 using Xunit;
 using static Avalonia.Controls.DataGridTests.LeakTestHelpers;
 using static Avalonia.Controls.DataGridTests.LeakTestSession;
@@ -158,6 +162,179 @@ public class LeakTests
             AssertCollected(viewRefs.ToArray());
         }
         GC.KeepAlive(items);
+    }
+
+    [ReleaseFact]
+    public void DataGrid_FormulaModel_ItemSubscriptions_DoNotLeak()
+    {
+        var items = new ObservableCollection<NotifyingRowItem>
+        {
+            new NotifyingRowItem("A", 10d),
+            new NotifyingRowItem("B", 20d)
+        };
+
+        WeakReference Run()
+        {
+            var grid = new DataGrid
+            {
+                AutoGenerateColumns = false,
+                ItemsSource = items
+            };
+
+            grid.Columns.Add(new DataGridTextColumn
+            {
+                Header = "Name",
+                Binding = new Binding(nameof(NotifyingRowItem.Name))
+            });
+
+            var window = new Window
+            {
+                Content = grid
+            };
+
+            window.SetThemeStyles(DataGridTheme.SimpleV2);
+            ShowWindow(window);
+
+            var gridRef = new WeakReference(grid);
+
+            CleanupWindow(window);
+
+            return gridRef;
+        }
+
+        var gridRef = RunInSession(Run);
+
+        AssertCollected(gridRef);
+
+        GC.KeepAlive(items);
+    }
+
+    [ReleaseFact]
+    public void DataGridChartModel_ItemsSource_DoesNotLeak()
+    {
+        var items = new ObservableCollection<NotifyingRowItem>
+        {
+            new NotifyingRowItem("A", 10d),
+            new NotifyingRowItem("B", 20d)
+        };
+
+        WeakReference Run()
+        {
+            var model = new DataGridChartModel
+            {
+                ItemsSource = items,
+                CategoryPath = nameof(NotifyingRowItem.Name)
+            };
+
+            model.Series.Add(new DataGridChartSeriesDefinition
+            {
+                Name = "Value",
+                ValuePath = nameof(NotifyingRowItem.Value)
+            });
+
+            return new WeakReference(model);
+        }
+
+        var modelRef = RunInSession(Run);
+
+        AssertCollected(modelRef);
+
+        GC.KeepAlive(items);
+    }
+
+    [ReleaseFact]
+    public void ChartModel_DataSource_DoesNotLeak()
+    {
+        var items = new ObservableCollection<NotifyingRowItem>
+        {
+            new NotifyingRowItem("A", 10d),
+            new NotifyingRowItem("B", 20d)
+        };
+
+        var dataSource = new DataGridChartModel
+        {
+            ItemsSource = items,
+            CategoryPath = nameof(NotifyingRowItem.Name)
+        };
+
+        dataSource.Series.Add(new DataGridChartSeriesDefinition
+        {
+            Name = "Value",
+            ValuePath = nameof(NotifyingRowItem.Value)
+        });
+
+        WeakReference Run()
+        {
+            var chartModel = new ChartModel
+            {
+                DataSource = dataSource
+            };
+
+            return new WeakReference(chartModel);
+        }
+
+        var chartModelRef = RunInSession(Run);
+
+        AssertCollected(chartModelRef);
+
+        GC.KeepAlive(items);
+        GC.KeepAlive(dataSource);
+    }
+
+    [ReleaseFact]
+    public void ProChartView_ChartModel_DoesNotLeak()
+    {
+        var chartModel = new ChartModel();
+
+        WeakReference Run()
+        {
+            var view = new ProChartView
+            {
+                ChartModel = chartModel
+            };
+
+            var window = new Window
+            {
+                Content = view
+            };
+
+            window.SetThemeStyles(DataGridTheme.SimpleV2);
+            ShowWindow(window);
+
+            var viewRef = new WeakReference(view);
+
+            CleanupWindow(window);
+
+            return viewRef;
+        }
+
+        var viewRef = RunInSession(Run);
+
+        AssertCollected(viewRef);
+
+        GC.KeepAlive(chartModel);
+    }
+
+    [ReleaseFact]
+    public void PivotChartDataSource_DoesNotLeak()
+    {
+        var pivotChart = new PivotChartModel();
+
+        WeakReference Run()
+        {
+            var dataSource = new PivotChartDataSource
+            {
+                PivotChart = pivotChart
+            };
+
+            return new WeakReference(dataSource);
+        }
+
+        var dataSourceRef = RunInSession(Run);
+
+        AssertCollected(dataSourceRef);
+
+        GC.KeepAlive(pivotChart);
     }
 
     [ReleaseFact]
@@ -1771,6 +1948,50 @@ public class LeakTests
         }
 
         public string Name { get; }
+    }
+
+    private sealed class NotifyingRowItem : INotifyPropertyChanged
+    {
+        private string _name;
+        private double _value;
+
+        public NotifyingRowItem(string name, double value)
+        {
+            _name = name;
+            _value = value;
+        }
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                if (_name == value)
+                {
+                    return;
+                }
+
+                _name = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+            }
+        }
+
+        public double Value
+        {
+            get => _value;
+            set
+            {
+                if (Math.Abs(_value - value) < double.Epsilon)
+                {
+                    return;
+                }
+
+                _value = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
     }
 
     private sealed class BoolRowItem

@@ -15,6 +15,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Utilities;
 using ProCharts;
 using ProCharts.Skia;
 using SkiaSharp;
@@ -143,14 +144,26 @@ namespace ProCharts.Avalonia
             {
                 if (change.OldValue is ChartModel oldModel)
                 {
-                    oldModel.SnapshotUpdated -= OnSnapshotUpdated;
-                    oldModel.PropertyChanged -= OnChartModelPropertyChanged;
+                    WeakEventHandlerManager.Unsubscribe<ChartDataUpdateEventArgs, ProChartView>(
+                        oldModel,
+                        nameof(ChartModel.SnapshotUpdated),
+                        OnSnapshotUpdated);
+                    WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, ProChartView>(
+                        oldModel,
+                        nameof(INotifyPropertyChanged.PropertyChanged),
+                        OnChartModelPropertyChanged);
                 }
 
                 if (change.NewValue is ChartModel newModel)
                 {
-                    newModel.SnapshotUpdated += OnSnapshotUpdated;
-                    newModel.PropertyChanged += OnChartModelPropertyChanged;
+                    WeakEventHandlerManager.Subscribe<ChartModel, ChartDataUpdateEventArgs, ProChartView>(
+                        newModel,
+                        nameof(ChartModel.SnapshotUpdated),
+                        OnSnapshotUpdated);
+                    WeakEventHandlerManager.Subscribe<ChartModel, PropertyChangedEventArgs, ProChartView>(
+                        newModel,
+                        nameof(INotifyPropertyChanged.PropertyChanged),
+                        OnChartModelPropertyChanged);
                 }
 
                 _isDirty = true;

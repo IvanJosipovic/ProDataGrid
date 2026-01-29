@@ -12,6 +12,7 @@ namespace ProCharts
     public sealed class ChartModel : INotifyPropertyChanged, IDisposable
     {
         private IChartDataSource? _dataSource;
+        private EventHandler? _dataInvalidatedHandler;
         private ChartDataSnapshot _snapshot = ChartDataSnapshot.Empty;
         private bool _autoRefresh = true;
         private int _updateNesting;
@@ -203,22 +204,39 @@ namespace ProCharts
                 return;
             }
 
-            _dataSource.DataInvalidated += DataSourceOnDataInvalidated;
+            _dataInvalidatedHandler ??= CreateDataInvalidatedHandler();
+            _dataSource.DataInvalidated += _dataInvalidatedHandler;
         }
 
         private void DetachDataSource()
         {
-            if (_dataSource == null)
+            if (_dataSource == null || _dataInvalidatedHandler == null)
             {
                 return;
             }
 
-            _dataSource.DataInvalidated -= DataSourceOnDataInvalidated;
+            _dataSource.DataInvalidated -= _dataInvalidatedHandler;
         }
 
-        private void DataSourceOnDataInvalidated(object? sender, EventArgs e)
+        private EventHandler CreateDataInvalidatedHandler()
         {
-            RequestRefresh();
+            var weakSelf = new WeakReference<ChartModel>(this);
+            EventHandler? handler = null;
+            handler = (sender, args) =>
+            {
+                if (!weakSelf.TryGetTarget(out var model))
+                {
+                    if (sender is IChartDataSource source)
+                    {
+                        source.DataInvalidated -= handler;
+                    }
+
+                    return;
+                }
+
+                model.RequestRefresh();
+            };
+            return handler;
         }
 
         private void OnRequestChanged(object? sender, PropertyChangedEventArgs e)
