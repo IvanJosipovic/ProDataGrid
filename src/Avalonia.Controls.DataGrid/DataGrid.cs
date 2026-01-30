@@ -5299,7 +5299,21 @@ internal
                     SelectionModel_SourceReset);
                 _selectionModelAdapter.Dispose();
                 _selectionModelAdapter = null;
-                model.Source = null;
+                if (preserveSnapshot)
+                {
+                    var modelToClear = model;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (_externalSubscriptionsDetached)
+                        {
+                            modelToClear.Source = null;
+                        }
+                    }, DispatcherPriority.Background);
+                }
+                else
+                {
+                    model.Source = null;
+                }
             }
 
             _pagedSelectionSource?.Dispose();

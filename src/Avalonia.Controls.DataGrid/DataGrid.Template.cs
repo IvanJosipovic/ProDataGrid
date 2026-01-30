@@ -86,6 +86,7 @@ internal
             {
                 // If we're applying a new template, we want to remove the old rows first
                 UnloadElements(recycle: true);
+                RemoveRecycledChildrenFromVisualTree();
             }
 
             _rowsPresenter = e.NameScope.Find<DataGridRowsPresenter>(DATAGRID_elementRowsPresenterName);
@@ -202,7 +203,6 @@ internal
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
-            base.OnDetachedFromVisualTree(e);
             CancelPendingLayoutRefreshes();
             CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
             DetachExternalEditingElement();
@@ -269,6 +269,8 @@ internal
             DisposeSummaryService();
             DataGridColumnHeader.ResetStaticState();
             UpdateKeyboardGestureSubscriptions();
+
+            base.OnDetachedFromVisualTree(e);
         }
 
         private void EnsureColumnHeadersPresenterChildren()
