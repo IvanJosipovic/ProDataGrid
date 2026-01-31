@@ -69,6 +69,7 @@ namespace Avalonia.Controls
         private DataGridBindingDefinition _cellBackgroundBinding;
         private DataGridBindingDefinition _cellForegroundBinding;
         private bool? _canUserSort;
+        private bool? _canUserHide;
         private bool? _canUserResize;
         private bool? _canUserReorder;
         private bool? _isReadOnly;
@@ -149,6 +150,12 @@ namespace Avalonia.Controls
         {
             get => _canUserSort;
             set => SetProperty(ref _canUserSort, value);
+        }
+
+        public bool? CanUserHide
+        {
+            get => _canUserHide;
+            set => SetProperty(ref _canUserHide, value);
         }
 
         public bool? CanUserResize
@@ -418,6 +425,11 @@ namespace Avalonia.Controls
                 column.CanUserSort = CanUserSort.Value;
             }
 
+            if (CanUserHide.HasValue)
+            {
+                column.CanUserHide = CanUserHide.Value;
+            }
+
             if (CanUserResize.HasValue)
             {
                 column.CanUserResize = CanUserResize.Value;
@@ -583,6 +595,12 @@ namespace Avalonia.Controls
                     if (CanUserSort.HasValue)
                     {
                         column.CanUserSort = CanUserSort.Value;
+                    }
+                    return true;
+                case nameof(CanUserHide):
+                    if (CanUserHide.HasValue)
+                    {
+                        column.CanUserHide = CanUserHide.Value;
                     }
                     return true;
                 case nameof(CanUserResize):

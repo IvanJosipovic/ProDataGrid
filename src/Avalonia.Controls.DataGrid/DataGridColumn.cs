@@ -132,6 +132,12 @@ internal
             set;
         }
 
+        internal bool? CanUserHideInternal
+        {
+            get;
+            set;
+        }
+
         internal bool? CanUserResizeInternal
         {
             get;
@@ -370,6 +376,27 @@ internal
             {
                 CanUserResizeInternal = value;
                 OwningGrid?.OnColumnCanUserResizeChanged(this);
+            }
+        }
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether the user can hide the column via UI features.
+        /// </summary>
+        /// <returns>
+        /// true if the user can hide the column; otherwise, false. The default is the current <see cref="P:Avalonia.Controls.DataGrid.CanUserHideColumns" /> property value.
+        /// </returns>
+        public bool CanUserHide
+        {
+            get
+            {
+                return
+                    CanUserHideInternal ??
+                        OwningGrid?.CanUserHideColumns ??
+                        DataGrid.DATAGRID_defaultCanUserHideColumns;
+            }
+            set
+            {
+                CanUserHideInternal = value;
             }
         }
 

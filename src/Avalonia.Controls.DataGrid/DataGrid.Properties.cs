@@ -94,6 +94,22 @@ internal
         }
 
         /// <summary>
+        /// Identifies the CanUserHideColumns dependency property.
+        /// </summary>
+        public static readonly StyledProperty<bool> CanUserHideColumnsProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(nameof(CanUserHideColumns), true);
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether the user can hide columns via UI features
+        /// such as the column chooser.
+        /// </summary>
+        public bool CanUserHideColumns
+        {
+            get { return GetValue(CanUserHideColumnsProperty); }
+            set { SetValue(CanUserHideColumnsProperty, value); }
+        }
+
+        /// <summary>
         /// Identifies the <see cref="CanUserSelectColumns"/> dependency property.
         /// </summary>
         public static readonly StyledProperty<bool> CanUserSelectColumnsProperty =
