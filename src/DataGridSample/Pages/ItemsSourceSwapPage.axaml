@@ -36,6 +36,7 @@
               ItemsSource="{Binding ItemsSource}"
               Selection="{Binding SelectionModel}"
               SelectionMode="Extended"
+              CanUserAddRows="False"
               HeadersVisibility="All"
               CanUserReorderColumns="True"
               AutoGenerateColumns="False"
