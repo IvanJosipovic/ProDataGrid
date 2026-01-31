@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
 using Avalonia.Controls.Utils;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
@@ -40,6 +41,33 @@ public class DataGridInputMouseSelectionTests
 
         InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid, ctrl), columnIndex: 0, slot: slot1, allowEdit: false);
         Assert.Single(grid.SelectedItems);
+    }
+
+    [AvaloniaFact]
+    public void MouseLeft_RowDetails_Collapses_On_Ctrl_Deselect()
+    {
+        var (grid, _) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
+        grid.RowDetailsVisibilityMode = DataGridRowDetailsVisibilityMode.VisibleWhenSelected;
+        grid.RowDetailsTemplate = new FuncDataTemplate<RowItem>((_, _) => new Border { Height = 24 });
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var ctrl = GetCtrlOrCmdModifier(grid);
+        var slot = grid.SlotFromRowIndex(0);
+
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid), columnIndex: 0, slot: slot, allowEdit: false);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+        Assert.True(row!.AreDetailsVisible);
+
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid, ctrl), columnIndex: 0, slot: slot, allowEdit: false);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(row.AreDetailsVisible);
     }
 
     [AvaloniaFact]
