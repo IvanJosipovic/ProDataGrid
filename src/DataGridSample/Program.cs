@@ -8,10 +8,10 @@ using Avalonia.Controls.DataGridDragDrop;
 using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Primitives;
-using Avalonia.ReactiveUI;
 using DataGridSample.Models;
 using DataGridSample.ViewModels;
 using ProDiagnostics.Transport;
+using ReactiveUI.Avalonia;
 
 namespace DataGridSample;
 
