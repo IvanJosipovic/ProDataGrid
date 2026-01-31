@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Globalization;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.DataGridPivoting;
+using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Data.Converters;
 
@@ -365,7 +366,9 @@ namespace Avalonia.Controls.DataGridReporting
                 null,
                 typeof(TValue));
 
-            return DataGridBindingDefinition.Create<HierarchicalNode, TValue>(propertyInfo, node => getter((OutlineRow)node.Item!));
+            var binding = DataGridBindingDefinition.Create<HierarchicalNode, TValue>(propertyInfo, node => getter((OutlineRow)node.Item!));
+            binding.Mode = BindingMode.OneWay;
+            return binding;
         }
 
         private static DataGridBindingDefinition CreateArrayBinding(
@@ -379,6 +382,7 @@ namespace Avalonia.Controls.DataGridReporting
             CultureInfo? converterCulture)
         {
             var binding = DataGridBindingDefinition.CreateCached(property, getter);
+            binding.Mode = BindingMode.OneWay;
             binding.Converter = new OutlineArrayIndexConverter(index, converter, converterParameter);
             binding.ConverterParameter = converterParameter;
             if (!string.IsNullOrEmpty(stringFormat))

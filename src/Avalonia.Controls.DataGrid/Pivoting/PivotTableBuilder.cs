@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Data.Converters;
 
@@ -3118,6 +3119,7 @@ namespace Avalonia.Controls.DataGridPivoting
             CultureInfo? converterCulture)
         {
             var binding = DataGridBindingDefinition.CreateCached(property, getter);
+            binding.Mode = BindingMode.OneWay;
             binding.Converter = new PivotArrayIndexConverter(index, converter, converterParameter);
             binding.ConverterParameter = converterParameter;
             if (!string.IsNullOrEmpty(stringFormat))
