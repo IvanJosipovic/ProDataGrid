@@ -408,6 +408,10 @@ internal
         private int _autoScrollRequestToken;
         private bool _autoExpandingSelection;
         private bool _externalSubscriptionsDetached;
+        // Defer rows presenter cleanup to avoid visual-tree mutations during detach.
+        private bool _deferRecycledChildrenRemoval;
+        private bool _recycledChildrenCleanupPending;
+        private int _recycledChildrenCleanupToken;
 
         // An approximation of the sum of the heights in pixels of the scrolling rows preceding
         // the first displayed scrolling row.  Since the scrolled off rows are discarded, the grid

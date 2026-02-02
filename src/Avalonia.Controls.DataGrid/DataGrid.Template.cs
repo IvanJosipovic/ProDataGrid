@@ -10,6 +10,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.Utils;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System;
 using System.Collections;
@@ -152,6 +153,9 @@ internal
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            _recycledChildrenCleanupToken++;
+            _recycledChildrenCleanupPending = false;
+            _deferRecycledChildrenRemoval = false;
             foreach (var column in ColumnsInternal)
             {
                 if (column.OwningGrid == null)
@@ -208,6 +212,7 @@ internal
             DetachExternalEditingElement();
             CapturePendingGroupingState();
             _scrollStateManager.Capture(preserveOnAttach: true);
+            _deferRecycledChildrenRemoval = true;
             _suppressCellContentUpdates = true;
             try
             {
@@ -271,6 +276,36 @@ internal
             UpdateKeyboardGestureSubscriptions();
 
             base.OnDetachedFromVisualTree(e);
+        }
+
+        private void RequestRecycledChildrenCleanup()
+        {
+            if (_recycledChildrenCleanupPending)
+            {
+                return;
+            }
+
+            _recycledChildrenCleanupPending = true;
+            var token = ++_recycledChildrenCleanupToken;
+            Dispatcher.UIThread.Post(() => PerformRecycledChildrenCleanup(token), DispatcherPriority.Background);
+        }
+
+        private void PerformRecycledChildrenCleanup(int token)
+        {
+            if (token != _recycledChildrenCleanupToken)
+            {
+                return;
+            }
+
+            _recycledChildrenCleanupPending = false;
+
+            if (IsAttachedToVisualTree || _rowsPresenter == null)
+            {
+                return;
+            }
+
+            _deferRecycledChildrenRemoval = false;
+            RemoveRecycledChildrenFromVisualTreeCore();
         }
 
         private void EnsureColumnHeadersPresenterChildren()

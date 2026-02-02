@@ -478,6 +478,17 @@ namespace Avalonia.Controls
 
         private void RemoveRecycledChildrenFromVisualTree()
         {
+            if (_deferRecycledChildrenRemoval)
+            {
+                RequestRecycledChildrenCleanup();
+                return;
+            }
+
+            RemoveRecycledChildrenFromVisualTreeCore();
+        }
+
+        private void RemoveRecycledChildrenFromVisualTreeCore()
+        {
             if (_rowsPresenter == null)
             {
                 return;
