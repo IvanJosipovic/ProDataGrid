@@ -3,12 +3,16 @@
 
 #nullable enable
 
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridFormulas;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data.Core;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Formulas
@@ -221,6 +225,83 @@ namespace Avalonia.Controls.DataGridTests.Formulas
         }
 
         [AvaloniaFact]
+        public void FormulaModel_Recalculates_When_Cell_Edit_Commits()
+        {
+            var items = new ObservableCollection<RowItem>
+            {
+                new("A", 10d)
+            };
+
+            var builder = DataGridColumnDefinitionBuilder.For<RowItem>();
+            var amountProperty = CreateProperty(nameof(RowItem.Amount), row => row.Amount, (row, value) => row.Amount = value);
+
+            var amountDefinition = builder.Numeric(
+                header: "Amount",
+                property: amountProperty,
+                getter: row => row.Amount,
+                setter: (row, value) => row.Amount = value,
+                configure: column => column.ColumnKey = "Amount");
+
+            var formulaDefinition = builder.Formula(
+                header: "Double",
+                formula: "=[@Amount]*2",
+                formulaName: "Double",
+                configure: column => column.ColumnKey = "Double");
+
+            var root = new Window
+            {
+                Width = 480,
+                Height = 320
+            };
+
+            root.SetThemeStyles();
+
+            var grid = new DataGrid
+            {
+                Name = "SalesTable",
+                ItemsSource = items,
+                ColumnDefinitionsSource = new ObservableCollection<DataGridColumnDefinition>
+                {
+                    amountDefinition,
+                    formulaDefinition
+                },
+                AutoGenerateColumns = false,
+                SelectionMode = DataGridSelectionMode.Extended,
+                SelectionUnit = DataGridSelectionUnit.Cell
+            };
+
+            root.Content = grid;
+            root.Show();
+            grid.UpdateLayout();
+
+            var amountColumn = grid.ColumnsInternal.First(column => Equals(column.Header, "Amount"));
+            var slot = grid.SlotFromRowIndex(0);
+
+            Assert.True(grid.UpdateSelectionAndCurrency(amountColumn.Index, slot, DataGridSelectionAction.SelectCurrent, scrollIntoView: false));
+            grid.UpdateLayout();
+
+            var model = (DataGridFormulaModel)grid.FormulaModel;
+            model.Recalculate();
+            Assert.Equal(20d, model.Evaluate(items[0], formulaDefinition));
+
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            var cell = FindCell(grid, items[0], amountColumn.Index);
+            var editor = Assert.IsType<NumericUpDown>(cell.Content);
+            editor.Value = 25m;
+
+            Assert.True(grid.CommitEdit());
+            grid.UpdateLayout();
+
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(50d, model.Evaluate(items[0], formulaDefinition));
+
+            root.Close();
+        }
+
+        [AvaloniaFact]
         public void FormulaModel_TrySetNamedRange_Rejects_ColumnName()
         {
             var items = new ObservableCollection<RowItem>
@@ -319,6 +400,29 @@ namespace Avalonia.Controls.DataGridTests.Formulas
             public string Name { get; set; }
 
             public double Amount { get; set; }
+        }
+
+        private static DataGridRow FindRow(RowItem item, DataGrid grid)
+        {
+            return grid
+                .GetSelfAndVisualDescendants()
+                .OfType<DataGridRow>()
+                .First(r => ReferenceEquals(r.DataContext, item));
+        }
+
+        private static DataGridCell FindCell(DataGrid grid, RowItem item, int columnIndex)
+        {
+            var row = FindRow(item, grid);
+            for (var i = 0; i < row.Cells.Count; i++)
+            {
+                var cell = row.Cells[i];
+                if (cell.OwningColumn?.Index == columnIndex)
+                {
+                    return cell;
+                }
+            }
+
+            throw new InvalidOperationException($"Could not find cell for column {columnIndex}.");
         }
     }
 }

@@ -687,23 +687,12 @@ namespace Avalonia.Controls.DataGridFormulas
                 return;
             }
 
-            if (e.Column == null || e.Row == null || e.EditingElement == null)
-            {
-                return;
-            }
-
-            if (e.EditingElement is not TextBox textBox)
+            if (e.Column == null || e.Row == null)
             {
                 return;
             }
 
             if (_grid == null)
-            {
-                return;
-            }
-
-            var definition = DataGridColumnMetadata.GetDefinition(e.Column) as DataGridFormulaColumnDefinition;
-            if (definition == null || !definition.AllowCellFormulas)
             {
                 return;
             }
@@ -714,9 +703,22 @@ namespace Avalonia.Controls.DataGridFormulas
                 return;
             }
 
-            if (!TrySetCellFormula(item, definition, textBox.Text, out _))
+            var definition = DataGridColumnMetadata.GetDefinition(e.Column) as DataGridFormulaColumnDefinition;
+            if (definition != null && definition.AllowCellFormulas && e.EditingElement is TextBox textBox)
             {
-                // Formula errors are surfaced as values; editing continues.
+                if (!TrySetCellFormula(item, definition, textBox.Text, out _))
+                {
+                    // Formula errors are surfaced as values; editing continues.
+                }
+
+                return;
+            }
+
+            EnsureInitialized();
+            if (TryGetRowIndex(item, out var rowIndex))
+            {
+                MarkRowDirty(rowIndex, item);
+                QueueRecalculate();
             }
         }
 
