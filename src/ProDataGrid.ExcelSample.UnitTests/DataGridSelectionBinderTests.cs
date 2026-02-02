@@ -38,7 +38,7 @@ public sealed class DataGridSelectionBinderTests
                 new DataGridCellInfo(items[1], grid.Columns[1], 1, 1, isValid: true)
             };
 
-            Assert.Equal(new SpreadsheetCellReference(0, 0), state.CurrentCell);
+            Assert.Equal(new SpreadsheetCellReference(1, 1), state.CurrentCell);
             Assert.NotNull(state.SelectedRange);
             Assert.Equal(new SpreadsheetCellReference(0, 0), state.SelectedRange!.Value.Start);
             Assert.Equal(new SpreadsheetCellReference(1, 1), state.SelectedRange!.Value.End);
