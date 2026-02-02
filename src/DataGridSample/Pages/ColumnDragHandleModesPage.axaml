@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ColumnDragHandleModesPage"
+             x:DataType="viewModels:ColumnDragHandleSampleViewModel">
+  <UserControl.DataContext>
+    <viewModels:ColumnDragHandleSampleViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*"
+        ColumnDefinitions="*,*"
+        Margin="12"
+        RowSpacing="12"
+        ColumnSpacing="16">
+    <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
+      <TextBlock Classes="h2" Text="Column Drag Indicator - Handle Modes" />
+      <TextBlock Text="Compare full-header dragging with drag-grip-only reordering. The drag indicator should follow the header content in both modes."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <CheckBox Grid.Row="1"
+              Grid.ColumnSpan="2"
+              Content="Show drag grip"
+              IsChecked="{Binding ShowHandle, Mode=TwoWay}" />
+
+    <StackPanel Grid.Row="2" Grid.Column="0" Spacing="6">
+      <TextBlock Text="Header drag" FontWeight="SemiBold" />
+      <DataGrid ItemsSource="{Binding Items}"
+                AutoGenerateColumns="False"
+                IsReadOnly="True"
+                CanUserReorderColumns="True"
+                ColumnDragHandle="ColumnHeader"
+                ColumnDragHandleVisible="{Binding ShowHandle}"
+                HeadersVisibility="Column"
+                RowHeight="32">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="First"
+                              Binding="{Binding FirstName}"
+                              Width="2*"
+                              x:DataType="models:Person" />
+          <DataGridTextColumn Header="Last"
+                              Binding="{Binding LastName}"
+                              Width="2*"
+                              x:DataType="models:Person" />
+          <DataGridTextColumn Header="Age"
+                              Binding="{Binding Age}"
+                              Width="1*"
+                              x:DataType="models:Person" />
+          <DataGridTextColumn Header="Status"
+                              Binding="{Binding Status}"
+                              Width="2*"
+                              x:DataType="models:Person" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </StackPanel>
+
+    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
+      <TextBlock Text="Drag handle only" FontWeight="SemiBold" />
+      <DataGrid ItemsSource="{Binding Items}"
+                AutoGenerateColumns="False"
+                IsReadOnly="True"
+                CanUserReorderColumns="True"
+                ColumnDragHandle="DragHandle"
+                ColumnDragHandleVisible="{Binding ShowHandle}"
+                HeadersVisibility="Column"
+                RowHeight="32">
+        <DataGrid.Columns>
+          <DataGridTextColumn Header="First"
+                              Binding="{Binding FirstName}"
+                              Width="2*"
+                              x:DataType="models:Person" />
+          <DataGridTextColumn Header="Last"
+                              Binding="{Binding LastName}"
+                              Width="2*"
+                              x:DataType="models:Person" />
+          <DataGridTextColumn Header="Age"
+                              Binding="{Binding Age}"
+                              Width="1*"
+                              x:DataType="models:Person" />
+          <DataGridTextColumn Header="Status"
+                              Binding="{Binding Status}"
+                              Width="2*"
+                              x:DataType="models:Person" />
+        </DataGrid.Columns>
+      </DataGrid>
+    </StackPanel>
+  </Grid>
+</UserControl>

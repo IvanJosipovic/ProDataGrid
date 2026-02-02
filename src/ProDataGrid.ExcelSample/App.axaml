@@ -1,0 +1,10 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ProDataGrid.ExcelSample.App"
+             RequestedThemeVariant="Light">
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.v2.xaml" />
+    <StyleInclude Source="avares://ProDataGrid.ExcelSample/Themes/ExcelTheme.axaml" />
+  </Application.Styles>
+</Application>

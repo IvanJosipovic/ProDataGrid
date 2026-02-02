@@ -1,0 +1,90 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ProDataGrid.ExcelSample.Controls"
+        xmlns:helpers="clr-namespace:ProDataGrid.ExcelSample.Helpers"
+        xmlns:viewModels="clr-namespace:ProDataGrid.ExcelSample.ViewModels"
+        x:Class="ProDataGrid.ExcelSample.MainWindow"
+        x:DataType="viewModels:WorkbookViewModel"
+        Width="1280"
+        Height="800"
+        Title="ProDataGrid Excel Sample">
+  <Grid RowDefinitions="Auto,Auto,*,Auto,Auto">
+    <controls:ExcelRibbonBar Grid.Row="0"
+                             Tabs="{Binding RibbonTabs}"
+                             SelectedTab="{Binding SelectedRibbonTab}"
+                             QuickCommands="{Binding QuickCommands}"
+                             SearchText="{Binding SearchText, Mode=TwoWay}" />
+
+    <controls:ExcelFormulaBar Grid.Row="1"
+                              NameText="{Binding NameBoxText, Mode=TwoWay}"
+                              FormulaText="{Binding FormulaText, Mode=TwoWay}"
+                              FilterText="{Binding FilterText, Mode=TwoWay}"
+                              NameCommitCommand="{Binding CommitNameCommand}"
+                              FormulaCommitCommand="{Binding CommitFormulaCommand}"
+                              FormulaCancelCommand="{Binding CancelFormulaCommand}"
+                              IsVisible="{Binding IsFormulaBarVisible}" />
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="8,6">
+      <Border Grid.Column="0" Background="#FFFFFF" BorderBrush="#CFCFCF" BorderThickness="1">
+        <DataGrid x:Name="SheetGrid"
+                  ItemsSource="{Binding SelectedSheet.Rows}"
+                  ColumnDefinitionsSource="{Binding SelectedSheet.ColumnDefinitions}"
+                  helpers:DataGridFastPathBinder.FastPathOptions="{Binding FastPathOptions}"
+                  helpers:DataGridSelectionBinder.SelectionState="{Binding SelectionState}"
+                  helpers:DataGridClipboardBinder.ClipboardState="{Binding ClipboardState}"
+                  FormulaModel="{Binding SelectedSheet.FormulaModel}"
+                  FillModel="{Binding FillModel}"
+                  ConditionalFormattingModel="{Binding ConditionalFormattingModel}"
+                  AutoGenerateColumns="False"
+                  GridLinesVisibility="All"
+                  SelectionUnit="CellOrRowOrColumnHeader"
+                  SelectionMode="Extended"
+                  AllowTouchDragSelection="True"
+                  HeadersVisibility="All"
+                  ShowRowNumbers="True"
+                  RowHeaderWidth="46"
+                  CanUserSelectColumns="True"
+                  CanUserSelectRows="True"
+                  CanUserReorderColumns="True"
+                  CanUserReorderRows="True"
+                  ColumnDragHandle="DragHandle"
+                  ColumnDragHandleVisible="True"
+                  RowDragHandle="RowHeader"
+                  RowDragHandleVisible="True"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="True"
+                  ColumnsSynchronizationMode="TwoWay"
+                  ClipboardCopyMode="IncludeHeader"
+                  CanUserPaste="True"
+                  EditTriggers="CellDoubleClick,TextInput,F2"
+                  SortingModel="{Binding SortingModel}"
+                  FilteringModel="{Binding FilteringModel}"
+                  SearchModel="{Binding SearchModel}" />
+      </Border>
+
+      <controls:ExcelChartPanel Grid.Column="1"
+                                Width="320"
+                                ChartModel="{Binding ChartPanel.Chart}"
+                                ChartStyle="{Binding ChartPanel.ChartStyle}"
+                                ChartTypes="{Binding ChartPanel.ChartTypes}"
+                                SelectedChartType="{Binding ChartPanel.SelectedChartType, Mode=TwoWay}"
+                                RangeText="{Binding ChartPanel.RangeText}"
+                                StatusText="{Binding ChartPanel.StatusText}"
+                                AutoApplySelection="{Binding ChartPanel.AutoApplySelection, Mode=TwoWay}"
+                                HasChart="{Binding ChartPanel.HasChart}"
+                                ShowPlaceholder="{Binding ChartPanel.ShowPlaceholder}"
+                                ApplySelectionCommand="{Binding ChartPanel.ApplySelectionCommand}"
+                                ClearChartCommand="{Binding ChartPanel.ClearChartCommand}"
+                                IsVisible="{Binding IsChartPanelVisible}" />
+    </Grid>
+
+    <controls:SheetTabStrip Grid.Row="3"
+                            Items="{Binding Sheets}"
+                            SelectedItem="{Binding SelectedSheet}"
+                            ReorderCommand="{Binding ReorderSheetCommand}" />
+
+    <controls:ExcelStatusBar Grid.Row="4"
+                             LeftContent="{Binding StatusLeft}"
+                             RightContent="{Binding StatusRight}" />
+  </Grid>
+</Window>

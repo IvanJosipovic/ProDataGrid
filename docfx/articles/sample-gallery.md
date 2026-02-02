@@ -8,7 +8,7 @@ Highlights include:
 - Bindable columns, auto-generation, and `DataTable.DefaultView` binding.
 - Sorting/filtering/search models, grouping, and paging.
 - Selection stability, selection origin logging, and current cell tracking.
-- Selection units and highlighting (row vs cell visuals).
+- Selection units and highlighting (row, column, and cell visuals).
 - Clipboard export formats and export customization.
 - Pivot tables with layout toggles, totals, and percent displays.
 - Pivot table layouts for report filters, values in rows, percent of total, and show items with no data.

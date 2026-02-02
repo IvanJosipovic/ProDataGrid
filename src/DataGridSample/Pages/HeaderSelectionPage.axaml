@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.HeaderSelectionPage"
+             x:DataType="viewModels:HeaderSelectionViewModel">
+  <UserControl.DataContext>
+    <viewModels:HeaderSelectionViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*"
+        Margin="12"
+        RowSpacing="8">
+    <StackPanel Grid.Row="0" Spacing="4">
+      <TextBlock Classes="h2">Header selection</TextBlock>
+      <TextBlock Text="Use row and column headers to select entire rows or columns while keeping cell selection available."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1" ItemSpacing="12" LineSpacing="12">
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock VerticalAlignment="Center" Text="Selection unit:" />
+        <ComboBox Width="220"
+                  ItemsSource="{Binding SelectionUnits}"
+                  SelectedItem="{Binding SelectionUnit, Mode=TwoWay}" />
+      </StackPanel>
+
+      <StackPanel Orientation="Horizontal" Spacing="6">
+        <TextBlock VerticalAlignment="Center" Text="Selection mode:" />
+        <ComboBox Width="160"
+                  ItemsSource="{Binding SelectionModes}"
+                  SelectedItem="{Binding SelectionMode, Mode=TwoWay}" />
+      </StackPanel>
+
+      <CheckBox Content="Can select rows"
+                IsChecked="{Binding CanUserSelectRows, Mode=TwoWay}" />
+      <CheckBox Content="Can select columns"
+                IsChecked="{Binding CanUserSelectColumns, Mode=TwoWay}" />
+    </WrapPanel>
+
+    <DataGrid Grid.Row="2"
+              ItemsSource="{Binding Items}"
+              SelectionUnit="{Binding SelectionUnit}"
+              SelectionMode="{Binding SelectionMode}"
+              CanUserSelectRows="{Binding CanUserSelectRows}"
+              CanUserSelectColumns="{Binding CanUserSelectColumns}"
+              AutoGenerateColumns="True"
+              CanUserAddRows="False"
+              HeadersVisibility="All"
+              GridLinesVisibility="All"
+              Height="360" />
+  </Grid>
+</UserControl>

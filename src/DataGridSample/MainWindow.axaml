@@ -128,6 +128,9 @@
     <TabItem Header="Selection Units">
       <pages:SelectionUnitsPage />
     </TabItem>
+    <TabItem Header="Header Selection">
+      <pages:HeaderSelectionPage />
+    </TabItem>
     <TabItem Header="Selection Highlighting">
       <pages:SelectionHighlightingPage />
     </TabItem>
@@ -433,6 +436,12 @@
     </TabItem>
     <TabItem Header="Column Drag Indicator - Header Binding">
       <pages:ColumnDragIndicatorHeaderBindingPage />
+    </TabItem>
+    <TabItem Header="Column Drag Indicator - Drag Handle">
+      <pages:ColumnDragHandlePage />
+    </TabItem>
+    <TabItem Header="Column Drag Indicator - Handle Modes">
+      <pages:ColumnDragHandleModesPage />
     </TabItem>
     <TabItem Header="Validation">
       <pages:ValidationColumnsPage />

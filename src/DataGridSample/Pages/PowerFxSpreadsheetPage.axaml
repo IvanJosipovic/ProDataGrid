@@ -104,7 +104,7 @@
               RowHeaderWidth="44"
               ShowRowNumbers="True"
               GridLinesVisibility="All"
-              SelectionUnit="Cell"
+              SelectionUnit="CellOrColumnHeader"
               SelectionMode="Extended"
               ClipboardCopyMode="IncludeHeader"
               CanUserPaste="True"
@@ -128,6 +128,11 @@
         <SolidColorBrush x:Key="DataGridFillHandleBrush" Color="#2E7D32" />
         <SolidColorBrush x:Key="DataGridColumnHeaderBackgroundBrush" Color="#F3F5F7" />
         <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="#2C3E50" />
+        <SolidColorBrush x:Key="DataGridColumnHeaderSelectedBackgroundBrush" Color="#CCE6D6" />
+        <SolidColorBrush x:Key="DataGridColumnHeaderSelectedHoveredBackgroundBrush" Color="#C2E0CF" />
+        <SolidColorBrush x:Key="DataGridColumnHeaderSelectedForegroundBrush" Color="#2E7D32" />
+        <SolidColorBrush x:Key="DataGridColumnHeaderCurrentBackgroundBrush" Color="#CCE6D6" />
+        <SolidColorBrush x:Key="DataGridColumnHeaderCurrentForegroundBrush" Color="#2E7D32" />
         <Thickness x:Key="DataGridSelectionOutlineThickness">2</Thickness>
         <x:Double x:Key="DataGridFillHandleSize">6</x:Double>
       </DataGrid.Resources>

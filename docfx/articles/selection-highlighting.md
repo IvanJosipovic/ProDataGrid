@@ -7,6 +7,8 @@ Selection visuals in ProDataGrid follow the selection unit and selection mode. R
 - `SelectionUnit=FullRow` highlights full rows and uses row headers for selection.
 - `SelectionUnit=Cell` highlights individual cells; rows still track selection for `SelectedItems` unless you suppress row visuals.
 - `SelectionUnit=CellOrRowHeader` lets row headers select rows and cell clicks select cells.
+- `SelectionUnit=CellOrColumnHeader` lets column headers select columns and cell clicks select cells.
+- `SelectionUnit=CellOrRowOrColumnHeader` enables both row and column header selection.
 
 Use `SelectionMode=Extended` for range selection (Shift) and multi-select (Ctrl/Cmd). `SelectionMode=Single` keeps a single active selection.
 
@@ -28,6 +30,12 @@ Use `SelectionMode=Extended` for range selection (Shift) and multi-select (Ctrl/
 
 `DataGridCell:row-selected` lets you show a subtle row highlight even when only some cells are selected, while `DataGridCell:cell-selected` can be a stronger highlight for the selected cells themselves.
 
+### DataGridColumnHeader
+
+- `:selected` - column is fully selected (all visible rows are selected in that column).
+- `:current` - current column (current cell’s column).
+- `:pointerover` - hover state.
+
 ## Theme resource keys
 
 Cell selection brushes can be customized via theme resources (Fluent and Simple define defaults):
@@ -38,6 +46,14 @@ Cell selection brushes can be customized via theme resources (Fluent and Simple 
 - `DataGridCellSelectedHoveredUnfocusedBackgroundBrush`
 
 Row selection continues to use the existing row brushes such as `DataGridRowSelectedBackgroundBrush`.
+
+Column header selection brushes:
+
+- `DataGridColumnHeaderSelectedBackgroundBrush`
+- `DataGridColumnHeaderSelectedHoveredBackgroundBrush`
+- `DataGridColumnHeaderSelectedForegroundBrush`
+- `DataGridColumnHeaderCurrentBackgroundBrush`
+- `DataGridColumnHeaderCurrentForegroundBrush`
 
 ## Styling examples
 
@@ -74,6 +90,7 @@ Target pseudo classes directly:
 
 - For cell highlighting, set `SelectionUnit=Cell` or `SelectionUnit=CellOrRowHeader`.
 - For row highlighting without cell selection, use `SelectionUnit=FullRow`.
+- For column header selection, use `SelectionUnit=CellOrColumnHeader` (or `CellOrRowOrColumnHeader`) and set `CanUserSelectColumns="True"`.
 - Bind `SelectedCells` when working with cell selection so you can inspect selected ranges.
 
 ## Samples

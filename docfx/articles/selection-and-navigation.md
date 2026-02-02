@@ -57,6 +57,19 @@ You can still bind `SelectedItems` and `SelectedCells` directly:
 
 When `SelectionUnit` includes cells, `SelectedCells` is an `IList<DataGridCellInfo>` that you can bind and inspect.
 
+## SelectedColumns
+
+Enable column header selection with `SelectionUnit=CellOrColumnHeader` (or `CellOrRowOrColumnHeader`) and `CanUserSelectColumns="True"`. You can bind `SelectedColumns` to observe full-column selections:
+
+```xml
+<DataGrid ItemsSource="{Binding Items}"
+          SelectionUnit="CellOrColumnHeader"
+          CanUserSelectColumns="True"
+          SelectedColumns="{Binding SelectedColumns, Mode=TwoWay}" />
+```
+
+`SelectedColumns` is an `IList<DataGridColumn>` representing fully-selected columns.
+
 ## Selection Stability and Paging
 
 - Selection stays attached to items as rows are inserted, removed, shuffled, filtered, or sorted.
@@ -97,6 +110,10 @@ See the "Selection Origin" sample page in `DataGridSample` to observe the flags 
 ## Cell and Row Selection
 
 - `SelectionUnit=FullRow` or `Cell` controls selection granularity.
+- `SelectionUnit=CellOrRowHeader` enables row header selection for rows.
+- `SelectionUnit=CellOrColumnHeader` enables column header selection for columns.
+- `SelectionUnit=CellOrRowOrColumnHeader` enables both row and column header selection.
+- `CanUserSelectRows` and `CanUserSelectColumns` gate header selection gestures.
 - `CurrentCell` and `CurrentItem` are kept in sync with keyboard navigation.
 
 ## CurrentCell Binding

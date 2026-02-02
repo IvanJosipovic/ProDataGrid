@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <PublishAot>false</PublishAot>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <NoWarn>$(NoWarn);CS8002</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Fonts.Inter" />
+    <PackageReference Include="Avalonia.Themes.Fluent" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Avalonia.Controls.DataGrid/Avalonia.Controls.DataGrid.csproj" />
+    <ProjectReference Include="../ProCharts.Avalonia/ProCharts.Avalonia.csproj" />
+    <ProjectReference Include="../ProDataGrid.Charting/ProDataGrid.Charting.csproj" />
+    <ProjectReference Include="../ProDataGrid.FormulaEngine/ProDataGrid.FormulaEngine.csproj" />
+    <ProjectReference Include="../ProDataGrid.FormulaEngine.Excel/ProDataGrid.FormulaEngine.Excel.csproj" />
+  </ItemGroup>
+
+  <Import Project="../../build/SharedVersion.props" />
+</Project>

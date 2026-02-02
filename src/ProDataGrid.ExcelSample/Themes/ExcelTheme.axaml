@@ -1,0 +1,597 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:charts="clr-namespace:ProCharts.Avalonia;assembly=ProCharts.Avalonia"
+        xmlns:controls="clr-namespace:ProDataGrid.ExcelSample.Controls"
+        xmlns:viewModels="clr-namespace:ProDataGrid.ExcelSample.ViewModels">
+  <Styles.Resources>
+    <ResourceDictionary>
+      <Color x:Key="ExcelAccentColor">#217346</Color>
+      <Color x:Key="ExcelAccentLightColor">#E7F3EC</Color>
+      <Color x:Key="ExcelRibbonTopColor">#F8F8F8</Color>
+      <Color x:Key="ExcelRibbonBottomColor">#EDEEEF</Color>
+      <Color x:Key="ExcelSurfaceColor">#FFFFFF</Color>
+      <Color x:Key="ExcelMutedTextColor">#6B6B6B</Color>
+      <Color x:Key="ExcelHeaderBackgroundColor">#F3F3F3</Color>
+      <Color x:Key="ExcelHeaderBorderColor">#D0D0D0</Color>
+      <Color x:Key="ExcelGridLineColor">#E6E6E6</Color>
+      <Color x:Key="ExcelStatusBarColor">#F3F3F3</Color>
+
+      <SolidColorBrush x:Key="ExcelAccentBrush" Color="{StaticResource ExcelAccentColor}" />
+      <SolidColorBrush x:Key="ExcelAccentLightBrush" Color="{StaticResource ExcelAccentLightColor}" />
+      <SolidColorBrush x:Key="ExcelSurfaceBrush" Color="{StaticResource ExcelSurfaceColor}" />
+      <SolidColorBrush x:Key="ExcelMutedTextBrush" Color="{StaticResource ExcelMutedTextColor}" />
+      <SolidColorBrush x:Key="ExcelHeaderBackgroundBrush" Color="{StaticResource ExcelHeaderBackgroundColor}" />
+      <SolidColorBrush x:Key="ExcelHeaderBorderBrush" Color="{StaticResource ExcelHeaderBorderColor}" />
+      <SolidColorBrush x:Key="ExcelGridLinesBrush" Color="{StaticResource ExcelGridLineColor}" />
+      <SolidColorBrush x:Key="ExcelStatusBarBrush" Color="{StaticResource ExcelStatusBarColor}" />
+
+      <LinearGradientBrush x:Key="ExcelRibbonBackgroundBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource ExcelRibbonTopColor}" Offset="0" />
+        <GradientStop Color="{StaticResource ExcelRibbonBottomColor}" Offset="1" />
+      </LinearGradientBrush>
+
+      <FontFamily x:Key="ExcelFontFamily">Calibri, Inter, Segoe UI</FontFamily>
+
+      <DataGridGridLinesVisibility x:Key="DataGridGridLinesVisibility">All</DataGridGridLinesVisibility>
+      <SolidColorBrush x:Key="DataGridColumnHeaderBackgroundBrush" Color="{StaticResource ExcelHeaderBackgroundColor}" />
+      <SolidColorBrush x:Key="DataGridColumnHeaderForegroundBrush" Color="#3A3A3A" />
+      <SolidColorBrush x:Key="DataGridGridLinesBrush" Color="{StaticResource ExcelGridLineColor}" />
+      <SolidColorBrush x:Key="DataGridSelectionOutlineBrush" Color="{StaticResource ExcelAccentColor}" />
+      <SolidColorBrush x:Key="DataGridFillHandleBrush" Color="{StaticResource ExcelAccentColor}" />
+      <SolidColorBrush x:Key="DataGridCellSelectedBackgroundBrush" Color="{StaticResource ExcelAccentLightColor}" />
+      <SolidColorBrush x:Key="DataGridCellSelectedHoveredBackgroundBrush" Color="{StaticResource ExcelAccentLightColor}" />
+      <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="{StaticResource ExcelAccentColor}" />
+      <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="DataGridRowHoveredBackgroundBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="Transparent" />
+      <SolidColorBrush x:Key="DataGridCellHoveredBackgroundBrush" Color="#F6F6F6" />
+      <x:Double x:Key="DataGridCellFontSize">12</x:Double>
+      <x:Double x:Key="DataGridColumnHeaderFontSize">12</x:Double>
+      <x:Double x:Key="DataGridCellMinHeight">24</x:Double>
+      <x:Double x:Key="DataGridColumnHeaderDragGripSize">10</x:Double>
+      <Thickness x:Key="DataGridColumnHeaderDragGripMargin">2,0,2,0</Thickness>
+
+      <ControlTheme x:Key="ExcelDeltaPositiveCellTheme"
+                    TargetType="DataGridCell"
+                    BasedOn="{StaticResource {x:Type DataGridCell}}">
+        <Setter Property="Background" Value="#1C2ECC71" />
+      </ControlTheme>
+      <ControlTheme x:Key="ExcelDeltaNegativeCellTheme"
+                    TargetType="DataGridCell"
+                    BasedOn="{StaticResource {x:Type DataGridCell}}">
+        <Setter Property="Background" Value="#1CE74C3C" />
+      </ControlTheme>
+
+      <DataTemplate x:Key="RibbonTabHeaderTemplate" x:DataType="viewModels:RibbonTabViewModel">
+        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="12" />
+      </DataTemplate>
+
+      <DataTemplate x:Key="RibbonGroupTemplate" x:DataType="viewModels:RibbonGroupViewModel">
+        <Border BorderBrush="#E0E0E0" BorderThickness="0,0,1,0" Padding="10,6" MinWidth="120">
+          <StackPanel Spacing="6">
+            <ItemsControl ItemsSource="{Binding Commands}">
+              <ItemsControl.DataTemplates>
+                <DataTemplate DataType="viewModels:RibbonCommandViewModel" x:DataType="viewModels:RibbonCommandViewModel">
+                  <Button Classes="RibbonCommand"
+                          Command="{Binding Command}">
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                      <Border Classes="RibbonCommandGlyph" Background="#FFFFFF" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="4" Padding="6" Width="40" Height="32">
+                        <TextBlock Text="{Binding Glyph}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" />
+                      </Border>
+                      <TextBlock Text="{Binding Label}" FontSize="11" HorizontalAlignment="Center" />
+                    </StackPanel>
+                  </Button>
+                </DataTemplate>
+
+                <DataTemplate DataType="viewModels:RibbonToggleCommandViewModel" x:DataType="viewModels:RibbonToggleCommandViewModel">
+                  <ToggleButton Classes="RibbonCommand"
+                                IsChecked="{Binding IsChecked, Mode=TwoWay}">
+                    <StackPanel Spacing="4" HorizontalAlignment="Center">
+                      <Border Classes="RibbonCommandGlyph" Background="#FFFFFF" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="4" Padding="6" Width="40" Height="32">
+                        <TextBlock Text="{Binding Glyph}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="14" FontWeight="SemiBold" />
+                      </Border>
+                      <TextBlock Text="{Binding Label}" FontSize="11" HorizontalAlignment="Center" />
+                    </StackPanel>
+                  </ToggleButton>
+                </DataTemplate>
+              </ItemsControl.DataTemplates>
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" Spacing="6" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <TextBlock Text="{Binding Title}" FontSize="10" Opacity="0.7" HorizontalAlignment="Center" />
+          </StackPanel>
+        </Border>
+      </DataTemplate>
+
+      <DataTemplate x:Key="RibbonTabContentTemplate" x:DataType="viewModels:RibbonTabViewModel">
+        <ItemsControl ItemsSource="{Binding Groups}" ItemTemplate="{StaticResource RibbonGroupTemplate}" Margin="12,6">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+        </ItemsControl>
+      </DataTemplate>
+
+      <ControlTheme x:Key="ExcelRibbonTabItemTheme" TargetType="TabItem">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    Padding="{TemplateBinding Padding}"
+                    CornerRadius="4">
+              <ContentPresenter HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <DataTemplate x:Key="ChartTypeOptionTemplate" x:DataType="viewModels:ChartTypeOption">
+        <TextBlock Text="{Binding Label}" />
+      </DataTemplate>
+
+      <ControlTheme x:Key="{x:Type controls:ExcelRibbonBar}" TargetType="controls:ExcelRibbonBar">
+        <Setter Property="Template">
+          <ControlTemplate x:DataType="controls:ExcelRibbonBar">
+            <Border Background="{StaticResource ExcelRibbonBackgroundBrush}"
+                    BorderBrush="#DADADA"
+                    BorderThickness="0,0,0,1">
+              <Grid RowDefinitions="Auto,Auto">
+                <Grid Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Margin="12,6">
+                  <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Border Background="{StaticResource ExcelAccentBrush}" CornerRadius="6" Width="26" Height="26">
+                      <TextBlock Text="X"
+                                 Foreground="#FFFFFF"
+                                 FontWeight="Bold"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Border>
+                    <Button Classes="RibbonTopButton">
+                      <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="Book" FontWeight="SemiBold" />
+                        <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                              Fill="{StaticResource ExcelMutedTextBrush}"
+                              Width="8"
+                              Height="4"
+                              VerticalAlignment="Center" />
+                      </StackPanel>
+                    </Button>
+                    <ItemsControl ItemsSource="{TemplateBinding QuickCommands}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Orientation="Horizontal" Spacing="4" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:RibbonCommandViewModel">
+                          <Button Classes="RibbonTopButton" Command="{Binding Command}">
+                            <TextBlock Text="{Binding Glyph}" FontSize="11" FontWeight="SemiBold" />
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+
+                  <Border Grid.Column="1"
+                          Background="{StaticResource ExcelSurfaceBrush}"
+                          BorderBrush="#CFCFCF"
+                          BorderThickness="1"
+                          CornerRadius="16"
+                          Padding="12,2"
+                          HorizontalAlignment="Center">
+                    <TextBox Text="{Binding SearchText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                             Watermark="Search for tools, help, and more (Option + Q)"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             Width="360" />
+                  </Border>
+
+                  <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <Button Classes="RibbonTopButton" Content="Comments" />
+                    <Button Classes="RibbonTopButton" Content="Catch up" />
+                    <Button Classes="RibbonTopButton" Content="Editing" />
+                    <Button Classes="RibbonTopButton"
+                            Background="{StaticResource ExcelAccentBrush}"
+                            Foreground="#FFFFFF"
+                            Content="Share" />
+                    <Border Background="#E0E0E0" CornerRadius="12" Width="24" Height="24" VerticalAlignment="Center">
+                      <TextBlock Text="WS"
+                                 FontSize="10"
+                                 FontWeight="SemiBold"
+                                 HorizontalAlignment="Center"
+                                 VerticalAlignment="Center" />
+                    </Border>
+                  </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Background="{StaticResource ExcelSurfaceBrush}" BorderBrush="#DADADA" BorderThickness="0,1,0,0">
+                  <Grid ColumnDefinitions="Auto,*">
+                    <Border Background="{StaticResource ExcelAccentBrush}"
+                            CornerRadius="4"
+                            Margin="12,6,6,6"
+                            Padding="10,4">
+                      <TextBlock Text="File" Foreground="#FFFFFF" FontWeight="SemiBold" FontSize="12" />
+                    </Border>
+                    <TabControl Grid.Column="1"
+                                ItemsSource="{TemplateBinding Tabs}"
+                                SelectedItem="{Binding SelectedTab, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                ItemTemplate="{StaticResource RibbonTabHeaderTemplate}"
+                                ItemContainerTheme="{StaticResource ExcelRibbonTabItemTheme}"
+                                ContentTemplate="{StaticResource RibbonTabContentTemplate}"
+                                Background="Transparent"
+                                BorderThickness="0">
+                      <TabControl.Styles>
+                        <Style Selector="TabItem">
+                          <Setter Property="Padding" Value="10,6" />
+                          <Setter Property="FontSize" Value="12" />
+                          <Setter Property="FontWeight" Value="SemiBold" />
+                          <Setter Property="Foreground" Value="#404040" />
+                          <Setter Property="Background" Value="Transparent" />
+                          <Setter Property="BorderThickness" Value="0,0,0,2" />
+                          <Setter Property="BorderBrush" Value="Transparent" />
+                        </Style>
+                        <Style Selector="TabItem:selected">
+                          <Setter Property="BorderBrush" Value="{StaticResource ExcelAccentBrush}" />
+                          <Setter Property="Foreground" Value="{StaticResource ExcelAccentBrush}" />
+                        </Style>
+                      </TabControl.Styles>
+                    </TabControl>
+                  </Grid>
+                </Border>
+              </Grid>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type controls:ExcelFormulaBar}" TargetType="controls:ExcelFormulaBar">
+        <Setter Property="Template">
+          <ControlTemplate x:DataType="controls:ExcelFormulaBar">
+            <Border Background="{StaticResource ExcelSurfaceBrush}"
+                    BorderBrush="#DADADA"
+                    BorderThickness="0,0,0,1"
+                    MinHeight="40">
+              <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" Margin="12,6" ColumnSpacing="6" VerticalAlignment="Center">
+                <Border Classes="FormulaField" Background="#F7F7F7" MinWidth="80">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                    <TextBox Text="{Binding NameText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                             BorderThickness="0"
+                             Background="Transparent"
+                             Classes="FormulaTextBox"
+                             VerticalContentAlignment="Center">
+                      <TextBox.KeyBindings>
+                        <KeyBinding Gesture="Enter"
+                                    Command="{Binding NameCommitCommand, RelativeSource={RelativeSource TemplatedParent}}" />
+                      </TextBox.KeyBindings>
+                    </TextBox>
+                    <Path Grid.Column="1"
+                          Data="M 0 0 L 4 4 L 8 0 Z"
+                          Fill="{StaticResource ExcelMutedTextBrush}"
+                          Width="8"
+                          Height="4"
+                          VerticalAlignment="Center" />
+                  </Grid>
+                </Border>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                  <Button Classes="FormulaIconButton"
+                          Command="{Binding FormulaCancelCommand, RelativeSource={RelativeSource TemplatedParent}}">
+                    <Path Data="M 2 2 L 10 10 M 10 2 L 2 10"
+                          Stroke="#6B6B6B"
+                          StrokeThickness="1.4" />
+                  </Button>
+                  <Button Classes="FormulaIconButton"
+                          Command="{Binding FormulaCommitCommand, RelativeSource={RelativeSource TemplatedParent}}">
+                    <Path Data="M 2 6 L 5 9 L 11 2"
+                          Stroke="#6B6B6B"
+                          StrokeThickness="1.6"
+                          StrokeLineCap="Round" />
+                  </Button>
+                </StackPanel>
+
+                <Border Grid.Column="2" Classes="FormulaField" Background="#F2F2F2" Padding="6,2">
+                  <TextBlock Text="fx"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Foreground="{StaticResource ExcelMutedTextBrush}"
+                             VerticalAlignment="Center" />
+                </Border>
+
+                <Border Grid.Column="3" Classes="FormulaField">
+                  <TextBox Text="{Binding FormulaText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                           Watermark="Enter formula"
+                           BorderThickness="0"
+                           Background="Transparent"
+                           Classes="FormulaTextBox"
+                           VerticalContentAlignment="Center">
+                    <TextBox.KeyBindings>
+                      <KeyBinding Gesture="Enter"
+                                  Command="{Binding FormulaCommitCommand, RelativeSource={RelativeSource TemplatedParent}}" />
+                      <KeyBinding Gesture="Escape"
+                                  Command="{Binding FormulaCancelCommand, RelativeSource={RelativeSource TemplatedParent}}" />
+                    </TextBox.KeyBindings>
+                  </TextBox>
+                </Border>
+
+                <Border Grid.Column="4" Classes="FormulaField" MinWidth="160">
+                  <TextBox Text="{Binding FilterText, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                           Watermark="Filter"
+                           BorderThickness="0"
+                           Background="Transparent"
+                           Classes="FormulaTextBox"
+                           VerticalContentAlignment="Center" />
+                </Border>
+              </Grid>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type controls:ExcelChartPanel}" TargetType="controls:ExcelChartPanel">
+        <Setter Property="Template">
+          <ControlTemplate x:DataType="controls:ExcelChartPanel">
+            <Border Background="#F8F9FA" BorderBrush="#DADADA" BorderThickness="1" CornerRadius="8" Padding="10">
+              <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="8">
+                <TextBlock Text="Charts" FontSize="13" FontWeight="SemiBold" />
+                <StackPanel Grid.Row="1" Spacing="6">
+                  <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <TextBlock Text="Type" FontSize="11" Opacity="0.7" VerticalAlignment="Center" />
+                    <ComboBox ItemsSource="{Binding ChartTypes, RelativeSource={RelativeSource TemplatedParent}}"
+                              SelectedItem="{Binding SelectedChartType, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                              ItemTemplate="{StaticResource ChartTypeOptionTemplate}"
+                              MinWidth="160" />
+                  </StackPanel>
+                  <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <ToggleSwitch IsChecked="{Binding AutoApplySelection, RelativeSource={RelativeSource TemplatedParent}}"
+                                  Content="Auto from selection" />
+                    <Button Content="Use selection"
+                            Command="{Binding ApplySelectionCommand, RelativeSource={RelativeSource TemplatedParent}}" />
+                    <Button Content="Clear"
+                            Command="{Binding ClearChartCommand, RelativeSource={RelativeSource TemplatedParent}}" />
+                  </StackPanel>
+                  <TextBlock Text="{Binding RangeText, RelativeSource={RelativeSource TemplatedParent}}"
+                             FontSize="11"
+                             Opacity="0.7" />
+                </StackPanel>
+                <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#E1E1E1" BorderThickness="1" CornerRadius="6" Padding="6">
+                  <Grid>
+                    <charts:ProChartView ChartModel="{Binding ChartModel, RelativeSource={RelativeSource TemplatedParent}}"
+                                         ChartStyle="{Binding ChartStyle, RelativeSource={RelativeSource TemplatedParent}}"
+                                         IsVisible="{Binding HasChart, RelativeSource={RelativeSource TemplatedParent}}"
+                                         MinHeight="220" />
+                    <TextBlock Text="Select a range to preview a chart"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               Foreground="#6A6A6A"
+                               IsVisible="{Binding ShowPlaceholder, RelativeSource={RelativeSource TemplatedParent}}" />
+                  </Grid>
+                </Border>
+                <TextBlock Grid.Row="3"
+                           Text="{Binding StatusText, RelativeSource={RelativeSource TemplatedParent}}"
+                           FontSize="11"
+                           Opacity="0.7" />
+              </Grid>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type controls:SheetTabStrip}" TargetType="controls:SheetTabStrip">
+        <Setter Property="Template">
+          <ControlTemplate x:DataType="controls:SheetTabStrip">
+            <Border Background="#F3F3F3" BorderBrush="#D0D0D0" BorderThickness="0,1,0,0" Padding="8,4">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <ListBox x:Name="PART_List"
+                         Classes="sheet-tabs"
+                         ItemsSource="{TemplateBinding Items}"
+                         SelectedItem="{Binding SelectedItem, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                  <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Orientation="Horizontal" Spacing="6" />
+                    </ItemsPanelTemplate>
+                  </ListBox.ItemsPanel>
+                  <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:SheetViewModel">
+                      <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                  </ListBox.ItemTemplate>
+                </ListBox>
+                <Button Grid.Column="1" Content="+" Width="26" Height="26" HorizontalAlignment="Right" Classes="sheet-tab-add" />
+              </Grid>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <ControlTheme x:Key="{x:Type controls:ExcelStatusBar}" TargetType="controls:ExcelStatusBar">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Template">
+          <ControlTemplate x:DataType="controls:ExcelStatusBar">
+            <Border Background="{StaticResource ExcelStatusBarBrush}" BorderBrush="#DADADA" BorderThickness="0,1,0,0" Padding="12,4">
+              <Grid ColumnDefinitions="*,Auto">
+                <ContentPresenter Content="{TemplateBinding LeftContent}" VerticalAlignment="Center" />
+                <ContentPresenter Content="{TemplateBinding RightContent}" Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" />
+              </Grid>
+            </Border>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+
+  <Style Selector="Window">
+    <Setter Property="Background" Value="#F3F3F3" />
+    <Setter Property="FontFamily" Value="{StaticResource ExcelFontFamily}" />
+  </Style>
+
+  <Style Selector="DataGrid">
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="RowBackground" Value="#FFFFFF" />
+    <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource ExcelGridLinesBrush}" />
+    <Setter Property="VerticalGridLinesBrush" Value="{StaticResource ExcelGridLinesBrush}" />
+    <Setter Property="RowHeight" Value="24" />
+    <Setter Property="ColumnHeaderHeight" Value="24" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="ColumnDragHandle" Value="DragHandle" />
+    <Setter Property="ColumnDragHandleVisible" Value="True" />
+    <Setter Property="RowDragHandle" Value="RowHeader" />
+    <Setter Property="RowDragHandleVisible" Value="True" />
+  </Style>
+
+  <Style Selector="DataGridColumnHeader">
+    <Setter Property="Background" Value="{StaticResource ExcelHeaderBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ExcelHeaderBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,1" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="#4A4A4A" />
+  </Style>
+
+  <Style Selector="DataGridColumnHeader:selected">
+    <Setter Property="Background" Value="{StaticResource ExcelAccentLightBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ExcelAccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource ExcelAccentBrush}" />
+  </Style>
+
+  <Style Selector="DataGridColumnHeader:current">
+    <Setter Property="Background" Value="{StaticResource ExcelAccentLightBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ExcelAccentBrush}" />
+    <Setter Property="Foreground" Value="{StaticResource ExcelAccentBrush}" />
+  </Style>
+
+  <Style Selector="DataGridRowHeader">
+    <Setter Property="Background" Value="{StaticResource ExcelHeaderBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ExcelHeaderBorderBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,1,1" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="#4A4A4A" />
+  </Style>
+
+  <Style Selector="DataGridRowHeader:selected /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{StaticResource ExcelAccentLightBrush}" />
+  </Style>
+
+  <Style Selector="DataGridRowHeader:selected">
+    <Setter Property="Foreground" Value="{StaticResource ExcelAccentBrush}" />
+  </Style>
+
+  <Style Selector="DataGridRowHeader:current /template/ Rectangle#BackgroundRectangle">
+    <Setter Property="Fill" Value="{StaticResource ExcelAccentLightBrush}" />
+  </Style>
+
+  <Style Selector="DataGridRowHeader:current">
+    <Setter Property="Foreground" Value="{StaticResource ExcelAccentBrush}" />
+  </Style>
+
+  <Style Selector="DataGridCell">
+    <Setter Property="Padding" Value="6,0" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.RibbonCommand">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="ToggleButton.RibbonCommand">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="ToggleButton.RibbonCommand:checked Border.RibbonCommandGlyph">
+    <Setter Property="Background" Value="{StaticResource ExcelAccentLightBrush}" />
+    <Setter Property="BorderBrush" Value="{StaticResource ExcelAccentBrush}" />
+  </Style>
+
+  <Style Selector="Border.FormulaField">
+    <Setter Property="Background" Value="{StaticResource ExcelSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="#D0D0D0" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="6,2" />
+  </Style>
+
+  <Style Selector="Button.RibbonTopButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Padding" Value="6,2" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.RibbonTopButton:pointerover">
+    <Setter Property="Background" Value="#ECECEC" />
+    <Setter Property="BorderBrush" Value="#D4D4D4" />
+  </Style>
+
+  <Style Selector="Button.RibbonTopButton:pressed">
+    <Setter Property="Background" Value="#E2E2E2" />
+  </Style>
+
+  <Style Selector="Button.FormulaIconButton">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="Button.FormulaIconButton:pointerover">
+    <Setter Property="Background" Value="#ECECEC" />
+    <Setter Property="BorderBrush" Value="#D4D4D4" />
+  </Style>
+
+  <Style Selector="TextBox.FormulaTextBox">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="#333333" />
+    <Setter Property="Padding" Value="0" />
+  </Style>
+
+  <Style Selector="ListBox.sheet-tabs">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+
+  <Style Selector="ListBox.sheet-tabs ListBoxItem">
+    <Setter Property="Padding" Value="10,4" />
+    <Setter Property="CornerRadius" Value="4,4,0,0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+    <Setter Property="Foreground" Value="#4A4A4A" />
+  </Style>
+
+  <Style Selector="ListBox.sheet-tabs ListBoxItem:selected">
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="BorderBrush" Value="{StaticResource ExcelAccentBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+    <Setter Property="Foreground" Value="{StaticResource ExcelAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Button.sheet-tab-add">
+    <Setter Property="Background" Value="#FFFFFF" />
+    <Setter Property="BorderBrush" Value="#CFCFCF" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="13" />
+  </Style>
+
+</Styles>

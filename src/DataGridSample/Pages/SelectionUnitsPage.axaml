@@ -14,7 +14,7 @@
         RowSpacing="8">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="3" Spacing="4">
       <TextBlock Classes="h2">Selection units and modes</TextBlock>
-      <TextBlock Text="Compare FullRow, Cell, and CellOrRowHeader selection units. Use SelectionMode to switch between Single and Extended. Drag to extend selection in Extended mode."
+      <TextBlock Text="Compare FullRow, Cell, and CellOrRowHeader selection units. Use SelectionMode to switch between Single and Extended. Drag to extend selection in Extended mode. See Header Selection for column header modes."
                  TextWrapping="Wrap" />
     </StackPanel>
 
