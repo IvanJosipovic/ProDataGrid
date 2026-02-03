@@ -53,6 +53,13 @@ public class DataGridAttachDetachModelTests
         public ObservableCollection<TreeItem> Children { get; }
     }
 
+    private sealed class SelectionBindingViewModel
+    {
+        public ObservableCollection<Item> SelectedItems { get; } = new();
+
+        public ObservableCollection<DataGridCellInfo> SelectedCells { get; } = new();
+    }
+
     [AvaloniaFact]
     public void SelectionModel_Syncs_After_Detach_Attach()
     {
@@ -312,6 +319,348 @@ public class DataGridAttachDetachModelTests
 
         InvokeMouseSelection(grid, model, childB);
         AssertSelection(selection, childB);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectedItemsBinding_Reattaches_After_Detach_Attach()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("Alpha"),
+            new("Beta"),
+            new("Gamma")
+        };
+
+        var vm = new SelectionBindingViewModel();
+        var grid = CreateBasicGrid(items);
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.Bind(DataGrid.SelectedItemsProperty, new Binding(nameof(SelectionBindingViewModel.SelectedItems))
+        {
+            Mode = BindingMode.TwoWay,
+            Source = vm
+        });
+
+        var window = Attach(grid);
+
+        grid.SelectedItem = items[0];
+        grid.SelectedItems.Add(items[1]);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(2, vm.SelectedItems.Count);
+        Assert.Contains(items[0], vm.SelectedItems);
+        Assert.Contains(items[1], vm.SelectedItems);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        vm.SelectedItems.Clear();
+        vm.SelectedItems.Add(items[2]);
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.Single(grid.SelectedItems);
+        Assert.Contains(items[2], grid.SelectedItems.Cast<object>());
+        Assert.Same(items[2], grid.SelectedItem);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectedCellsBinding_Reattaches_After_Detach_Attach()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("Alpha"),
+            new("Beta"),
+            new("Gamma")
+        };
+
+        var vm = new SelectionBindingViewModel();
+        var grid = CreateBasicGrid(items);
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.SelectionUnit = DataGridSelectionUnit.Cell;
+        grid.Bind(DataGrid.SelectedCellsProperty, new Binding(nameof(SelectionBindingViewModel.SelectedCells))
+        {
+            Mode = BindingMode.TwoWay,
+            Source = vm
+        });
+
+        var window = Attach(grid);
+        var column = grid.Columns[0];
+
+        vm.SelectedCells.Add(new DataGridCellInfo(items[1], column, 1, column.Index, isValid: true));
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.Single(grid.SelectedCells);
+        Assert.Same(items[1], grid.SelectedItem);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        vm.SelectedCells.Clear();
+        vm.SelectedCells.Add(new DataGridCellInfo(items[0], column, 0, column.Index, isValid: true));
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.Single(grid.SelectedCells);
+        Assert.Same(items[0], grid.SelectedItem);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == column.Index);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectionMode_Tracks_SelectionModel_When_Model_Changes_While_Detached()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("Alpha"),
+            new("Beta"),
+            new("Gamma")
+        };
+
+        var selection = new SelectionModel<object?> { SingleSelect = true };
+        var grid = CreateBasicGrid(items);
+        grid.Selection = selection;
+        grid.SelectionMode = DataGridSelectionMode.Single;
+
+        var window = Attach(grid);
+
+        grid.SelectedItem = items[0];
+        Dispatcher.UIThread.RunJobs();
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        selection.SingleSelect = false;
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.False(selection.SingleSelect);
+        Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectionModel_Tracks_SelectionMode_When_Mode_Changes_While_Detached_With_HierarchicalProxy()
+    {
+        var root = new TreeItem("root");
+        var childA = new TreeItem("childA");
+        var childB = new TreeItem("childB");
+        root.Children.Add(childA);
+        root.Children.Add(childB);
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((TreeItem)item).Children,
+            AutoExpandRoot = true,
+            MaxAutoExpandDepth = 1
+        });
+        model.SetRoot(root);
+        model.ExpandAll();
+
+        var selection = new SelectionModel<HierarchicalNode> { SingleSelect = false };
+
+        var grid = new DataGrid
+        {
+            HierarchicalRowsEnabled = true,
+            HierarchicalModel = model,
+            ItemsSource = model.ObservableFlattened,
+            Selection = selection,
+            SelectionMode = DataGridSelectionMode.Extended,
+            AutoGenerateColumns = false,
+            Height = 200
+        };
+
+        grid.Columns.Add(new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name")
+        });
+
+        var window = Attach(grid);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        grid.SelectionMode = DataGridSelectionMode.Single;
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.True(selection.SingleSelect);
+        Assert.Equal(DataGridSelectionMode.Single, grid.SelectionMode);
+
+        InvokeMouseSelection(grid, model, childA);
+        AssertSelection(selection, childA);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectionMode_Tracks_SelectionModel_When_Model_Changes_While_Detached_With_HierarchicalProxy()
+    {
+        var root = new TreeItem("root");
+        var childA = new TreeItem("childA");
+        var childB = new TreeItem("childB");
+        root.Children.Add(childA);
+        root.Children.Add(childB);
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((TreeItem)item).Children,
+            AutoExpandRoot = true,
+            MaxAutoExpandDepth = 1
+        });
+        model.SetRoot(root);
+        model.ExpandAll();
+
+        var selection = new SelectionModel<HierarchicalNode> { SingleSelect = false };
+
+        var grid = new DataGrid
+        {
+            HierarchicalRowsEnabled = true,
+            HierarchicalModel = model,
+            ItemsSource = model.ObservableFlattened,
+            Selection = selection,
+            SelectionMode = DataGridSelectionMode.Extended,
+            AutoGenerateColumns = false,
+            Height = 200
+        };
+
+        grid.Columns.Add(new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name")
+        });
+
+        var window = Attach(grid);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        selection.SingleSelect = true;
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.True(selection.SingleSelect);
+        Assert.Equal(DataGridSelectionMode.Single, grid.SelectionMode);
+
+        InvokeMouseSelection(grid, model, childB);
+        AssertSelection(selection, childB);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectionMode_Wins_When_SelectionModel_Changes_Opposite_Direction_While_Detached()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("Alpha"),
+            new("Beta"),
+            new("Gamma")
+        };
+
+        var selection = new SelectionModel<object?> { SingleSelect = true };
+        var grid = CreateBasicGrid(items);
+        grid.Selection = selection;
+        grid.SelectionMode = DataGridSelectionMode.Single;
+
+        var window = Attach(grid);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        selection.SingleSelect = false;
+        selection.SingleSelect = true;
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+        Assert.False(selection.SingleSelect);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectionMode_Wins_When_SelectionModel_Changes_Opposite_Direction_ToSingle_While_Detached()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("Alpha"),
+            new("Beta"),
+            new("Gamma")
+        };
+
+        var selection = new SelectionModel<object?> { SingleSelect = false };
+        var grid = CreateBasicGrid(items);
+        grid.Selection = selection;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+
+        var window = Attach(grid);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        grid.SelectionMode = DataGridSelectionMode.Single;
+        selection.SingleSelect = true;
+        selection.SingleSelect = false;
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.Equal(DataGridSelectionMode.Single, grid.SelectionMode);
+        Assert.True(selection.SingleSelect);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void SelectionModel_Tracks_SelectionMode_When_Mode_Changes_While_Detached()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("Alpha"),
+            new("Beta"),
+            new("Gamma")
+        };
+
+        var selection = new SelectionModel<object?> { SingleSelect = false };
+        var grid = CreateBasicGrid(items);
+        grid.Selection = selection;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+
+        var window = Attach(grid);
+
+        window.Content = null;
+        Dispatcher.UIThread.RunJobs();
+
+        grid.SelectionMode = DataGridSelectionMode.Single;
+
+        window.Content = grid;
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        Assert.True(selection.SingleSelect);
+        Assert.Equal(DataGridSelectionMode.Single, grid.SelectionMode);
 
         window.Close();
     }
