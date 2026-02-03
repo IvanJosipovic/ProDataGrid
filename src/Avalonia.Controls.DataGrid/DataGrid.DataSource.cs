@@ -205,7 +205,7 @@ internal
                 try
                 {
                     var view = DataConnection?.CollectionView;
-                    IList source = null;
+                    IEnumerable source = view;
 
                     if (view is DataGridCollectionView paged && paged.PageSize > 0)
                     {
@@ -222,54 +222,9 @@ internal
                         _pagedSelectionSource?.Dispose();
                         _pagedSelectionSource = null;
                         _pagedSelectionSourceView = null;
-                        source = view as IList;
                     }
 
-                    var model = _selectionModelAdapter.Model;
-                    if (source != null)
-                    {
-                        if (_selectionModelSourceProxy == null)
-                        {
-                            _selectionModelSourceProxy = new SelectionModelSourceProxy();
-                        }
-
-                        var currentSource = model.Source;
-                        var previousList = _selectionModelSourceProxy.TryGetSource(out var existing) ? existing : null;
-
-                        if (currentSource != null && !ReferenceEquals(currentSource, _selectionModelSourceProxy))
-                        {
-                            using (model.BatchUpdate())
-                            {
-                                model.Clear();
-                            }
-                        }
-                        else if (ReferenceEquals(currentSource, _selectionModelSourceProxy)
-                            && previousList != null
-                            && !ReferenceEquals(previousList, source))
-                        {
-                            using (model.BatchUpdate())
-                            {
-                                model.Clear();
-                            }
-                        }
-
-                        _selectionModelSourceProxy.UpdateSource(source);
-
-                        if (!ReferenceEquals(model.Source, _selectionModelSourceProxy))
-                        {
-                            model.Source = _selectionModelSourceProxy;
-                        }
-                    }
-                    else
-                    {
-                        if (_selectionModelSourceProxy != null
-                            && ReferenceEquals(model.Source, _selectionModelSourceProxy))
-                        {
-                            _selectionModelSourceProxy.UpdateSource(null);
-                        }
-
-                        model.Source = null;
-                    }
+                    _selectionModelAdapter.Model.Source = source;
                 }
                 finally
                 {

@@ -381,7 +381,6 @@ internal
         private INotifyCollectionChanged _selectedCellsBindingNotifications;
         private ISelectionModel _selectionModel;
         private DataGridSelectionModelAdapter _selectionModelAdapter;
-        private SelectionModelSourceProxy _selectionModelSourceProxy;
         private ISelectionModel _selectionModelProxy;
         private DataGridSelection.DataGridPagedSelectionSource _pagedSelectionSource;
         private DataGridCollectionView _pagedSelectionSourceView;
@@ -5550,7 +5549,6 @@ internal
                 _selectionModelAdapter = null;
                 if (!preserveSnapshot)
                 {
-                    _selectionModelSourceProxy?.UpdateSource(null);
                     model.Source = null;
                 }
             }
@@ -5805,129 +5803,6 @@ internal
         {
             _syncingSelectionModel = previous;
         }
-
-        private sealed class SelectionModelSourceProxy : IList, INotifyCollectionChanged
-        {
-            private WeakReference<IList> _source;
-
-            public event NotifyCollectionChangedEventHandler CollectionChanged;
-
-            public bool UpdateSource(IList source)
-            {
-                IList previous;
-                TryGetSource(out previous);
-
-                if (ReferenceEquals(previous, source))
-                {
-                    return false;
-                }
-
-                if (previous is INotifyCollectionChanged previousNotify)
-                {
-                    previousNotify.CollectionChanged -= OnSourceCollectionChanged;
-                }
-
-                if (source != null)
-                {
-                    _source = new WeakReference<IList>(source);
-                    if (source is INotifyCollectionChanged notify)
-                    {
-                        notify.CollectionChanged += OnSourceCollectionChanged;
-                    }
-                }
-                else
-                {
-                    _source = null;
-                }
-
-                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
-                return true;
-            }
-
-            public bool TryGetSource(out IList source)
-            {
-                if (_source != null && _source.TryGetTarget(out source))
-                {
-                    return true;
-                }
-
-                source = null;
-                return false;
-            }
-
-            private void OnSourceCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-            {
-                CollectionChanged?.Invoke(this, e);
-            }
-
-            public int Count => TryGetSource(out var source) ? source.Count : 0;
-
-            public object this[int index]
-            {
-                get
-                {
-                    if (TryGetSource(out var source))
-                    {
-                        return source[index];
-                    }
-
-                    return null;
-                }
-                set => throw new NotSupportedException();
-            }
-
-            public bool IsReadOnly => true;
-
-            public bool IsFixedSize => true;
-
-            public object SyncRoot => this;
-
-            public bool IsSynchronized => false;
-
-            public IEnumerator GetEnumerator()
-            {
-                if (TryGetSource(out var source))
-                {
-                    return source.GetEnumerator();
-                }
-
-                return Array.Empty<object>().GetEnumerator();
-            }
-
-            public int Add(object value) => throw new NotSupportedException();
-
-            public void Clear() => throw new NotSupportedException();
-
-            public bool Contains(object value)
-            {
-                return TryGetSource(out var source) && source.Contains(value);
-            }
-
-            public int IndexOf(object value)
-            {
-                return TryGetSource(out var source) ? source.IndexOf(value) : -1;
-            }
-
-            public void Insert(int index, object value) => throw new NotSupportedException();
-
-            public void Remove(object value) => throw new NotSupportedException();
-
-            public void RemoveAt(int index) => throw new NotSupportedException();
-
-            public void CopyTo(Array array, int index)
-            {
-                if (array == null)
-                {
-                    throw new ArgumentNullException(nameof(array));
-                }
-
-                if (TryGetSource(out var source))
-                {
-                    source.CopyTo(array, index);
-                }
-            }
-        }
-
         private sealed class HierarchicalSelectionProxy : ISelectionModel
         {
             private readonly ISelectionModel _inner;

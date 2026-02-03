@@ -585,7 +585,7 @@ public class DataGridSelectionPropertyTests
     }
 
     [AvaloniaFact]
-    public void ExternalSelectionModel_Source_Clears_On_Detach_And_Restores_On_Attach()
+    public void ExternalSelectionModel_Source_Persists_On_Detach_And_Attach()
     {
         var items = new ObservableCollection<string> { "A", "B", "C" };
         var selectionModel = new SelectionModel<string> { SingleSelect = false };
@@ -617,7 +617,7 @@ public class DataGridSelectionPropertyTests
         Dispatcher.UIThread.RunJobs();
 
         Dispatcher.UIThread.RunJobs();
-        Assert.Null(selectionModel.Source);
+        Assert.Same(grid.CollectionView, selectionModel.Source);
 
         window.Content = grid;
         Dispatcher.UIThread.RunJobs();
@@ -629,7 +629,7 @@ public class DataGridSelectionPropertyTests
     }
 
     [AvaloniaFact]
-    public void ExternalSelectionModel_Source_IsNotCleared_If_Reattached_Before_DeferredClear()
+    public void ExternalSelectionModel_Source_Remains_Stable_When_Reattached()
     {
         var items = new ObservableCollection<string> { "A", "B", "C" };
         var selectionModel = new SelectionModel<string> { SingleSelect = false };
