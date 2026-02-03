@@ -381,11 +381,15 @@ internal
         private INotifyCollectionChanged _selectedCellsBindingNotifications;
         private ISelectionModel _selectionModel;
         private DataGridSelectionModelAdapter _selectionModelAdapter;
+        private SelectionModelSourceProxy _selectionModelSourceProxy;
         private ISelectionModel _selectionModelProxy;
         private DataGridSelection.DataGridPagedSelectionSource _pagedSelectionSource;
+        private DataGridCollectionView _pagedSelectionSourceView;
         private List<object> _selectionModelSnapshot;
         private DataGridSelectionMode? _detachedSelectionMode;
         private bool? _detachedSelectionModelSingleSelect;
+        private bool _detachedSelectionChanged;
+        private ISelectionModel _detachedSelectionModel;
         private IReadOnlyList<object> _pendingHierarchicalSelectionSnapshot;
         private IReadOnlyList<int> _pendingHierarchicalSelectionIndexes;
         private bool _suppressSelectionSnapshotUpdates;
@@ -4044,6 +4048,7 @@ internal
                 }
 
                 var model = _selectionModelAdapter.Model;
+                DetachDetachedSelectionMonitor();
                 SyncSelectionModeOnAttach(model);
 
                 WeakEventHandlerManager.Unsubscribe<SelectionModelSelectionChangedEventArgs, DataGrid>(
@@ -4098,10 +4103,15 @@ internal
 
             if (_selectedItemsBinding == null)
             {
-                RestoreSelectionFromSnapshot();
+                if (ShouldRestoreSelectionSnapshot(_selectionModelAdapter.Model))
+                {
+                    RestoreSelectionFromSnapshot();
+                }
                 ApplySelectionFromSelectionModel();
                 UpdateSelectionSnapshot();
             }
+
+            _detachedSelectionChanged = false;
         }
 
         private void SyncSelectionModeOnAttach(ISelectionModel model)
@@ -4127,6 +4137,147 @@ internal
             model.SingleSelect = SelectionMode == DataGridSelectionMode.Single;
             _detachedSelectionMode = null;
             _detachedSelectionModelSingleSelect = null;
+        }
+
+        private void AttachDetachedSelectionMonitor(ISelectionModel model)
+        {
+            if (model == null || ReferenceEquals(_detachedSelectionModel, model))
+            {
+                return;
+            }
+
+            DetachDetachedSelectionMonitor();
+            _detachedSelectionModel = model;
+
+            WeakEventHandlerManager.Subscribe<ISelectionModel, SelectionModelSelectionChangedEventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.SelectionChanged),
+                DetachedSelectionModel_SelectionChanged);
+            WeakEventHandlerManager.Subscribe<ISelectionModel, SelectionModelIndexesChangedEventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.IndexesChanged),
+                DetachedSelectionModel_IndexesChanged);
+            WeakEventHandlerManager.Subscribe<ISelectionModel, EventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.LostSelection),
+                DetachedSelectionModel_LostSelection);
+            WeakEventHandlerManager.Subscribe<ISelectionModel, EventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.SourceReset),
+                DetachedSelectionModel_SourceReset);
+        }
+
+        private void DetachDetachedSelectionMonitor()
+        {
+            if (_detachedSelectionModel == null)
+            {
+                return;
+            }
+
+            var model = _detachedSelectionModel;
+            _detachedSelectionModel = null;
+
+            WeakEventHandlerManager.Unsubscribe<SelectionModelSelectionChangedEventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.SelectionChanged),
+                DetachedSelectionModel_SelectionChanged);
+            WeakEventHandlerManager.Unsubscribe<SelectionModelIndexesChangedEventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.IndexesChanged),
+                DetachedSelectionModel_IndexesChanged);
+            WeakEventHandlerManager.Unsubscribe<EventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.LostSelection),
+                DetachedSelectionModel_LostSelection);
+            WeakEventHandlerManager.Unsubscribe<EventArgs, DataGrid>(
+                model,
+                nameof(ISelectionModel.SourceReset),
+                DetachedSelectionModel_SourceReset);
+        }
+
+        private void DetachedSelectionModel_SelectionChanged(object sender, SelectionModelSelectionChangedEventArgs e)
+        {
+            MarkDetachedSelectionChanged();
+        }
+
+        private void DetachedSelectionModel_IndexesChanged(object sender, SelectionModelIndexesChangedEventArgs e)
+        {
+            MarkDetachedSelectionChanged();
+        }
+
+        private void DetachedSelectionModel_LostSelection(object sender, EventArgs e)
+        {
+            MarkDetachedSelectionChanged();
+        }
+
+        private void DetachedSelectionModel_SourceReset(object sender, EventArgs e)
+        {
+            MarkDetachedSelectionChanged();
+        }
+
+        private void MarkDetachedSelectionChanged()
+        {
+            _detachedSelectionChanged = true;
+        }
+
+        private bool ShouldRestoreSelectionSnapshot(ISelectionModel model)
+        {
+            if (_selectionModelSnapshot == null || _selectionModelSnapshot.Count == 0)
+            {
+                return false;
+            }
+
+            if (_detachedSelectionChanged)
+            {
+                return false;
+            }
+
+            if (!SelectionSnapshotMatchesCurrentSelection())
+            {
+                return false;
+            }
+
+            if (HasInvalidSelectionIndexes(model))
+            {
+                return true;
+            }
+
+            var selected = model.SelectedIndexes;
+            if (selected is { Count: > 0 } || model.SelectedIndex >= 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool SelectionSnapshotMatchesCurrentSelection()
+        {
+            if (_selectionModelSnapshot == null || _selectionModelSnapshot.Count == 0)
+            {
+                return false;
+            }
+
+            if (_selectionModelAdapter == null)
+            {
+                return false;
+            }
+
+            var current = _selectionModelAdapter.SelectedItemsView;
+            if (current.Count != _selectionModelSnapshot.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < _selectionModelSnapshot.Count; i++)
+            {
+                if (!Equals(_selectionModelSnapshot[i], current[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private void AttachSortingModelHandlers()
@@ -5360,6 +5511,8 @@ internal
             {
                 _detachedSelectionMode = null;
                 _detachedSelectionModelSingleSelect = null;
+                _detachedSelectionChanged = false;
+                DetachDetachedSelectionMonitor();
             }
 
             if (_selectionModelAdapter != null)
@@ -5370,6 +5523,8 @@ internal
                     UpdateSelectionSnapshot();
                     _detachedSelectionMode = SelectionMode;
                     _detachedSelectionModelSingleSelect = model.SingleSelect;
+                    _detachedSelectionChanged = false;
+                    AttachDetachedSelectionMonitor(model);
                 }
                 WeakEventHandlerManager.Unsubscribe<SelectionModelSelectionChangedEventArgs, DataGrid>(
                     model,
@@ -5393,25 +5548,19 @@ internal
                     SelectionModel_SourceReset);
                 _selectionModelAdapter.Dispose();
                 _selectionModelAdapter = null;
-                if (preserveSnapshot)
+                if (!preserveSnapshot)
                 {
-                    var modelToClear = model;
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        if (_externalSubscriptionsDetached)
-                        {
-                            modelToClear.Source = null;
-                        }
-                    }, DispatcherPriority.Background);
-                }
-                else
-                {
+                    _selectionModelSourceProxy?.UpdateSource(null);
                     model.Source = null;
                 }
             }
 
-            _pagedSelectionSource?.Dispose();
-            _pagedSelectionSource = null;
+            if (!preserveSnapshot)
+            {
+                _pagedSelectionSource?.Dispose();
+                _pagedSelectionSource = null;
+                _pagedSelectionSourceView = null;
+            }
             _selectionModelProxy = null;
             if (!preserveSnapshot)
             {
@@ -5655,6 +5804,128 @@ internal
         internal void PopSelectionSync(bool previous)
         {
             _syncingSelectionModel = previous;
+        }
+
+        private sealed class SelectionModelSourceProxy : IList, INotifyCollectionChanged
+        {
+            private WeakReference<IList> _source;
+
+            public event NotifyCollectionChangedEventHandler CollectionChanged;
+
+            public bool UpdateSource(IList source)
+            {
+                IList previous;
+                TryGetSource(out previous);
+
+                if (ReferenceEquals(previous, source))
+                {
+                    return false;
+                }
+
+                if (previous is INotifyCollectionChanged previousNotify)
+                {
+                    previousNotify.CollectionChanged -= OnSourceCollectionChanged;
+                }
+
+                if (source != null)
+                {
+                    _source = new WeakReference<IList>(source);
+                    if (source is INotifyCollectionChanged notify)
+                    {
+                        notify.CollectionChanged += OnSourceCollectionChanged;
+                    }
+                }
+                else
+                {
+                    _source = null;
+                }
+
+                CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+                return true;
+            }
+
+            public bool TryGetSource(out IList source)
+            {
+                if (_source != null && _source.TryGetTarget(out source))
+                {
+                    return true;
+                }
+
+                source = null;
+                return false;
+            }
+
+            private void OnSourceCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+            {
+                CollectionChanged?.Invoke(this, e);
+            }
+
+            public int Count => TryGetSource(out var source) ? source.Count : 0;
+
+            public object this[int index]
+            {
+                get
+                {
+                    if (TryGetSource(out var source))
+                    {
+                        return source[index];
+                    }
+
+                    return null;
+                }
+                set => throw new NotSupportedException();
+            }
+
+            public bool IsReadOnly => true;
+
+            public bool IsFixedSize => true;
+
+            public object SyncRoot => this;
+
+            public bool IsSynchronized => false;
+
+            public IEnumerator GetEnumerator()
+            {
+                if (TryGetSource(out var source))
+                {
+                    return source.GetEnumerator();
+                }
+
+                return Array.Empty<object>().GetEnumerator();
+            }
+
+            public int Add(object value) => throw new NotSupportedException();
+
+            public void Clear() => throw new NotSupportedException();
+
+            public bool Contains(object value)
+            {
+                return TryGetSource(out var source) && source.Contains(value);
+            }
+
+            public int IndexOf(object value)
+            {
+                return TryGetSource(out var source) ? source.IndexOf(value) : -1;
+            }
+
+            public void Insert(int index, object value) => throw new NotSupportedException();
+
+            public void Remove(object value) => throw new NotSupportedException();
+
+            public void RemoveAt(int index) => throw new NotSupportedException();
+
+            public void CopyTo(Array array, int index)
+            {
+                if (array == null)
+                {
+                    throw new ArgumentNullException(nameof(array));
+                }
+
+                if (TryGetSource(out var source))
+                {
+                    source.CopyTo(array, index);
+                }
+            }
         }
 
         private sealed class HierarchicalSelectionProxy : ISelectionModel
