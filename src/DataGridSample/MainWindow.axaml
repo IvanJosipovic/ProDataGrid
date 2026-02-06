@@ -341,6 +341,9 @@
     <TabItem Header="Scroll Snap &amp; Details">
       <local:ScrollInteractionsPage />
     </TabItem>
+    <TabItem Header="Logical Scroll Stability">
+      <pages:LogicalScrollStabilityPage />
+    </TabItem>
     <TabItem Header="Routed events">
       <pages:RoutedEventsPage />
     </TabItem>
