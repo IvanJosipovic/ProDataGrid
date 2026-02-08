@@ -2685,7 +2685,11 @@ internal
                 return;
             }
 
-            ScrollIntoView(item, column);
+            if (!TryAutoScrollSelectionTarget(item, column))
+            {
+                ScrollIntoView(item, column);
+            }
+
             ComputeScrollBarsLayout();
 
             if (UseLogicalScrollable && _rowsPresenter != null)
@@ -2727,6 +2731,28 @@ internal
             }
 
             return true;
+        }
+
+        private bool TryAutoScrollSelectionTarget(object item, DataGridColumn column)
+        {
+            if (column == null ||
+                !column.IsVisible ||
+                !TryGetRowIndexFromItem(item, out var rowIndex))
+            {
+                return false;
+            }
+
+            int slot = SlotFromRowIndex(rowIndex);
+            if (slot < 0 || IsSlotOutOfBounds(slot))
+            {
+                return false;
+            }
+
+            return ScrollSlotIntoView(
+                column.Index,
+                slot,
+                forCurrentCellChange: false,
+                forceHorizontalScroll: false);
         }
 
         private void CancelPendingAutoScroll()

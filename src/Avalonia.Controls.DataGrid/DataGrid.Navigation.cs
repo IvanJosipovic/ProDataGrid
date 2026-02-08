@@ -134,7 +134,7 @@ internal
 
             //scroll horizontally unless we're on a RowGroupHeader and we're not forcing horizontal scrolling
             if ((forceHorizontalScroll || (slot != -1))
-                && !ScrollColumnIntoView(columnIndex))
+                && !ScrollColumnIntoView(columnIndex, forceHorizontalScroll))
             {
                 return false;
             }

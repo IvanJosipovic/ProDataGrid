@@ -16,7 +16,7 @@ namespace Avalonia.Controls
     partial class DataGrid
     {
 
-        private bool ScrollColumnIntoView(int columnIndex)
+        private bool ScrollColumnIntoView(int columnIndex, bool forceHorizontalScroll)
         {
             Debug.Assert(columnIndex >= 0 && columnIndex < ColumnsItemsInternal.Count);
 
@@ -36,7 +36,10 @@ namespace Avalonia.Controls
                 }
                 else if (columnIndex == DisplayData.FirstDisplayedScrollingCol && _negHorizontalOffset > 0)
                 {
-                    ScrollColumns(-1);
+                    if (forceHorizontalScroll)
+                    {
+                        ScrollColumns(-1);
+                    }
                 }
                 else if (DisplayData.LastTotallyDisplayedScrollingCol == -1 ||
                 (DisplayData.LastTotallyDisplayedScrollingCol != columnIndex &&

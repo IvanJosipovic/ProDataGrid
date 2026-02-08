@@ -1625,6 +1625,64 @@ public class DataGridScrollingTests
     }
 
     [AvaloniaFact]
+    public void AutoScrollToSelectedItem_Preserves_HorizontalOffset_For_PartiallyHidden_FirstColumn()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 300).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140, useLogicalScrollable: true);
+        target.AutoScrollToSelectedItem = true;
+        target.ColumnsInternal[0].Width = new DataGridLength(900);
+        target.UpdateLayout();
+
+        target.UpdateHorizontalOffset(180);
+        target.UpdateLayout();
+        var horizontalBefore = target.HorizontalOffset;
+        var targetItem = items[220];
+
+        Assert.True(horizontalBefore > 0, $"Expected a non-zero horizontal offset before selection. Actual: {horizontalBefore}");
+
+        // Act
+        target.SelectedItem = targetItem;
+        Dispatcher.UIThread.RunJobs();
+        target.UpdateLayout();
+
+        // Assert
+        var row = FindRowForItem(target, targetItem);
+        Assert.NotNull(row);
+        Assert.Equal(220, row!.Index);
+        Assert.InRange(target.HorizontalOffset, horizontalBefore - 0.01, horizontalBefore + 0.01);
+        Assert.True(GetFirstVisibleRowIndex(target) >= 200);
+    }
+
+    [AvaloniaFact]
+    public void BringIntoView_DoesNot_Reset_HorizontalOffset_For_PartiallyHidden_FirstColumn()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 120).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140, useLogicalScrollable: true);
+        target.ColumnsInternal[0].Width = new DataGridLength(900);
+        target.UpdateLayout();
+
+        target.UpdateHorizontalOffset(180);
+        target.UpdateLayout();
+        var horizontalBefore = target.HorizontalOffset;
+
+        var presenter = GetRowsPresenter(target);
+        var row = GetRows(target).FirstOrDefault();
+
+        Assert.NotNull(row);
+        Assert.True(horizontalBefore > 0, $"Expected a non-zero horizontal offset before BringIntoView. Actual: {horizontalBefore}");
+
+        // Act
+        var handled = presenter.BringIntoView(row!, default);
+        target.UpdateLayout();
+
+        // Assert
+        Assert.True(handled);
+        Assert.InRange(target.HorizontalOffset, horizontalBefore - 0.01, horizontalBefore + 0.01);
+    }
+
+    [AvaloniaFact]
     public void AutoScrollToSelectedItem_Off_Does_Not_Scroll_On_Selection()
     {
         // Arrange
