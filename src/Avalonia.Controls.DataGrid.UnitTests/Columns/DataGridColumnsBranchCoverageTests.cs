@@ -833,7 +833,7 @@ public class DataGridColumnsBranchCoverageTests
         grid.ColumnsInternal.EnsureVisibleEdgedColumnsWidth();
         grid.DisplayData.FirstDisplayedScrollingCol = -1;
 
-        var result = InvokePrivate<bool>(grid, "ScrollColumnIntoView", 0);
+        var result = InvokePrivate<bool>(grid, "ScrollColumnIntoView", 0, true);
         Assert.True(result);
     }
 
@@ -854,7 +854,7 @@ public class DataGridColumnsBranchCoverageTests
 
         try
         {
-            Exception ex = Assert.ThrowsAny<Exception>(() => InvokePrivate<bool>(grid, "ScrollColumnIntoView", -1));
+            Exception ex = Assert.ThrowsAny<Exception>(() => InvokePrivate<bool>(grid, "ScrollColumnIntoView", -1, true));
             if (ex is TargetInvocationException tie && tie.InnerException != null)
             {
                 ex = tie.InnerException;
@@ -884,7 +884,7 @@ public class DataGridColumnsBranchCoverageTests
         grid.DisplayData.LastTotallyDisplayedScrollingCol = 2;
         SetPrivateField(grid, "_negHorizontalOffset", 10.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 0);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 0, true);
     }
 
     [AvaloniaFact]
@@ -903,7 +903,7 @@ public class DataGridColumnsBranchCoverageTests
         SetPrivateField(grid, "_negHorizontalOffset", 0.0);
         SetPrivateField(grid, "_horizontalOffset", 0.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1, true);
     }
 
     [AvaloniaFact]
@@ -919,7 +919,7 @@ public class DataGridColumnsBranchCoverageTests
         grid.DisplayData.FirstDisplayedScrollingCol = 1;
         SetPrivateField(grid, "_negHorizontalOffset", 5.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1, true);
     }
 
     [AvaloniaFact]
@@ -936,7 +936,7 @@ public class DataGridColumnsBranchCoverageTests
         grid.DisplayData.LastTotallyDisplayedScrollingCol = 1;
         SetPrivateField(grid, "_negHorizontalOffset", 0.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1, true);
     }
 
     [AvaloniaFact]
@@ -953,7 +953,7 @@ public class DataGridColumnsBranchCoverageTests
         grid.DisplayData.LastTotallyDisplayedScrollingCol = 2;
         SetPrivateField(grid, "_negHorizontalOffset", 0.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1, true);
     }
 
     [AvaloniaFact]
@@ -972,7 +972,7 @@ public class DataGridColumnsBranchCoverageTests
         SetPrivateField(grid, "_negHorizontalOffset", 0.0);
         SetPrivateField(grid, "_horizontalOffset", 0.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 2);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 2, true);
         Assert.True(grid.DisplayData.FirstDisplayedScrollingCol >= 0);
     }
 
@@ -992,7 +992,7 @@ public class DataGridColumnsBranchCoverageTests
         SetPrivateField(grid, "_negHorizontalOffset", 0.0);
         SetPrivateField(grid, "_horizontalOffset", 0.0);
 
-        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1);
+        InvokePrivate<bool>(grid, "ScrollColumnIntoView", 1, true);
         Assert.Equal(-1, grid.DisplayData.LastTotallyDisplayedScrollingCol);
     }
 

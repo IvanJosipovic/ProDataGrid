@@ -357,6 +357,55 @@ namespace Avalonia.Controls.DataGridTests
         }
 
         [AvaloniaFact]
+        public void ScrollSize_With_Wide_First_Column_Uses_Default_Horizontal_Step()
+        {
+            var items = Enumerable.Range(0, 20)
+                .Select(i => new { Name = $"Item {i}", Value = i })
+                .ToList();
+
+            var root = new Window
+            {
+                Width = 320,
+                Height = 240,
+            };
+
+            root.SetThemeStyles(DataGridTheme.FluentV2);
+
+            var grid = new DataGrid
+            {
+                ItemsSource = items,
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                UseLogicalScrollable = true,
+            };
+
+            grid.ColumnsInternal.Add(new DataGridTextColumn
+            {
+                Header = "Wide",
+                Binding = new Binding("Name"),
+                Width = new DataGridLength(400),
+            });
+            grid.ColumnsInternal.Add(new DataGridTextColumn
+            {
+                Header = "Value",
+                Binding = new Binding("Value"),
+                Width = new DataGridLength(120),
+            });
+
+            root.Content = grid;
+            root.Show();
+            root.UpdateLayout();
+
+            var presenter = grid.GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .First();
+
+            var scrollSize = presenter.ScrollSize;
+
+            Assert.Equal(16, scrollSize.Width);
+            Assert.True(scrollSize.Height > 0);
+        }
+
+        [AvaloniaFact]
         public void Combined_Horizontal_And_Vertical_Offset()
         {
             // Arrange

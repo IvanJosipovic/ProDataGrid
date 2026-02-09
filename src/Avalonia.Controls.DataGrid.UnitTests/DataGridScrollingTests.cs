@@ -1190,6 +1190,62 @@ public class DataGridScrollingTests
             $"Expected wheel scroll to update logical offset. Before: {initialOffset}, After: {scrolledOffset}");
     }
 
+    [AvaloniaFact]
+    public void MouseWheel_Horizontal_In_FluentV2_Uses_Small_Logical_Step()
+    {
+        var items = Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var root = new Window
+        {
+            Width = 320,
+            Height = 180,
+        };
+
+        root.SetThemeStyles(DataGridTheme.FluentV2);
+
+        var target = new DataGrid
+        {
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = true,
+        };
+
+        target.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Wide",
+            Binding = new Binding(nameof(ScrollTestModel.Name)),
+            Width = new DataGridLength(400),
+        });
+        target.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Value",
+            Binding = new Binding(nameof(ScrollTestModel.Name)),
+            Width = new DataGridLength(160),
+        });
+
+        root.Content = target;
+        root.Show();
+        root.UpdateLayout();
+
+        var visualRoot = (TopLevel)target.GetVisualRoot()!;
+        var wheelPoint = target.TranslatePoint(
+            new Point(target.Bounds.Width / 2, target.Bounds.Height / 2),
+            visualRoot)!.Value;
+
+        var scrollViewer = target.GetSelfAndVisualDescendants()
+            .OfType<ScrollViewer>()
+            .First(sv => sv.Name == "PART_ScrollViewer");
+
+        var before = scrollViewer.Offset.X;
+
+        visualRoot.MouseWheel(wheelPoint, new Vector(-3, 0));
+        root.UpdateLayout();
+
+        var after = scrollViewer.Offset.X;
+        var delta = after - before;
+
+        Assert.InRange(delta, 47.9, 48.1);
+    }
+
     #endregion
 
     #region ILogicalScrollable Scrolling Tests
@@ -1569,6 +1625,64 @@ public class DataGridScrollingTests
     }
 
     [AvaloniaFact]
+    public void AutoScrollToSelectedItem_Preserves_HorizontalOffset_For_PartiallyHidden_FirstColumn()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 300).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140, useLogicalScrollable: true);
+        target.AutoScrollToSelectedItem = true;
+        target.ColumnsInternal[0].Width = new DataGridLength(900);
+        target.UpdateLayout();
+
+        target.UpdateHorizontalOffset(180);
+        target.UpdateLayout();
+        var horizontalBefore = target.HorizontalOffset;
+        var targetItem = items[220];
+
+        Assert.True(horizontalBefore > 0, $"Expected a non-zero horizontal offset before selection. Actual: {horizontalBefore}");
+
+        // Act
+        target.SelectedItem = targetItem;
+        Dispatcher.UIThread.RunJobs();
+        target.UpdateLayout();
+
+        // Assert
+        var row = FindRowForItem(target, targetItem);
+        Assert.NotNull(row);
+        Assert.Equal(220, row!.Index);
+        Assert.InRange(target.HorizontalOffset, horizontalBefore - 0.01, horizontalBefore + 0.01);
+        Assert.True(GetFirstVisibleRowIndex(target) >= 200);
+    }
+
+    [AvaloniaFact]
+    public void BringIntoView_DoesNot_Reset_HorizontalOffset_For_PartiallyHidden_FirstColumn()
+    {
+        // Arrange
+        var items = Enumerable.Range(0, 120).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140, useLogicalScrollable: true);
+        target.ColumnsInternal[0].Width = new DataGridLength(900);
+        target.UpdateLayout();
+
+        target.UpdateHorizontalOffset(180);
+        target.UpdateLayout();
+        var horizontalBefore = target.HorizontalOffset;
+
+        var presenter = GetRowsPresenter(target);
+        var row = GetRows(target).FirstOrDefault();
+
+        Assert.NotNull(row);
+        Assert.True(horizontalBefore > 0, $"Expected a non-zero horizontal offset before BringIntoView. Actual: {horizontalBefore}");
+
+        // Act
+        var handled = presenter.BringIntoView(row!, default);
+        target.UpdateLayout();
+
+        // Assert
+        Assert.True(handled);
+        Assert.InRange(target.HorizontalOffset, horizontalBefore - 0.01, horizontalBefore + 0.01);
+    }
+
+    [AvaloniaFact]
     public void AutoScrollToSelectedItem_Off_Does_Not_Scroll_On_Selection()
     {
         // Arrange
@@ -1586,6 +1700,37 @@ public class DataGridScrollingTests
         // Assert - selection alone should not scroll without opt-in
         Assert.True(GetFirstVisibleRowIndex(target) < 50);
         Assert.Null(FindRowForItem(target, targetItem));
+    }
+
+    [AvaloniaFact]
+    public void AutoScrollToSelectedItem_Expands_Collapsed_Group_To_Reveal_Selected_Item()
+    {
+        var items = Enumerable.Range(0, 60)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 10}"))
+            .ToList();
+
+        var target = CreateGroupedTarget(items, height: 220, useLogicalScrollable: true);
+        target.AutoScrollToSelectedItem = true;
+        target.UpdateLayout();
+
+        var headers = GetGroupHeaders(target)
+            .OrderBy(h => h.RowGroupInfo?.Slot ?? int.MaxValue)
+            .ToList();
+
+        Assert.NotEmpty(headers);
+        headers[0].ToggleExpandCollapse(isVisible: false, setCurrent: true);
+        target.UpdateLayout();
+
+        var selectedItem = items[5];
+        Assert.Null(FindRowForItem(target, selectedItem));
+
+        target.SelectedItem = selectedItem;
+        Dispatcher.UIThread.RunJobs();
+        target.UpdateLayout();
+
+        var row = FindRowForItem(target, selectedItem);
+        Assert.NotNull(row);
+        Assert.Equal(5, row!.Index);
     }
 
     [AvaloniaFact]

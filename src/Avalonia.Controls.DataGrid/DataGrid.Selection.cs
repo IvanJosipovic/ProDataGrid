@@ -162,6 +162,12 @@ internal
                     }
 
                     if (scrollColumnIndex != -1 &&
+                        !TryExpandCollapsedSlotForScroll(slot))
+                    {
+                        return;
+                    }
+
+                    if (scrollColumnIndex != -1 &&
                         !ScrollSlotIntoView(
                             scrollColumnIndex, slot,
                             forCurrentCellChange: currentCellChanged,
@@ -2685,7 +2691,11 @@ internal
                 return;
             }
 
-            ScrollIntoView(item, column);
+            if (!TryAutoScrollSelectionTarget(item, column))
+            {
+                ScrollIntoView(item, column);
+            }
+
             ComputeScrollBarsLayout();
 
             if (UseLogicalScrollable && _rowsPresenter != null)
@@ -2727,6 +2737,64 @@ internal
             }
 
             return true;
+        }
+
+        private bool TryAutoScrollSelectionTarget(object item, DataGridColumn column)
+        {
+            if (column == null ||
+                !column.IsVisible ||
+                !TryGetRowIndexFromItem(item, out var rowIndex))
+            {
+                return false;
+            }
+
+            int slot = SlotFromRowIndex(rowIndex);
+            if (slot < 0 || IsSlotOutOfBounds(slot))
+            {
+                return false;
+            }
+
+            if (!TryExpandCollapsedSlotForScroll(slot))
+            {
+                return false;
+            }
+
+            return ScrollSlotIntoView(
+                column.Index,
+                slot,
+                forCurrentCellChange: false,
+                forceHorizontalScroll: false);
+        }
+
+        private bool TryExpandCollapsedSlotForScroll(int slot)
+        {
+            if (!_collapsedSlotsTable.Contains(slot))
+            {
+                return true;
+            }
+
+            int previousGroupSlot = RowGroupHeadersTable.GetPreviousIndex(slot);
+            if (previousGroupSlot < 0)
+            {
+                return false;
+            }
+
+            DataGridRowGroupInfo rowGroupInfo = RowGroupHeadersTable.GetValueAt(previousGroupSlot);
+            if (rowGroupInfo == null)
+            {
+                return false;
+            }
+
+            ExpandRowGroupParentChain(rowGroupInfo.Level, rowGroupInfo.Slot);
+
+            // Mirror ScrollIntoView behavior after expanding collapsed parents.
+            NegVerticalOffset = 0;
+            SetVerticalOffset(0);
+            ResetDisplayedRows();
+            DisplayData.FirstScrollingSlot = 0;
+            ComputeScrollBarsLayout();
+
+            return !_collapsedSlotsTable.Contains(slot);
         }
 
         private void CancelPendingAutoScroll()
