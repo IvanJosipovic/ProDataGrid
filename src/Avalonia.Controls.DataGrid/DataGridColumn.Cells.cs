@@ -106,6 +106,25 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
+        /// Attempts to display the filter flyout for this column's header.
+        /// </summary>
+        /// <returns><c>true</c> if the flyout was shown; otherwise <c>false</c>.</returns>
+        public bool TryShowFilterFlyout()
+        {
+            var header = _headerCell ?? (OwningGrid != null ? HeaderCell : null);
+            return header?.TryShowFilterFlyout() == true;
+        }
+
+        /// <summary>
+        /// Clears the active filter for this column.
+        /// </summary>
+        /// <returns><c>true</c> if a filter was removed; otherwise <c>false</c>.</returns>
+        public bool ClearFilter()
+        {
+            return OwningGrid?.ClearFilter(this) == true;
+        }
+
+        /// <summary>
         /// When overridden in a derived class, causes the column cell being edited to revert to the unedited value.
         /// </summary>
         /// <param name="editingElement">
@@ -145,6 +164,7 @@ namespace Avalonia.Controls
             _headerTemplateBinding = result.Bind(ContentControl.ContentTemplateProperty, this.GetObservable(HeaderTemplateProperty));
             result.Classes.Replace(HeaderStyleClasses);
             ApplyHeaderTheme(result);
+            ApplyHeaderContextMenu(result);
 
             var filterTheme = FilterTheme ?? OwningGrid?.ColumnHeaderFilterTheme;
             if (filterTheme != null)
@@ -192,6 +212,19 @@ namespace Avalonia.Controls
             else
             {
                 header.ClearValue(StyledElement.ThemeProperty);
+            }
+        }
+
+        internal void ApplyHeaderContextMenu(DataGridColumnHeader header)
+        {
+            var contextMenu = HeaderContextMenu ?? OwningGrid?.ColumnHeaderContextMenu;
+            if (contextMenu != null)
+            {
+                header.ContextMenu = contextMenu;
+            }
+            else
+            {
+                header.ClearValue(Control.ContextMenuProperty);
             }
         }
 
@@ -292,6 +325,7 @@ namespace Avalonia.Controls
                 headerCell.ClearValue(ContentControl.ContentProperty);
                 headerCell.ClearValue(ContentControl.ContentTemplateProperty);
                 headerCell.ClearValue(StyledElement.ThemeProperty);
+                headerCell.ClearValue(Control.ContextMenuProperty);
                 headerCell.ClearValue(DataGridColumnHeader.FilterThemeProperty);
                 headerCell.ClearValue(DataGridColumnHeader.FilterFlyoutProperty);
                 headerCell.ClearValue(DataGridColumnHeader.ShowFilterButtonProperty);

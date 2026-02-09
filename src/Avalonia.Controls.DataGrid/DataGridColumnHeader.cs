@@ -24,6 +24,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.Utilities;
 using Avalonia.VisualTree;
 using Button = Avalonia.Controls.Button;
@@ -60,6 +61,7 @@ internal
         private static double _originalHorizontalOffset;
         private static double _originalWidth;
         private bool _desiredSeparatorVisibility = true;
+        private bool _showFilterStatusIcon;
         private static Point? _dragStart;
         private static DataGridColumn _dragColumn;
         private static double _frozenColumnsWidth;
@@ -116,6 +118,15 @@ internal
         public static readonly StyledProperty<bool> ShowFilterButtonProperty =
             AvaloniaProperty.Register<DataGridColumnHeader, bool>(nameof(ShowFilterButton));
 
+        /// <summary>
+        /// Identifies the <see cref="ShowFilterStatusIcon"/> direct property.
+        /// </summary>
+        public static readonly DirectProperty<DataGridColumnHeader, bool> ShowFilterStatusIconProperty =
+            AvaloniaProperty.RegisterDirect<DataGridColumnHeader, bool>(
+                nameof(ShowFilterStatusIcon),
+                o => o.ShowFilterStatusIcon,
+                (o, v) => o.ShowFilterStatusIcon = v);
+
         public bool AreSeparatorsVisible
         {
             get { return GetValue(AreSeparatorsVisibleProperty); }
@@ -138,6 +149,15 @@ internal
         {
             get { return GetValue(ShowFilterButtonProperty); }
             set { SetValue(ShowFilterButtonProperty, value); }
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether the header should show a filter status icon.
+        /// </summary>
+        public bool ShowFilterStatusIcon
+        {
+            get => _showFilterStatusIcon;
+            private set => SetAndRaise(ShowFilterStatusIconProperty, ref _showFilterStatusIcon, value);
         }
 
         static DataGridColumnHeader()
@@ -211,6 +231,8 @@ internal
                 ApplyFilterFlyout();
                 UpdateFilterButtonVisibility();
             }
+
+            UpdateFilterStatusIcon();
         }
 
         public DataGridColumn OwningColumn
@@ -322,8 +344,9 @@ internal
                 CurrentSortingState == ListSortDirection.Ascending);
             PseudoClassesHelper.Set(PseudoClasses, ":sortdescending",
                 CurrentSortingState == ListSortDirection.Descending);
-            PseudoClassesHelper.Set(PseudoClasses, ":filtered",
-                OwningGrid?.GetFilteringDescriptorForColumn(OwningColumn) != null);
+            var isFiltered = OwningGrid?.GetFilteringDescriptorForColumn(OwningColumn) != null;
+            PseudoClassesHelper.Set(PseudoClasses, ":filtered", isFiltered);
+            UpdateFilterStatusIcon(isFiltered);
             var isSelected = OwningGrid?.IsColumnSelected(OwningColumn) == true;
             PseudoClassesHelper.Set(PseudoClasses, ":selected", isSelected);
             PseudoClassesHelper.Set(PseudoClasses, ":current",
@@ -332,12 +355,52 @@ internal
 
         private void FilterButton_Click(object sender, RoutedEventArgs e)
         {
+            TryShowFilterFlyout();
+        }
+
+        /// <summary>
+        /// Attempts to display the filter flyout for this header.
+        /// </summary>
+        /// <returns><c>true</c> if the flyout was shown; otherwise <c>false</c>.</returns>
+        public bool TryShowFilterFlyout()
+        {
             var flyout = FilterFlyout;
-            if (_filterButton != null && flyout != null)
+            if (flyout == null || !IsAttachedToVisualTree)
             {
-                FlyoutBase.SetAttachedFlyout(_filterButton, flyout);
-                FlyoutBase.ShowAttachedFlyout(_filterButton);
+                return false;
             }
+
+            void ShowFlyout()
+            {
+                // The column can be re-templated or detached while the open request is queued.
+                if (!IsAttachedToVisualTree || !ReferenceEquals(flyout, FilterFlyout))
+                {
+                    return;
+                }
+
+                if (_filterButton != null)
+                {
+                    FlyoutBase.SetAttachedFlyout(_filterButton, flyout);
+                    FlyoutBase.ShowAttachedFlyout(_filterButton);
+                    return;
+                }
+
+                FlyoutBase.SetAttachedFlyout(this, flyout);
+                FlyoutBase.ShowAttachedFlyout(this);
+            }
+
+            // When invoked from a header context menu command, opening immediately can leave
+            // the flyout in a non-dismissable state while the menu is still tearing down.
+            var contextMenu = ContextMenu ?? _filterButton?.ContextMenu;
+            if (contextMenu?.IsOpen == true)
+            {
+                contextMenu.Close();
+                Dispatcher.UIThread.Post(ShowFlyout, DispatcherPriority.Background);
+                return true;
+            }
+
+            ShowFlyout();
+            return true;
         }
 
         private void ApplyFilterFlyout()
@@ -364,6 +427,12 @@ internal
             _filterButton.IsVisible = ShowFilterButton;
         }
 
+        private void UpdateFilterStatusIcon(bool? isFilteredOverride = null)
+        {
+            var isFiltered = isFilteredOverride ?? OwningGrid?.GetFilteringDescriptorForColumn(OwningColumn) != null;
+            ShowFilterStatusIcon = isFiltered && !ShowFilterButton;
+        }
+
         private void OnFilterFlyoutChanged(AvaloniaPropertyChangedEventArgs e)
         {
             if (e.NewValue is FlyoutBase && !ShowFilterButton)
@@ -378,6 +447,7 @@ internal
         private void OnShowFilterButtonChanged(AvaloniaPropertyChangedEventArgs e)
         {
             UpdateFilterButtonVisibility();
+            UpdateFilterStatusIcon();
         }
 
         internal void UpdateSeparatorVisibility(DataGridColumn lastVisibleColumn)
@@ -742,7 +812,23 @@ internal
 
         private void DataGridColumnHeader_PointerPressed(object sender, PointerPressedEventArgs e)
         {
-            if (OwningColumn == null || e.Handled || !IsEnabled || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            if (OwningColumn == null || e.Handled || !IsEnabled)
+            {
+                return;
+            }
+
+            var point = e.GetCurrentPoint(this);
+            if (point.Properties.IsRightButtonPressed)
+            {
+                if (OwningGrid != null)
+                {
+                    OwningGrid.ColumnHeaderContextMenuColumnId = DataGridColumnMetadata.GetColumnId(OwningColumn);
+                }
+
+                return;
+            }
+
+            if (!point.Properties.IsLeftButtonPressed)
             {
                 return;
             }

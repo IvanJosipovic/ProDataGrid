@@ -59,7 +59,9 @@ internal
         private bool _setWidthInternalNoCallback;
         private bool _showFilterButton;
         private FlyoutBase _filterFlyout;
+        private ContextMenu _headerContextMenu;
         private System.Collections.IComparer _customSortComparer;
+        private object _columnKey;
         private DataGrid _owningGrid;
 
 
@@ -600,6 +602,30 @@ internal
             }
         }
 
+        /// <summary>
+        /// Backing field for HeaderContextMenu property.
+        /// </summary>
+        public static readonly DirectProperty<DataGridColumn, ContextMenu> HeaderContextMenuProperty =
+            AvaloniaProperty.RegisterDirect<DataGridColumn, ContextMenu>(
+                nameof(HeaderContextMenu),
+                o => o.HeaderContextMenu,
+                (o, v) => o.HeaderContextMenu = v);
+
+        /// <summary>
+        /// Gets or sets the context menu applied to this column's header. Overrides <see cref="DataGrid.ColumnHeaderContextMenu"/>.
+        /// </summary>
+        public ContextMenu HeaderContextMenu
+        {
+            get { return _headerContextMenu; }
+            set
+            {
+                if (SetAndRaise(HeaderContextMenuProperty, ref _headerContextMenu, value) && _headerCell != null)
+                {
+                    _headerCell.ContextMenu = value ?? OwningGrid?.ColumnHeaderContextMenu;
+                }
+            }
+        }
+
         private void HeaderStyleClassesChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
             if (_headerCell != null)
@@ -1057,6 +1083,15 @@ internal
         {
             get;
             set;
+        }
+
+        /// <summary>
+        /// Gets or sets a stable column identifier for filtering, sorting, and commands.
+        /// </summary>
+        public object ColumnKey
+        {
+            get => _columnKey;
+            set => _columnKey = value;
         }
 
         /// <summary>

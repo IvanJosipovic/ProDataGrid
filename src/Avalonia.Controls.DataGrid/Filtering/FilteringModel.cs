@@ -280,6 +280,33 @@ namespace Avalonia.Controls.DataGridFiltering
     #else
     internal
     #endif
+    sealed class FilteringModelInteractionEventArgs : EventArgs
+    {
+        public FilteringModelInteractionEventArgs(object columnId)
+        {
+            ColumnId = columnId ?? throw new ArgumentNullException(nameof(columnId));
+        }
+
+        public object ColumnId { get; }
+    }
+
+    #if !DATAGRID_INTERNAL
+    public
+    #else
+    internal
+    #endif
+    interface IFilteringModelInteraction
+    {
+        event EventHandler<FilteringModelInteractionEventArgs> ShowFilterFlyoutRequested;
+
+        void RequestShowFilterFlyout(object columnId);
+    }
+
+    #if !DATAGRID_INTERNAL
+    public
+    #else
+    internal
+    #endif
     interface IDataGridFilteringModelFactory
     {
         IFilteringModel Create();
@@ -290,7 +317,7 @@ namespace Avalonia.Controls.DataGridFiltering
     #else
     internal
     #endif
-    sealed class FilteringModel : IFilteringModel
+    sealed class FilteringModel : IFilteringModel, IFilteringModelInteraction
     {
         private readonly List<FilteringDescriptor> _descriptors = new();
         private readonly IReadOnlyList<FilteringDescriptor> _readOnlyView;
@@ -325,7 +352,19 @@ namespace Avalonia.Controls.DataGridFiltering
 
         public event EventHandler<FilteringChangingEventArgs> FilteringChanging;
 
+        public event EventHandler<FilteringModelInteractionEventArgs> ShowFilterFlyoutRequested;
+
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public void RequestShowFilterFlyout(object columnId)
+        {
+            if (columnId == null)
+            {
+                throw new ArgumentNullException(nameof(columnId));
+            }
+
+            ShowFilterFlyoutRequested?.Invoke(this, new FilteringModelInteractionEventArgs(columnId));
+        }
 
         public void SetOrUpdate(FilteringDescriptor descriptor)
         {

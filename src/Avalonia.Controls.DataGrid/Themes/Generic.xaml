@@ -822,7 +822,8 @@
                       <Button Name="PART_FilterButton"
                               Theme="{TemplateBinding FilterTheme}"
                               FlyoutBase.AttachedFlyout="{TemplateBinding FilterFlyout}"
-                              IsVisible="{TemplateBinding ShowFilterButton}" />
+                          IsVisible="{TemplateBinding ShowFilterButton}"
+                          ContextMenu="{TemplateBinding ContextMenu}" />
                       <Path Name="SortIcon"
                             Margin="{DynamicResource DataGridColumnHeaderSortIconMargin}"
                             IsVisible="False"
@@ -830,13 +831,15 @@
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Fill="{TemplateBinding Foreground}"
+                            ContextMenu="{TemplateBinding ContextMenu}"
                             Stretch="Uniform" />
                       <Path Name="FilterIcon"
-                            IsVisible="False"
+                            IsVisible="{TemplateBinding ShowFilterStatusIcon}"
                             Height="{DynamicResource DataGridColumnHeaderIconSize}"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Fill="{TemplateBinding Foreground}"
+                            ContextMenu="{TemplateBinding ContextMenu}"
                             Data="{DynamicResource DataGridFilterIconPath}"
                             Stretch="Uniform" />
                     </StackPanel>
@@ -934,6 +937,10 @@
 
         <Style Selector="^:filtered">
           <Setter Property="FilterTheme" Value="{StaticResource DataGridFilterButtonFilteredTheme}" />
+        </Style>
+
+        <Style Selector="^:filtered /template/ Path#FilterIcon">
+          <Setter Property="Data" Value="{DynamicResource DataGridFilterIconFilledPath}" />
         </Style>
       </ControlTheme>
 

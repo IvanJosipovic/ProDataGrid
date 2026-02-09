@@ -461,6 +461,36 @@ internal
         }
 
         /// <summary>
+        /// Identifies the <see cref="ColumnHeaderContextMenu"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<ContextMenu> ColumnHeaderContextMenuProperty =
+            AvaloniaProperty.Register<DataGrid, ContextMenu>(nameof(ColumnHeaderContextMenu));
+
+        /// <summary>
+        /// Gets or sets the context menu applied to all column headers by default.
+        /// </summary>
+        public ContextMenu ColumnHeaderContextMenu
+        {
+            get { return GetValue(ColumnHeaderContextMenuProperty); }
+            set { SetValue(ColumnHeaderContextMenuProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="ColumnHeaderContextMenuColumnId"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<object> ColumnHeaderContextMenuColumnIdProperty =
+            AvaloniaProperty.Register<DataGrid, object>(nameof(ColumnHeaderContextMenuColumnId));
+
+        /// <summary>
+        /// Gets or sets the column id associated with the last header context menu invocation.
+        /// </summary>
+        public object ColumnHeaderContextMenuColumnId
+        {
+            get { return GetValue(ColumnHeaderContextMenuColumnIdProperty); }
+            set { SetValue(ColumnHeaderContextMenuColumnIdProperty, value); }
+        }
+
+        /// <summary>
         /// Identifies the <see cref="ColumnHeaderFilterTheme"/> dependency property.
         /// </summary>
         public static readonly StyledProperty<ControlTheme> ColumnHeaderFilterThemeProperty =
