@@ -186,7 +186,14 @@ internal
                 UpdateFilteringAdapterView();
                 UpdateSearchAdapterView();
                 UpdateConditionalFormattingAdapterView();
-                InitializeElements(true /*recycleRows*/);
+                if (_scrollStateManager.ShouldPreserveScrollState())
+                {
+                    InitializeElementsAfterReattach();
+                }
+                else
+                {
+                    InitializeElements(true /*recycleRows*/);
+                }
             }
             else
             {
@@ -463,6 +470,34 @@ internal
                 }
 
                 // The currently displayed rows may have incorrect visual states because of the selection change
+                ApplyDisplayedRowsState(DisplayData.FirstScrollingSlot, DisplayData.LastScrollingSlot);
+            }
+            finally
+            {
+                NoCurrentCellChangeCount--;
+                _scrollStateManager.ClearPreserveOnAttachFlag();
+            }
+        }
+
+        private void InitializeElementsAfterReattach()
+        {
+            try
+            {
+                _noCurrentCellChangeCount++;
+                CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
+
+                if (DataConnection != null && ColumnsItemsInternal.Count > 0)
+                {
+                    // Fast path for tab reattach: rows are already unloaded during detach.
+                    RefreshRows(recycleRows: true, clearRows: false);
+                }
+
+                CoerceSelectedItem();
+                if (RowDetailsVisibilityMode != DataGridRowDetailsVisibilityMode.Collapsed)
+                {
+                    UpdateRowDetailsVisibilityMode(RowDetailsVisibilityMode);
+                }
+
                 ApplyDisplayedRowsState(DisplayData.FirstScrollingSlot, DisplayData.LastScrollingSlot);
             }
             finally
