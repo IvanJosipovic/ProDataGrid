@@ -1,0 +1,121 @@
+<!--
+  Copyright (c) Wieslaw Soltes. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+  x:Class="DataGridSample.Pages.HeaderContextMenuPage"
+  x:Name="Root"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="clr-namespace:DataGridSample.Models"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:HeaderContextMenuViewModel"
+    d:DesignHeight="720"
+    d:DesignWidth="1100"
+    mc:Ignorable="d">
+
+  <UserControl.DataContext>
+    <viewModels:HeaderContextMenuViewModel />
+  </UserControl.DataContext>
+
+  <UserControl.Resources>
+    <Flyout x:Key="NameFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
+            Content="{Binding NameFilter}"
+            ContentTemplate="{StaticResource DataGridFilterTextEditorTemplate}" />
+
+    <Flyout x:Key="StatusFilterFlyout"
+            Placement="Bottom"
+            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
+            Content="{Binding StatusFilter}"
+            ContentTemplate="{StaticResource DataGridFilterEnumEditorTemplate}" />
+
+  </UserControl.Resources>
+
+      <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*">
+    <StackPanel Spacing="4">
+      <TextBlock Text="Header context menus + filter flyouts"
+                 FontWeight="Bold"
+                 FontSize="18" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Right-click a header (or its icons) to open the context menu. Use the menu to show a filter flyout, clear the active filter, or toggle column visibility." />
+    </StackPanel>
+
+            <WrapPanel Grid.Row="1"
+                 Margin="0 8">
+              <Button Content="Clear all filters"
+                Command="{Binding ClearAllCommand}" />
+            </WrapPanel>
+
+    <DataGrid Grid.Row="2"
+          x:Name="ContextMenuGrid"
+          ItemsSource="{Binding View}"
+          FilteringModel="{Binding FilteringModel}"
+          AutoGenerateColumns="False"
+              CanUserAddRows="False"
+          CanUserSortColumns="True"
+          GridLinesVisibility="Horizontal"
+          SelectionMode="Extended">
+      <DataGrid.ColumnHeaderContextMenu>
+        <ContextMenu x:DataType="viewModels:HeaderContextMenuViewModel"
+                     DataContext="{Binding $parent[DataGrid].DataContext}">
+          <MenuItem Header="Show filter"
+                    Command="{Binding ShowFilterFlyoutCommand}"
+                    CommandParameter="{Binding $parent[DataGrid].ColumnHeaderContextMenuColumnId}" />
+          <MenuItem Header="Clear filter"
+                    Command="{Binding ClearColumnFilterCommand}"
+                    CommandParameter="{Binding $parent[DataGrid].ColumnHeaderContextMenuColumnId}" />
+          <Separator />
+          <MenuItem Header="Columns"
+                    ItemsSource="{Binding $parent[DataGrid].Columns}">
+            <MenuItem.ItemContainerTheme>
+              <ControlTheme x:DataType="DataGridColumn"
+                            TargetType="MenuItem"
+                            BasedOn="{StaticResource {x:Type MenuItem}}">
+                <Setter Property="Header"
+                        Value="{Binding Header}" />
+                <Setter Property="IsChecked"
+                        Value="{Binding IsVisible, Mode=TwoWay}" />
+                <Setter Property="ToggleType"
+                        Value="CheckBox" />
+              </ControlTheme>
+            </MenuItem.ItemContainerTheme>
+          </MenuItem>
+        </ContextMenu>
+      </DataGrid.ColumnHeaderContextMenu>
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="First Name"
+                            Binding="{Binding FirstName}"
+                             SortMemberPath="FirstName"
+                             ColumnKey="FirstName"
+                            x:DataType="models:Person"
+                            FilterFlyout="{StaticResource NameFilterFlyout}" />
+
+        <DataGridTextColumn Header="Last Name"
+                            Binding="{Binding LastName}"
+                             SortMemberPath="LastName"
+                             ColumnKey="LastName"
+                            x:DataType="models:Person" />
+
+        <DataGridTextColumn Header="Age"
+                            Binding="{Binding Age}"
+                            Width="80"
+                             SortMemberPath="Age"
+                             ColumnKey="Age"
+                            x:DataType="models:Person" />
+
+        <DataGridTextColumn Header="Status"
+                            Binding="{Binding Status}"
+                            Width="120"
+                             SortMemberPath="Status"
+                             ColumnKey="Status"
+                            x:DataType="models:Person"
+                            FilterFlyout="{StaticResource StatusFilterFlyout}" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

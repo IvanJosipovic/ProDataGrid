@@ -104,6 +104,11 @@ namespace Avalonia.Controls
                 return null;
             }
 
+            if (column.ColumnKey != null)
+            {
+                return column.ColumnKey;
+            }
+
             var definition = GetDefinition(column);
             if (definition != null)
             {
@@ -118,6 +123,11 @@ namespace Avalonia.Controls
             if (column == null || columnId == null)
             {
                 return false;
+            }
+
+            if (column.ColumnKey != null && Equals(column.ColumnKey, columnId))
+            {
+                return true;
             }
 
             if (ReferenceEquals(columnId, column))

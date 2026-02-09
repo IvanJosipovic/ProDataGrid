@@ -467,6 +467,9 @@
     <TabItem Header="Filtering Model">
       <pages:FilteringModelSamplePage />
     </TabItem>
+    <TabItem Header="Header Context Menu">
+      <pages:HeaderContextMenuPage />
+    </TabItem>
     <TabItem Header="Search Model">
       <pages:SearchModelPage />
     </TabItem>
