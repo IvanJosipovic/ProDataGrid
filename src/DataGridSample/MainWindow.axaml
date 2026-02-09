@@ -617,6 +617,9 @@
     <TabItem Header="Lifecycle Hooks">
       <pages:ContainerLifecyclePage />
     </TabItem>
+    <TabItem Header="Tab Switch Benchmark">
+      <pages:TabSwitchBenchmarkPage />
+    </TabItem>
     <TabItem Header="Summaries - Basic">
       <pages:SummariesBasicPage />
     </TabItem>

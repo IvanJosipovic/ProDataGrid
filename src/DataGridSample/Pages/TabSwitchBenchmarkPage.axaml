@@ -1,0 +1,105 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.TabSwitchBenchmarkPage"
+             x:DataType="viewModels:TabSwitchBenchmarkViewModel">
+  <UserControl.DataContext>
+    <viewModels:TabSwitchBenchmarkViewModel />
+  </UserControl.DataContext>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,Auto,*,Auto"
+        RowSpacing="8">
+    <StackPanel Grid.Row="0" Spacing="4">
+      <TextBlock Classes="h2" Text="Issue #250 Repro: Tab attach/detach latency" />
+      <TextBlock Text="This page keeps a DataGrid inside an inner TabControl and measures time to switch away/back. Use it to reproduce and compare attach/detach optimizations."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1" Orientation="Horizontal">
+      <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="Rows" />
+      <TextBox Width="80" Margin="0,0,12,0" Text="{Binding RowCount, Mode=TwoWay}" />
+
+      <TextBlock Margin="0,0,6,0" VerticalAlignment="Center" Text="Iterations" />
+      <TextBox Width="80" Margin="0,0,12,0" Text="{Binding Iterations, Mode=TwoWay}" />
+
+      <Button Margin="0,0,8,0" Content="Regenerate" Command="{Binding RegenerateRowsCommand}" />
+      <Button Margin="0,0,8,0" Content="Run benchmark" Command="{Binding RunBenchmarkCommand}" />
+      <Button Margin="0,0,8,0" Content="Show grid tab" Command="{Binding ShowGridTabCommand}" />
+      <Button Content="Show placeholder tab" Command="{Binding ShowPlaceholderTabCommand}" />
+    </WrapPanel>
+
+    <Border Grid.Row="2"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+            BorderThickness="1"
+            CornerRadius="4"
+            Padding="8">
+      <TextBlock Text="{Binding BenchmarkSummary}" TextWrapping="Wrap" />
+    </Border>
+
+    <TabControl Grid.Row="3"
+                SelectedIndex="{Binding SelectedInnerTabIndex, Mode=TwoWay}">
+      <TabItem Header="DataGrid tab">
+        <Border Padding="6">
+          <DataGrid ItemsSource="{Binding Items}"
+                    AutoGenerateColumns="False"
+                    CanUserAddRows="False"
+                    CanUserDeleteRows="False"
+                    IsReadOnly="True"
+                    HeadersVisibility="All"
+                    GridLinesVisibility="All"
+                    Height="430">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Width="70" Binding="{Binding Index}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C01" Width="*" Binding="{Binding C01}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C02" Width="*" Binding="{Binding C02}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C03" Width="*" Binding="{Binding C03}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C04" Width="*" Binding="{Binding C04}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C05" Width="*" Binding="{Binding C05}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C06" Width="*" Binding="{Binding C06}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C07" Width="*" Binding="{Binding C07}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C08" Width="*" Binding="{Binding C08}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C09" Width="*" Binding="{Binding C09}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C10" Width="*" Binding="{Binding C10}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C11" Width="*" Binding="{Binding C11}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C12" Width="*" Binding="{Binding C12}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C13" Width="*" Binding="{Binding C13}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C14" Width="*" Binding="{Binding C14}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C15" Width="*" Binding="{Binding C15}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+              <DataGridTextColumn Header="C16" Width="*" Binding="{Binding C16}" x:DataType="viewModels:TabSwitchBenchmarkRow" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Border>
+      </TabItem>
+
+      <TabItem Header="Placeholder tab">
+        <Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="8">
+          <TextBlock Classes="h3" Text="Detached state" />
+          <Border Grid.Row="1"
+                  BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                  BorderThickness="1"
+                  CornerRadius="4"
+                  Padding="12">
+            <TextBlock Text="When this tab is selected, the DataGrid tab content is detached from the visual tree." TextWrapping="Wrap" />
+          </Border>
+        </Grid>
+      </TabItem>
+    </TabControl>
+
+    <StackPanel Grid.Row="4" Spacing="4">
+      <TextBlock Classes="h3" Text="Recent runs" />
+      <Border BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+              BorderThickness="1"
+              CornerRadius="4"
+              Padding="4">
+        <ListBox ItemsSource="{Binding Runs}" Height="140">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="viewModels:TabSwitchBenchmarkRun">
+              <TextBlock Text="{Binding Summary}" />
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+      </Border>
+    </StackPanel>
+  </Grid>
+</UserControl>
