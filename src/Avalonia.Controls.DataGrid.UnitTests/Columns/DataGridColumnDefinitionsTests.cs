@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
+using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
@@ -10,6 +11,7 @@ using Avalonia.Data;
 using Avalonia.Data.Core;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings;
 using Avalonia.Threading;
@@ -48,6 +50,215 @@ public class DataGridColumnDefinitionsTests
     {
         var column = definition.CreateColumn(new DataGridColumnDefinitionContext(new DataGrid()));
         Assert.IsType(expectedType, column);
+    }
+
+    [Fact]
+    public void ButtonColumnDefinition_Content_Properties_Use_AssignBinding()
+    {
+        AssertHasAssignBinding(typeof(DataGridButtonColumnDefinition), nameof(DataGridButtonColumnDefinition.Content));
+        AssertHasAssignBinding(typeof(DataGridButtonColumnDefinition), nameof(DataGridButtonColumnDefinition.CommandParameter));
+    }
+
+    [Fact]
+    public void ButtonColumnDefinition_XamlBinding_Assigns_Content_And_CommandParameter()
+    {
+        const string xaml = """
+                            <DataGridButtonColumnDefinition xmlns="https://github.com/avaloniaui"
+                                                            xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                                            Content="{Binding Name}"
+                                                            CommandParameter="{Binding}" />
+                            """;
+
+        var definition = AvaloniaRuntimeXamlLoader.Parse<DataGridButtonColumnDefinition>(xaml, typeof(DataGridButtonColumnDefinition).Assembly);
+
+        Assert.IsAssignableFrom<IBinding>(definition.Content);
+        Assert.IsAssignableFrom<IBinding>(definition.CommandParameter);
+    }
+
+    [Fact]
+    public void ToggleButtonColumnDefinition_Content_Properties_Use_AssignBinding()
+    {
+        AssertHasAssignBinding(typeof(DataGridToggleButtonColumnDefinition), nameof(DataGridToggleButtonColumnDefinition.Content));
+        AssertHasAssignBinding(typeof(DataGridToggleButtonColumnDefinition), nameof(DataGridToggleButtonColumnDefinition.CheckedContent));
+        AssertHasAssignBinding(typeof(DataGridToggleButtonColumnDefinition), nameof(DataGridToggleButtonColumnDefinition.UncheckedContent));
+    }
+
+    [Fact]
+    public void ToggleButtonColumnDefinition_XamlBinding_Assigns_Content_States()
+    {
+        const string xaml = """
+                            <DataGridToggleButtonColumnDefinition xmlns="https://github.com/avaloniaui"
+                                                                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                                                  Content="{Binding Symbol}"
+                                                                  CheckedContent="{Binding CheckedLabel}"
+                                                                  UncheckedContent="{Binding UncheckedLabel}" />
+                            """;
+
+        var definition = AvaloniaRuntimeXamlLoader.Parse<DataGridToggleButtonColumnDefinition>(xaml, typeof(DataGridToggleButtonColumnDefinition).Assembly);
+
+        Assert.IsAssignableFrom<IBinding>(definition.Content);
+        Assert.IsAssignableFrom<IBinding>(definition.CheckedContent);
+        Assert.IsAssignableFrom<IBinding>(definition.UncheckedContent);
+    }
+
+    [Fact]
+    public void ToggleSwitchColumnDefinition_Content_Properties_Use_AssignBinding()
+    {
+        AssertHasAssignBinding(typeof(DataGridToggleSwitchColumnDefinition), nameof(DataGridToggleSwitchColumnDefinition.OnContent));
+        AssertHasAssignBinding(typeof(DataGridToggleSwitchColumnDefinition), nameof(DataGridToggleSwitchColumnDefinition.OffContent));
+    }
+
+    [Fact]
+    public void ToggleSwitchColumnDefinition_XamlBinding_Assigns_OnOffContent()
+    {
+        const string xaml = """
+                            <DataGridToggleSwitchColumnDefinition xmlns="https://github.com/avaloniaui"
+                                                                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                                                  OnContent="{Binding OnLabel}"
+                                                                  OffContent="{Binding OffLabel}" />
+                            """;
+
+        var definition = AvaloniaRuntimeXamlLoader.Parse<DataGridToggleSwitchColumnDefinition>(xaml, typeof(DataGridToggleSwitchColumnDefinition).Assembly);
+
+        Assert.IsAssignableFrom<IBinding>(definition.OnContent);
+        Assert.IsAssignableFrom<IBinding>(definition.OffContent);
+    }
+
+    [AvaloniaFact]
+    public void ButtonColumnDefinition_Binding_Content_And_CommandParameter_Use_RowItem()
+    {
+        var command = new TypedDefinitionBindingCommand();
+        var items = new ObservableCollection<DefinitionBindingItem>
+        {
+            new() { Name = "Alpha", ActionLabel = "Run" }
+        };
+
+        var definitions = new ObservableCollection<DataGridColumnDefinition>
+        {
+            new DataGridTextColumnDefinition
+            {
+                Header = "Name",
+                Binding = DataGridBindingDefinition.Create<DefinitionBindingItem, string>(item => item.Name),
+                IsReadOnly = true
+            },
+            new DataGridButtonColumnDefinition
+            {
+                Header = "Action",
+                Content = new Binding(nameof(DefinitionBindingItem.ActionLabel)),
+                Command = command,
+                CommandParameter = new Binding(".")
+            }
+        };
+
+        var (window, grid) = CreateDefinitionsWindow(items, definitions);
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            var cell = GetCell(grid, "Action", 0);
+            var button = Assert.IsType<Button>(cell.Content);
+
+            Assert.Equal(items[0].ActionLabel, button.Content);
+            Assert.Same(items[0], button.CommandParameter);
+            Assert.True(button.IsEnabled);
+
+            button.Command?.Execute(button.CommandParameter);
+            Assert.True(command.WasExecuted);
+            Assert.Same(items[0], command.LastParameter);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ToggleButtonColumnDefinition_Binding_Content_Uses_RowItem()
+    {
+        var items = new ObservableCollection<DefinitionBindingItem>
+        {
+            new() { Name = "Alpha", ActionLabel = "Pinned", IsFavorite = true }
+        };
+
+        var definitions = new ObservableCollection<DataGridColumnDefinition>
+        {
+            new DataGridTextColumnDefinition
+            {
+                Header = "Name",
+                Binding = DataGridBindingDefinition.Create<DefinitionBindingItem, string>(item => item.Name),
+                IsReadOnly = true
+            },
+            new DataGridToggleButtonColumnDefinition
+            {
+                Header = "Favorite",
+                Binding = DataGridBindingDefinition.Create<DefinitionBindingItem, bool>(item => item.IsFavorite),
+                Content = new Binding(nameof(DefinitionBindingItem.ActionLabel))
+            }
+        };
+
+        var (window, grid) = CreateDefinitionsWindow(items, definitions);
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            var cell = GetCell(grid, "Favorite", 0);
+            var toggleButton = Assert.IsType<ToggleButton>(cell.Content);
+            Assert.Equal(items[0].ActionLabel, toggleButton.Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ToggleSwitchColumnDefinition_Binding_OnOffContent_Uses_RowItem()
+    {
+        var items = new ObservableCollection<DefinitionBindingItem>
+        {
+            new() { Name = "Alpha", IsOnline = true, OnLabel = "Online", OffLabel = "Offline" }
+        };
+
+        var definitions = new ObservableCollection<DataGridColumnDefinition>
+        {
+            new DataGridTextColumnDefinition
+            {
+                Header = "Name",
+                Binding = DataGridBindingDefinition.Create<DefinitionBindingItem, string>(item => item.Name),
+                IsReadOnly = true
+            },
+            new DataGridToggleSwitchColumnDefinition
+            {
+                Header = "Online",
+                Binding = DataGridBindingDefinition.Create<DefinitionBindingItem, bool>(item => item.IsOnline),
+                OnContent = new Binding(nameof(DefinitionBindingItem.OnLabel)),
+                OffContent = new Binding(nameof(DefinitionBindingItem.OffLabel))
+            }
+        };
+
+        var (window, grid) = CreateDefinitionsWindow(items, definitions);
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            var cell = GetCell(grid, "Online", 0);
+            var toggleSwitch = Assert.IsType<ToggleSwitch>(cell.Content);
+            Assert.Equal(items[0].OnLabel, toggleSwitch.OnContent);
+            Assert.Equal(items[0].OffLabel, toggleSwitch.OffContent);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaFact]
@@ -1295,6 +1506,38 @@ public class DataGridColumnDefinitionsTests
             .ToList();
     }
 
+    private static DataGridCell GetCell(DataGrid grid, string header, int rowIndex)
+    {
+        return grid
+            .GetVisualDescendants()
+            .OfType<DataGridCell>()
+            .First(c => c.OwningColumn?.Header?.ToString() == header && c.OwningRow?.Index == rowIndex);
+    }
+
+    private static (Window window, DataGrid grid) CreateDefinitionsWindow<TItem>(
+        ObservableCollection<TItem> items,
+        ObservableCollection<DataGridColumnDefinition> definitions)
+    {
+        var window = new Window
+        {
+            Width = 360,
+            Height = 240
+        };
+        window.SetThemeStyles();
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            CanUserDeleteRows = false,
+            ItemsSource = items,
+            ColumnDefinitionsSource = definitions
+        };
+
+        window.Content = grid;
+        return (window, grid);
+    }
+
     private sealed class Person
     {
         public string Name { get; set; } = string.Empty;
@@ -1340,6 +1583,40 @@ public class DataGridColumnDefinitionsTests
         }
     }
 
+    private sealed class DefinitionBindingItem
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public bool IsFavorite { get; set; }
+
+        public bool IsOnline { get; set; }
+
+        public string ActionLabel { get; set; } = string.Empty;
+
+        public string OnLabel { get; set; } = string.Empty;
+
+        public string OffLabel { get; set; } = string.Empty;
+    }
+
+    private sealed class TypedDefinitionBindingCommand : ICommand
+    {
+        public bool WasExecuted { get; private set; }
+
+        public object? LastParameter { get; private set; }
+
+        public event EventHandler? CanExecuteChanged;
+
+        public bool CanExecute(object? parameter) => parameter is DefinitionBindingItem;
+
+        public void Execute(object? parameter)
+        {
+            WasExecuted = true;
+            LastParameter = parameter;
+        }
+
+        public void RaiseCanExecuteChanged() => CanExecuteChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private sealed class AutoPerson
     {
         public string Name { get; set; } = string.Empty;
@@ -1350,6 +1627,14 @@ public class DataGridColumnDefinitionsTests
     private static string GetName(Person person) => person.Name;
 
     private static void SetName(Person person, string value) => person.Name = value;
+
+    private static void AssertHasAssignBinding(Type type, string propertyName)
+    {
+        var property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+        Assert.NotNull(property);
+        var attribute = property!.GetCustomAttribute<AssignBindingAttribute>();
+        Assert.NotNull(attribute);
+    }
 
     private static CompiledBindingPath BuildNamePath()
     {

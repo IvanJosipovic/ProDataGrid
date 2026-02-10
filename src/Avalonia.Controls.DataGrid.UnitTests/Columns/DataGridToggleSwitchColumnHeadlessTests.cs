@@ -3,20 +3,45 @@
 
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Avalonia.Themes.Fluent;
-using System.Linq;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Columns;
 
 public class DataGridToggleSwitchColumnHeadlessTests
 {
+    [Fact]
+    public void ToggleSwitchColumn_XamlBinding_Assigns_OnOffContent()
+    {
+        const string xaml = """
+                            <DataGridToggleSwitchColumn xmlns="https://github.com/avaloniaui"
+                                                        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                                        OnContent="{Binding OnLabel}"
+                                                        OffContent="{Binding OffLabel}" />
+                            """;
+
+        var column = AvaloniaRuntimeXamlLoader.Parse<DataGridToggleSwitchColumn>(xaml, typeof(DataGridToggleSwitchColumn).Assembly);
+
+        Assert.IsAssignableFrom<IBinding>(column.OnContent);
+        Assert.IsAssignableFrom<IBinding>(column.OffContent);
+    }
+
+    [Fact]
+    public void ToggleSwitchColumn_Content_Properties_Use_AssignBinding()
+    {
+        AssertHasAssignBinding(nameof(DataGridToggleSwitchColumn.OnContent));
+        AssertHasAssignBinding(nameof(DataGridToggleSwitchColumn.OffContent));
+    }
+
     [AvaloniaFact]
     public void ToggleSwitchColumn_Binds_Value()
     {
@@ -67,7 +92,66 @@ public class DataGridToggleSwitchColumnHeadlessTests
         Assert.False(column.IsThreeState);
     }
 
-    private static (Window window, DataGrid grid) CreateWindow(ToggleSwitchTestViewModel vm)
+    [AvaloniaFact]
+    public void ToggleSwitchColumn_Binding_OnOffContent_Uses_RowItem()
+    {
+        var vm = new ToggleSwitchTestViewModel();
+        var column = CreateToggleSwitchColumn();
+        column.OnContent = new Binding(nameof(ToggleSwitchItem.OnLabel));
+        column.OffContent = new Binding(nameof(ToggleSwitchItem.OffLabel));
+
+        var (window, grid) = CreateWindow(vm, column);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var cell = GetCell(grid, "Active", 0);
+        var toggleSwitch = Assert.IsType<ToggleSwitch>(cell.Content);
+
+        Assert.Equal(vm.Items[0].OnLabel, toggleSwitch.OnContent);
+        Assert.Equal(vm.Items[0].OffLabel, toggleSwitch.OffContent);
+    }
+
+    [AvaloniaFact]
+    public void ToggleSwitchColumn_CompiledBinding_OnOffContent_Uses_RowItem()
+    {
+        var vm = new ToggleSwitchTestViewModel();
+        var column = CreateToggleSwitchColumn();
+        column.OnContent = DataGridBindingDefinition.Create<ToggleSwitchItem, string>(item => item.OnLabel).CreateBinding();
+        column.OffContent = DataGridBindingDefinition.Create<ToggleSwitchItem, string>(item => item.OffLabel).CreateBinding();
+
+        var (window, grid) = CreateWindow(vm, column);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var cell = GetCell(grid, "Active", 0);
+        var toggleSwitch = Assert.IsType<ToggleSwitch>(cell.Content);
+
+        Assert.Equal(vm.Items[0].OnLabel, toggleSwitch.OnContent);
+        Assert.Equal(vm.Items[0].OffLabel, toggleSwitch.OffContent);
+    }
+
+    [AvaloniaFact]
+    public void ToggleSwitchColumn_Default_OnOffContent_Keeps_Control_Defaults()
+    {
+        var vm = new ToggleSwitchTestViewModel();
+        var (window, grid) = CreateWindow(vm);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var cell = GetCell(grid, "Active", 0);
+        var toggleSwitch = Assert.IsType<ToggleSwitch>(cell.Content);
+
+        Assert.NotNull(toggleSwitch.OnContent);
+        Assert.NotNull(toggleSwitch.OffContent);
+    }
+
+    private static (Window window, DataGrid grid) CreateWindow(ToggleSwitchTestViewModel vm, DataGridToggleSwitchColumn? toggleSwitchColumn = null)
     {
         var window = new Window
         {
@@ -89,17 +173,20 @@ public class DataGridToggleSwitchColumnHeadlessTests
                     Header = "Name",
                     Binding = new Binding("Name")
                 },
-                new DataGridToggleSwitchColumn
-                {
-                    Header = "Active",
-                    Binding = new Binding("IsActive")
-                }
+                toggleSwitchColumn ?? CreateToggleSwitchColumn()
             }
         };
 
         window.Content = grid;
         return (window, grid);
     }
+
+    private static DataGridToggleSwitchColumn CreateToggleSwitchColumn() =>
+        new()
+        {
+            Header = "Active",
+            Binding = new Binding("IsActive")
+        };
 
     private static DataGridCell GetCell(DataGrid grid, string header, int rowIndex)
     {
@@ -115,9 +202,9 @@ public class DataGridToggleSwitchColumnHeadlessTests
         {
             Items = new ObservableCollection<ToggleSwitchItem>
             {
-                new() { Name = "Feature A", IsActive = true },
-                new() { Name = "Feature B", IsActive = false },
-                new() { Name = "Feature C", IsActive = true }
+                new() { Name = "Feature A", OnLabel = "Enabled A", OffLabel = "Disabled A", IsActive = true },
+                new() { Name = "Feature B", OnLabel = "Enabled B", OffLabel = "Disabled B", IsActive = false },
+                new() { Name = "Feature C", OnLabel = "Enabled C", OffLabel = "Disabled C", IsActive = true }
             };
         }
 
@@ -127,6 +214,15 @@ public class DataGridToggleSwitchColumnHeadlessTests
     private sealed class ToggleSwitchItem
     {
         public string Name { get; set; } = string.Empty;
+        public string OnLabel { get; set; } = string.Empty;
+        public string OffLabel { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+    }
+
+    private static void AssertHasAssignBinding(string propertyName)
+    {
+        var property = typeof(DataGridToggleSwitchColumn).GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(property);
+        Assert.NotNull(property!.GetCustomAttribute<AssignBindingAttribute>());
     }
 }

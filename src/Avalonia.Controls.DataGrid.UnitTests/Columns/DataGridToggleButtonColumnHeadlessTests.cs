@@ -3,22 +3,50 @@
 
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Avalonia.Themes.Fluent;
-using System.Linq;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Columns;
 
 public class DataGridToggleButtonColumnHeadlessTests
 {
+    [Fact]
+    public void ToggleButtonColumn_XamlBinding_Assigns_Content_States()
+    {
+        const string xaml = """
+                            <DataGridToggleButtonColumn xmlns="https://github.com/avaloniaui"
+                                                        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                                                        Content="{Binding Symbol}"
+                                                        CheckedContent="{Binding CheckedLabel}"
+                                                        UncheckedContent="{Binding UncheckedLabel}" />
+                            """;
+
+        var column = AvaloniaRuntimeXamlLoader.Parse<DataGridToggleButtonColumn>(xaml, typeof(DataGridToggleButtonColumn).Assembly);
+
+        Assert.IsAssignableFrom<IBinding>(column.Content);
+        Assert.IsAssignableFrom<IBinding>(column.CheckedContent);
+        Assert.IsAssignableFrom<IBinding>(column.UncheckedContent);
+    }
+
+    [Fact]
+    public void ToggleButtonColumn_Content_Properties_Use_AssignBinding()
+    {
+        AssertHasAssignBinding(nameof(DataGridToggleButtonColumn.Content));
+        AssertHasAssignBinding(nameof(DataGridToggleButtonColumn.CheckedContent));
+        AssertHasAssignBinding(nameof(DataGridToggleButtonColumn.UncheckedContent));
+    }
+
     [AvaloniaFact]
     public void ToggleButtonColumn_Binds_Value()
     {
@@ -111,7 +139,45 @@ public class DataGridToggleButtonColumnHeadlessTests
         Assert.Equal(ClickMode.Release, column.ClickMode);
     }
 
-    private static (Window window, DataGrid grid) CreateWindow(ToggleButtonTestViewModel vm)
+    [AvaloniaFact]
+    public void ToggleButtonColumn_Binding_Content_Uses_RowItem()
+    {
+        var vm = new ToggleButtonTestViewModel();
+        var column = CreateToggleButtonColumn();
+        column.Content = new Binding(nameof(ToggleButtonItem.Symbol));
+
+        var (window, grid) = CreateWindow(vm, column);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var cell = GetCell(grid, "Favorite", 0);
+        var toggleButton = Assert.IsType<ToggleButton>(cell.Content);
+
+        Assert.Equal(vm.Items[0].Symbol, toggleButton.Content);
+    }
+
+    [AvaloniaFact]
+    public void ToggleButtonColumn_CompiledBinding_Content_Uses_RowItem()
+    {
+        var vm = new ToggleButtonTestViewModel();
+        var column = CreateToggleButtonColumn();
+        column.Content = DataGridBindingDefinition.Create<ToggleButtonItem, string>(item => item.Symbol).CreateBinding();
+
+        var (window, grid) = CreateWindow(vm, column);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var cell = GetCell(grid, "Favorite", 0);
+        var toggleButton = Assert.IsType<ToggleButton>(cell.Content);
+
+        Assert.Equal(vm.Items[0].Symbol, toggleButton.Content);
+    }
+
+    private static (Window window, DataGrid grid) CreateWindow(ToggleButtonTestViewModel vm, DataGridToggleButtonColumn? toggleButtonColumn = null)
     {
         var window = new Window
         {
@@ -133,18 +199,21 @@ public class DataGridToggleButtonColumnHeadlessTests
                     Header = "Name",
                     Binding = new Binding("Name")
                 },
-                new DataGridToggleButtonColumn
-                {
-                    Header = "Favorite",
-                    Binding = new Binding("IsFavorite"),
-                    Content = "★"
-                }
+                toggleButtonColumn ?? CreateToggleButtonColumn()
             }
         };
 
         window.Content = grid;
         return (window, grid);
     }
+
+    private static DataGridToggleButtonColumn CreateToggleButtonColumn() =>
+        new()
+        {
+            Header = "Favorite",
+            Binding = new Binding("IsFavorite"),
+            Content = "★"
+        };
 
     private static DataGridCell GetCell(DataGrid grid, string header, int rowIndex)
     {
@@ -160,9 +229,9 @@ public class DataGridToggleButtonColumnHeadlessTests
         {
             Items = new ObservableCollection<ToggleButtonItem>
             {
-                new() { Name = "Item A", IsFavorite = true },
-                new() { Name = "Item B", IsFavorite = false },
-                new() { Name = "Item C", IsFavorite = true }
+                new() { Name = "Item A", Symbol = "A", IsFavorite = true },
+                new() { Name = "Item B", Symbol = "B", IsFavorite = false },
+                new() { Name = "Item C", Symbol = "C", IsFavorite = true }
             };
         }
 
@@ -172,6 +241,14 @@ public class DataGridToggleButtonColumnHeadlessTests
     private sealed class ToggleButtonItem
     {
         public string Name { get; set; } = string.Empty;
+        public string Symbol { get; set; } = string.Empty;
         public bool IsFavorite { get; set; }
+    }
+
+    private static void AssertHasAssignBinding(string propertyName)
+    {
+        var property = typeof(DataGridToggleButtonColumn).GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
+        Assert.NotNull(property);
+        Assert.NotNull(property!.GetCustomAttribute<AssignBindingAttribute>());
     }
 }
