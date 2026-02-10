@@ -168,7 +168,7 @@ internal
                 toggleButton.Theme = theme;
             }
 
-            ConfigureToggleButton(toggleButton, true);
+            ConfigureToggleButton(toggleButton);
             return toggleButton;
         }
 
@@ -203,7 +203,7 @@ internal
 
             toggleButton.IsEnabled = isEnabled;
             toggleButton.IsHitTestVisible = false;
-            ConfigureToggleButton(toggleButton, isEnabled);
+            ConfigureToggleButton(toggleButton);
 
             if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
             {
@@ -294,7 +294,7 @@ internal
 
             if (element is ToggleButton toggleButton)
             {
-                ConfigureToggleButton(toggleButton, toggleButton.IsEnabled);
+                ConfigureToggleButton(toggleButton);
             }
             else
             {
@@ -314,7 +314,7 @@ internal
             }
         }
 
-        private void ConfigureToggleButton(ToggleButton toggleButton, bool isEnabled)
+        private void ConfigureToggleButton(ToggleButton toggleButton)
         {
             toggleButton.HorizontalAlignment = HorizontalAlignment.Center;
             toggleButton.VerticalAlignment = VerticalAlignment.Center;
@@ -323,9 +323,10 @@ internal
 
             // Set content based on checked state
             toggleButton.PropertyChanged -= ToggleButton_PropertyChanged;
-            if (isEnabled && CheckedContent != null && UncheckedContent != null)
+            if (CheckedContent != null && UncheckedContent != null)
             {
-                // Use checked/unchecked content if available
+                // When checked/unchecked content is configured it should be visible
+                // immediately for all rows, not only the current editable cell.
                 UpdateToggleButtonContent(toggleButton);
                 toggleButton.PropertyChanged += ToggleButton_PropertyChanged;
             }

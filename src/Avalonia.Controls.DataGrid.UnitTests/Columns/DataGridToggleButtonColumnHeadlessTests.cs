@@ -177,6 +177,31 @@ public class DataGridToggleButtonColumnHeadlessTests
         Assert.Equal(vm.Items[0].Symbol, toggleButton.Content);
     }
 
+    [AvaloniaFact]
+    public void ToggleButtonColumn_CheckedUncheckedContent_Shows_Initial_Content_For_NonCurrent_Cell()
+    {
+        var vm = new ToggleButtonTestViewModel();
+        var column = new DataGridToggleButtonColumn
+        {
+            Header = "Favorite",
+            Binding = new Binding(nameof(ToggleButtonItem.IsFavorite)),
+            CheckedContent = new Binding(nameof(ToggleButtonItem.CheckedLabel)),
+            UncheckedContent = new Binding(nameof(ToggleButtonItem.UncheckedLabel))
+        };
+
+        var (window, grid) = CreateWindow(vm, column);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        var cell = GetCell(grid, "Favorite", 1);
+        var toggleButton = Assert.IsType<ToggleButton>(cell.Content);
+
+        Assert.False(toggleButton.IsEnabled);
+        Assert.Equal(vm.Items[1].UncheckedLabel, toggleButton.Content);
+    }
+
     private static (Window window, DataGrid grid) CreateWindow(ToggleButtonTestViewModel vm, DataGridToggleButtonColumn? toggleButtonColumn = null)
     {
         var window = new Window
@@ -229,9 +254,9 @@ public class DataGridToggleButtonColumnHeadlessTests
         {
             Items = new ObservableCollection<ToggleButtonItem>
             {
-                new() { Name = "Item A", Symbol = "A", IsFavorite = true },
-                new() { Name = "Item B", Symbol = "B", IsFavorite = false },
-                new() { Name = "Item C", Symbol = "C", IsFavorite = true }
+                new() { Name = "Item A", Symbol = "A", CheckedLabel = "On A", UncheckedLabel = "Off A", IsFavorite = true },
+                new() { Name = "Item B", Symbol = "B", CheckedLabel = "On B", UncheckedLabel = "Off B", IsFavorite = false },
+                new() { Name = "Item C", Symbol = "C", CheckedLabel = "On C", UncheckedLabel = "Off C", IsFavorite = true }
             };
         }
 
@@ -242,6 +267,8 @@ public class DataGridToggleButtonColumnHeadlessTests
     {
         public string Name { get; set; } = string.Empty;
         public string Symbol { get; set; } = string.Empty;
+        public string CheckedLabel { get; set; } = string.Empty;
+        public string UncheckedLabel { get; set; } = string.Empty;
         public bool IsFavorite { get; set; }
     }
 
