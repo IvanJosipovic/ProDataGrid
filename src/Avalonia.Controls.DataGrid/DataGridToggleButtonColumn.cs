@@ -56,6 +56,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed on the toggle button.
         /// </summary>
+        [AssignBinding]
         public object Content
         {
             get => GetValue(ContentProperty);
@@ -71,6 +72,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed when checked (if different from normal content).
         /// </summary>
+        [AssignBinding]
         public object CheckedContent
         {
             get => GetValue(CheckedContentProperty);
@@ -86,6 +88,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed when unchecked (if different from normal content).
         /// </summary>
+        [AssignBinding]
         public object UncheckedContent
         {
             get => GetValue(UncheckedContentProperty);
@@ -328,7 +331,11 @@ internal
             }
             else if (Content != null)
             {
-                toggleButton.Content = Content;
+                ApplyValueOrBinding(toggleButton, ContentControl.ContentProperty, Content);
+            }
+            else
+            {
+                toggleButton.ClearValue(ContentControl.ContentProperty);
             }
         }
 
@@ -342,7 +349,40 @@ internal
 
         private void UpdateToggleButtonContent(ToggleButton toggleButton)
         {
-            toggleButton.Content = toggleButton.IsChecked == true ? CheckedContent : UncheckedContent;
+            ApplyValueOrBinding(
+                toggleButton,
+                ContentControl.ContentProperty,
+                toggleButton.IsChecked == true ? CheckedContent : UncheckedContent);
+        }
+
+        private static void ApplyValueOrBinding(AvaloniaObject target, AvaloniaProperty property, object value)
+        {
+            target.ClearValue(property);
+
+            if (value is IBinding binding)
+            {
+                ApplyBinding(target, property, binding);
+                return;
+            }
+
+            if (value != null)
+            {
+                target.SetValue(property, value);
+            }
+        }
+
+        private static void ApplyBinding(AvaloniaObject target, AvaloniaProperty property, IBinding binding)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            var result = binding.Initiate(target, property, enableDataValidation: true);
+            if (result != null)
+            {
+                BindingOperations.Apply(target, property, result, null);
+            }
         }
 
         private bool EnsureOwningGrid()

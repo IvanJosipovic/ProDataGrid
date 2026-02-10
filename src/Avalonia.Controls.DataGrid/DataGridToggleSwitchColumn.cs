@@ -54,6 +54,7 @@ internal
         /// <summary>
         /// Gets or sets the content shown when the switch is on.
         /// </summary>
+        [AssignBinding]
         public object OnContent
         {
             get => GetValue(OnContentProperty);
@@ -69,6 +70,7 @@ internal
         /// <summary>
         /// Gets or sets the content shown when the switch is off.
         /// </summary>
+        [AssignBinding]
         public object OffContent
         {
             get => GetValue(OffContentProperty);
@@ -314,27 +316,59 @@ internal
             toggleSwitch.HorizontalAlignment = HorizontalAlignment.Center;
             toggleSwitch.VerticalAlignment = VerticalAlignment.Center;
 
-            if (OnContent != null)
-            {
-                toggleSwitch.OnContent = OnContent;
-            }
+            ApplyValueOrBinding(toggleSwitch, ToggleSwitch.OnContentProperty, OnContent);
 
-            if (OffContent != null)
-            {
-                toggleSwitch.OffContent = OffContent;
-            }
+            ApplyValueOrBinding(toggleSwitch, ToggleSwitch.OffContentProperty, OffContent);
 
             if (OnContentTemplate != null)
             {
                 toggleSwitch.OnContentTemplate = OnContentTemplate;
+            }
+            else
+            {
+                toggleSwitch.ClearValue(ToggleSwitch.OnContentTemplateProperty);
             }
 
             if (OffContentTemplate != null)
             {
                 toggleSwitch.OffContentTemplate = OffContentTemplate;
             }
+            else
+            {
+                toggleSwitch.ClearValue(ToggleSwitch.OffContentTemplateProperty);
+            }
 
             toggleSwitch.IsThreeState = IsThreeState;
+        }
+
+        private static void ApplyValueOrBinding(AvaloniaObject target, AvaloniaProperty property, object value)
+        {
+            target.ClearValue(property);
+
+            if (value is IBinding binding)
+            {
+                ApplyBinding(target, property, binding);
+                return;
+            }
+
+            if (value != null)
+            {
+                target.SetValue(property, value);
+            }
+        }
+
+        private static void ApplyBinding(AvaloniaObject target, AvaloniaProperty property, IBinding binding)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            var result = binding.Initiate(target, property, enableDataValidation: true);
+            if (result != null)
+            {
+                BindingOperations.Apply(target, property, result, null);
+            }
         }
 
         internal override void ClearElementCache()

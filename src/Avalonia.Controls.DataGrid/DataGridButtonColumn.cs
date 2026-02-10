@@ -53,6 +53,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed on the button.
         /// </summary>
+        [AssignBinding]
         public object Content
         {
             get => GetValue(ContentProperty);
@@ -98,6 +99,7 @@ internal
         /// <summary>
         /// Gets or sets the command parameter. If not set, the row's DataContext is used.
         /// </summary>
+        [AssignBinding]
         public object CommandParameter
         {
             get => GetValue(CommandParameterProperty);
@@ -231,29 +233,73 @@ internal
 
         private void ConfigureButton(Button button, object dataItem)
         {
-            if (Content != null)
-            {
-                button.Content = Content;
-            }
+            ApplyValueOrBinding(button, ContentControl.ContentProperty, Content, fallbackValue: null);
 
             if (ContentTemplate != null)
             {
                 button.ContentTemplate = ContentTemplate;
             }
+            else
+            {
+                button.ClearValue(ContentControl.ContentTemplateProperty);
+            }
 
             if (Command != null)
             {
                 button.Command = Command;
-                
-                // Use explicit CommandParameter if set, otherwise use the row's data item
-                button.CommandParameter = CommandParameter ?? dataItem;
             }
+            else
+            {
+                button.ClearValue(Button.CommandProperty);
+            }
+
+            // Use explicit CommandParameter if set, otherwise use the row's data item.
+            ApplyValueOrBinding(button, Button.CommandParameterProperty, CommandParameter, dataItem);
 
             button.ClickMode = ClickMode;
 
             if (HotKey != null)
             {
                 button.HotKey = HotKey;
+            }
+            else
+            {
+                button.ClearValue(Button.HotKeyProperty);
+            }
+        }
+
+        private static void ApplyValueOrBinding(
+            AvaloniaObject target,
+            AvaloniaProperty property,
+            object value,
+            object fallbackValue)
+        {
+            target.ClearValue(property);
+
+            if (value is IBinding binding)
+            {
+                ApplyBinding(target, property, binding);
+                return;
+            }
+
+            var resolvedValue = value ?? fallbackValue;
+            if (resolvedValue != null)
+            {
+                target.SetValue(property, resolvedValue);
+            }
+        }
+
+        private static void ApplyBinding(AvaloniaObject target, AvaloniaProperty property, IBinding binding)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            var result = binding.Initiate(target, property, enableDataValidation: true);
+            if (result != null)
+            {
+                BindingOperations.Apply(target, property, result, null);
             }
         }
 

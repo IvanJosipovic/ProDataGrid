@@ -4,6 +4,7 @@
 #nullable disable
 
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
 
 namespace Avalonia.Controls
 {
@@ -20,12 +21,14 @@ namespace Avalonia.Controls
         private string _offContentTemplateKey;
         private bool? _isThreeState;
 
+        [AssignBinding]
         public object OnContent
         {
             get => _onContent;
             set => SetProperty(ref _onContent, value);
         }
 
+        [AssignBinding]
         public object OffContent
         {
             get => _offContent;
