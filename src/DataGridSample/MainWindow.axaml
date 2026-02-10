@@ -434,6 +434,24 @@
     <TabItem Header="Column Types">
       <pages:ColumnTypesPage />
     </TabItem>
+    <TabItem Header="Button Column Bindings">
+      <pages:ButtonColumnBindingsPage />
+    </TabItem>
+    <TabItem Header="ToggleButton Column Bindings">
+      <pages:ToggleButtonColumnBindingsPage />
+    </TabItem>
+    <TabItem Header="ToggleSwitch Column Bindings">
+      <pages:ToggleSwitchColumnBindingsPage />
+    </TabItem>
+    <TabItem Header="Button Definition Bindings">
+      <pages:ButtonColumnDefinitionBindingsPage />
+    </TabItem>
+    <TabItem Header="ToggleButton Definition Bindings">
+      <pages:ToggleButtonColumnDefinitionBindingsPage />
+    </TabItem>
+    <TabItem Header="ToggleSwitch Definition Bindings">
+      <pages:ToggleSwitchColumnDefinitionBindingsPage />
+    </TabItem>
     <TabItem Header="Column Drag Indicator">
       <pages:ColumnDragIndicatorPage />
     </TabItem>

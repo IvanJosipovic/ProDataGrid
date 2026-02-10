@@ -56,6 +56,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed on the toggle button.
         /// </summary>
+        [AssignBinding]
         public object Content
         {
             get => GetValue(ContentProperty);
@@ -71,6 +72,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed when checked (if different from normal content).
         /// </summary>
+        [AssignBinding]
         public object CheckedContent
         {
             get => GetValue(CheckedContentProperty);
@@ -86,6 +88,7 @@ internal
         /// <summary>
         /// Gets or sets the content displayed when unchecked (if different from normal content).
         /// </summary>
+        [AssignBinding]
         public object UncheckedContent
         {
             get => GetValue(UncheckedContentProperty);
@@ -165,7 +168,7 @@ internal
                 toggleButton.Theme = theme;
             }
 
-            ConfigureToggleButton(toggleButton, true);
+            ConfigureToggleButton(toggleButton);
             return toggleButton;
         }
 
@@ -200,7 +203,7 @@ internal
 
             toggleButton.IsEnabled = isEnabled;
             toggleButton.IsHitTestVisible = false;
-            ConfigureToggleButton(toggleButton, isEnabled);
+            ConfigureToggleButton(toggleButton);
 
             if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
             {
@@ -291,7 +294,7 @@ internal
 
             if (element is ToggleButton toggleButton)
             {
-                ConfigureToggleButton(toggleButton, toggleButton.IsEnabled);
+                ConfigureToggleButton(toggleButton);
             }
             else
             {
@@ -311,7 +314,7 @@ internal
             }
         }
 
-        private void ConfigureToggleButton(ToggleButton toggleButton, bool isEnabled)
+        private void ConfigureToggleButton(ToggleButton toggleButton)
         {
             toggleButton.HorizontalAlignment = HorizontalAlignment.Center;
             toggleButton.VerticalAlignment = VerticalAlignment.Center;
@@ -320,15 +323,20 @@ internal
 
             // Set content based on checked state
             toggleButton.PropertyChanged -= ToggleButton_PropertyChanged;
-            if (isEnabled && CheckedContent != null && UncheckedContent != null)
+            if (CheckedContent != null && UncheckedContent != null)
             {
-                // Use checked/unchecked content if available
+                // When checked/unchecked content is configured it should be visible
+                // immediately for all rows, not only the current editable cell.
                 UpdateToggleButtonContent(toggleButton);
                 toggleButton.PropertyChanged += ToggleButton_PropertyChanged;
             }
             else if (Content != null)
             {
-                toggleButton.Content = Content;
+                ApplyValueOrBinding(toggleButton, ContentControl.ContentProperty, Content);
+            }
+            else
+            {
+                toggleButton.ClearValue(ContentControl.ContentProperty);
             }
         }
 
@@ -342,7 +350,40 @@ internal
 
         private void UpdateToggleButtonContent(ToggleButton toggleButton)
         {
-            toggleButton.Content = toggleButton.IsChecked == true ? CheckedContent : UncheckedContent;
+            ApplyValueOrBinding(
+                toggleButton,
+                ContentControl.ContentProperty,
+                toggleButton.IsChecked == true ? CheckedContent : UncheckedContent);
+        }
+
+        private static void ApplyValueOrBinding(AvaloniaObject target, AvaloniaProperty property, object value)
+        {
+            target.ClearValue(property);
+
+            if (value is IBinding binding)
+            {
+                ApplyBinding(target, property, binding);
+                return;
+            }
+
+            if (value != null)
+            {
+                target.SetValue(property, value);
+            }
+        }
+
+        private static void ApplyBinding(AvaloniaObject target, AvaloniaProperty property, IBinding binding)
+        {
+            if (binding == null)
+            {
+                return;
+            }
+
+            var result = binding.Initiate(target, property, enableDataValidation: true);
+            if (result != null)
+            {
+                BindingOperations.Apply(target, property, result, null);
+            }
         }
 
         private bool EnsureOwningGrid()

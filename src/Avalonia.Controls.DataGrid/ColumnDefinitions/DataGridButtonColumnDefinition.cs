@@ -4,6 +4,7 @@
 #nullable disable
 
 using System.Windows.Input;
+using Avalonia.Data;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
@@ -24,6 +25,7 @@ namespace Avalonia.Controls
         private ClickMode? _clickMode;
         private KeyGesture _hotKey;
 
+        [AssignBinding]
         public object Content
         {
             get => _content;
@@ -42,6 +44,7 @@ namespace Avalonia.Controls
             set => SetProperty(ref _command, value);
         }
 
+        [AssignBinding]
         public object CommandParameter
         {
             get => _commandParameter;

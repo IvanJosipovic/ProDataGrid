@@ -4,6 +4,7 @@
 #nullable disable
 
 using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 
 namespace Avalonia.Controls
 {
@@ -20,18 +21,21 @@ namespace Avalonia.Controls
         private bool? _isThreeState;
         private ClickMode? _clickMode;
 
+        [AssignBinding]
         public object Content
         {
             get => _content;
             set => SetProperty(ref _content, value);
         }
 
+        [AssignBinding]
         public object CheckedContent
         {
             get => _checkedContent;
             set => SetProperty(ref _checkedContent, value);
         }
 
+        [AssignBinding]
         public object UncheckedContent
         {
             get => _uncheckedContent;

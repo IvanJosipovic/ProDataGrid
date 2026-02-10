@@ -1,0 +1,59 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ToggleButtonColumnBindingsPage"
+             x:Name="Root"
+             x:DataType="viewModels:ToggleButtonColumnBindingsViewModel">
+  <UserControl.DataContext>
+    <viewModels:ToggleButtonColumnBindingsViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2">ToggleButton Column Bindings</TextBlock>
+      <TextBlock Text="Validates row bindings for DataGridToggleButtonColumn. The first toggle column binds Content. The second binds CheckedContent and UncheckedContent."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <TextBlock Grid.Row="1"
+               Text="{Binding LastToggleMessage}"
+               Foreground="Gray"
+               FontStyle="Italic"
+               TextWrapping="Wrap" />
+
+    <DataGrid Grid.Row="2"
+              AutoGenerateColumns="False"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              IsReadOnly="False"
+              ItemsSource="{Binding Items}">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name"
+                            Binding="{Binding Name}"
+                            IsReadOnly="True"
+                            Width="170"
+                            x:DataType="viewModels:ToggleButtonColumnBindingsItem" />
+
+        <DataGridToggleButtonColumn Header="Bound Content"
+                                    Binding="{Binding IsFavorite}"
+                                    Content="{Binding ActionLabel}"
+                                    Width="150"
+                                    x:DataType="viewModels:ToggleButtonColumnBindingsItem" />
+
+        <DataGridToggleButtonColumn Header="Bound State Content"
+                                    Binding="{Binding IsEnabled}"
+                                    CheckedContent="{Binding CheckedLabel}"
+                                    UncheckedContent="{Binding UncheckedLabel}"
+                                    Width="180"
+                                    x:DataType="viewModels:ToggleButtonColumnBindingsItem" />
+
+        <DataGridToggleButtonColumn Header="Static State Content"
+                                    Binding="{Binding IsArchived}"
+                                    CheckedContent="Archived"
+                                    UncheckedContent="Active"
+                                    Width="170"
+                                    x:DataType="viewModels:ToggleButtonColumnBindingsItem" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>
