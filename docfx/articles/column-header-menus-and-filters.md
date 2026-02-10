@@ -2,6 +2,8 @@
 
 This guide covers header context menus, programmatic filter flyout display, and filter status indicators for ProDataGrid.
 
+For complete `FilteringModel` wiring (descriptors, column ids, flyout templates, and adapter behavior), see [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md).
+
 ## UX Reference (Common Grids)
 
 In mature grid controls, column headers typically support:
