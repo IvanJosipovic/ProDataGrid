@@ -272,10 +272,6 @@ namespace Avalonia.Controls.DataGridFiltering
             }
 
             var getter = GetGetter(descriptor.PropertyPath);
-            if (getter == null)
-            {
-                return null;
-            }
 
             var propertyKey = new PredicateCacheKey(descriptor, null, null);
             return GetOrCreateCachedPredicate(propertyKey, previousCache, nextCache, () =>
@@ -365,13 +361,13 @@ namespace Avalonia.Controls.DataGridFiltering
                 case FilteringOperator.EndsWith:
                     return EndsWith(value, descriptor.Value, descriptor.StringComparisonMode);
                 case FilteringOperator.GreaterThan:
-                    return Compare(value, descriptor.Value, descriptor.Culture) > 0;
+                    return TryCompare(value, descriptor.Value, descriptor.Culture, out var greaterThan) && greaterThan > 0;
                 case FilteringOperator.GreaterThanOrEqual:
-                    return Compare(value, descriptor.Value, descriptor.Culture) >= 0;
+                    return TryCompare(value, descriptor.Value, descriptor.Culture, out var greaterThanOrEqual) && greaterThanOrEqual >= 0;
                 case FilteringOperator.LessThan:
-                    return Compare(value, descriptor.Value, descriptor.Culture) < 0;
+                    return TryCompare(value, descriptor.Value, descriptor.Culture, out var lessThan) && lessThan < 0;
                 case FilteringOperator.LessThanOrEqual:
-                    return Compare(value, descriptor.Value, descriptor.Culture) <= 0;
+                    return TryCompare(value, descriptor.Value, descriptor.Culture, out var lessThanOrEqual) && lessThanOrEqual <= 0;
                 case FilteringOperator.Between:
                     return Between(value, descriptor.Values, descriptor.Culture);
                 case FilteringOperator.In:
@@ -383,7 +379,7 @@ namespace Avalonia.Controls.DataGridFiltering
 
         private DataGridColumn FindColumn(FilteringDescriptor descriptor)
         {
-            var columns = _columnProvider?.Invoke();
+            var columns = _columnProvider.Invoke();
             if (columns == null)
             {
                 return null;
@@ -520,29 +516,101 @@ namespace Avalonia.Controls.DataGridFiltering
             }
         }
 
-        private static int Compare(object left, object right, CultureInfo culture)
+        private static bool TryCompare(object left, object right, CultureInfo culture, out int result)
         {
+            result = 0;
+
             if (left == null && right == null)
             {
-                return 0;
+                return true;
             }
 
             if (left == null)
             {
-                return -1;
+                result = -1;
+                return true;
             }
 
             if (right == null)
             {
-                return 1;
+                result = 1;
+                return true;
+            }
+
+            if (culture != null && left is string leftString && right is string rightString)
+            {
+                result = string.Compare(leftString, rightString, culture, CompareOptions.None);
+                return true;
             }
 
             if (left is IComparable comparable)
             {
-                return comparable.CompareTo(right);
+                if (left.GetType().IsAssignableFrom(right.GetType()))
+                {
+                    result = comparable.CompareTo(right);
+                    return true;
+                }
+
+                try
+                {
+                    result = comparable.CompareTo(right);
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    // Fall back to conversion for mismatched runtime types.
+                }
+                catch (InvalidCastException)
+                {
+                    // Fall back to conversion for mismatched runtime types.
+                }
+
+                object rightValue;
+                try
+                {
+                    rightValue = Convert.ChangeType(right, left.GetType(), culture);
+                }
+                catch (ArgumentException)
+                {
+                    return false;
+                }
+                catch (InvalidCastException)
+                {
+                    return false;
+                }
+                catch (FormatException)
+                {
+                    return false;
+                }
+                catch (OverflowException)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    result = comparable.CompareTo(rightValue);
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    return false;
+                }
+                catch (InvalidCastException)
+                {
+                    return false;
+                }
             }
 
-            return GetComparer(culture).Compare(left, right);
+            try
+            {
+                result = GetComparer(culture).Compare(left, right);
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
         }
 
         private static bool Between(object value, IReadOnlyList<object> bounds, CultureInfo culture)
@@ -552,9 +620,8 @@ namespace Avalonia.Controls.DataGridFiltering
                 return false;
             }
 
-            var lower = Compare(value, bounds[0], culture) >= 0;
-            var upper = Compare(value, bounds[1], culture) <= 0;
-            return lower && upper;
+            return TryCompare(value, bounds[0], culture, out var lower) && lower >= 0
+                && TryCompare(value, bounds[1], culture, out var upper) && upper <= 0;
         }
 
         private static bool In(object value, IReadOnlyList<object> values)
