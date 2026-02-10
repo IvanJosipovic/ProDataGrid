@@ -1,0 +1,53 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ToggleSwitchColumnBindingsPage"
+             x:Name="Root"
+             x:DataType="viewModels:ToggleSwitchColumnBindingsViewModel">
+  <UserControl.DataContext>
+    <viewModels:ToggleSwitchColumnBindingsViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2">ToggleSwitch Column Bindings</TextBlock>
+      <TextBlock Text="Validates row bindings for DataGridToggleSwitchColumn. The first toggle switch column binds OnContent and OffContent from the row model."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <TextBlock Grid.Row="1"
+               Text="{Binding LastToggleMessage}"
+               Foreground="Gray"
+               FontStyle="Italic"
+               TextWrapping="Wrap" />
+
+    <DataGrid Grid.Row="2"
+              AutoGenerateColumns="False"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              IsReadOnly="False"
+              ItemsSource="{Binding Items}">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name"
+                            Binding="{Binding Name}"
+                            IsReadOnly="True"
+                            Width="170"
+                            x:DataType="viewModels:ToggleSwitchColumnBindingsItem" />
+
+        <DataGridToggleSwitchColumn Header="Bound Labels"
+                                    Binding="{Binding IsOnline}"
+                                    OnContent="{Binding OnLabel}"
+                                    OffContent="{Binding OffLabel}"
+                                    Width="180"
+                                    x:DataType="viewModels:ToggleSwitchColumnBindingsItem" />
+
+        <DataGridToggleSwitchColumn Header="Static Labels"
+                                    Binding="{Binding IsPinned}"
+                                    OnContent="Pinned"
+                                    OffContent="Unpinned"
+                                    Width="170"
+                                    x:DataType="viewModels:ToggleSwitchColumnBindingsItem" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

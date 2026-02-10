@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ButtonColumnBindingsPage"
+             x:Name="Root"
+             x:DataType="viewModels:ButtonColumnBindingsViewModel">
+  <UserControl.DataContext>
+    <viewModels:ButtonColumnBindingsViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2">Button Column Bindings</TextBlock>
+      <TextBlock Text="Validates row bindings for DataGridButtonColumn. The Bound Action column uses both Content and CommandParameter bindings; the fallback column leaves CommandParameter unset to use the row item."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <TextBlock Grid.Row="1"
+               Text="{Binding LastActionMessage}"
+               Foreground="Gray"
+               FontStyle="Italic"
+               TextWrapping="Wrap" />
+
+    <DataGrid Grid.Row="2"
+              AutoGenerateColumns="False"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              IsReadOnly="False"
+              ItemsSource="{Binding Items}">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Name"
+                            Binding="{Binding Name}"
+                            IsReadOnly="True"
+                            Width="170"
+                            x:DataType="viewModels:ButtonColumnBindingsItem" />
+
+        <DataGridTextColumn Header="Clicks"
+                            Binding="{Binding ClickCount}"
+                            IsReadOnly="True"
+                            Width="90"
+                            x:DataType="viewModels:ButtonColumnBindingsItem" />
+
+        <DataGridButtonColumn Header="Bound Action"
+                              Content="{Binding ActionLabel}"
+                              Command="{Binding #Root.((viewModels:ButtonColumnBindingsViewModel)DataContext).RunActionCommand}"
+                              CommandParameter="{Binding}"
+                              Width="150"
+                              x:DataType="viewModels:ButtonColumnBindingsItem" />
+
+        <DataGridButtonColumn Header="Fallback Parameter"
+                              Content="Clear Clicks"
+                              Command="{Binding #Root.((viewModels:ButtonColumnBindingsViewModel)DataContext).ClearClicksCommand}"
+                              Width="150"
+                              x:DataType="viewModels:ButtonColumnBindingsItem" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>
