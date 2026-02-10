@@ -2,6 +2,8 @@
 
 ProDataGrid supports hierarchical rows with a dedicated column type and model adapters. This allows tree-like views while keeping DataGrid features such as selection, sorting, and summaries.
 
+For a full setup covering model creation, grid binding, sibling sorting, and refresh behavior, see [Hierarchical Model: End-to-End Usage](hierarchical-model-end-to-end.md).
+
 ## Hierarchical Model Integration
 
 Hierarchical rows are driven by `IHierarchicalModel` (flattened view of visible nodes) plus a thin adapter and a built-in `DataGridHierarchicalColumn` that renders indentation and the expander glyph.

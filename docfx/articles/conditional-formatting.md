@@ -2,6 +2,8 @@
 
 The conditional formatting model applies cell or row themes based on data. It mirrors the existing sorting, filtering, and search models: you supply descriptors and the grid evaluates them against the current view.
 
+For complete end-to-end wiring (themes + descriptors + runtime rule updates), see [Conditional Formatting Model: End-to-End Usage](conditional-formatting-model-end-to-end.md).
+
 ## Quick Start
 
 Define a theme for each visual state you want to apply:

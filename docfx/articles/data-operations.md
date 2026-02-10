@@ -8,6 +8,8 @@ Model factories (`SortingModelFactory`, `FilteringModelFactory`, `SearchModelFac
 
 Sorting is driven by a dedicated `ISortingModel` and adapter instead of directly mutating `SortDescriptions` from the header. This keeps sort state explicit, pluggable, and testable:
 
+For a full end-to-end walkthrough (ViewModel + XAML + presets + ownership modes), see [Sorting Model: End-to-End Usage](sorting-model-end-to-end.md).
+
 - Configure gesture policies on the model via `IsMultiSortEnabled`, `SortCycleMode` (2- or 3-state), and `OwnsSortDescriptions` (strict vs observe external changes).
 - Per-column comparers/culture and `SortMemberPath` flow into `SortingDescriptor`s; duplicate-column guards and batch updates prevent drift.
 - Plug in a custom model without subclassing the grid: set `SortingModel` or `SortingModelFactory` before use to inject alternate sort pipelines (e.g., server-side).
@@ -43,6 +45,7 @@ Bind a custom sorting model or factory just like selection:
 ```
 
 ```csharp
+using System;
 using Avalonia.Controls.DataGridSorting;
 using System.Collections;
 using System.ComponentModel;
@@ -54,7 +57,7 @@ public ISortingModel MySortingModel { get; } = new SortingModel
     OwnsViewSorts = true
 };
 
-public IComparer StatusComparer { get; } = new StatusComparer();
+public IComparer StatusComparer { get; } = StringComparer.OrdinalIgnoreCase;
 
 public void ApplyPreset()
 {
@@ -114,9 +117,12 @@ Header clicks update the `SortingModel`; the custom adapter overrides `TryApplyM
 
 Filtering is also driven by a pluggable model/adapter pair so header filters stay in sync with UI state and selection remains stable when rows are filtered.
 
+For a full end-to-end walkthrough (ViewModel + XAML + flyouts + troubleshooting), see [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md).
+
 - Bind `FilteringModel` or set `FilteringModelFactory`; `OwnsViewFilter` switches between authoritative mode (adapter owns `Filter`) and observer mode (adapter reconciles to an external `Filter`), with `FilteringChanging/Changed` and `BeginUpdate/EndUpdate/DeferRefresh` batching a single refresh.
 - Swap adapters via `FilteringAdapterFactory` (DynamicData/server-side) that override `TryApplyModelToView`; adapter lifecycle hooks mirror sorting (`AttachLifecycle`) so selection/currency snapshots are restored after filters apply.
 - Per-column predicate factories avoid reflection: set `DataGridColumnFilter.PredicateFactory` to return a typed predicate/parser for that column; descriptors carry culture/string comparison.
+- Use stable column ids (`ColumnKey`, definition instance, or definition `ColumnKey`) and include `propertyPath` when you are not using a custom predicate.
 - Adapter guarantees: descriptor to predicate for string/between/in/custom cases, duplicate guards, observer-mode reconciliation, and selection stability are covered by unit tests.
 - The filter button glyphs and default editor templates (text/number/date/enum) live in `Themes/Generic.xaml` and can be reused across themes and samples.
 
@@ -212,6 +218,8 @@ If an external consumer owns `DataGridCollectionView.Filter`, set `OwnsViewFilte
 ## Search Model and Column Search
 
 Search integrates with the model layer and can be scoped to columns for lightweight in-grid find operations.
+
+For a full end-to-end walkthrough (query lifecycle, highlights, explicit column scope, and navigation), see [Search Model: End-to-End Usage](search-model-end-to-end.md).
 
 - Bind `SearchModel` directly or set `SearchModelFactory` to supply a custom model.
 - Replace the default adapter with `SearchAdapterFactory` when you want a custom search pipeline (the built-in adapter uses reflection against column bindings).

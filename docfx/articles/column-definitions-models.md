@@ -71,6 +71,8 @@ For fast path filtering, ensure the column definition provides a value accessor 
 
 If the filtering value should differ from the displayed value, set `DataGridColumnDefinitionOptions.FilterValueAccessor` on the definition to supply a dedicated filter accessor.
 
+If your page uses inline XAML columns instead of `ColumnDefinitionsSource`, use explicit `DataGridColumn.ColumnKey` ids and match those keys in `FilteringDescriptor.ColumnId`. The full mixed-scenario guidance is in [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md).
+
 ### Accessor-only adapters
 
 If you want to avoid the reflection fallback in filtering/searching, enable the built-in accessor-only adapters:
@@ -179,3 +181,7 @@ Use `ClipboardContentBinding` on definitions to control exported values. AOT-fri
 - [Column Definitions (Hot Path Integration)](column-definitions-hot-path.md)
 - [Column Definitions (Hierarchical Columns)](column-definitions-hierarchical.md)
 - [Column Definitions: Fast Path Overview](column-definitions-fast-path-overview.md)
+- [Sorting Model: End-to-End Usage](sorting-model-end-to-end.md)
+- [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md)
+- [Search Model: End-to-End Usage](search-model-end-to-end.md)
+- [Conditional Formatting Model: End-to-End Usage](conditional-formatting-model-end-to-end.md)

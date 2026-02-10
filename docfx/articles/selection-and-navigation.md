@@ -2,6 +2,8 @@
 
 Selection in ProDataGrid is built on Avalonia's `SelectionModel`, which provides stable selection across sorting, filtering, and paging. The grid still exposes the familiar `SelectedItem` and `SelectedItems` bindings while enabling richer scenarios.
 
+For a complete setup with shared selection and mutation-safe restore patterns, see [Selection Model: End-to-End Usage](selection-model-end-to-end.md).
+
 ## Using SelectionModel with DataGrid
 
 Bind `Selection` to your view-model's `SelectionModel<T>`:
