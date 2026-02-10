@@ -20,6 +20,14 @@
     href: hierarchical-root-items.md
   - name: Data Operations
     href: data-operations.md
+  - name: Sorting Model (End-to-End)
+    href: sorting-model-end-to-end.md
+  - name: Filtering Model (End-to-End)
+    href: filtering-model-end-to-end.md
+  - name: Search Model (End-to-End)
+    href: search-model-end-to-end.md
+  - name: Hierarchical Model (End-to-End)
+    href: hierarchical-model-end-to-end.md
   - name: Summaries and Aggregation
     href: summaries.md
   - name: Pivot Tables
@@ -138,12 +146,16 @@
     href: editing-interaction-model.md
   - name: Validation and Errors
     href: validation-and-errors.md
+  - name: Conditional Formatting Model (End-to-End)
+    href: conditional-formatting-model-end-to-end.md
   - name: Conditional Formatting
     href: conditional-formatting.md
 - name: Selection and Ranges
   items:
   - name: Selection and Navigation
     href: selection-and-navigation.md
+  - name: Selection Model (End-to-End)
+    href: selection-model-end-to-end.md
   - name: Selection Highlighting
     href: selection-highlighting.md
   - name: Drag (Slide) Selection
