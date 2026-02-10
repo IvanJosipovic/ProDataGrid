@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Linq;
 using Avalonia.Controls;
@@ -31,6 +33,8 @@ public class DataGridTabSwitchBenchmarkTests
 
         var maxAverageMs = ResolveLatencyBudget("DATAGRID_TAB_SWITCH_MAX_AVERAGE_MS", defaultMaxAverageMs);
         var maxP95Ms = ResolveLatencyBudget("DATAGRID_TAB_SWITCH_MAX_P95_MS", defaultMaxP95Ms);
+
+        using var metrics = new MetricsCapture();
 
         var items = new ObservableCollection<BenchmarkItem>(
             Enumerable.Range(0, rowCount).Select(CreateItem));
@@ -92,6 +96,7 @@ public class DataGridTabSwitchBenchmarkTests
             $"Tab switch benchmark: rows={rowCount}, iterations={iterations}, samples={combinedSamples.Length}; to-placeholder avg={switchAway.Average:F2} ms p95={switchAway.P95:F2} ms; to-grid avg={switchBack.Average:F2} ms p95={switchBack.P95:F2} ms; overall avg={overall.Average:F2} ms p95={overall.P95:F2} ms min={overall.Min:F2} ms max={overall.Max:F2} ms"));
         _output.WriteLine(FormattableString.Invariant(
             $"Tab switch lifecycle: attached={attachCount}, detached={detachCount}"));
+        _output.WriteLine(metrics.CreateSummary());
         _output.WriteLine(FormattableString.Invariant(
             $"Tab switch budgets: max-average={maxAverageMs:F2} ms, max-p95={maxP95Ms:F2} ms"));
 
@@ -219,5 +224,75 @@ public class DataGridTabSwitchBenchmarkTests
         public string C14 { get; set; } = string.Empty;
         public string C15 { get; set; } = string.Empty;
         public string C16 { get; set; } = string.Empty;
+    }
+
+    private sealed class MetricsCapture : IDisposable
+    {
+        private readonly MeterListener _listener;
+        private readonly Dictionary<string, (double Total, int Count)> _doubleStats = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, long> _longTotals = new(StringComparer.Ordinal);
+
+        public MetricsCapture()
+        {
+            _listener = new MeterListener
+            {
+                InstrumentPublished = (instrument, listener) =>
+                {
+                    if (instrument.Meter.Name == DataGridDiagnostics.MeterName)
+                    {
+                        listener.EnableMeasurementEvents(instrument);
+                    }
+                }
+            };
+
+            _listener.SetMeasurementEventCallback<double>((instrument, measurement, _, _) =>
+            {
+                _doubleStats.TryGetValue(instrument.Name, out var stats);
+                _doubleStats[instrument.Name] = (stats.Total + measurement, stats.Count + 1);
+            });
+
+            _listener.SetMeasurementEventCallback<long>((instrument, measurement, _, _) =>
+            {
+                _longTotals.TryGetValue(instrument.Name, out var total);
+                _longTotals[instrument.Name] = total + measurement;
+            });
+
+            _listener.Start();
+        }
+
+        public string CreateSummary()
+        {
+            var rowsRefresh = GetDoubleStats(DataGridDiagnostics.Meters.RowsRefreshTimeName);
+            var rowsDisplay = GetDoubleStats(DataGridDiagnostics.Meters.RowsDisplayUpdateTimeName);
+            var rowGenerate = GetDoubleStats(DataGridDiagnostics.Meters.RowGenerateTimeName);
+            var gridRefresh = GetDoubleStats(DataGridDiagnostics.Meters.DataGridRefreshTimeName);
+
+            var rowsRealized = GetLongTotal(DataGridDiagnostics.Meters.RowsRealizedCountName);
+            var rowsRecycled = GetLongTotal(DataGridDiagnostics.Meters.RowsRecycledCountName);
+            var rowsPrepared = GetLongTotal(DataGridDiagnostics.Meters.RowsPreparedCountName);
+            var rowsDisplayReused = GetLongTotal(DataGridDiagnostics.Meters.RowsDisplayReusedCountName);
+
+            return FormattableString.Invariant(
+                $"Tab switch diagnostics: grid-refresh total={gridRefresh.Total:F2} ms count={gridRefresh.Count} avg={gridRefresh.Average:F2} ms; rows-refresh total={rowsRefresh.Total:F2} ms count={rowsRefresh.Count} avg={rowsRefresh.Average:F2} ms; rows-display total={rowsDisplay.Total:F2} ms count={rowsDisplay.Count} avg={rowsDisplay.Average:F2} ms; row-generate total={rowGenerate.Total:F2} ms count={rowGenerate.Count} avg={rowGenerate.Average:F2} ms; rows-display-reused={rowsDisplayReused}; rows-realized={rowsRealized}; rows-recycled={rowsRecycled}; rows-prepared={rowsPrepared}");
+        }
+
+        public void Dispose()
+        {
+            _listener.Dispose();
+        }
+
+        private (double Total, int Count, double Average) GetDoubleStats(string metricName)
+        {
+            return _doubleStats.TryGetValue(metricName, out var stats)
+                ? (stats.Total, stats.Count, stats.Count > 0 ? stats.Total / stats.Count : 0)
+                : (0, 0, 0);
+        }
+
+        private long GetLongTotal(string metricName)
+        {
+            return _longTotals.TryGetValue(metricName, out var total)
+                ? total
+                : 0;
+        }
     }
 }
