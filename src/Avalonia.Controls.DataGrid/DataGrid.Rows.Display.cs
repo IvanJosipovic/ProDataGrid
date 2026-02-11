@@ -363,7 +363,23 @@ namespace Avalonia.Controls
 
         private bool CanUseEstimatorNoMeasureRealization()
         {
+            if (RowHeightEstimator == null)
+            {
+                return false;
+            }
+
             if (_hierarchicalRowsEnabled)
+            {
+                return false;
+            }
+
+            if (RowGroupHeadersTable.IndexCount > 0 || RowGroupFootersTable.IndexCount > 0)
+            {
+                return false;
+            }
+
+            if (RowDetailsTemplate != null &&
+                RowDetailsVisibilityMode != DataGridRowDetailsVisibilityMode.Collapsed)
             {
                 return false;
             }
