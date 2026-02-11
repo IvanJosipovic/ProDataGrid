@@ -637,6 +637,11 @@ namespace Avalonia.Controls
 
         private double GetDisplayedEstimatedScanSlotHeight(int slot)
         {
+            if (slot < 0 || slot >= SlotCount)
+            {
+                return 0;
+            }
+
             if (slot >= DisplayData.FirstScrollingSlot &&
                 slot <= DisplayData.LastScrollingSlot)
             {
@@ -653,6 +658,11 @@ namespace Avalonia.Controls
 
         private double GetDisplayedScanSlotHeight(int slot, ref long scanRealizedTicks)
         {
+            if (slot < 0 || slot >= SlotCount)
+            {
+                return 0;
+            }
+
             if (slot >= DisplayData.FirstScrollingSlot &&
                 slot <= DisplayData.LastScrollingSlot)
             {
