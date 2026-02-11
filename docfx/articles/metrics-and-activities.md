@@ -157,6 +157,10 @@ Histograms (ms):
 - `prodatagrid.refresh.time` - DataGrid refresh pass (rows + columns).
 - `prodatagrid.rows.refresh.time` - Row refresh pass.
 - `prodatagrid.rows.display.update.time` - Displayed rows update during virtualization.
+- `prodatagrid.rows.display.scan.time` - Slot/range scan phase inside displayed-row updates.
+- `prodatagrid.rows.display.trim.time` - Trim/remove phase for non-displayed rows.
+- `prodatagrid.rows.measure.time` - Rows presenter measure pass for displayed elements.
+- `prodatagrid.rows.arrange.time` - Rows presenter arrange pass for displayed/recycled elements.
 - `prodatagrid.rows.generate.time` - Row generation and preparation.
 - `prodatagrid.columns.autogen.time` - Auto-generated columns pass.
 - `prodatagrid.selection.change.time` - SelectionChanged handling.
@@ -169,9 +173,17 @@ Histograms (ms):
 
 Counters:
 
+- `prodatagrid.rows.display.reused.count` - Display updates that reused the current displayed range.
 - `prodatagrid.rows.realized.count` - Row containers realized.
 - `prodatagrid.rows.recycled.count` - Row containers recycled.
 - `prodatagrid.rows.prepared.count` - Row containers prepared.
+- `prodatagrid.rows.measured.count` - Row elements measured by the rows presenter.
+- `prodatagrid.rows.arranged.count` - Row elements arranged by the rows presenter.
+- `prodatagrid.rows.display.scanned.count` - Row slots scanned while computing displayed range.
+- `prodatagrid.rows.display.removed.count` - Displayed elements removed while trimming viewport.
+- `prodatagrid.rows.measure.skipped.count` - Elements skipped in measure because size was still valid.
+- `prodatagrid.rows.arrange.skipped.count` - Elements skipped in arrange because bounds were unchanged.
+- `prodatagrid.rows.arrange.offscreen.count` - Elements explicitly arranged to offscreen bounds.
 - `prodatagrid.columns.autogen.count` - Columns auto-generated.
 - `prodatagrid.selection.changed.count` - SelectionChanged events raised.
 

@@ -224,7 +224,7 @@ namespace Avalonia.Controls
                 {
                     LoadRowVisualsForDisplay(row);
 
-                    if (_rowsPresenter != null && !_rowsPresenter.Children.Contains(row))
+                    if (!ReferenceEquals(row.VisualParent, _rowsPresenter))
                     {
                         _rowsPresenter.Children.Add(row);
                     }
@@ -246,7 +246,7 @@ namespace Avalonia.Controls
                     if (groupHeader != null)
                     {
                         groupHeader.TotalIndent = (groupHeader.Level == 0) ? 0 : RowGroupSublevelIndents[groupHeader.Level - 1];
-                        if (_rowsPresenter != null && !_rowsPresenter.Children.Contains(groupHeader))
+                        if (!ReferenceEquals(groupHeader.VisualParent, _rowsPresenter))
                         {
                             _rowsPresenter.Children.Add(element);
                         }
@@ -255,7 +255,7 @@ namespace Avalonia.Controls
                     }
                     else if (groupFooter != null)
                     {
-                        if (_rowsPresenter != null && !_rowsPresenter.Children.Contains(groupFooter))
+                        if (!ReferenceEquals(groupFooter.VisualParent, _rowsPresenter))
                         {
                             _rowsPresenter.Children.Add(element);
                         }
@@ -279,8 +279,12 @@ namespace Avalonia.Controls
                     _rowsPresenter.RegisterAnchorCandidate(groupFooter);
                 }
 
-                // Measure the element and update AvailableRowRoom
-                element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                // Avoid redundant measure work during displayed-row scan updates.
+                // Recycled/unchanged elements can already have a valid DesiredSize.
+                if (!element.IsMeasureValid)
+                {
+                    element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                }
                 AvailableSlotElementRoom -= element.DesiredSize.Height;
 
                 var estimator = RowHeightEstimator;

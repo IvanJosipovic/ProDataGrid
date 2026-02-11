@@ -1350,8 +1350,8 @@ internal
                 }
 
                 dataGridColumn.HeaderCell.IsVisible = dataGridColumn.IsVisible;
-                Debug.Assert(!_columnHeadersPresenter.Children.Contains(dataGridColumn.HeaderCell));
-                if (_columnHeadersPresenter.Children.Contains(dataGridColumn.HeaderCell))
+                Debug.Assert(!ReferenceEquals(dataGridColumn.HeaderCell.VisualParent, _columnHeadersPresenter));
+                if (ReferenceEquals(dataGridColumn.HeaderCell.VisualParent, _columnHeadersPresenter))
                 {
                     return;
                 }
