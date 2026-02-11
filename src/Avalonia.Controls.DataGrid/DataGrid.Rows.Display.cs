@@ -722,10 +722,26 @@ namespace Avalonia.Controls
             row.ClearValue(Visual.IsVisibleProperty);
             row.ClearValue(Visual.ClipProperty);
 
+            var searchModel = _searchModel;
+            var highlightMode = searchModel?.HighlightMode ?? SearchHighlightMode.None;
+            bool hasActiveSearchHighlights = HasActiveSearchHighlights();
+            bool highlightCurrent = hasActiveSearchHighlights && searchModel?.HighlightCurrent == true;
+            bool shouldRefreshSearchState = hasActiveSearchHighlights || highlightMode == SearchHighlightMode.TextAndCell;
+            bool shouldShowDetails = GetRowDetailsVisibility(row.Index);
+            bool canUseLightweightState = CanUseLightweightRowVisualRefresh(row, hasActiveSearchHighlights, shouldShowDetails);
+
             // If the row has been recycled, reapply the BackgroundBrush
             if (row.IsRecycled)
             {
-                row.ApplyCellsState();
+                if (canUseLightweightState)
+                {
+                    row.ResetVisibleCellsInteractionState();
+                }
+                else
+                {
+                    row.ApplyCellsState();
+                }
+
                 _rowsPresenter?.InvalidateChildIndex(row);
             }
             else if (row == EditingRow)
@@ -741,23 +757,64 @@ namespace Avalonia.Controls
             // Check to see if the row contains the CurrentCell, apply its state.
             if (CurrentColumnIndex != -1 &&
             CurrentSlot != -1 &&
-            row.Index == CurrentSlot)
+            row.Index == CurrentSlot &&
+            !canUseLightweightState)
             {
                 row.Cells[CurrentColumnIndex].UpdatePseudoClasses();
             }
 
-            row.ApplyState();
+            if (canUseLightweightState)
+            {
+                row.ApplyState(isSelectedOverride: false);
+            }
+            else
+            {
+                row.ApplyState();
+            }
 
             // Show or hide RowDetails based on DataGrid settings
-            EnsureRowDetailsVisibility(row, raiseNotification: false, animate: false);
-
-            if (_searchModel != null)
+            if (!canUseLightweightState || shouldShowDetails)
             {
-                var highlightMode = _searchModel.HighlightMode;
-                bool highlightMatches = highlightMode != SearchHighlightMode.None;
-                bool highlightCurrent = highlightMatches && _searchModel.HighlightCurrent;
-                UpdateSearchStatesForRow(row, highlightMode, highlightMatches, highlightCurrent);
+                EnsureRowDetailsVisibility(row, raiseNotification: false, animate: false);
             }
+
+            if (searchModel != null && shouldRefreshSearchState)
+            {
+                UpdateSearchStatesForRow(row, highlightMode, hasActiveSearchHighlights, highlightCurrent);
+            }
+        }
+
+        private bool CanUseLightweightRowVisualRefresh(
+            DataGridRow row,
+            bool hasActiveSearchHighlights,
+            bool shouldShowDetails)
+        {
+            if (row == null || !row.IsRecycled || row.Slot < 0 || row.Index < 0)
+            {
+                return false;
+            }
+
+            if (SelectionUnit != DataGridSelectionUnit.FullRow)
+            {
+                return false;
+            }
+
+            if (hasActiveSearchHighlights || shouldShowDetails)
+            {
+                return false;
+            }
+
+            if (row == EditingRow || row.IsEditing || CurrentSlot == row.Slot)
+            {
+                return false;
+            }
+
+            if (row.ValidationSeverity != DataGridValidationSeverity.None)
+            {
+                return false;
+            }
+
+            return !GetRowSelection(row.Slot);
         }
 
 
