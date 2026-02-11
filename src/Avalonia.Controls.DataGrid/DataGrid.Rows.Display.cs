@@ -37,6 +37,7 @@ namespace Avalonia.Controls
             double deltaY = -NegVerticalOffset;
             int visibleScrollingRows = 0;
             int scannedSlots = 0;
+            long scanRealizedTicks = 0;
 
             if (_rowsPresenter == null)
             {
@@ -72,7 +73,7 @@ namespace Avalonia.Controls
                 while (slot < SlotCount && !MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
                 {
                     scannedSlots++;
-                    deltaY += GetExactSlotElementHeight(slot);
+                    deltaY += GetDisplayedScanSlotHeight(slot, ref scanRealizedTicks);
                     visibleScrollingRows++;
                     lastDisplayedScrollingSlot = slot;
                     slot = GetNextVisibleSlot(slot);
@@ -84,12 +85,15 @@ namespace Avalonia.Controls
                     if (slot >= 0)
                     {
                         scannedSlots++;
-                        deltaY += GetExactSlotElementHeight(slot);
+                        deltaY += GetDisplayedScanSlotHeight(slot, ref scanRealizedTicks);
                         firstDisplayedScrollingSlot = slot;
                         visibleScrollingRows++;
                     }
                 }
             }
+
+            DataGridDiagnostics.RecordRowsDisplayScanRealizeTime(GetElapsedMilliseconds(scanRealizedTicks));
+
             // If we're up to the first row, and we still have room left, uncover as much of the first row as we can
             if (firstDisplayedScrollingSlot == 0 && MathUtilities.LessThan(deltaY, displayHeight))
             {
@@ -200,6 +204,27 @@ namespace Avalonia.Controls
             return true;
         }
 
+        private double GetDisplayedScanSlotHeight(int slot, ref long scanRealizedTicks)
+        {
+            if (slot >= DisplayData.FirstScrollingSlot &&
+                slot <= DisplayData.LastScrollingSlot)
+            {
+                return DisplayData.GetDisplayedElement(slot).DesiredSize.Height;
+            }
+
+            var startTimestamp = Stopwatch.GetTimestamp();
+            var slotElement = InsertDisplayedElement(slot, updateSlotInformation: true);
+            scanRealizedTicks += Stopwatch.GetTimestamp() - startTimestamp;
+            return slotElement.DesiredSize.Height;
+        }
+
+        private static double GetElapsedMilliseconds(long timestampDelta)
+        {
+            return timestampDelta <= 0
+                ? 0
+                : timestampDelta * 1000.0 / Stopwatch.Frequency;
+        }
+
 
         private void UpdateDisplayedRowsFromBottom(int newLastDisplayedScrollingRow)
         {
@@ -217,6 +242,7 @@ namespace Avalonia.Controls
             double deltaY = 0;
             int visibleScrollingRows = 0;
             int scannedSlots = 0;
+            long scanRealizedTicks = 0;
 
             if (_rowsPresenter == null)
             {
@@ -241,12 +267,14 @@ namespace Avalonia.Controls
                 while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
                 {
                     scannedSlots++;
-                    deltaY += GetExactSlotElementHeight(slot);
+                    deltaY += GetDisplayedScanSlotHeight(slot, ref scanRealizedTicks);
                     visibleScrollingRows++;
                     firstDisplayedScrollingRow = slot;
                     slot = GetPreviousVisibleSlot(slot);
                 }
             }
+
+            DataGridDiagnostics.RecordRowsDisplayScanRealizeTime(GetElapsedMilliseconds(scanRealizedTicks));
 
             DisplayData.NumTotallyDisplayedScrollingElements = deltaY > displayHeight ? visibleScrollingRows - 1 : visibleScrollingRows;
 
