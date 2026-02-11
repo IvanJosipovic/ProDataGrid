@@ -200,7 +200,7 @@ internal static partial class DataGridDiagnostics
 
     public static void RecordRowsDisplayScanRealizeTime(double milliseconds)
     {
-        if (milliseconds > 0)
+        if (!double.IsNaN(milliseconds) && !double.IsInfinity(milliseconds) && milliseconds >= 0)
         {
             s_rowsDisplayScanRealize?.Record(milliseconds);
         }
