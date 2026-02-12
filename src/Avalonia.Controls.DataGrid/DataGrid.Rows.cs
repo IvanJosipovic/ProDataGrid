@@ -687,8 +687,8 @@ internal
                 {
                     if (DataConnection != null && ColumnsItemsInternal.Count > 0)
                     {
-                        var totalSlots = DataConnection.Count + RowGroupHeadersTable.IndexCount + RowGroupFootersTable.IndexCount;
-                        AddSlots(totalSlots);
+                        AddSlots(DataConnection.Count);
+                        AddSlots(DataConnection.Count + RowGroupHeadersTable.IndexCount + RowGroupFootersTable.IndexCount);
 
                         InvalidateMeasure();
                     }

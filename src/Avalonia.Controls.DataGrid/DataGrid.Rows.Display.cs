@@ -36,7 +36,6 @@ namespace Avalonia.Controls
             int lastDisplayedScrollingSlot = -1;
             double deltaY = -NegVerticalOffset;
             int visibleScrollingRows = 0;
-            int scannedSlots = 0;
 
             if (_rowsPresenter == null)
             {
@@ -56,38 +55,23 @@ namespace Avalonia.Controls
                 firstDisplayedScrollingSlot = 0;
             }
 
-            using (DataGridDiagnostics.BeginRowsDisplayScan())
+            int slot = firstDisplayedScrollingSlot;
+            while (slot < SlotCount && !MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
             {
-                if (TryReuseDisplayedRows(firstDisplayedScrollingSlot, displayHeight, ref scannedSlots))
-                {
-                    DataGridDiagnostics.RecordRowsDisplayReused();
-                    DataGridDiagnostics.RecordRowsDisplayScanned(scannedSlots);
-                    activity?.SetTag(DataGridDiagnostics.Tags.FirstDisplayedSlot, DisplayData.FirstScrollingSlot);
-                    activity?.SetTag(DataGridDiagnostics.Tags.LastDisplayedSlot, DisplayData.LastScrollingSlot);
-                    activity?.SetTag(DataGridDiagnostics.Tags.DisplayedSlots, DisplayData.NumDisplayedScrollingElements);
-                    return;
-                }
+                deltaY += GetExactSlotElementHeight(slot);
+                visibleScrollingRows++;
+                lastDisplayedScrollingSlot = slot;
+                slot = GetNextVisibleSlot(slot);
+            }
 
-                int slot = firstDisplayedScrollingSlot;
-                while (slot < SlotCount && !MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
+            while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
+            {
+                slot = GetPreviousVisibleSlot(firstDisplayedScrollingSlot);
+                if (slot >= 0)
                 {
-                    scannedSlots++;
                     deltaY += GetExactSlotElementHeight(slot);
+                    firstDisplayedScrollingSlot = slot;
                     visibleScrollingRows++;
-                    lastDisplayedScrollingSlot = slot;
-                    slot = GetNextVisibleSlot(slot);
-                }
-
-                while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
-                {
-                    slot = GetPreviousVisibleSlot(firstDisplayedScrollingSlot);
-                    if (slot >= 0)
-                    {
-                        scannedSlots++;
-                        deltaY += GetExactSlotElementHeight(slot);
-                        firstDisplayedScrollingSlot = slot;
-                        visibleScrollingRows++;
-                    }
                 }
             }
             // If we're up to the first row, and we still have room left, uncover as much of the first row as we can
@@ -114,14 +98,7 @@ namespace Avalonia.Controls
 
             Debug.Assert(lastDisplayedScrollingSlot < SlotCount, "lastDisplayedScrollingRow larger than number of rows");
 
-            int removedElements;
-            using (DataGridDiagnostics.BeginRowsDisplayTrim())
-            {
-                removedElements = RemoveNonDisplayedRows(firstDisplayedScrollingSlot, lastDisplayedScrollingSlot);
-            }
-
-            DataGridDiagnostics.RecordRowsDisplayScanned(scannedSlots);
-            DataGridDiagnostics.RecordRowsDisplayRemoved(removedElements);
+            RemoveNonDisplayedRows(firstDisplayedScrollingSlot, lastDisplayedScrollingSlot);
 
             Debug.Assert(DisplayData.NumDisplayedScrollingElements >= 0, "the number of visible scrolling rows can't be negative");
             Debug.Assert(DisplayData.NumTotallyDisplayedScrollingElements >= 0, "the number of totally visible scrolling rows can't be negative");
@@ -132,72 +109,6 @@ namespace Avalonia.Controls
             activity?.SetTag(DataGridDiagnostics.Tags.FirstDisplayedSlot, DisplayData.FirstScrollingSlot);
             activity?.SetTag(DataGridDiagnostics.Tags.LastDisplayedSlot, DisplayData.LastScrollingSlot);
             activity?.SetTag(DataGridDiagnostics.Tags.DisplayedSlots, DisplayData.NumDisplayedScrollingElements);
-        }
-
-        private bool TryReuseDisplayedRows(int firstDisplayedScrollingSlot, double displayHeight, ref int scannedSlots)
-        {
-            if (firstDisplayedScrollingSlot != DisplayData.FirstScrollingSlot ||
-                DisplayData.FirstScrollingSlot < 0 ||
-                DisplayData.LastScrollingSlot < DisplayData.FirstScrollingSlot)
-            {
-                return false;
-            }
-
-            int displayedCount = DisplayData.NumDisplayedScrollingElements;
-            if (displayedCount <= 0)
-            {
-                return false;
-            }
-
-            double deltaY = -NegVerticalOffset;
-            int visibleScrollingRows = 0;
-            foreach (Control element in DisplayData.GetScrollingElements())
-            {
-                scannedSlots++;
-                deltaY += element.DesiredSize.Height;
-                visibleScrollingRows++;
-
-                if (MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
-                {
-                    // If we hit the target height before consuming all displayed rows,
-                    // the viewport needs trimming and we must recompute using exact slots.
-                    if (visibleScrollingRows < displayedCount)
-                    {
-                        return false;
-                    }
-
-                    DisplayData.NumTotallyDisplayedScrollingElements =
-                        (MathUtilities.GreaterThan(deltaY, displayHeight) ||
-                         (MathUtilities.AreClose(deltaY, displayHeight) && MathUtilities.GreaterThan(NegVerticalOffset, 0)))
-                            ? visibleScrollingRows - 1
-                            : visibleScrollingRows;
-                    return true;
-                }
-            }
-
-            // If we're up to the first row, and we still have room left, uncover as much of
-            // the first row as we can without forcing a full row-range recomputation.
-            if (DisplayData.FirstScrollingSlot == 0 && MathUtilities.LessThan(deltaY, displayHeight))
-            {
-                double newNegVerticalOffset = Math.Max(0, NegVerticalOffset - displayHeight + deltaY);
-                deltaY += NegVerticalOffset - newNegVerticalOffset;
-                NegVerticalOffset = newNegVerticalOffset;
-            }
-
-            // We don't have enough displayed height and there are more slots below,
-            // so we need the full update path to realize additional rows.
-            if (MathUtilities.LessThan(deltaY, displayHeight) &&
-                GetNextVisibleSlot(DisplayData.LastScrollingSlot) >= 0)
-            {
-                return false;
-            }
-
-            DisplayData.NumTotallyDisplayedScrollingElements =
-                (MathUtilities.GreaterThan(deltaY, displayHeight) ||
-                 (MathUtilities.AreClose(deltaY, displayHeight) && MathUtilities.GreaterThan(NegVerticalOffset, 0)))
-                    ? visibleScrollingRows - 1
-                    : visibleScrollingRows;
-            return true;
         }
 
 
@@ -216,7 +127,6 @@ namespace Avalonia.Controls
             double displayHeight = CellsEstimatedHeight;
             double deltaY = 0;
             int visibleScrollingRows = 0;
-            int scannedSlots = 0;
 
             if (_rowsPresenter == null)
             {
@@ -235,17 +145,13 @@ namespace Avalonia.Controls
                 lastDisplayedScrollingRow = 0;
             }
 
-            using (DataGridDiagnostics.BeginRowsDisplayScan())
+            int slot = lastDisplayedScrollingRow;
+            while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
             {
-                int slot = lastDisplayedScrollingRow;
-                while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
-                {
-                    scannedSlots++;
-                    deltaY += GetExactSlotElementHeight(slot);
-                    visibleScrollingRows++;
-                    firstDisplayedScrollingRow = slot;
-                    slot = GetPreviousVisibleSlot(slot);
-                }
+                deltaY += GetExactSlotElementHeight(slot);
+                visibleScrollingRows++;
+                firstDisplayedScrollingRow = slot;
+                slot = GetPreviousVisibleSlot(slot);
             }
 
             DisplayData.NumTotallyDisplayedScrollingElements = deltaY > displayHeight ? visibleScrollingRows - 1 : visibleScrollingRows;
@@ -255,14 +161,7 @@ namespace Avalonia.Controls
 
             NegVerticalOffset = Math.Max(0, deltaY - displayHeight);
 
-            int removedElements;
-            using (DataGridDiagnostics.BeginRowsDisplayTrim())
-            {
-                removedElements = RemoveNonDisplayedRows(firstDisplayedScrollingRow, lastDisplayedScrollingRow);
-            }
-
-            DataGridDiagnostics.RecordRowsDisplayScanned(scannedSlots);
-            DataGridDiagnostics.RecordRowsDisplayRemoved(removedElements);
+            RemoveNonDisplayedRows(firstDisplayedScrollingRow, lastDisplayedScrollingRow);
 
             Debug.Assert(DisplayData.NumDisplayedScrollingElements >= 0, "the number of visible scrolling rows can't be negative");
             Debug.Assert(DisplayData.NumTotallyDisplayedScrollingElements >= 0, "the number of totally visible scrolling rows can't be negative");
@@ -275,23 +174,18 @@ namespace Avalonia.Controls
 
 
 
-        private int RemoveNonDisplayedRows(int newFirstDisplayedSlot, int newLastDisplayedSlot)
+        private void RemoveNonDisplayedRows(int newFirstDisplayedSlot, int newLastDisplayedSlot)
         {
-            int removedCount = 0;
             while (DisplayData.FirstScrollingSlot < newFirstDisplayedSlot)
             {
                 // Need to add rows above the lastDisplayedScrollingRow
                 RemoveDisplayedElement(DisplayData.FirstScrollingSlot, false /*wasDeleted*/, true /*updateSlotInformation*/);
-                removedCount++;
             }
             while (DisplayData.LastScrollingSlot > newLastDisplayedSlot)
             {
                 // Need to remove rows below the lastDisplayedScrollingRow
                 RemoveDisplayedElement(DisplayData.LastScrollingSlot, false /*wasDeleted*/, true /*updateSlotInformation*/);
-                removedCount++;
             }
-
-            return removedCount;
         }
 
 

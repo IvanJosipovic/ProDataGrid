@@ -2,7 +2,6 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System.Collections.Generic;
-using Avalonia.Headless.XUnit;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Summaries;
@@ -14,7 +13,7 @@ public class DataGridSummaryCalculatorTests
 {
     #region Sum Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void SumCalculator_Returns_Sum_Of_Integer_Values()
     {
         var items = new List<TestItem>
@@ -35,7 +34,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(60m, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void SumCalculator_Returns_Sum_Of_Double_Values()
     {
         var items = new List<TestItem>
@@ -56,7 +55,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(61.5m, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void SumCalculator_Uses_ValueAccessor_When_No_Path()
     {
         var items = new List<TestItem>
@@ -78,7 +77,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(12m, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void SumCalculator_Returns_Null_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -94,7 +93,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Null(result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void SumCalculator_Ignores_Null_Values()
     {
         var items = new List<TestItem>
@@ -119,7 +118,7 @@ public class DataGridSummaryCalculatorTests
 
     #region Average Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void AverageCalculator_Returns_Average_Of_Values()
     {
         var items = new List<TestItem>
@@ -140,7 +139,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(20m, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void AverageCalculator_Returns_Null_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -156,7 +155,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Null(result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void AverageCalculator_Handles_Decimal_Results()
     {
         var items = new List<TestItem>
@@ -180,7 +179,7 @@ public class DataGridSummaryCalculatorTests
 
     #region Count Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void CountCalculator_Returns_Total_Count()
     {
         var items = new List<TestItem>
@@ -201,7 +200,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(3, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void CountCalculator_Returns_Zero_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -221,7 +220,7 @@ public class DataGridSummaryCalculatorTests
 
     #region Count Distinct Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void CountDistinctCalculator_Returns_Distinct_Count()
     {
         var items = new List<TestItem>
@@ -244,7 +243,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(3, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void CountDistinctCalculator_Returns_Zero_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -264,7 +263,7 @@ public class DataGridSummaryCalculatorTests
 
     #region Min Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void MinCalculator_Returns_Minimum_Value()
     {
         var items = new List<TestItem>
@@ -285,7 +284,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(10, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void MinCalculator_Returns_Null_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -301,7 +300,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Null(result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void MinCalculator_Works_With_Strings()
     {
         var items = new List<TestItem>
@@ -326,7 +325,7 @@ public class DataGridSummaryCalculatorTests
 
     #region Max Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void MaxCalculator_Returns_Maximum_Value()
     {
         var items = new List<TestItem>
@@ -347,7 +346,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(30, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void MaxCalculator_Returns_Null_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -363,7 +362,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Null(result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void MaxCalculator_Works_With_Strings()
     {
         var items = new List<TestItem>
@@ -388,7 +387,7 @@ public class DataGridSummaryCalculatorTests
 
     #region First Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void FirstCalculator_Returns_First_Value()
     {
         var items = new List<TestItem>
@@ -409,7 +408,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(10, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void FirstCalculator_Returns_Null_For_Empty_Collection()
     {
         var items = new List<TestItem>();
@@ -429,7 +428,7 @@ public class DataGridSummaryCalculatorTests
 
     #region Last Calculator Tests
 
-    [AvaloniaFact]
+    [Fact]
     public void LastCalculator_Returns_Last_Value()
     {
         var items = new List<TestItem>
@@ -450,7 +449,7 @@ public class DataGridSummaryCalculatorTests
         Assert.Equal(30, result);
     }
 
-    [AvaloniaFact]
+    [Fact]
     public void LastCalculator_Returns_Null_For_Empty_Collection()
     {
         var items = new List<TestItem>();
