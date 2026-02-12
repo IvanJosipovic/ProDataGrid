@@ -12,7 +12,12 @@ namespace Avalonia.Controls.Themes;
 /// <summary>
 /// Fluent DataGrid theme resource host with density switching support.
 /// </summary>
-public partial class DataGridFluentTheme : Styles, IResourceNode
+#if !DATAGRID_INTERNAL
+public
+#else
+internal
+#endif
+partial class DataGridFluentTheme : Styles, IResourceNode
 {
     readonly ResourceDictionary _compactStyles;
     DataGridDensityStyle _densityStyle;

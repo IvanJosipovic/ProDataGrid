@@ -6,7 +6,12 @@ namespace Avalonia.Controls.Themes;
 /// <summary>
 /// Defines density presets for DataGrid theme resources.
 /// </summary>
-public enum DataGridDensityStyle
+#if !DATAGRID_INTERNAL
+public
+#else
+internal
+#endif
+enum DataGridDensityStyle
 {
     /// <summary>
     /// Uses default control sizing.
