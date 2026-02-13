@@ -286,14 +286,20 @@ internal
                     collapsedSlotCount,
                     detailsCount);
 
-                // Height of all rows above the viewport
-                double totalRowsHeight = _verticalOffset - NegVerticalOffset;
+                // Height represented by realized viewport state:
+                // rows above first displayed row + all currently displayed rows.
+                double realizedHeight = _verticalOffset - NegVerticalOffset;
 
                 // Add the height of all the rows currently displayed
                 foreach (double height in displayedHeights)
                 {
-                    totalRowsHeight += height;
+                    realizedHeight += height;
                 }
+
+                realizedHeight = Math.Max(0, realizedHeight);
+
+                // Height of all rows above the viewport
+                double totalRowsHeight = realizedHeight;
 
                 // Get the effective row details estimate
                 double rowDetailsEstimate = estimator?.RowDetailsHeightEstimate ?? RowDetailsHeightEstimate;
@@ -317,7 +323,45 @@ internal
                     var totalCollapsed = _collapsedSlotsTable.GetIndexCount(0, SlotCount - 1);
                     var totalDetails = GetDetailsCountInclusive(0, SlotCount - 1);
                     var rowGroupHeaderCounts = GetVisibleRowGroupHeaderCounts();
-                    return estimator.CalculateTotalHeight(SlotCount, totalCollapsed, rowGroupHeaderCounts, totalDetails);
+                    double estimatedTotalHeight = estimator.CalculateTotalHeight(SlotCount, totalCollapsed, rowGroupHeaderCounts, totalDetails);
+
+                    // Never let estimated extent shrink below what is already represented by realized rows.
+                    estimatedTotalHeight = Math.Max(estimatedTotalHeight, realizedHeight);
+
+                    int displayedLastSlot = DisplayData.LastScrollingSlot;
+                    int lastVisibleSlot = LastVisibleSlot;
+
+                    // At visual tail, the realized rows represent the end of content.
+                    // Use realized content height to keep logical max aligned with the true bottom.
+                    if (displayedLastSlot >= 0 &&
+                        lastVisibleSlot >= 0 &&
+                        displayedLastSlot >= lastVisibleSlot)
+                    {
+                        return realizedHeight;
+                    }
+
+                    // Keep a positive remaining scroll range while there are still undisplayed rows below.
+                    // This avoids getting stuck at an underestimated logical maximum before visual tail.
+                    if (displayedLastSlot >= 0 && lastVisibleSlot >= 0 && displayedLastSlot < lastVisibleSlot)
+                    {
+                        int nextSlot = GetNextVisibleSlot(displayedLastSlot);
+                        if (nextSlot == -1 || nextSlot >= SlotCount)
+                        {
+                            nextSlot = lastVisibleSlot;
+                        }
+
+                        double nextSlotHeight = GetSlotElementHeight(nextSlot);
+                        if (double.IsNaN(nextSlotHeight) || MathUtilities.LessThanOrClose(nextSlotHeight, 0))
+                        {
+                            nextSlotHeight = Math.Max(1, RowHeightEstimate);
+                        }
+
+                        estimatedTotalHeight = Math.Max(
+                            estimatedTotalHeight,
+                            realizedHeight + Math.Max(nextSlotHeight, MathUtilities.DoubleEpsilon));
+                    }
+
+                    return estimatedTotalHeight;
                 }
 
                 // Calculate estimates for what's beyond the viewport

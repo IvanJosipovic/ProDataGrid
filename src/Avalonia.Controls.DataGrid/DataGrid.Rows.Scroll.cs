@@ -31,6 +31,9 @@ namespace Avalonia.Controls
 
             Debug.Assert(DisplayData.FirstScrollingSlot >= 0);
             Debug.Assert(!MathUtilities.IsZero(height));
+            int previousFirstScrollingSlot = DisplayData.FirstScrollingSlot;
+            double previousNegVerticalOffset = NegVerticalOffset;
+            double previousVerticalOffset = _verticalOffset;
 
             _scrollingByHeight = true;
             try
@@ -231,8 +234,10 @@ namespace Avalonia.Controls
                 UpdateDisplayedRows(newFirstScrollingSlot, CellsEstimatedHeight);
 
                 double firstElementHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
+                bool atVisualTail = DisplayData.LastScrollingSlot >= 0 &&
+                                    DisplayData.LastScrollingSlot >= LastVisibleSlot;
                 var firstRowEstimator = RowHeightEstimator;
-                if (firstRowEstimator != null)
+                if (firstRowEstimator != null && !atVisualTail)
                 {
                     double baseOffset = EstimateOffsetToVisibleSlot(DisplayData.FirstScrollingSlot, firstRowEstimator);
                     if (!double.IsNaN(baseOffset) && !double.IsInfinity(baseOffset))
@@ -310,24 +315,6 @@ namespace Avalonia.Controls
                     _verticalOffset = newVerticalOffset;
                 }
 
-                var offsetEstimator = RowHeightEstimator;
-                if (offsetEstimator != null && DisplayData.FirstScrollingSlot >= 0)
-                {
-                    double baseOffset = EstimateOffsetToVisibleSlot(DisplayData.FirstScrollingSlot, offsetEstimator);
-                    double alignedVerticalOffset = baseOffset + NegVerticalOffset;
-                    if (!double.IsNaN(alignedVerticalOffset) && !double.IsInfinity(alignedVerticalOffset))
-                    {
-                        _verticalOffset = Math.Max(0, alignedVerticalOffset);
-
-                        // Adjust NegVerticalOffset to keep it consistent with estimator-aligned base offset
-                        double correctedNegOffset = Math.Max(0, _verticalOffset - baseOffset);
-                        if (!MathUtilities.AreClose(correctedNegOffset, NegVerticalOffset))
-                        {
-                            NegVerticalOffset = correctedNegOffset;
-                        }
-                    }
-                }
-
                 if (DisplayData.FirstScrollingSlot < 0)
                 {
                     DisplayData.FirstScrollingSlot = 0;
@@ -349,6 +336,17 @@ namespace Avalonia.Controls
                 else if (MathUtilities.LessThan(NegVerticalOffset, 0))
                 {
                     NegVerticalOffset = 0;
+                }
+
+                // If scrolling request resulted in no visual position change (same first slot and same
+                // partial-row offset), keep the logical vertical offset stable to avoid drift at edges.
+                bool noVisualPositionChange =
+                    DisplayData.FirstScrollingSlot == previousFirstScrollingSlot &&
+                    MathUtilities.AreClose(NegVerticalOffset, previousNegVerticalOffset);
+
+                if (noVisualPositionChange)
+                {
+                    _verticalOffset = previousVerticalOffset;
                 }
 
                 Debug.Assert(!(_verticalOffset == 0 && NegVerticalOffset == 0 && DisplayData.FirstScrollingSlot > 0));
