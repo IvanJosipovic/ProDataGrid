@@ -498,9 +498,12 @@ namespace Avalonia.Controls
                         if (rowGroupInfo.Slot < DisplayData.FirstScrollingSlot)
                         {
                             double heightChange = UpdateRowGroupVisibility(rowGroupInfo, isVisible, isDisplayed: false);
-                            // Use epsilon instead of 0 here so that in the off chance that our estimates put the vertical offset negative
-                            // the user can still scroll to the top since the offset is non-zero
-                            SetVerticalOffset(Math.Max(MathUtilities.DoubleEpsilon, _verticalOffset + heightChange));
+                            if (!UseLogicalScrollable)
+                            {
+                                // Use epsilon instead of 0 here so that in the off chance that our estimates put the vertical offset negative
+                                // the user can still scroll to the top since the offset is non-zero
+                                SetVerticalOffset(Math.Max(MathUtilities.DoubleEpsilon, _verticalOffset + heightChange));
+                            }
                         }
                         else
                         {
@@ -823,8 +826,80 @@ namespace Avalonia.Controls
             UpdateRowGroupVisibility(groupHeader.RowGroupInfo, newIsVisible, isDisplayed: true);
 
             ComputeScrollBarsLayout();
+            RefreshLogicalScrollStateAfterGroupingVisibilityChange();
             // We need force arrange since our Scrollings Rows could update without automatically triggering layout
             InvalidateRowsArrange();
+        }
+
+        private void RefreshLogicalScrollStateAfterGroupingVisibilityChange()
+        {
+            if (!UseLogicalScrollable)
+            {
+                return;
+            }
+
+            DisplayData.PendingVerticalScrollHeight = 0;
+            AlignLogicalVerticalOffsetToVisibleAnchor();
+            InvalidateRowsMeasure(invalidateIndividualElements: false);
+            SyncLogicalScrollableOffset();
+        }
+
+        private void AlignLogicalVerticalOffsetToVisibleAnchor()
+        {
+            int firstVisibleSlot = NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
+            if (firstVisibleSlot == -1)
+            {
+                ResetDisplayedRows();
+                NegVerticalOffset = 0;
+                SetVerticalOffset(0);
+                return;
+            }
+
+            if (DisplayData.FirstScrollingSlot != firstVisibleSlot)
+            {
+                DisplayData.FirstScrollingSlot = firstVisibleSlot;
+            }
+
+            double firstHeight = GetExactSlotElementHeight(firstVisibleSlot);
+            if (double.IsNaN(firstHeight) || MathUtilities.LessThanOrClose(firstHeight, 0))
+            {
+                firstHeight = Math.Max(1, RowHeightEstimate);
+            }
+
+            if (MathUtilities.GreaterThanOrClose(NegVerticalOffset, firstHeight))
+            {
+                NegVerticalOffset = Math.Max(0, firstHeight - MathUtilities.DoubleEpsilon);
+            }
+            else if (MathUtilities.LessThan(NegVerticalOffset, 0))
+            {
+                NegVerticalOffset = 0;
+            }
+
+            var estimator = RowHeightEstimator;
+            double baseOffset;
+            if (estimator != null)
+            {
+                baseOffset = EstimateOffsetToVisibleSlot(firstVisibleSlot, estimator);
+            }
+            else
+            {
+                int collapsedBefore = firstVisibleSlot > 0
+                    ? _collapsedSlotsTable.GetIndexCount(0, firstVisibleSlot - 1)
+                    : 0;
+                int visibleBefore = Math.Max(0, firstVisibleSlot - collapsedBefore);
+                baseOffset = visibleBefore * RowHeightEstimate;
+            }
+
+            if (double.IsNaN(baseOffset) || double.IsInfinity(baseOffset))
+            {
+                baseOffset = 0;
+            }
+
+            double desiredOffset = Math.Max(0, baseOffset + NegVerticalOffset);
+            if (!MathUtilities.AreClose(_verticalOffset, desiredOffset))
+            {
+                SetVerticalOffset(desiredOffset);
+            }
         }
 
         internal void SyncRowGroupHeaderInfo(DataGridRowGroupHeader groupHeader, DataGridRowGroupInfo rowGroupInfo)
@@ -985,6 +1060,7 @@ namespace Avalonia.Controls
             }
 
             ComputeScrollBarsLayout();
+            RefreshLogicalScrollStateAfterGroupingVisibilityChange();
             InvalidateRowsArrange();
         }
 
@@ -1014,6 +1090,7 @@ namespace Avalonia.Controls
             }
 
             ComputeScrollBarsLayout();
+            RefreshLogicalScrollStateAfterGroupingVisibilityChange();
             InvalidateRowsArrange();
         }
 
@@ -1048,6 +1125,8 @@ namespace Avalonia.Controls
                     }
                 }
             }
+
+            RefreshLogicalScrollStateAfterGroupingVisibilityChange();
         }
 
 
@@ -1082,6 +1161,8 @@ namespace Avalonia.Controls
                     }
                 }
             }
+
+            RefreshLogicalScrollStateAfterGroupingVisibilityChange();
         }
 
 
