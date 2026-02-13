@@ -3552,6 +3552,57 @@ public class DataGridScrollingTests
     }
 
     [AvaloniaFact]
+    public void Grouped_DataGrid_CollapseAllGroups_Keeps_Legacy_Scrollbar_And_Header_Slots_In_Sync()
+    {
+        var items = Enumerable.Range(0, 800)
+            .Select(x => new GroupableTestModel($"Item {x}", $"Group {x / 20}"))
+            .ToList();
+        var target = CreateGroupedTarget(items, height: 260, useLogicalScrollable: false);
+        target.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
+        target.UpdateLayout();
+
+        var verticalBar = target.GetSelfAndVisualDescendants()
+            .OfType<ScrollBar>()
+            .First(sb => sb.Orientation == Orientation.Vertical);
+
+        target.ScrollIntoView(items[^1], target.ColumnDefinitions[0]);
+        target.UpdateLayout();
+
+        var maxBeforeCollapse = verticalBar.Maximum;
+
+        target.CollapseAllGroups();
+        target.UpdateLayout();
+
+        Assert.True(verticalBar.Maximum <= maxBeforeCollapse + 0.01,
+            $"Expected legacy range to shrink after CollapseAllGroups. Before: {maxBeforeCollapse}, After: {verticalBar.Maximum}");
+
+        var requested = Math.Max(0, verticalBar.Maximum - 2);
+        verticalBar.Value = requested;
+        target.ProcessVerticalScroll(ScrollEventType.ThumbTrack);
+        target.UpdateLayout();
+
+        var offset = target.GetVerticalOffset();
+        Assert.InRange(Math.Abs(offset - requested), 0, 0.01);
+
+        var displayData = target.DisplayData;
+        var getDisplayedElement = displayData.GetType()
+            .GetMethod("GetDisplayedElement", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+        Assert.NotNull(getDisplayedElement);
+
+        foreach (var header in GetGroupHeaders(target).Where(h => h.IsVisible))
+        {
+            var slot = header.RowGroupInfo?.Slot ?? -1;
+            if (slot < displayData.FirstScrollingSlot || slot > displayData.LastScrollingSlot)
+            {
+                continue;
+            }
+
+            var elementAtSlot = getDisplayedElement!.Invoke(displayData, new object[] { slot });
+            Assert.IsType<DataGridRowGroupHeader>(elementAtSlot);
+        }
+    }
+
+    [AvaloniaFact]
     public void Grouped_DataGrid_Logical_Collapse_Updates_RowsPresenter_Extent()
     {
         var root = new Window

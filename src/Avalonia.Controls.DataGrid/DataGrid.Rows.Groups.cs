@@ -477,42 +477,92 @@ namespace Avalonia.Controls
             {
                 return;
             }
-            if (rowGroupInfo.IsVisible != isVisible)
+            if (rowGroupInfo.IsVisible == isVisible)
             {
-                if (IsSlotVisible(rowGroupInfo.Slot))
+                return;
+            }
+
+            if (IsSlotVisible(rowGroupInfo.Slot))
+            {
+                if (TryGetDisplayedRowGroupHeader(rowGroupInfo.Slot, out DataGridRowGroupHeader rowGroupHeader))
                 {
-                    DataGridRowGroupHeader rowGroupHeader = DisplayData.GetDisplayedElement(rowGroupInfo.Slot) as DataGridRowGroupHeader;
-                    Debug.Assert(rowGroupHeader != null);
                     rowGroupHeader.ToggleExpandCollapse(isVisible, setCurrent);
+                    return;
+                }
+
+                // A stale slot->element mapping can transiently surface a row at this slot.
+                // Apply the same displayed-path update used by header toggles to recover.
+                ApplyDisplayedRowGroupVisibility(rowGroupInfo, isVisible, setCurrent);
+                return;
+            }
+
+            if (_collapsedSlotsTable.Contains(rowGroupInfo.Slot))
+            {
+                // Somewhere up the parent chain, there's a collapsed header so all the slots remain the same and
+                // we just need to mark this header with the new visibility
+                rowGroupInfo.IsVisible = isVisible;
+            }
+            else
+            {
+                if (rowGroupInfo.Slot < DisplayData.FirstScrollingSlot)
+                {
+                    double heightChange = UpdateRowGroupVisibility(rowGroupInfo, isVisible, isDisplayed: false);
+                    if (!UseLogicalScrollable)
+                    {
+                        // Use epsilon instead of 0 here so that in the off chance that our estimates put the vertical offset negative
+                        // the user can still scroll to the top since the offset is non-zero
+                        SetVerticalOffset(Math.Max(MathUtilities.DoubleEpsilon, _verticalOffset + heightChange));
+                    }
                 }
                 else
                 {
-                    if (_collapsedSlotsTable.Contains(rowGroupInfo.Slot))
-                    {
-                        // Somewhere up the parent chain, there's a collapsed header so all the slots remain the same and
-                        // we just need to mark this header with the new visibility
-                        rowGroupInfo.IsVisible = isVisible;
-                    }
-                    else
-                    {
-                        if (rowGroupInfo.Slot < DisplayData.FirstScrollingSlot)
-                        {
-                            double heightChange = UpdateRowGroupVisibility(rowGroupInfo, isVisible, isDisplayed: false);
-                            if (!UseLogicalScrollable)
-                            {
-                                // Use epsilon instead of 0 here so that in the off chance that our estimates put the vertical offset negative
-                                // the user can still scroll to the top since the offset is non-zero
-                                SetVerticalOffset(Math.Max(MathUtilities.DoubleEpsilon, _verticalOffset + heightChange));
-                            }
-                        }
-                        else
-                        {
-                            UpdateRowGroupVisibility(rowGroupInfo, isVisible, isDisplayed: false);
-                        }
-                        UpdateVerticalScrollBar();
-                    }
+                    UpdateRowGroupVisibility(rowGroupInfo, isVisible, isDisplayed: false);
                 }
+                UpdateVerticalScrollBar();
             }
+        }
+
+        private bool TryGetDisplayedRowGroupHeader(int slot, out DataGridRowGroupHeader rowGroupHeader)
+        {
+            rowGroupHeader = null;
+            if (!IsSlotVisible(slot) || DisplayData.NumDisplayedScrollingElements == 0)
+            {
+                return false;
+            }
+
+            if (DisplayData.GetDisplayedElement(slot) is DataGridRowGroupHeader displayedHeader)
+            {
+                rowGroupHeader = displayedHeader;
+                return true;
+            }
+
+            int firstVisibleSlot = NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
+            if (firstVisibleSlot == -1)
+            {
+                return false;
+            }
+
+            UpdateDisplayedRows(firstVisibleSlot, CellsEstimatedHeight);
+            if (!IsSlotVisible(slot))
+            {
+                return false;
+            }
+
+            rowGroupHeader = DisplayData.GetDisplayedElement(slot) as DataGridRowGroupHeader;
+            return rowGroupHeader != null;
+        }
+
+        private void ApplyDisplayedRowGroupVisibility(DataGridRowGroupInfo rowGroupInfo, bool isVisible, bool setCurrent)
+        {
+            if (setCurrent && CurrentSlot != rowGroupInfo.Slot)
+            {
+                UpdateSelectionAndCurrency(CurrentColumnIndex, rowGroupInfo.Slot, DataGridSelectionAction.SelectCurrent, scrollIntoView: false);
+            }
+
+            UpdateRowGroupVisibility(rowGroupInfo, isVisible, isDisplayed: true);
+            ComputeScrollBarsLayout();
+            RefreshLogicalScrollStateAfterGroupingVisibilityChange();
+            InvalidateRowsArrange();
         }
 
 
@@ -857,7 +907,15 @@ namespace Avalonia.Controls
 
             if (DisplayData.FirstScrollingSlot != firstVisibleSlot)
             {
-                DisplayData.FirstScrollingSlot = firstVisibleSlot;
+                UpdateDisplayedRows(firstVisibleSlot, CellsEstimatedHeight);
+                firstVisibleSlot = NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
+                if (firstVisibleSlot == -1)
+                {
+                    ResetDisplayedRows();
+                    NegVerticalOffset = 0;
+                    SetVerticalOffset(0);
+                    return;
+                }
             }
 
             double firstHeight = GetExactSlotElementHeight(firstVisibleSlot);
