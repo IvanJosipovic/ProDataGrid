@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Xunit;
@@ -8,7 +9,7 @@ namespace Avalonia.Controls.DataGridTests.Columns;
 
 public class DataGridComboBoxHyperlinkColumnTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void ComboBox_SortMemberPath_Comes_From_SelectedItemBinding()
     {
         var column = new DataGridComboBoxColumn
@@ -19,7 +20,7 @@ public class DataGridComboBoxHyperlinkColumnTests
         Assert.Equal("Status", column.SortMemberPath);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ComboBox_SortMemberPath_Is_Not_Overridden_When_Set()
     {
         var column = new DataGridComboBoxColumn
@@ -32,7 +33,7 @@ public class DataGridComboBoxHyperlinkColumnTests
         Assert.Equal("Manual", column.SortMemberPath);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ComboBox_IsReadOnly_When_Binding_Is_OneWay()
     {
         var column = new DataGridComboBoxColumn
@@ -43,7 +44,7 @@ public class DataGridComboBoxHyperlinkColumnTests
         Assert.True(column.IsReadOnly);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ComboBox_PrepareCellForEdit_Opens_Dropdown_On_AltDown()
     {
         var column = new TestComboBoxColumn();
@@ -59,7 +60,7 @@ public class DataGridComboBoxHyperlinkColumnTests
         Assert.True(combo.IsDropDownOpen);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Hyperlink_ClipboardContentBinding_Prefers_ContentBinding()
     {
         var contentBinding = new Binding("Title");
@@ -72,7 +73,7 @@ public class DataGridComboBoxHyperlinkColumnTests
         Assert.Same(column.ContentBinding, column.ClipboardContentBinding);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Hyperlink_TargetName_Refreshes_Element()
     {
         var column = new DataGridHyperlinkColumn
