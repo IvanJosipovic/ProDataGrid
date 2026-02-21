@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.DataGridHierarchical;
@@ -244,6 +245,56 @@ public class DataGridMouseOverRowTests
         }
     }
 
+    [AvaloniaFact]
+    public void MouseOverRowIndex_Clears_When_Pointer_Moves_From_Row_To_GroupHeader()
+    {
+        var item1 = new GroupedItem("Alpha", "G1");
+        var item2 = new GroupedItem("Beta", "G1");
+        var item3 = new GroupedItem("Gamma", "G2");
+        var item4 = new GroupedItem("Delta", "G2");
+        var items = new ObservableCollection<GroupedItem> { item1, item2, item3, item4 };
+
+        var (grid, root) = CreateGroupedGrid(items);
+        try
+        {
+            PumpLayout(grid);
+
+            var row = FindRow(item4, grid);
+            var header = grid.GetVisualDescendants()
+                .OfType<DataGridRowGroupHeader>()
+                .First(candidate =>
+                    candidate.IsVisible &&
+                    Equals(candidate.RowGroupInfo?.CollectionViewGroup?.Key, item4.Group));
+
+            var rowPoint = row.TranslatePoint(new Point(5, 5), grid);
+            Assert.NotNull(rowPoint);
+
+            var headerPoint = header.TranslatePoint(new Point(5, Math.Max(1, header.Bounds.Height / 2)), grid);
+            Assert.NotNull(headerPoint);
+
+            ((IInputRoot)root).PointerOverElement = row;
+            RaisePointerMovedActivity(grid, rowPoint.Value);
+            grid.MouseOverRowIndex = row.Index;
+
+            Assert.Equal(row.Index, grid.MouseOverRowIndex);
+            Assert.True(((IPseudoClasses)row.Classes).Contains(":pointerover"));
+            AssertSinglePointerOverRow(grid, row);
+
+            ((IInputRoot)root).PointerOverElement = header;
+            RaisePointerMovedActivity(grid, headerPoint.Value);
+            grid.RequestPointerOverRefreshFromRow();
+            PumpLayout(grid);
+
+            Assert.Null(grid.MouseOverRowIndex);
+            Assert.False(((IPseudoClasses)row.Classes).Contains(":pointerover"));
+            Assert.Empty(GetPointerOverRows(grid));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
     private static (DataGrid grid, Window root) CreateGrid(
         IHierarchicalModel model,
         double width = 360,
@@ -287,6 +338,37 @@ public class DataGridMouseOverRowTests
         {
             Header = "Name",
             Binding = new Binding("Item.Name")
+        });
+
+        root.Content = grid;
+        root.Show();
+        return (grid, root);
+    }
+
+    private static (DataGrid grid, Window root) CreateGroupedGrid(ObservableCollection<GroupedItem> items)
+    {
+        var view = new DataGridCollectionView(items);
+        view.GroupDescriptions.Add(new DataGridPathGroupDescription(nameof(GroupedItem.Group)));
+
+        var root = new Window
+        {
+            Width = 420,
+            Height = 280
+        };
+
+        root.SetThemeStyles();
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            ItemsSource = view
+        };
+
+        grid.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new Binding(nameof(GroupedItem.Name))
         });
 
         root.Content = grid;
@@ -396,6 +478,14 @@ public class DataGridMouseOverRowTests
         grid.RaiseEvent(args);
     }
 
+    private static void RaisePointerMovedActivity(DataGrid grid, Point point)
+    {
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
+        var args = new PointerEventArgs(InputElement.PointerMovedEvent, grid, pointer, grid, point, 0, properties, KeyModifiers.None);
+        grid.RaiseEvent(args);
+    }
+
     private static void PumpLayout(Control control)
     {
         Dispatcher.UIThread.RunJobs();
@@ -423,4 +513,6 @@ public class DataGridMouseOverRowTests
 
         public ObservableCollection<TreeItem> Children { get; }
     }
+
+    private sealed record GroupedItem(string Name, string Group);
 }
