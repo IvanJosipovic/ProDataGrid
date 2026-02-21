@@ -39,6 +39,8 @@
               Grid.Row="2"
               ItemsSource="{Binding Items}"
               UseLogicalScrollable="True"
+              KeepRecycledContainersInVisualTree="False"
+              TrimRecycledContainers="True"
               HeadersVisibility="All"
               CanUserResizeColumns="True"
               CanUserReorderColumns="True"
