@@ -64,6 +64,22 @@ namespace Avalonia.Controls
                     : DataGridDiagnostics.Sources.New;
                 dataGridRow = recycledRow ?? new DataGridRow();
                 var previousDataContext = (dataGridRow.RecycledDataContext ?? dataGridRow.DataContext);
+                var hasPlaceholderTransition =
+                    recycledRow != null &&
+                    !ReferenceEquals(previousDataContext, dataContext) &&
+                    (ReferenceEquals(dataContext, DataGridCollectionView.NewItemPlaceholder) ||
+                     ReferenceEquals(previousDataContext, DataGridCollectionView.NewItemPlaceholder));
+
+                // Compiled bindings in recycled cells can throw when a row transitions to or from
+                // the new-item placeholder. Drop stale visuals before changing DataContext.
+                if (hasPlaceholderTransition)
+                {
+                    foreach (DataGridCell cell in dataGridRow.Cells)
+                    {
+                        cell.Content = null;
+                    }
+                }
+
                 dataGridRow.Index = rowIndex;
                 dataGridRow.Slot = slot;
                 dataGridRow.OwningGrid = this;
@@ -79,10 +95,7 @@ namespace Avalonia.Controls
                 ApplyConditionalFormattingForRow(dataGridRow);
                 dataGridRow.ClearRecyclingState();
 
-                if (recycledRow != null &&
-                    previousDataContext != dataContext &&
-                    (dataContext == DataGridCollectionView.NewItemPlaceholder ||
-                     previousDataContext == DataGridCollectionView.NewItemPlaceholder))
+                if (hasPlaceholderTransition)
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
                     {
