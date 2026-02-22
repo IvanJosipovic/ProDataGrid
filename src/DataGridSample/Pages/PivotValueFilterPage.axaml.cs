@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotValueFilterPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotValueFilterViewModel();
         }
 
         private void InitializeComponent()

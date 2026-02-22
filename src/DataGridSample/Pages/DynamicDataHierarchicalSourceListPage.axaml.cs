@@ -9,6 +9,7 @@ namespace DataGridSample.Pages
         public DynamicDataHierarchicalSourceListPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicDataHierarchicalSourceListViewModel();
             DataContextChanged += OnDataContextChanged;
         }
 

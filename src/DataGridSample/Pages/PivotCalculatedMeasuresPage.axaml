@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PivotCalculatedMeasuresPage"
              x:DataType="viewModels:PivotCalculatedMeasuresViewModel">
-  <UserControl.DataContext>
-    <viewModels:PivotCalculatedMeasuresViewModel />
-  </UserControl.DataContext>
-
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Pivot">
       <Grid RowDefinitions="Auto,*" RowSpacing="8">
         <StackPanel Spacing="4">

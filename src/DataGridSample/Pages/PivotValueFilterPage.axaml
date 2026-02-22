@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PivotValueFilterPage"
              x:DataType="viewModels:PivotValueFilterViewModel">
-  <UserControl.DataContext>
-    <viewModels:PivotValueFilterViewModel />
-  </UserControl.DataContext>
-
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Pivot">
       <Grid RowDefinitions="Auto,*" RowSpacing="8">
         <StackPanel Spacing="4">

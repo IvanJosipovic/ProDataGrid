@@ -13,6 +13,7 @@ namespace DataGridSample.Pages
         public SummariesCustomPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SummariesCustomViewModel();
             AddCustomSummaries();
         }
 

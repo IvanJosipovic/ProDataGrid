@@ -15,11 +15,7 @@
     d:DesignWidth="1100"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:ProgrammaticGroupingViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*">
     <StackPanel Spacing="4">
       <TextBlock Text="Programmatic group header handling"

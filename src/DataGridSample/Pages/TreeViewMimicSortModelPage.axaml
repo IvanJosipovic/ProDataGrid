@@ -4,11 +4,7 @@
              xmlns:adapters="clr-namespace:DataGridSample.Adapters"
              x:Class="DataGridSample.Pages.TreeViewMimicSortModelPage"
              x:DataType="viewModels:TreeViewMimicSortModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:TreeViewMimicSortModelViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <adapters:HierarchicalSortingAdapterFactory x:Key="HierarchicalSortingAdapterFactory" />
   </UserControl.Resources>
 

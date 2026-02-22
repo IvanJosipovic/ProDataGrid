@@ -10,6 +10,7 @@ namespace DataGridSample
         public EditablePage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.EditableViewModel();
         }
 
         private void InitializeComponent()

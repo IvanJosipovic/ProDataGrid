@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public SelectionItemsSourceResetPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SelectionItemsSourceResetViewModel();
         }
 
         private void InitializeComponent()

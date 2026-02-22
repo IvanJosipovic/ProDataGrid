@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.StylingShowcasePage"
              x:DataType="viewModels:StylingShowcaseViewModel">
-  <UserControl.DataContext>
-    <viewModels:StylingShowcaseViewModel/>
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <!-- Grid-level themes -->
     <ControlTheme x:Key="ShowcaseRowTheme"
                   TargetType="DataGridRow"

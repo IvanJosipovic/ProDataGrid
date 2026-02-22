@@ -9,6 +9,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsOptionsDiagnosticsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDefinitionsOptionsDiagnosticsViewModel();
             DataContextChanged += OnDataContextChanged;
             OnDataContextChanged(this, EventArgs.Empty);
         }

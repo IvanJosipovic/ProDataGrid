@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnDefinitionsHierarchicalPage"
              x:DataType="viewModels:ColumnDefinitionsHierarchicalViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnDefinitionsHierarchicalViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <adapters:HierarchicalSortingAdapterFactory x:Key="HierarchicalSortingAdapterFactory" />
     <adapters:HierarchicalFilteringAdapterFactory x:Key="HierarchicalFilteringAdapterFactory" />
     <adapters:HierarchicalSearchAdapterFactory x:Key="HierarchicalSearchAdapterFactory" />

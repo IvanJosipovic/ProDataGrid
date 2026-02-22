@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public FillHandleModelPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.FillHandleModelViewModel();
         }
 
         private void InitializeComponent()

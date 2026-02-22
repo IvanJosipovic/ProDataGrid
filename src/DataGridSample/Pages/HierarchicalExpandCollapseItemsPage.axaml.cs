@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalExpandCollapseItemsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalExpandCollapseItemsViewModel();
         }
     }
 }

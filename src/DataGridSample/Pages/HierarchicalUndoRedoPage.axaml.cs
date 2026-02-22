@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalUndoRedoPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalUndoRedoViewModel();
         }
     }
 }

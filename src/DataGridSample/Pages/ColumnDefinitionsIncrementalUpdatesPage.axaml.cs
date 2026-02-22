@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsIncrementalUpdatesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDefinitionsIncrementalUpdatesViewModel();
         }
 
         private void InitializeComponent()

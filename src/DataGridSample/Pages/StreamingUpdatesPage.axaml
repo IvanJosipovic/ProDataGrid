@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.StreamingUpdatesPage"
              x:DataType="viewModels:StreamingUpdatesViewModel">
-  <UserControl.DataContext>
-    <viewModels:StreamingUpdatesViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*"
+<Grid RowDefinitions="Auto,Auto,*"
         ColumnDefinitions="*,Auto"
         Margin="12"
         ColumnSpacing="12"

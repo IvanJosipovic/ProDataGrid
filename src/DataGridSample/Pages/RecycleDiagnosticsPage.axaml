@@ -4,10 +4,6 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.RecycleDiagnosticsPage"
              x:DataType="viewModels:RecycleDiagnosticsViewModel">
-  <UserControl.DataContext>
-    <viewModels:RecycleDiagnosticsViewModel />
-  </UserControl.DataContext>
-
   <Grid RowDefinitions="Auto,*" ColumnDefinitions="Auto,*" Margin="0">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="6" Margin="0,0,0,8">
       <TextBlock Classes="h2" Text="Resize recycling diagnostics" />

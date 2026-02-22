@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.FormulaColumnsStructuredPage"
              x:DataType="viewModels:FormulaColumnsStructuredViewModel">
-  <UserControl.DataContext>
-    <viewModels:FormulaColumnsStructuredViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="8">
+<Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="8">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2" Text="Formula columns with structured references" />
       <TextBlock Text="Uses table-aware references like SalesTable[Sales] and row references like [@Sales]."

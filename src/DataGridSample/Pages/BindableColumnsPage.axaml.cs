@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public BindableColumnsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.BindableColumnsViewModel();
         }
 
         private void InitializeComponent()

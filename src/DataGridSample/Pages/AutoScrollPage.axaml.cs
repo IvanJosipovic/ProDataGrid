@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public AutoScrollPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.AutoScrollViewModel();
         }
 
         private void InitializeComponent()

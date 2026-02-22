@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalFlyoutSelectionPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalFlyoutSelectionViewModel();
         }
     }
 }

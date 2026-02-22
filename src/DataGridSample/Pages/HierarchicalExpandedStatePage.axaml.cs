@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalExpandedStatePage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalExpandedStateViewModel();
         }
     }
 }

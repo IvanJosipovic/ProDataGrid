@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ExcelLikeEditingPage"
              x:DataType="viewModels:ExcelLikeEditingViewModel">
-  <UserControl.DataContext>
-    <viewModels:ExcelLikeEditingViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <ControlTheme x:Key="ExcelDeltaPositiveCellTheme"
                   TargetType="DataGridCell"
                   BasedOn="{StaticResource {x:Type DataGridCell}}">

@@ -9,11 +9,7 @@
              d:DesignHeight="600"
              d:DesignWidth="1000"
              mc:Ignorable="d">
-  <UserControl.DataContext>
-    <viewModels:StateSampleHierarchicalViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

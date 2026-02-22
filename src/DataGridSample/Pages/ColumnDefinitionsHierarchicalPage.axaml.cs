@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsHierarchicalPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDefinitionsHierarchicalViewModel();
         }
 
         private void InitializeComponent()

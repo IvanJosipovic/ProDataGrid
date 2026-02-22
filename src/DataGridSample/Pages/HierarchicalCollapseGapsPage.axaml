@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.HierarchicalCollapseGapsPage"
              x:DataType="viewModels:HierarchicalCollapseGapsViewModel">
-  <UserControl.DataContext>
-    <viewModels:HierarchicalCollapseGapsViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         ColumnDefinitions="2*,*"
         RowDefinitions="Auto,Auto,*"
         ColumnSpacing="12"

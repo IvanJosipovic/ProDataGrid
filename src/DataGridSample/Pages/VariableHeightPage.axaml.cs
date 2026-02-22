@@ -20,6 +20,7 @@ namespace DataGridSample
         public VariableHeightPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.VariableHeightViewModel();
         }
 
         private void InitializeComponent()

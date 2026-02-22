@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotValueSortPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotValueSortViewModel();
         }
 
         private void InitializeComponent()

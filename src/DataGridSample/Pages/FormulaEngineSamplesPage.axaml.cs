@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public FormulaEngineSamplesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.FormulaEngineSamplesViewModel();
         }
     }
 }

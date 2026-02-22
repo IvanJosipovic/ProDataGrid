@@ -9,6 +9,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsFastPathShowcasePage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDefinitionsFastPathShowcaseViewModel();
             DataContextChanged += OnDataContextChanged;
             OnDataContextChanged(this, EventArgs.Empty);
         }

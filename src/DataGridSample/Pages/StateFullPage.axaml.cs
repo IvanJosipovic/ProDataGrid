@@ -18,6 +18,7 @@ namespace DataGridSample.Pages
         public StateFullPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.StateSampleViewModel();
         }
 
         private void InitializeComponent()

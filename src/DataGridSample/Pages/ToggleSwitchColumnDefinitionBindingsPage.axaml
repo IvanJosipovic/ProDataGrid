@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ToggleSwitchColumnDefinitionBindingsPage"
              x:DataType="viewModels:ToggleSwitchColumnDefinitionBindingsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ToggleSwitchColumnDefinitionBindingsViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">ToggleSwitch Column Definition Bindings</TextBlock>
       <TextBlock Text="Validates row bindings for DataGridToggleSwitchColumnDefinition. The first column binds OnContent and OffContent from row data."

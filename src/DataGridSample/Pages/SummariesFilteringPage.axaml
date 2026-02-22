@@ -13,11 +13,7 @@
              mc:Ignorable="d"
              d:DesignWidth="900" d:DesignHeight="600">
   
-  <UserControl.DataContext>
-    <viewModels:SummariesFilteringViewModel />
-  </UserControl.DataContext>
-  
-  <Grid Margin="12" RowDefinitions="Auto,Auto,*">
+<Grid Margin="12" RowDefinitions="Auto,Auto,*">
     <StackPanel Spacing="4" Margin="0,0,0,8">
       <TextBlock Text="Column Summaries - With Filtering" FontWeight="Bold" FontSize="18" />
       <TextBlock TextWrapping="Wrap">

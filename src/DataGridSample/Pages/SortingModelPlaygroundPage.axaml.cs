@@ -17,6 +17,7 @@ namespace DataGridSample.Pages
         public SortingModelPlaygroundPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SortingModelPlaygroundViewModel();
             RefreshViewModelSubscription();
             ApplyViewModelSettings();
             AttachSortingModel();

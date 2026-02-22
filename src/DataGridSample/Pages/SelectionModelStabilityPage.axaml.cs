@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public SelectionModelStabilityPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SelectionModelStabilityViewModel();
         }
 
         private void InitializeComponent()

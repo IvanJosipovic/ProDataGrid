@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public RowDragDropPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.RowDragDropViewModel();
         }
 
         private void InitializeComponent()

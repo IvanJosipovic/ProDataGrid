@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotPercentOfRowTotalPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotPercentOfRowTotalViewModel();
         }
 
         private void InitializeComponent()

@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public HierarchicalStreamingUpdatesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalStreamingUpdatesViewModel();
         }
 
         private void InitializeComponent()

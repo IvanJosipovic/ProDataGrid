@@ -7,5 +7,6 @@ public partial class ColumnThemesPage : UserControl
     public ColumnThemesPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnThemesViewModel();
     }
 }

@@ -18,7 +18,7 @@ namespace DataGridSample.Pages
             SelectionUnits = Enum.GetValues<DataGridSelectionUnit>();
 
             InitializeComponent();
-            DataContext = this;
+            AttachedToVisualTree += (_, _) => DataContext ??= this;
 
             SelectedCells.CollectionChanged += OnSelectedCellsChanged;
         }

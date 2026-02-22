@@ -7,5 +7,6 @@ public partial class TreeViewMimicFilterModelPage : UserControl
     public TreeViewMimicFilterModelPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.TreeViewMimicFilterModelViewModel();
     }
 }

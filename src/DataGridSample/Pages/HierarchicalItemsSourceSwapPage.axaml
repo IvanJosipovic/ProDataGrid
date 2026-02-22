@@ -4,11 +4,7 @@
              xmlns:hier="clr-namespace:Avalonia.Controls.DataGridHierarchical;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.Pages.HierarchicalItemsSourceSwapPage"
              x:DataType="viewModels:HierarchicalItemsSourceSwapViewModel">
-  <UserControl.DataContext>
-    <viewModels:HierarchicalItemsSourceSwapViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*"
         ColumnDefinitions="*"
         RowSpacing="8">

@@ -4,11 +4,7 @@
              xmlns:searching="clr-namespace:Avalonia.Controls.DataGridSearching;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.Pages.ListBoxMimicSearchModelPage"
              x:DataType="viewModels:ListBoxMimicSearchModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:ListBoxMimicSearchModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

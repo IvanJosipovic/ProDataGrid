@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.CellSelectionOnlyPage"
              x:DataType="viewModels:CellSelectionOnlyViewModel">
-  <UserControl.DataContext>
-    <viewModels:CellSelectionOnlyViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,*"
+<Grid RowDefinitions="Auto,*"
         Margin="12"
         RowSpacing="8">
     <StackPanel Grid.Row="0" Spacing="4">

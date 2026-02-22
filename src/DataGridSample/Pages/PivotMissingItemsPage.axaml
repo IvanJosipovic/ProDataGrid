@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PivotMissingItemsPage"
              x:DataType="viewModels:PivotMissingItemsViewModel">
-  <UserControl.DataContext>
-    <viewModels:PivotMissingItemsViewModel />
-  </UserControl.DataContext>
-
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Pivot">
       <Grid RowDefinitions="Auto,*"
             RowSpacing="8">

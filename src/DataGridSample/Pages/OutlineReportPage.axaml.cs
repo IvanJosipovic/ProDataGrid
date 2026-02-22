@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public OutlineReportPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.OutlineReportViewModel();
         }
 
         private void InitializeComponent()

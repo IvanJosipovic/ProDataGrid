@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ClipboardImportModelPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ClipboardImportModelViewModel();
         }
 
         private void InitializeComponent()

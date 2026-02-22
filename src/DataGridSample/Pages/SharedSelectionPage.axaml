@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.SharedSelectionPage"
              x:DataType="viewModels:SharedSelectionViewModel">
-  <UserControl.DataContext>
-    <viewModels:SharedSelectionViewModel/>
-  </UserControl.DataContext>
-
-  <Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
+<Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
     <StackPanel Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Shared SelectionModel</TextBlock>
       <TextBlock Text="This page shares a single SelectionModel&lt;Country&gt; between a DataGrid and a ListBox. Selecting in one updates the other."

@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ButtonColumnBindingsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ButtonColumnBindingsViewModel();
         }
 
         private void InitializeComponent()

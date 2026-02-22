@@ -16,6 +16,7 @@ namespace DataGridSample.Pages
         public StateSortingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.StateSampleViewModel();
         }
 
         private void InitializeComponent()

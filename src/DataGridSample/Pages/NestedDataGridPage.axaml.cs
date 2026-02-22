@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public NestedDataGridPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.NestedDataGridViewModel();
         }
     }
 }

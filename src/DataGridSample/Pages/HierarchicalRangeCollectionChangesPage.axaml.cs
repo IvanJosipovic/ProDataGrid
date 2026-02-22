@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public HierarchicalRangeCollectionChangesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalRangeCollectionChangesViewModel();
         }
     }
 }

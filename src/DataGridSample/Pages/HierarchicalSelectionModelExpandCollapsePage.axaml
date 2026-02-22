@@ -15,11 +15,7 @@
     d:DesignWidth="1100"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:HierarchicalSelectionModelExpandCollapseViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         ColumnDefinitions="2*,*"
         RowDefinitions="Auto,Auto,*"
         ColumnSpacing="12"

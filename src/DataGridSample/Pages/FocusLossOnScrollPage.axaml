@@ -5,11 +5,7 @@
              xmlns:converters="clr-namespace:DataGridSample.Converters"
              x:Class="DataGridSample.Pages.FocusLossOnScrollPage"
              x:DataType="viewModels:FocusLossOnScrollViewModel">
-  <UserControl.DataContext>
-    <viewModels:FocusLossOnScrollViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <converters:FocusIndicatorBrushConverter x:Key="FocusIndicatorBrushConverter"
                                              FocusedBrush="#2E7D32"
                                              UnfocusedBrush="#9EA7B3" />

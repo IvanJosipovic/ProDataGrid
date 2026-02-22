@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotPercentOfParentPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotPercentOfParentViewModel();
         }
 
         private void InitializeComponent()

@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public ValidationStylingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ValidationStylingViewModel();
         }
     }
 }

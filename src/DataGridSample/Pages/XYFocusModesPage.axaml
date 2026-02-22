@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.XYFocusModesPage"
              x:DataType="viewModels:XYFocusModesViewModel">
-  <UserControl.DataContext>
-    <viewModels:XYFocusModesViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" Margin="12" RowSpacing="8">
+<Grid RowDefinitions="Auto,Auto,*" Margin="12" RowSpacing="8">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Classes="h2">XY focus modes</TextBlock>
       <TextBlock Text="XYFocus.NavigationModes controls which key devices use 2D directional focus navigation. Enable Keyboard to move focus with arrow keys across the layout below."

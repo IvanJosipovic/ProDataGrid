@@ -17,11 +17,7 @@
     d:DesignWidth="1000"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:SortingModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*,Auto"
+<Grid RowDefinitions="Auto,Auto,*,Auto"
         ColumnDefinitions="*,*"
         Margin="12">
     <StackPanel Orientation="Horizontal"

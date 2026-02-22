@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.SelectionItemsSourceResetPage"
              x:DataType="viewModels:SelectionItemsSourceResetViewModel">
-  <UserControl.DataContext>
-    <viewModels:SelectionItemsSourceResetViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*"
         ColumnDefinitions="2*,*"
         ColumnSpacing="12"

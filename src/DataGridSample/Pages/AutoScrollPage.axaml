@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.AutoScrollPage"
              x:DataType="viewModels:AutoScrollViewModel">
-  <UserControl.DataContext>
-    <viewModels:AutoScrollViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*,Auto" Margin="8">
+<Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*,Auto" Margin="8">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Auto-scroll to selection</TextBlock>
       <TextBlock Text="Toggle auto-scroll and select items programmatically to see the grid scroll into view."

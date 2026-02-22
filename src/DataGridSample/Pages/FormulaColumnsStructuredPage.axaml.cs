@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public FormulaColumnsStructuredPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.FormulaColumnsStructuredViewModel();
         }
     }
 }

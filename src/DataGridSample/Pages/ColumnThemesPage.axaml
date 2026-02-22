@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnThemesPage"
              x:DataType="viewModels:ColumnThemesViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnThemesViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <ControlTheme x:Key="DataGridCellCheckBoxTheme"
                   TargetType="CheckBox"
                   BasedOn="{StaticResource {x:Type CheckBox}}">

@@ -13,6 +13,7 @@ namespace DataGridSample.Pages
         public DynamicDataSortingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicDataSortingViewModel();
             DataContextChanged += OnDataContextChanged;
         }
 

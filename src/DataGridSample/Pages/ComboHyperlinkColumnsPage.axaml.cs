@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ComboHyperlinkColumnsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ComboHyperlinkColumnsViewModel();
         }
 
         private void InitializeComponent()

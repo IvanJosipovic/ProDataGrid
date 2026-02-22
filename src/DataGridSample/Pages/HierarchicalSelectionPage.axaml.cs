@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalSelectionPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalSelectionViewModel();
         }
     }
 }

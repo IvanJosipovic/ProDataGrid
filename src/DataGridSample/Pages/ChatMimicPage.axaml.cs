@@ -7,5 +7,6 @@ public partial class ChatMimicPage : UserControl
     public ChatMimicPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ChatMimicViewModel();
     }
 }

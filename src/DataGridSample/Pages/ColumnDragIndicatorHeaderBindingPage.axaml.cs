@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDragIndicatorHeaderBindingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDragIndicatorHeaderBindingViewModel();
         }
 
         private void InitializeComponent()

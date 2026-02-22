@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.CustomSelectionModelPage"
              x:DataType="viewModels:CustomSelectionModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:CustomSelectionModelViewModel/>
-  </UserControl.DataContext>
-
-  <Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
+<Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
     <StackPanel Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Custom SelectionModel bridge</TextBlock>
       <TextBlock Text="This page plugs a custom SelectionModel&lt;Country&gt; into DataGrid via the Selection property. Mutate the collection and selection stays in sync."

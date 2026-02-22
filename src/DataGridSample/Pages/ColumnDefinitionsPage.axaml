@@ -5,11 +5,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnDefinitionsPage"
              x:DataType="viewModels:ColumnDefinitionsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnDefinitionsViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,*"
+<Grid RowDefinitions="Auto,*"
         Margin="12"
         RowSpacing="10">
     <StackPanel Spacing="4">

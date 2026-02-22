@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PropertyGridMimicPage"
              x:DataType="viewModels:PropertyGridMimicViewModel">
-  <UserControl.DataContext>
-    <viewModels:PropertyGridMimicViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

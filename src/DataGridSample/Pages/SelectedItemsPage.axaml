@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.SelectedItemsPage"
              x:DataType="viewModels:SelectedItemsViewModel">
-  <UserControl.DataContext>
-    <viewModels:SelectedItemsViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,*" ColumnDefinitions="3*,2*" Margin="12" ColumnSpacing="12" RowSpacing="8">
+<Grid RowDefinitions="Auto,*" ColumnDefinitions="3*,2*" Margin="12" ColumnSpacing="12" RowSpacing="8">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Bind and observe SelectedItems</TextBlock>
       <TextBlock Text="The grid's SelectedItems is bound two-way to an ObservableCollection. Pick rows, watch the bound list update, and drive selection from the ViewModel to prove two-way sync."

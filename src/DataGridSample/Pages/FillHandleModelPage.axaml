@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.FillHandleModelPage"
              x:DataType="viewModels:FillHandleModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:FillHandleModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Classes="h2">Fill handle models</TextBlock>
       <TextBlock Text="Drag the fill handle to auto-fill. Toggle copy-only to repeat values instead of building series." TextWrapping="Wrap" />

@@ -14,6 +14,7 @@ namespace DataGridSample.Pages
         public StateScrollPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.StateSampleViewModel();
         }
 
         private void InitializeComponent()

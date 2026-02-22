@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.FormulaEditingSamplesPage"
              x:DataType="viewModels:FormulaEditingSamplesViewModel">
-  <UserControl.DataContext>
-    <viewModels:FormulaEditingSamplesViewModel />
-  </UserControl.DataContext>
-
-  <ScrollViewer>
+<ScrollViewer>
     <StackPanel Margin="12" Spacing="16">
       <StackPanel Spacing="4">
         <TextBlock Classes="h2" Text="Per-cell formula editing" />

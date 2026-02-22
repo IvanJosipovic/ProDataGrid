@@ -9,6 +9,7 @@ namespace DataGridSample.Pages
         public KeyboardGestureHandlingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.KeyboardGestureHandlingViewModel();
         }
 
         private void OnGridKeyDown(object? sender, KeyEventArgs e)

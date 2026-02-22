@@ -11,6 +11,7 @@ namespace DataGridSample.Pages
         public SummariesGroupedPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SummariesGroupedViewModel();
         }
 
         private void InitializeComponent()

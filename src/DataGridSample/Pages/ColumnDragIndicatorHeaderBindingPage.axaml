@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnDragIndicatorHeaderBindingPage"
              x:DataType="viewModels:ColumnDragIndicatorHeaderBindingViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnDragIndicatorHeaderBindingViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*"
+<Grid RowDefinitions="Auto,Auto,*"
         RowSpacing="12"
         Margin="12">
     <StackPanel Spacing="4">
@@ -44,7 +40,7 @@
                             Binding="{Binding Age}"
                             Width="1*"
                             x:DataType="models:Person" />
-        <DataGridTemplateColumn Header="{Binding DataContext.LockStateColumnHeader, ElementName=HeaderBindingGrid}"
+        <DataGridTemplateColumn Header="{Binding ((viewModels:ColumnDragIndicatorHeaderBindingViewModel)DataContext).LockStateColumnHeader, ElementName=HeaderBindingGrid}"
                                 MinWidth="90"
                                 Width="Auto"
                                 CanUserSort="False"

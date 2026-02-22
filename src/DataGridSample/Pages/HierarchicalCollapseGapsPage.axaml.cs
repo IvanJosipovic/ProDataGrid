@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public HierarchicalCollapseGapsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalCollapseGapsViewModel();
         }
     }
 }

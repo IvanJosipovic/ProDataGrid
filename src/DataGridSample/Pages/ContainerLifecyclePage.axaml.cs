@@ -25,9 +25,14 @@ public partial class ContainerLifecyclePage : UserControl, INotifyPropertyChange
     public ContainerLifecyclePage()
     {
         InitializeComponent();
-        DataContext = this;
-
-        SeedItems(120);
+        AttachedToVisualTree += (_, _) =>
+        {
+            DataContext ??= this;
+            if (Items.Count == 0)
+            {
+                SeedItems(120);
+            }
+        };
     }
 
     private void SeedItems(int count)

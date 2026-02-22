@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalTemplatedCellPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalTemplatedCellViewModel();
         }
     }
 }

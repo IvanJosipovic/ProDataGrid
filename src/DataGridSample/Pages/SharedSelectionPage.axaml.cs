@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public SharedSelectionPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SharedSelectionViewModel();
         }
 
         private void InitializeComponent()

@@ -3,10 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.AutoColumnsPage"
              x:DataType="viewModels:AutoColumnsViewModel">
-  <UserControl.DataContext>
-    <viewModels:AutoColumnsViewModel/>
-  </UserControl.DataContext>
-  <Grid RowDefinitions="Auto,Auto,*" Margin="0,0,0,4">
+<Grid RowDefinitions="Auto,Auto,*" Margin="0,0,0,4">
     <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
       <TextBlock Classes="h2" Text="Auto-Generated Columns" />
       <TextBlock TextWrapping="Wrap"

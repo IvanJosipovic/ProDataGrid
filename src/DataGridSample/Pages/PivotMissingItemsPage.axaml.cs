@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotMissingItemsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotMissingItemsViewModel();
         }
 
         private void InitializeComponent()

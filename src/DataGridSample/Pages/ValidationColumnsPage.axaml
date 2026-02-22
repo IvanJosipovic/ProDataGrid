@@ -4,11 +4,7 @@
              x:Class="DataGridSample.Pages.ValidationColumnsPage"
              x:Name="Root"
              x:DataType="viewModels:ValidationColumnsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ValidationColumnsViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Validation</TextBlock>
       <TextBlock Text="Every editable column type below is wired for data validation. Try clearing required fields, typing unknown options, or picking out-of-policy values to see inline errors and cell/row invalid states."

@@ -12,6 +12,7 @@ namespace DataGridSample.Pages
         public StateGroupingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.StateSampleGroupingViewModel();
         }
 
         private void InitializeComponent()

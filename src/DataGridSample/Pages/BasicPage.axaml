@@ -6,11 +6,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.BasicPage"
              x:DataType="viewModels:BasicViewModel">
-  <UserControl.DataContext>
-    <viewModels:BasicViewModel/>
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <converters:GDPValueConverter x:Key="GDPConverter" />
     <converters:GDPLengthConverter x:Key="GDPWidthConverter"/>
     <DataTemplate x:Key="Demo.DataTemplates.CountryHeader" x:DataType="models:Country">

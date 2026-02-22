@@ -4,11 +4,7 @@
              x:Class="DataGridSample.Pages.ColumnTypesPage"
              x:Name="Root"
              x:DataType="viewModels:ColumnTypesViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnTypesViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Column Types</TextBlock>
       <TextBlock Text="This page demonstrates 11 column types: NumericUpDown, DatePicker, TimePicker, Slider, ToggleSwitch, ProgressBar, Image, AutoComplete, MaskedText, ToggleButton, and Button columns. These eliminate the need for TemplateColumn in most scenarios."

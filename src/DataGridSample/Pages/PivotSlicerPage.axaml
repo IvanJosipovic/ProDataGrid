@@ -5,11 +5,7 @@
              xmlns:pivoting="clr-namespace:Avalonia.Controls.DataGridPivoting;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.Pages.PivotSlicerPage"
              x:DataType="viewModels:PivotSlicerViewModel">
-  <UserControl.DataContext>
-    <viewModels:PivotSlicerViewModel />
-  </UserControl.DataContext>
-
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Pivot">
       <Grid ColumnDefinitions="240,*" RowDefinitions="Auto,*" RowSpacing="8" ColumnSpacing="12">
         <StackPanel Grid.ColumnSpan="2" Spacing="4">

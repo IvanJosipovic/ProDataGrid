@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.TreeViewMimicFilterModelPage"
              x:DataType="viewModels:TreeViewMimicFilterModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:TreeViewMimicFilterModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

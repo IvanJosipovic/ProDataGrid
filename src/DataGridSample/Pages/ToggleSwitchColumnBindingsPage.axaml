@@ -4,11 +4,7 @@
              x:Class="DataGridSample.Pages.ToggleSwitchColumnBindingsPage"
              x:Name="Root"
              x:DataType="viewModels:ToggleSwitchColumnBindingsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ToggleSwitchColumnBindingsViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">ToggleSwitch Column Bindings</TextBlock>
       <TextBlock Text="Validates row bindings for DataGridToggleSwitchColumn. The first toggle switch column binds OnContent and OffContent from the row model."

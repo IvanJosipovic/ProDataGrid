@@ -12,6 +12,7 @@ namespace DataGridSample.Pages
         public StateHierarchicalPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.StateSampleHierarchicalViewModel();
         }
 
         private void InitializeComponent()
