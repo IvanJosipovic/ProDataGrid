@@ -581,6 +581,17 @@ internal
 
             var previousItem = row.DataContext;
             var wasPlaceholder = row.IsPlaceholder;
+            var hasPlaceholderTransition =
+                !ReferenceEquals(previousItem, newItem) &&
+                (wasPlaceholder || ReferenceEquals(newItem, DataGridCollectionView.NewItemPlaceholder));
+
+            if (hasPlaceholderTransition)
+            {
+                foreach (DataGridCell cell in row.Cells)
+                {
+                    cell.Content = null;
+                }
+            }
 
             row.Index = rowIndex;
             row.Slot = slot;
@@ -588,8 +599,7 @@ internal
             UpdateRowHeader(row);
             ApplyConditionalFormattingForRow(row);
 
-            if (!ReferenceEquals(previousItem, newItem) &&
-                (wasPlaceholder || row.IsPlaceholder))
+            if (hasPlaceholderTransition)
             {
                 foreach (DataGridCell cell in row.Cells)
                 {
