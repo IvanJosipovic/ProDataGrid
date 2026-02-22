@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ProgrammaticGroupingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ProgrammaticGroupingViewModel();
         }
 
         private void InitializeComponent()

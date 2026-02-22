@@ -7,5 +7,6 @@ public partial class TreeViewMimicPage : UserControl
     public TreeViewMimicPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.TreeViewMimicViewModel();
     }
 }

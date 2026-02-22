@@ -5,11 +5,7 @@
              xmlns:dgrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.LargeVariableHeightPage"
              x:DataType="viewModels:LargeVariableHeightViewModel">
-  <UserControl.DataContext>
-    <viewModels:LargeVariableHeightViewModel/>
-  </UserControl.DataContext>
-
-  <DataGrid ItemsSource="{Binding Items}"
+<DataGrid ItemsSource="{Binding Items}"
             UseLogicalScrollable="True"
             IsReadOnly="True"
             HeadersVisibility="All"

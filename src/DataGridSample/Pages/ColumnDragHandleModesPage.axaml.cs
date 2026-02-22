@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDragHandleModesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDragHandleSampleViewModel();
         }
 
         private void InitializeComponent()

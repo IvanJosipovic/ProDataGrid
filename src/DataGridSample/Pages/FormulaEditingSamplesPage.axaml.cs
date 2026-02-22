@@ -13,6 +13,7 @@ namespace DataGridSample.Pages
         public FormulaEditingSamplesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.FormulaEditingSamplesViewModel();
             AttachedToVisualTree += OnAttachedToVisualTree;
         }
 

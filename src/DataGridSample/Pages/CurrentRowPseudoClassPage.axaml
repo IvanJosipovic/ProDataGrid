@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.CurrentRowPseudoClassPage"
              x:DataType="viewModels:CurrentRowPseudoClassViewModel">
-  <UserControl.DataContext>
-    <viewModels:CurrentRowPseudoClassViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Styles>
+<UserControl.Styles>
     <Style Selector="DataGridRow:current">
       <Setter Property="Background" Value="#FFE3F2FD" />
       <Setter Property="BorderBrush" Value="#FF64B5F6" />

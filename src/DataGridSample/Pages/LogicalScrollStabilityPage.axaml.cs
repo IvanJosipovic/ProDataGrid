@@ -8,6 +8,7 @@ public partial class LogicalScrollStabilityPage : UserControl
     public LogicalScrollStabilityPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.LogicalScrollStabilityViewModel();
     }
 
     private void InitializeComponent()

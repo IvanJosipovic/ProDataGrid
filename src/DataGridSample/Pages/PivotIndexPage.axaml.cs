@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotIndexPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotIndexViewModel();
         }
 
         private void InitializeComponent()

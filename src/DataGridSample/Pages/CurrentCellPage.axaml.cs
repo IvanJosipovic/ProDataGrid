@@ -22,7 +22,7 @@ namespace DataGridSample.Pages
 
             InitializeComponent();
             _grid = this.FindControl<DataGrid>("CurrentCellGrid");
-            DataContext = this;
+            AttachedToVisualTree += (_, _) => DataContext ??= this;
         }
 
         public ObservableCollection<Country> Items { get; }

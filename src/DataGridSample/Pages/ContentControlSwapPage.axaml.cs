@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ContentControlSwapPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ContentControlSwapViewModel();
         }
 
         private void InitializeComponent()

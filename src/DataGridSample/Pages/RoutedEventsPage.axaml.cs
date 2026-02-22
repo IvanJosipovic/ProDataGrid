@@ -18,6 +18,7 @@ public partial class RoutedEventsPage : UserControl
     public RoutedEventsPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.RoutedEventsViewModel();
         AddHandler(DataGridColumnHeader.LeftClickEvent, OnHeaderLeftClick, RoutingStrategies.Bubble);
         AddHandler(DataGridColumnHeader.HeaderPointerPressedEvent, OnHeaderPointerPressed, RoutingStrategies.Bubble);
         AddHandler(DataGridColumnHeader.HeaderPointerReleasedEvent, OnHeaderPointerReleased, RoutingStrategies.Bubble);

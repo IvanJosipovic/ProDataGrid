@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.FormulaColumnsA1Page"
              x:DataType="viewModels:FormulaColumnsA1ViewModel">
-  <UserControl.DataContext>
-    <viewModels:FormulaColumnsA1ViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="8">
+<Grid Margin="12" RowDefinitions="Auto,*" RowSpacing="8">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2" Text="Formula columns with A1 references" />
       <TextBlock Text="Row formulas use structured references; summary totals use A1 ranges like B1:B5 and E1:E5."

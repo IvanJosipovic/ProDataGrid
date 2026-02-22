@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ToggleButtonColumnBindingsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ToggleButtonColumnBindingsViewModel();
         }
 
         private void InitializeComponent()

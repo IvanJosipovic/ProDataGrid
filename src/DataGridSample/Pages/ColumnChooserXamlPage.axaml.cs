@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnChooserXamlPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnChooserSampleViewModel();
         }
 
         private void InitializeComponent()

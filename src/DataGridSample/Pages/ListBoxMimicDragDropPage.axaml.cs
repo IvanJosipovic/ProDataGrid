@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public ListBoxMimicDragDropPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ListBoxMimicDragDropViewModel();
         }
     }
 }

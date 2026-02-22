@@ -4,11 +4,7 @@
              xmlns:DataGridDragDrop="clr-namespace:Avalonia.Controls.DataGridDragDrop;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.Pages.RowDragDropPage"
              x:DataType="viewModels:RowDragDropViewModel">
-  <UserControl.DataContext>
-    <viewModels:RowDragDropViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+<Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
     <TextBlock Grid.Row="0"
                Classes="h2"
                Text="Reorder rows with drag-and-drop" />

@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.LogicalScrollPerformancePage"
              x:DataType="viewModels:LogicalScrollPerformanceViewModel">
-  <UserControl.DataContext>
-    <viewModels:LogicalScrollPerformanceViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*"
+<Grid RowDefinitions="Auto,Auto,*"
         RowSpacing="8"
         Margin="12">
     <StackPanel Grid.Row="0"

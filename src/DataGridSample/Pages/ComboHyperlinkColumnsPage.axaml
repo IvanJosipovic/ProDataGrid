@@ -4,11 +4,7 @@
              x:Class="DataGridSample.Pages.ComboHyperlinkColumnsPage"
              x:Name="Root"
              x:DataType="viewModels:ComboHyperlinkColumnsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ComboHyperlinkColumnsViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="12" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">ComboBox &amp; Hyperlink columns</TextBlock>
       <TextBlock Text="Lookup values via DataGridComboBoxColumn and clickable navigation via DataGridHyperlinkColumn. Combo boxes bind to a shared status list; hyperlinks bind to Uri values and can be edited as text."

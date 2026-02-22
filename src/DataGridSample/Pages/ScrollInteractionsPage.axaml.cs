@@ -17,6 +17,7 @@ namespace DataGridSample
         public ScrollInteractionsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ScrollInteractionsViewModel();
         }
 
         private void InitializeComponent()

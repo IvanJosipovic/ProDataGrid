@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public CollectionChangesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.CollectionChangesViewModel();
         }
 
         private void InitializeComponent()

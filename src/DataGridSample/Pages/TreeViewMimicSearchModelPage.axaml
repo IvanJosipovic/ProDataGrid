@@ -4,11 +4,7 @@
              xmlns:searching="clr-namespace:Avalonia.Controls.DataGridSearching;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.Pages.TreeViewMimicSearchModelPage"
              x:DataType="viewModels:TreeViewMimicSearchModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:TreeViewMimicSearchModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

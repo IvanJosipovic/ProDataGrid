@@ -4,11 +4,7 @@
              x:Class="DataGridSample.Pages.ToggleButtonColumnBindingsPage"
              x:Name="Root"
              x:DataType="viewModels:ToggleButtonColumnBindingsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ToggleButtonColumnBindingsViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">ToggleButton Column Bindings</TextBlock>
       <TextBlock Text="Validates row bindings for DataGridToggleButtonColumn. The first toggle column binds Content. The second binds CheckedContent and UncheckedContent."

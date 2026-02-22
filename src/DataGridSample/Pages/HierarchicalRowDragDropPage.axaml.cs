@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public HierarchicalRowDragDropPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalRowDragDropViewModel();
         }
 
         private void InitializeComponent()

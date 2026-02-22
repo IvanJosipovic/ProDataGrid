@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.HeaderSelectionPage"
              x:DataType="viewModels:HeaderSelectionViewModel">
-  <UserControl.DataContext>
-    <viewModels:HeaderSelectionViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*"
+<Grid RowDefinitions="Auto,Auto,*"
         Margin="12"
         RowSpacing="8">
     <StackPanel Grid.Row="0" Spacing="4">

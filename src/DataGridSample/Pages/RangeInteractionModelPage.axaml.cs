@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public RangeInteractionModelPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.RangeInteractionModelViewModel();
         }
 
         private void InitializeComponent()

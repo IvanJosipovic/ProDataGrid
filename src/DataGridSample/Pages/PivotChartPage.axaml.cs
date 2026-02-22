@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotChartPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotChartViewModel();
         }
 
         private void InitializeComponent()

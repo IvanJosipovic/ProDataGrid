@@ -7,5 +7,6 @@ public partial class ListBoxMimicPage : UserControl
     public ListBoxMimicPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ListBoxMimicViewModel();
     }
 }

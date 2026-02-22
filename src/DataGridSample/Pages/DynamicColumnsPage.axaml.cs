@@ -16,6 +16,7 @@ public partial class DynamicColumnsPage : UserControl
     public DynamicColumnsPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicColumnsViewModel();
 
         if (UnboundGrid.Columns is INotifyCollectionChanged incc)
         {

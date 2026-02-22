@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsSearchModelPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SearchModelViewModel();
         }
 
         private void InitializeComponent()

@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.SelectionModelStabilityPage"
              x:DataType="viewModels:SelectionModelStabilityViewModel">
-  <UserControl.DataContext>
-    <viewModels:SelectionModelStabilityViewModel/>
-  </UserControl.DataContext>
-
-  <Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
+<Grid ColumnDefinitions="2*,*" RowDefinitions="Auto,*" Margin="12" ColumnSpacing="12" RowSpacing="8">
     <StackPanel Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Selection model stability</TextBlock>
       <TextBlock Text="This grid uses the new SelectionModel-backed selection. Add, remove, shuffle, or sort rows — selection stays with the items across changes."

@@ -15,6 +15,7 @@ namespace DataGridSample
         public LargeUniformPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new LargeUniformViewModel();
         }
 
         private void InitializeComponent()

@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnDefinitionsHierarchicalStreamingPage"
              x:DataType="viewModels:ColumnDefinitionsHierarchicalStreamingViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnDefinitionsHierarchicalStreamingViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <adapters:HierarchicalSortingAdapterFactory x:Key="HierarchicalSortingAdapterFactory" />
     <adapters:HierarchicalFilteringAdapterFactory x:Key="HierarchicalFilteringAdapterFactory" />
     <adapters:HierarchicalSearchAdapterFactory x:Key="HierarchicalSearchAdapterFactory" />

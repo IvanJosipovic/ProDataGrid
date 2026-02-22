@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PivotValueSortPage"
              x:DataType="viewModels:PivotValueSortViewModel">
-  <UserControl.DataContext>
-    <viewModels:PivotValueSortViewModel />
-  </UserControl.DataContext>
-
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Pivot">
       <Grid RowDefinitions="Auto,*" RowSpacing="8">
         <StackPanel Spacing="4">

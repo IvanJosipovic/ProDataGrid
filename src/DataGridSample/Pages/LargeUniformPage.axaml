@@ -4,10 +4,6 @@
              xmlns:models="clr-namespace:DataGridSample.Models"
              x:Class="DataGridSample.LargeUniformPage"
              x:DataType="viewModels:LargeUniformViewModel">
-  <UserControl.DataContext>
-    <viewModels:LargeUniformViewModel/>
-  </UserControl.DataContext>
-
   <Grid RowDefinitions="Auto,Auto,*">
     <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
       <TextBlock Classes="h2" Text="Large Uniform Rows"/>

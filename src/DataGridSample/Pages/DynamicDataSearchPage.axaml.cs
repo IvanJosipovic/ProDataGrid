@@ -12,6 +12,7 @@ namespace DataGridSample.Pages
         public DynamicDataSearchPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicDataSearchViewModel();
             DataContextChanged += OnDataContextChanged;
         }
 

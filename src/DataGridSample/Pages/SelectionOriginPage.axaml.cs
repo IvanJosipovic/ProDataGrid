@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public SelectionOriginPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SelectionOriginViewModel();
         }
 
         private void InitializeComponent()

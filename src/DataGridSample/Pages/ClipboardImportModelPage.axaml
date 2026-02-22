@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ClipboardImportModelPage"
              x:DataType="viewModels:ClipboardImportModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:ClipboardImportModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Classes="h2">Clipboard import model</TextBlock>
       <TextBlock Text="Paste tabular data into the grid. Toggle custom parsing to transform incoming values." TextWrapping="Wrap" />

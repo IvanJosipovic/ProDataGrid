@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnDragIndicatorPage"
              x:DataType="viewModels:ColumnDragIndicatorViewModel">
-  <UserControl.DataContext>
-    <viewModels:ColumnDragIndicatorViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="12">
+<Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2" Text="Column Drag Indicator" />
       <TextBlock Text="Drag the templated column header to reorder. The preview should show the header content, not a type name."

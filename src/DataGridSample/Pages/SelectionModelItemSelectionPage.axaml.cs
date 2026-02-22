@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public SelectionModelItemSelectionPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SelectionModelItemSelectionViewModel();
         }
     }
 }

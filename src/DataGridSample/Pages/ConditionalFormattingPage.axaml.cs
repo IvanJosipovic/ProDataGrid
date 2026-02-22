@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ConditionalFormattingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ConditionalFormattingSampleViewModel();
         }
 
         private void InitializeComponent()

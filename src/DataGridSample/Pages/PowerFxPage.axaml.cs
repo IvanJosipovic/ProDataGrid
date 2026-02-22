@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PowerFxPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PowerFxSampleViewModel();
         }
 
         private void InitializeComponent()

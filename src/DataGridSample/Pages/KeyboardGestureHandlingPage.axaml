@@ -5,11 +5,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.KeyboardGestureHandlingPage"
              x:DataType="viewModels:KeyboardGestureHandlingViewModel">
-  <UserControl.DataContext>
-    <viewModels:KeyboardGestureHandlingViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Classes="h2">Keyboard overrides</TextBlock>
       <TextBlock Text="Built-in key handling respects Handled and uses KeyboardGestureOverrides for remapping (try J/K for navigation). Use the toggle to intercept arrow keys via KeyDown." TextWrapping="Wrap" />

@@ -8,6 +8,7 @@ namespace DataGridSample
         public AddDeleteRowsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.AddDeleteRowsViewModel();
         }
 
         private void InitializeComponent()

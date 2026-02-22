@@ -20,6 +20,7 @@ namespace DataGridSample.Pages
         public SortDirectionPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SortDirectionViewModel();
             this.DataContextChanged += OnDataContextChanged;
         }
 

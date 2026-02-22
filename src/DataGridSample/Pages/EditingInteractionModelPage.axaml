@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.EditingInteractionModelPage"
              x:DataType="viewModels:EditingInteractionModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:EditingInteractionModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Classes="h2">Editing interaction model</TextBlock>
       <TextBlock Text="Control how pointer and text input begin edits. Try Alt+Click mode to lock edits to modifier clicks." TextWrapping="Wrap" />

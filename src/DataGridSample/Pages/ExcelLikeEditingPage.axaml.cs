@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ExcelLikeEditingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ExcelLikeEditingViewModel();
         }
 
         private void InitializeComponent()

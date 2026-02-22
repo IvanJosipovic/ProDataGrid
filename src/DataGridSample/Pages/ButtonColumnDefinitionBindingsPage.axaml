@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ButtonColumnDefinitionBindingsPage"
              x:DataType="viewModels:ButtonColumnDefinitionBindingsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ButtonColumnDefinitionBindingsViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Button Column Definition Bindings</TextBlock>
       <TextBlock Text="Validates row bindings for DataGridButtonColumnDefinition. The Bound Action column uses Content and CommandParameter bindings. The fallback column leaves CommandParameter unset to use the row item."

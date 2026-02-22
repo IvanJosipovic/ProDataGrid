@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public BetweenFilterOperatorPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.BetweenFilterOperatorViewModel();
         }
     }
 }

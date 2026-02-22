@@ -5,11 +5,7 @@
              x:Class="DataGridSample.Pages.ValidationStylingPage"
              x:Name="Root"
              x:DataType="viewModels:ValidationStylingViewModel">
-  <UserControl.DataContext>
-    <viewModels:ValidationStylingViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <converters:ValidationSeverityBrushConverter x:Key="ValidationSeverityBrushConverter" />
   </UserControl.Resources>
 

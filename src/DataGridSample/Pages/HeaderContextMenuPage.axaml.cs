@@ -10,5 +10,6 @@ public partial class HeaderContextMenuPage : UserControl
     public HeaderContextMenuPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HeaderContextMenuViewModel();
     }
 }

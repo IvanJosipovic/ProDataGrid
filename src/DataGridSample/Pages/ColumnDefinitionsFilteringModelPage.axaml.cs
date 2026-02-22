@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsFilteringModelPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.FilteringModelSampleViewModel();
         }
 
         private void InitializeComponent()

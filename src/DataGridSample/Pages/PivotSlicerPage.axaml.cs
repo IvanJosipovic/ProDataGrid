@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotSlicerPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotSlicerViewModel();
         }
 
         private void InitializeComponent()

@@ -7,5 +7,6 @@ public partial class SelectionUnitsPage : UserControl
     public SelectionUnitsPage()
     {
         InitializeComponent();
+        AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SelectionUnitsViewModel();
     }
 }

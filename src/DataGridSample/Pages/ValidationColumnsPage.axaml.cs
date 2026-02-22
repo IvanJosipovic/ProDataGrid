@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ValidationColumnsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ValidationColumnsViewModel();
         }
 
         private void InitializeComponent()

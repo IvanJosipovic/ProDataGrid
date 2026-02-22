@@ -12,11 +12,7 @@
     d:DesignWidth="1100"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:DynamicDataStreamingSourceCacheViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*"
         ColumnDefinitions="3*,*"
         ColumnSpacing="12"

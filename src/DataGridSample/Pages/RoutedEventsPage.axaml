@@ -8,11 +8,7 @@
     xmlns:hier="clr-namespace:Avalonia.Controls.DataGridHierarchical;assembly=Avalonia.Controls.DataGrid"
     x:DataType="vm:RoutedEventsViewModel"
     mc:Ignorable="d">
-    <UserControl.DataContext>
-        <vm:RoutedEventsViewModel />
-    </UserControl.DataContext>
-
-    <Grid RowDefinitions="*,Auto,*,Auto,*"
+<Grid RowDefinitions="*,Auto,*,Auto,*"
           RowSpacing="8">
         <Grid Grid.Row="0" RowDefinitions="Auto,*" RowSpacing="4">
             <TextBlock Grid.Row="0" Text="Routed events (main grid)" FontWeight="Bold" />

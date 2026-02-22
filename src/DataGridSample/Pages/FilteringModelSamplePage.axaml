@@ -14,11 +14,7 @@
     d:DesignWidth="1100"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:FilteringModelSampleViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <Flyout x:Key="CustomerFilterFlyout"
             Placement="Bottom"
             FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"

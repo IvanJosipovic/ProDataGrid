@@ -7,6 +7,7 @@ namespace DataGridSample
         public DataTablePage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DataTableViewModel();
         }
     }
 }

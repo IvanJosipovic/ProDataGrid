@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.StateSelectionPage"
              x:DataType="viewModels:StateSampleViewModel">
-  <UserControl.DataContext>
-    <viewModels:StateSampleViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

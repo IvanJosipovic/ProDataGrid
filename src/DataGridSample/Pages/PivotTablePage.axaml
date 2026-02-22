@@ -5,11 +5,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PivotTablePage"
              x:DataType="viewModels:PivotTableViewModel">
-  <UserControl.DataContext>
-    <viewModels:PivotTableViewModel />
-  </UserControl.DataContext>
-
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Pivot">
       <Grid RowDefinitions="Auto,*"
             RowSpacing="12">

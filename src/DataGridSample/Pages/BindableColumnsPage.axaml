@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.BindableColumnsPage"
              x:DataType="viewModels:BindableColumnsViewModel">
-  <UserControl.DataContext>
-    <viewModels:BindableColumnsViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*"
+<Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*"
         Margin="12" RowSpacing="10">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Bindable Columns</TextBlock>

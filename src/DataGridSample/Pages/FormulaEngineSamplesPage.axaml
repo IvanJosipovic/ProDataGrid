@@ -3,10 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.FormulaEngineSamplesPage"
              x:DataType="viewModels:FormulaEngineSamplesViewModel">
-  <UserControl.DataContext>
-    <viewModels:FormulaEngineSamplesViewModel />
-  </UserControl.DataContext>
-  <TabControl Margin="12">
+<TabControl Margin="12">
     <TabItem Header="Workbook">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Top" Spacing="4" Margin="0,0,0,8">

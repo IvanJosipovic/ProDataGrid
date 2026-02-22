@@ -13,7 +13,6 @@ public sealed class FilteringModelSamplePageTests
     public void ApplyingCustomerFilter_ReducesVisibleRows()
     {
         var page = new FilteringModelSamplePage();
-        var viewModel = Assert.IsType<FilteringModelSampleViewModel>(page.DataContext);
         var window = CreateHostWindow(page);
 
         try
@@ -21,6 +20,7 @@ public sealed class FilteringModelSamplePageTests
             window.Show();
             PumpLayout(window);
 
+            var viewModel = Assert.IsType<FilteringModelSampleViewModel>(page.DataContext);
             var beforeCount = viewModel.View.Count;
             viewModel.CustomerFilter.Text = "Contoso";
             viewModel.CustomerFilter.ApplyCommand.Execute(null);

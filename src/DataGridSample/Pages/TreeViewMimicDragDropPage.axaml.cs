@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public TreeViewMimicDragDropPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.TreeViewMimicDragDropViewModel();
         }
     }
 }

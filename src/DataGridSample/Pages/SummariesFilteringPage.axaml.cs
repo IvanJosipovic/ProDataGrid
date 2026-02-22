@@ -11,6 +11,7 @@ namespace DataGridSample.Pages
         public SummariesFilteringPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SummariesFilteringViewModel();
         }
 
         private void InitializeComponent()

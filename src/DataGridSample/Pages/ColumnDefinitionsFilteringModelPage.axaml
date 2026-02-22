@@ -15,11 +15,7 @@
     d:DesignWidth="1100"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:FilteringModelSampleViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <adapters:AccessorFilteringAdapterFactory x:Key="AccessorFilteringAdapterFactory" />
 
     <DataTemplate x:Key="RegionFilterEditorTemplate"

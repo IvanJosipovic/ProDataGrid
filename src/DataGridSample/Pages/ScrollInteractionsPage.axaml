@@ -5,11 +5,7 @@
              xmlns:dgrid="clr-namespace:Avalonia.Controls;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.ScrollInteractionsPage"
              x:DataType="viewModels:ScrollInteractionsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ScrollInteractionsViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*,Auto">
+<Grid RowDefinitions="Auto,Auto,*,Auto">
     <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
       <TextBlock Classes="h2" Text="Scroll Snap + Row Details"/>
       <TextBlock TextWrapping="Wrap"

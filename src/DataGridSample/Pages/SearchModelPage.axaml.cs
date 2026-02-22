@@ -11,6 +11,7 @@ namespace DataGridSample.Pages
         public SearchModelPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.SearchModelViewModel();
         }
 
         private void InitializeComponent()

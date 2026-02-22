@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PowerFxPage"
              x:DataType="viewModels:PowerFxSampleViewModel">
-  <UserControl.DataContext>
-    <viewModels:PowerFxSampleViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <ControlTheme x:Key="PowerFxFormulaErrorCellTheme"
                   TargetType="DataGridCell"
                   BasedOn="{StaticResource {x:Type DataGridCell}}">

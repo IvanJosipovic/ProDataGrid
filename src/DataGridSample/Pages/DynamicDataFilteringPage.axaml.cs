@@ -13,6 +13,7 @@ namespace DataGridSample.Pages
         public DynamicDataFilteringPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicDataFilteringViewModel();
             DataContextChanged += OnDataContextChanged;
         }
 

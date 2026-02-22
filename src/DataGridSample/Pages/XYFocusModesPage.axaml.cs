@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public XYFocusModesPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.XYFocusModesViewModel();
         }
     }
 }

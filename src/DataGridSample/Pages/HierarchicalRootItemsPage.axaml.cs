@@ -10,6 +10,7 @@ namespace DataGridSample.Pages
         public HierarchicalRootItemsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.HierarchicalRootItemsViewModel();
         }
     }
 }

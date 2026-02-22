@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.SelectionOriginPage"
              x:DataType="viewModels:SelectionOriginViewModel">
-  <UserControl.DataContext>
-    <viewModels:SelectionOriginViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="2*,3*" Margin="12" RowSpacing="10" ColumnSpacing="12">
+<Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="2*,3*" Margin="12" RowSpacing="10" ColumnSpacing="12">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Selection origin metadata</TextBlock>
       <TextBlock Text="SelectionChanged now carries DataGridSelectionChangedEventArgs with a Source flag, IsUserInitiated, and the triggering event (when available). Try pointer, keyboard, SelectAll(), SelectionModel, bindings, and ItemsSource swaps to see how the origin is annotated."

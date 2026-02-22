@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ItemsSourceSwapPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ItemsSourceSwapViewModel();
         }
 
         private void InitializeComponent()

@@ -9,6 +9,7 @@ namespace DataGridSample.Pages
         public DynamicDataHierarchicalSourceCachePage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicDataHierarchicalSourceCacheViewModel();
             DataContextChanged += OnDataContextChanged;
         }
 

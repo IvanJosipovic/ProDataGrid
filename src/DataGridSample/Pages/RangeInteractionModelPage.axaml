@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.RangeInteractionModelPage"
              x:DataType="viewModels:RangeInteractionModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:RangeInteractionModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="8" Margin="12">
     <StackPanel Grid.Row="0" Spacing="4">
       <TextBlock Classes="h2">Range interaction model</TextBlock>
       <TextBlock Text="Customize drag selection thresholds, anchors, and fill handle range behavior." TextWrapping="Wrap" />

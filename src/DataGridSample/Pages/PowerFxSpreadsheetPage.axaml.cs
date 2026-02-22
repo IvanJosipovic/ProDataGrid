@@ -16,6 +16,7 @@ namespace DataGridSample.Pages
         public PowerFxSpreadsheetPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PowerFxSpreadsheetViewModel();
         }
 
         private void OnCurrentCellChanged(object? sender, DataGridCurrentCellChangedEventArgs e)

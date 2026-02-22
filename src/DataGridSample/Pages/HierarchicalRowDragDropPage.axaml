@@ -5,11 +5,7 @@
              xmlns:hier="clr-namespace:Avalonia.Controls.DataGridHierarchical;assembly=Avalonia.Controls.DataGrid"
              x:Class="DataGridSample.Pages.HierarchicalRowDragDropPage"
              x:DataType="viewModels:HierarchicalRowDragDropViewModel">
-  <UserControl.DataContext>
-    <viewModels:HierarchicalRowDragDropViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
+<Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="10">
     <TextBlock Grid.Row="0"
                Classes="h2"
                Text="Hierarchical row drag &amp; drop" />

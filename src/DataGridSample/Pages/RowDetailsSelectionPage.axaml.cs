@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public RowDetailsSelectionPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.RowDetailsSelectionViewModel();
         }
 
         private void InitializeComponent()

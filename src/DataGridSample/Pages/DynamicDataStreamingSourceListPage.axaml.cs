@@ -9,6 +9,7 @@ namespace DataGridSample.Pages
         public DynamicDataStreamingSourceListPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.DynamicDataStreamingSourceListViewModel();
             DataContextChanged += OnDataContextChanged;
         }
 

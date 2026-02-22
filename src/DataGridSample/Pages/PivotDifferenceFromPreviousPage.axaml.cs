@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotDifferenceFromPreviousPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotDifferenceFromPreviousViewModel();
         }
 
         private void InitializeComponent()

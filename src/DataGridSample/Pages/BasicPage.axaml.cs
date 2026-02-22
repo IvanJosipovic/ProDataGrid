@@ -11,6 +11,7 @@ namespace DataGridSample
         public BasicPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.BasicViewModel();
         }
 
         private void InitializeComponent()

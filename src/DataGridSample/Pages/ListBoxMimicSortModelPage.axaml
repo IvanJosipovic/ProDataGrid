@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ListBoxMimicSortModelPage"
              x:DataType="viewModels:ListBoxMimicSortModelViewModel">
-  <UserControl.DataContext>
-    <viewModels:ListBoxMimicSortModelViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">

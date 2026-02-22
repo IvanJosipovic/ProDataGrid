@@ -3,11 +3,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ToggleButtonColumnDefinitionBindingsPage"
              x:DataType="viewModels:ToggleButtonColumnDefinitionBindingsViewModel">
-  <UserControl.DataContext>
-    <viewModels:ToggleButtonColumnDefinitionBindingsViewModel />
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
+<Grid RowDefinitions="Auto,Auto,*" RowSpacing="10" Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">ToggleButton Column Definition Bindings</TextBlock>
       <TextBlock Text="Validates row bindings for DataGridToggleButtonColumnDefinition. One column binds Content, another binds CheckedContent and UncheckedContent."

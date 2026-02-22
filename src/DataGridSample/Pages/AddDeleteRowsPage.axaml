@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.AddDeleteRowsPage"
              x:DataType="viewModels:AddDeleteRowsViewModel">
-  <UserControl.DataContext>
-    <viewModels:AddDeleteRowsViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*">
+<Grid RowDefinitions="Auto,Auto,*">
     <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4" Margin="0,0,0,8">
       <TextBlock Classes="h2">Add and delete rows</TextBlock>
       <TextBlock Text="Toggle whether the grid shows the new item placeholder or accepts Delete key presses. Edit the last row to insert a new person, or press Delete to remove selected rows when allowed."

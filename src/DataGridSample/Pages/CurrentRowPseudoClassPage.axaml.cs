@@ -7,6 +7,7 @@ namespace DataGridSample.Pages
         public CurrentRowPseudoClassPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.CurrentRowPseudoClassViewModel();
         }
     }
 }

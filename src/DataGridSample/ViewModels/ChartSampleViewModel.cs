@@ -115,6 +115,7 @@ namespace DataGridSample.ViewModels
 
         public ChartSampleViewModel(ChartSampleKind kind)
         {
+            Kind = kind;
             ToolTipFormatter = FormatToolTip;
             Items = new ObservableCollection<SalesRecord>(SalesRecordSampleData.CreateSalesRecords(400));
             ItemsView = new DataGridCollectionView(Items);
@@ -147,6 +148,8 @@ namespace DataGridSample.ViewModels
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        public ChartSampleKind Kind { get; }
 
         public string Title { get; private set; } = string.Empty;
 

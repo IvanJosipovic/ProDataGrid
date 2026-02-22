@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnBandingPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnBandingViewModel();
         }
 
         private void InitializeComponent()

@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public ColumnDefinitionsTypedAccessorsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.ColumnDefinitionsTypedAccessorsViewModel();
         }
 
         private void InitializeComponent()

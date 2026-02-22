@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotCalculatedMeasuresPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotCalculatedMeasuresViewModel();
         }
 
         private void InitializeComponent()

@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.CustomTextColumnPage"
              x:DataType="viewModels:CustomTextColumnViewModel">
-  <UserControl.DataContext>
-    <viewModels:CustomTextColumnViewModel />
-  </UserControl.DataContext>
-
-  <UserControl.Resources>
+<UserControl.Resources>
     <ControlTheme x:Key="DataGridCellTextBoxTheme"
                   TargetType="TextBox"
                   BasedOn="{StaticResource {x:Type TextBox}}">

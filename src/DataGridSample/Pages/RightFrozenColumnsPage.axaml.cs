@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using DataGridSample.ViewModels;
 
 namespace DataGridSample
 {
@@ -8,6 +9,7 @@ namespace DataGridSample
         public RightFrozenColumnsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new RightFrozenColumnsViewModel();
         }
 
         private void InitializeComponent()

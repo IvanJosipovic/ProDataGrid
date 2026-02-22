@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using System.Reflection;
 using Avalonia;
@@ -19,12 +18,14 @@ public partial class RecycleDiagnosticsPage : UserControl
     private static readonly FieldInfo? RecycledRowsField =
         DisplayDataProperty?.PropertyType.GetField("_recycledRows", BindingFlags.Instance | BindingFlags.NonPublic);
 
-    private readonly RecycleDiagnosticsViewModel _viewModel;
-
     public RecycleDiagnosticsPage()
     {
         InitializeComponent();
-        _viewModel = (RecycleDiagnosticsViewModel)DataContext!;
+        AttachedToVisualTree += (_, _) =>
+        {
+            DataContext ??= new RecycleDiagnosticsViewModel();
+            UpdateMetrics();
+        };
         LayoutUpdated += (_, _) => UpdateMetrics();
         DiagnosticGrid.LayoutUpdated += (_, _) => UpdateMetrics();
         DiagnosticGrid.AttachedToVisualTree += (_, _) => UpdateMetrics();
@@ -32,18 +33,18 @@ public partial class RecycleDiagnosticsPage : UserControl
 
     private void UpdateMetrics()
     {
-        if (DiagnosticGrid == null)
+        if (DiagnosticGrid == null || DataContext is not RecycleDiagnosticsViewModel viewModel)
         {
             return;
         }
 
-        _viewModel.RealizedRows = DiagnosticGrid
+        viewModel.RealizedRows = DiagnosticGrid
             .GetVisualDescendants()
             .OfType<DataGridRow>()
             .Count();
 
-        _viewModel.RecycledRows = GetRecyclePoolCount(DiagnosticGrid);
-        _viewModel.ViewportHeight = GetViewportHeight(DiagnosticGrid);
+        viewModel.RecycledRows = GetRecyclePoolCount(DiagnosticGrid);
+        viewModel.ViewportHeight = GetViewportHeight(DiagnosticGrid);
     }
 
     private static int GetRecyclePoolCount(DataGrid grid)

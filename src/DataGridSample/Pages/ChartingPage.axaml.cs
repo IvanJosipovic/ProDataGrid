@@ -17,7 +17,7 @@ namespace DataGridSample.Pages
         public ChartingPage()
         {
             InitializeComponent();
-            UpdateViewModel();
+            AttachedToVisualTree += (_, _) => UpdateViewModel();
         }
 
         public ChartSampleKind SampleKind
@@ -41,6 +41,16 @@ namespace DataGridSample.Pages
 
         private void UpdateViewModel()
         {
+            if (VisualRoot is null)
+            {
+                return;
+            }
+
+            if (DataContext is ChartSampleViewModel viewModel && viewModel.Kind == SampleKind)
+            {
+                return;
+            }
+
             DataContext = new ChartSampleViewModel(SampleKind);
         }
     }

@@ -8,6 +8,7 @@ namespace DataGridSample.Pages
         public PivotValuesInRowsPage()
         {
             InitializeComponent();
+            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PivotValuesInRowsViewModel();
         }
 
         private void InitializeComponent()

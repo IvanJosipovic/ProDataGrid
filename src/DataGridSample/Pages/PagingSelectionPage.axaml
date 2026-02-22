@@ -4,11 +4,7 @@
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.PagingSelectionPage"
              x:DataType="viewModels:PagingSelectionViewModel">
-  <UserControl.DataContext>
-    <viewModels:PagingSelectionViewModel/>
-  </UserControl.DataContext>
-
-  <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="2*,*" Margin="12" ColumnSpacing="12" RowSpacing="10">
+<Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="2*,*" Margin="12" ColumnSpacing="12" RowSpacing="10">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Paging with persistent selection</TextBlock>
       <TextBlock Text="DataGridCollectionView paging with a shared SelectionModel. Pick rows across pages and watch the selection persist while you move between pages."

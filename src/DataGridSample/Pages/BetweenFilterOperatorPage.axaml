@@ -14,11 +14,7 @@
     d:DesignWidth="1100"
     mc:Ignorable="d">
 
-  <UserControl.DataContext>
-    <viewModels:BetweenFilterOperatorViewModel />
-  </UserControl.DataContext>
-
-  <Grid Margin="12"
+<Grid Margin="12"
         RowDefinitions="Auto,Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">
