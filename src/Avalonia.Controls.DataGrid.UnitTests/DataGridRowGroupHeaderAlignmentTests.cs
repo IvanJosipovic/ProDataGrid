@@ -17,7 +17,7 @@ namespace Avalonia.Controls.DataGridTests;
 
 public class DataGridRowGroupHeaderAlignmentTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void ContentVerticalAlignment_Default_Is_Center()
     {
         var header = new DataGridRowGroupHeader();
