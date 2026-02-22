@@ -16,11 +16,12 @@ namespace DataGridSample
     {
         private DataGrid? _dataGrid;
         private VariableHeightViewModel? _viewModel;
+        private VariableHeightViewModel? _initializedViewModel;
 
         public VariableHeightPage()
         {
             InitializeComponent();
-            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.VariableHeightViewModel();
+            AttachedToVisualTree += OnAttachedToVisualTree;
         }
 
         private void InitializeComponent()
@@ -41,8 +42,12 @@ namespace DataGridSample
 
             DataContextChanged += OnDataContextChanged;
             HookViewModel(DataContext as VariableHeightViewModel);
+        }
 
-            Dispatcher.UIThread.InvokeAsync(() => _viewModel?.GenerateItems(), DispatcherPriority.Loaded);
+        private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+        {
+            DataContext ??= new DataGridSample.ViewModels.VariableHeightViewModel();
+            EnsureItemsInitialized();
         }
 
         private void OnDataContextChanged(object? sender, EventArgs e)
@@ -65,7 +70,26 @@ namespace DataGridSample
                 _viewModel.PropertyChanged += OnViewModelPropertyChanged;
                 _viewModel.ItemsRegenerated += OnItemsRegenerated;
                 ApplyEstimatorFromSelection(_viewModel.SelectedEstimator);
+                EnsureItemsInitialized();
             }
+        }
+
+        private void EnsureItemsInitialized()
+        {
+            if (_viewModel == null || ReferenceEquals(_initializedViewModel, _viewModel))
+            {
+                return;
+            }
+
+            var viewModel = _viewModel;
+            _initializedViewModel = viewModel;
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (viewModel.Items.Count == 0)
+                {
+                    viewModel.GenerateItems();
+                }
+            }, DispatcherPriority.Loaded);
         }
 
         private void OnDataGridTemplateApplied(object? sender, TemplateAppliedEventArgs e)
