@@ -18,6 +18,8 @@ namespace Avalonia.Controls
     {
         private bool _useAccessorsOnly;
         private bool _throwOnMissingAccessor;
+        private bool _enableHighPerformanceSearching;
+        private bool _highPerformanceSearchTrackItemChanges = true;
 
         public event PropertyChangedEventHandler PropertyChanged;
         public event EventHandler<DataGridFastPathMissingAccessorEventArgs> MissingAccessor;
@@ -44,6 +46,25 @@ namespace Avalonia.Controls
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StrictMode)));
                 }
             }
+        }
+
+        /// <summary>
+        /// Enables incremental search result updates optimized for high-frequency collection changes.
+        /// </summary>
+        public bool EnableHighPerformanceSearching
+        {
+            get => _enableHighPerformanceSearching;
+            set => SetProperty(ref _enableHighPerformanceSearching, value);
+        }
+
+        /// <summary>
+        /// When high-performance searching is enabled, controls whether item property changes are tracked.
+        /// Disable this for maximum throughput in append/remove streaming scenarios.
+        /// </summary>
+        public bool HighPerformanceSearchTrackItemChanges
+        {
+            get => _highPerformanceSearchTrackItemChanges;
+            set => SetProperty(ref _highPerformanceSearchTrackItemChanges, value);
         }
 
         public bool StrictMode

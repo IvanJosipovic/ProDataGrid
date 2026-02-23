@@ -114,6 +114,16 @@ namespace Avalonia.Controls.DataGridSearching
             return false;
         }
 
+        protected virtual bool TrackItemPropertyChanges => true;
+
+        protected virtual void OnViewCollectionChanged(NotifyCollectionChangedEventArgs e)
+        {
+        }
+
+        protected virtual void OnViewItemPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+        }
+
         private void OnModelSearchChanged(object sender, SearchChangedEventArgs e)
         {
             _refreshQueued = false;
@@ -122,6 +132,7 @@ namespace Avalonia.Controls.DataGridSearching
 
         private void View_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
+            OnViewCollectionChanged(e);
             QueueRefreshFromViewChanges();
         }
 
@@ -145,12 +156,23 @@ namespace Avalonia.Controls.DataGridSearching
 
             if (TryApplyModelToView(descriptors, previousDescriptors, out var handledResults))
             {
-                UpdateItemSubscriptionsFromView();
+                if (TrackItemPropertyChanges)
+                {
+                    UpdateItemSubscriptionsFromView();
+                }
+                else
+                {
+                    ClearItemSubscriptions();
+                }
                 _model.UpdateResults(handledResults ?? Array.Empty<SearchResult>());
                 return;
             }
 
-            var results = ComputeResults(descriptors, trackItems: true);
+            var results = ComputeResults(descriptors, trackItems: TrackItemPropertyChanges);
+            if (!TrackItemPropertyChanges)
+            {
+                ClearItemSubscriptions();
+            }
             _model.UpdateResults(results);
         }
 
@@ -627,11 +649,17 @@ namespace Avalonia.Controls.DataGridSearching
 
         private void Item_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            if (!TrackItemPropertyChanges)
+            {
+                return;
+            }
+
             if (_view == null || _model.Descriptors.Count == 0)
             {
                 return;
             }
 
+            OnViewItemPropertyChanged(sender, e);
             QueueRefreshFromViewChanges();
         }
 
@@ -1228,7 +1256,8 @@ namespace Avalonia.Controls.DataGridSearching
                     return new NormalizedText(text, null);
                 }
 
-                if (ignoreDiacritics && IsAscii(text) && !needsWhitespaceNormalization)
+                var isAscii = ignoreDiacritics && IsAscii(text);
+                if (ignoreDiacritics && isAscii && !needsWhitespaceNormalization)
                 {
                     return new NormalizedText(text, null);
                 }
@@ -1239,9 +1268,10 @@ namespace Avalonia.Controls.DataGridSearching
 
                 for (int i = 0; i < text.Length; i++)
                 {
-                    if (ignoreDiacritics)
+                    var source = text[i];
+                    if (ignoreDiacritics && !isAscii && source > 0x7F)
                     {
-                        var decomposed = text[i].ToString().Normalize(NormalizationForm.FormD);
+                        var decomposed = source.ToString().Normalize(NormalizationForm.FormD);
                         foreach (var d in decomposed)
                         {
                             if (IsDiacritic(d))
@@ -1254,7 +1284,7 @@ namespace Avalonia.Controls.DataGridSearching
                     }
                     else
                     {
-                        AppendNormalizedCharacter(builder, map, text[i], i, normalizeWhitespace, ref wasWhitespace);
+                        AppendNormalizedCharacter(builder, map, source, i, normalizeWhitespace, ref wasWhitespace);
                     }
                 }
 
