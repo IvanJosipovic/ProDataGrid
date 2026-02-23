@@ -10,7 +10,6 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Avalonia.Collections;
@@ -33,12 +32,8 @@ namespace Avalonia.Controls.DataGridSearching
         private readonly DataGridFastPathOptions _options;
         private readonly bool _enableHighPerformanceSearching;
         private readonly bool _highPerformanceSearchTrackItemChanges;
-        private readonly List<PendingCollectionChange> _pendingCollectionChanges = new();
-        private readonly HashSet<object> _pendingItemChanges = new(ReferenceEqualityComparer.Instance);
-        private SearchDescriptor[] _activeDescriptors = Array.Empty<SearchDescriptor>();
+        private readonly IncrementalSearchResultService _incrementalSearchService;
         private List<SearchDescriptorPlan> _activePlans;
-        private List<SearchResult> _activeResults;
-        private bool _hasPendingReset;
 
         public DataGridAccessorSearchAdapter(
             ISearchModel model,
@@ -51,6 +46,10 @@ namespace Avalonia.Controls.DataGridSearching
             _options = options;
             _enableHighPerformanceSearching = options?.EnableHighPerformanceSearching ?? false;
             _highPerformanceSearchTrackItemChanges = options?.HighPerformanceSearchTrackItemChanges ?? true;
+            if (_enableHighPerformanceSearching)
+            {
+                _incrementalSearchService = new IncrementalSearchResultService(_highPerformanceSearchTrackItemChanges);
+            }
         }
 
         protected override bool TrackItemPropertyChanges =>
@@ -58,12 +57,12 @@ namespace Avalonia.Controls.DataGridSearching
 
         protected override void OnViewCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
-            if (!_enableHighPerformanceSearching || e == null || _activePlans == null || _activeResults == null)
+            if (!_enableHighPerformanceSearching || e == null || _activePlans == null || _incrementalSearchService == null)
             {
                 return;
             }
 
-            _pendingCollectionChanges.Add(PendingCollectionChange.From(e));
+            _incrementalSearchService.RecordCollectionChange(e);
         }
 
         protected override void OnViewItemPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -72,7 +71,7 @@ namespace Avalonia.Controls.DataGridSearching
                 !_highPerformanceSearchTrackItemChanges ||
                 sender == null ||
                 _activePlans == null ||
-                _activeResults == null)
+                _incrementalSearchService == null)
             {
                 return;
             }
@@ -82,7 +81,7 @@ namespace Avalonia.Controls.DataGridSearching
                 return;
             }
 
-            _pendingItemChanges.Add(sender);
+            _incrementalSearchService.RecordItemChange(sender);
         }
 
         protected override bool TryApplyModelToView(
@@ -92,221 +91,33 @@ namespace Avalonia.Controls.DataGridSearching
         {
             _ = previousDescriptors;
 
-            if (_enableHighPerformanceSearching && TryApplyPendingChanges(descriptors, out results))
+            if (_enableHighPerformanceSearching &&
+                _incrementalSearchService != null &&
+                _activePlans != null &&
+                _incrementalSearchService.TryApplyPendingChanges(
+                    descriptors,
+                    BuildRowResults,
+                    TryGetUniqueRowIndex,
+                    out results))
             {
                 return true;
             }
 
             results = ComputeResults(descriptors, out var plans);
-            if (_enableHighPerformanceSearching)
+            if (_enableHighPerformanceSearching && _incrementalSearchService != null)
             {
-                SetActiveState(descriptors, plans, results);
-                ClearPendingChanges();
-            }
-            else
-            {
-                ClearHighPerformanceState();
-                ClearPendingChanges();
-            }
-
-            return true;
-        }
-
-        private bool TryApplyPendingChanges(
-            IReadOnlyList<SearchDescriptor> descriptors,
-            out IReadOnlyList<SearchResult> results)
-        {
-            results = null;
-            if (descriptors == null || descriptors.Count == 0 || View == null)
-            {
-                ClearHighPerformanceState();
-                ClearPendingChanges();
-                results = Array.Empty<SearchResult>();
-                return true;
-            }
-
-            if (_activePlans == null || _activeResults == null || !DescriptorSetsEqual(descriptors, _activeDescriptors))
-            {
-                ClearPendingChanges();
-                return false;
-            }
-
-            if (_pendingCollectionChanges.Count == 0 && _pendingItemChanges.Count == 0)
-            {
-                results = _activeResults;
-                return true;
-            }
-
-            if (_hasPendingReset)
-            {
-                ClearPendingChanges();
-                return false;
-            }
-
-            for (int i = 0; i < _pendingCollectionChanges.Count; i++)
-            {
-                if (!ApplyCollectionChange(_pendingCollectionChanges[i]))
+                if (descriptors == null || descriptors.Count == 0)
                 {
-                    ClearPendingChanges();
-                    return false;
+                    _activePlans = null;
+                    _incrementalSearchService.ClearState();
+                }
+                else
+                {
+                    _activePlans = plans ?? new List<SearchDescriptorPlan>();
+                    _incrementalSearchService.SetActiveState(descriptors, results);
                 }
             }
 
-            if (_highPerformanceSearchTrackItemChanges && _pendingItemChanges.Count > 0)
-            {
-                foreach (var item in _pendingItemChanges)
-                {
-                    if (!ApplyItemChange(item))
-                    {
-                        ClearPendingChanges();
-                        return false;
-                    }
-                }
-            }
-
-            ClearPendingChanges();
-            results = _activeResults;
-            return true;
-        }
-
-        private void SetActiveState(
-            IReadOnlyList<SearchDescriptor> descriptors,
-            List<SearchDescriptorPlan> plans,
-            IReadOnlyList<SearchResult> results)
-        {
-            if (descriptors == null || descriptors.Count == 0)
-            {
-                ClearHighPerformanceState();
-                return;
-            }
-
-            _activeDescriptors = descriptors.ToArray();
-            _activePlans = plans ?? new List<SearchDescriptorPlan>();
-            _activeResults = results as List<SearchResult> ?? results?.ToList() ?? new List<SearchResult>();
-        }
-
-        private void ClearHighPerformanceState()
-        {
-            _activeDescriptors = Array.Empty<SearchDescriptor>();
-            _activePlans = null;
-            _activeResults = null;
-        }
-
-        private void ClearPendingChanges()
-        {
-            _pendingCollectionChanges.Clear();
-            _pendingItemChanges.Clear();
-            _hasPendingReset = false;
-        }
-
-        private bool ApplyCollectionChange(PendingCollectionChange change)
-        {
-            switch (change.Action)
-            {
-                case NotifyCollectionChangedAction.Add:
-                    return ApplyAddChange(change);
-                case NotifyCollectionChangedAction.Remove:
-                    return ApplyRemoveChange(change);
-                case NotifyCollectionChangedAction.Replace:
-                    return ApplyReplaceChange(change);
-                case NotifyCollectionChangedAction.Reset:
-                    _hasPendingReset = true;
-                    return false;
-                case NotifyCollectionChangedAction.Move:
-                default:
-                    return false;
-            }
-        }
-
-        private bool ApplyAddChange(PendingCollectionChange change)
-        {
-            if (change.NewItems == null || change.NewItems.Length == 0)
-            {
-                return true;
-            }
-
-            if (change.NewStartingIndex < 0)
-            {
-                return false;
-            }
-
-            ShiftResultRowIndexes(change.NewStartingIndex, change.NewItems.Length);
-            var added = BuildResultsForItems(change.NewItems, change.NewStartingIndex);
-            InsertResults(change.NewStartingIndex, added);
-            return true;
-        }
-
-        private bool ApplyRemoveChange(PendingCollectionChange change)
-        {
-            var oldCount = change.OldItems?.Length ?? 0;
-            if (oldCount == 0)
-            {
-                return true;
-            }
-
-            if (change.OldStartingIndex < 0)
-            {
-                return false;
-            }
-
-            RemoveResultsForRowRange(change.OldStartingIndex, oldCount);
-            ShiftResultRowIndexes(change.OldStartingIndex + oldCount, -oldCount);
-            return true;
-        }
-
-        private bool ApplyReplaceChange(PendingCollectionChange change)
-        {
-            var oldCount = change.OldItems?.Length ?? 0;
-            var newCount = change.NewItems?.Length ?? 0;
-            if (oldCount == 0 && newCount == 0)
-            {
-                return true;
-            }
-
-            var baseIndex = change.NewStartingIndex >= 0 ? change.NewStartingIndex : change.OldStartingIndex;
-            if (baseIndex < 0)
-            {
-                return false;
-            }
-
-            if (change.NewStartingIndex >= 0 &&
-                change.OldStartingIndex >= 0 &&
-                change.NewStartingIndex != change.OldStartingIndex)
-            {
-                return false;
-            }
-
-            RemoveResultsForRowRange(baseIndex, oldCount);
-            var delta = newCount - oldCount;
-            if (delta != 0)
-            {
-                ShiftResultRowIndexes(baseIndex + oldCount, delta);
-            }
-
-            if (newCount > 0)
-            {
-                var added = BuildResultsForItems(change.NewItems, baseIndex);
-                InsertResults(baseIndex, added);
-            }
-
-            return true;
-        }
-
-        private bool ApplyItemChange(object item)
-        {
-            if (!TryGetUniqueRowIndex(item, out var rowIndex))
-            {
-                return false;
-            }
-
-            if (rowIndex < 0)
-            {
-                return true;
-            }
-
-            RemoveResultsForRowRange(rowIndex, 1);
-            var updated = BuildRowResults(item, rowIndex);
-            InsertResults(rowIndex, updated);
             return true;
         }
 
@@ -358,110 +169,6 @@ namespace Avalonia.Controls.DataGridSearching
             }
 
             return true;
-        }
-
-        private void RemoveResultsForRowRange(int startRow, int count)
-        {
-            if (count <= 0 || _activeResults == null || _activeResults.Count == 0)
-            {
-                return;
-            }
-
-            var start = FindFirstResultIndexAtOrAfter(startRow);
-            var end = FindFirstResultIndexAtOrAfter(startRow + count);
-            var length = end - start;
-            if (length > 0)
-            {
-                _activeResults.RemoveRange(start, length);
-            }
-        }
-
-        private void ShiftResultRowIndexes(int startRow, int delta)
-        {
-            if (delta == 0 || _activeResults == null || _activeResults.Count == 0)
-            {
-                return;
-            }
-
-            var start = FindFirstResultIndexAtOrAfter(startRow);
-            for (int i = start; i < _activeResults.Count; i++)
-            {
-                var current = _activeResults[i];
-                _activeResults[i] = new SearchResult(
-                    current.Item,
-                    current.RowIndex + delta,
-                    current.ColumnId,
-                    current.ColumnIndex,
-                    current.Text,
-                    current.Matches);
-            }
-        }
-
-        private void InsertResults(int startRow, IReadOnlyList<SearchResult> results)
-        {
-            if (results == null || results.Count == 0 || _activeResults == null)
-            {
-                return;
-            }
-
-            var insertIndex = FindFirstResultIndexAtOrAfter(startRow);
-            if (results is List<SearchResult> list)
-            {
-                _activeResults.InsertRange(insertIndex, list);
-                return;
-            }
-
-            for (int i = 0; i < results.Count; i++)
-            {
-                _activeResults.Insert(insertIndex + i, results[i]);
-            }
-        }
-
-        private int FindFirstResultIndexAtOrAfter(int rowIndex)
-        {
-            if (_activeResults == null || _activeResults.Count == 0)
-            {
-                return 0;
-            }
-
-            int low = 0;
-            int high = _activeResults.Count;
-            while (low < high)
-            {
-                var mid = low + ((high - low) / 2);
-                if (_activeResults[mid].RowIndex < rowIndex)
-                {
-                    low = mid + 1;
-                }
-                else
-                {
-                    high = mid;
-                }
-            }
-
-            return low;
-        }
-
-        private List<SearchResult> BuildResultsForItems(object[] items, int startRowIndex)
-        {
-            var list = new List<SearchResult>();
-            if (items == null || items.Length == 0)
-            {
-                return list;
-            }
-
-            for (int i = 0; i < items.Length; i++)
-            {
-                var rowResults = BuildRowResults(items[i], startRowIndex + i);
-                if (rowResults.Count == 0)
-                {
-                    continue;
-                }
-
-                list.AddRange(rowResults);
-            }
-
-            return list;
         }
 
         private IReadOnlyList<SearchResult> BuildRowResults(object item, int rowIndex)
@@ -516,29 +223,6 @@ namespace Avalonia.Controls.DataGridSearching
                 .OrderBy(r => r.ColumnIndex)
                 .ThenBy(r => r.Matches.Count > 0 ? r.Matches[0].Start : 0)
                 .ToList();
-        }
-
-        private static bool DescriptorSetsEqual(IReadOnlyList<SearchDescriptor> descriptors, IReadOnlyList<SearchDescriptor> snapshot)
-        {
-            if (ReferenceEquals(descriptors, snapshot))
-            {
-                return true;
-            }
-
-            if (descriptors == null || snapshot == null || descriptors.Count != snapshot.Count)
-            {
-                return false;
-            }
-
-            for (int i = 0; i < descriptors.Count; i++)
-            {
-                if (!Equals(descriptors[i], snapshot[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         private IReadOnlyList<SearchResult> ComputeResults(IReadOnlyList<SearchDescriptor> descriptors, out List<SearchDescriptorPlan> plans)
@@ -609,74 +293,6 @@ namespace Avalonia.Controls.DataGridSearching
                 .ThenBy(r => r.ColumnIndex)
                 .ThenBy(r => r.Matches.Count > 0 ? r.Matches[0].Start : 0)
                 .ToList();
-        }
-
-        private sealed class PendingCollectionChange
-        {
-            public PendingCollectionChange(
-                NotifyCollectionChangedAction action,
-                int newStartingIndex,
-                int oldStartingIndex,
-                object[] newItems,
-                object[] oldItems)
-            {
-                Action = action;
-                NewStartingIndex = newStartingIndex;
-                OldStartingIndex = oldStartingIndex;
-                NewItems = newItems;
-                OldItems = oldItems;
-            }
-
-            public NotifyCollectionChangedAction Action { get; }
-
-            public int NewStartingIndex { get; }
-
-            public int OldStartingIndex { get; }
-
-            public object[] NewItems { get; }
-
-            public object[] OldItems { get; }
-
-            public static PendingCollectionChange From(NotifyCollectionChangedEventArgs e)
-            {
-                return new PendingCollectionChange(
-                    e.Action,
-                    e.NewStartingIndex,
-                    e.OldStartingIndex,
-                    ToArray(e.NewItems),
-                    ToArray(e.OldItems));
-            }
-
-            private static object[] ToArray(IList items)
-            {
-                if (items == null || items.Count == 0)
-                {
-                    return Array.Empty<object>();
-                }
-
-                var array = new object[items.Count];
-                for (int i = 0; i < items.Count; i++)
-                {
-                    array[i] = items[i];
-                }
-
-                return array;
-            }
-        }
-
-        private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
-        {
-            public static readonly ReferenceEqualityComparer Instance = new();
-
-            public new bool Equals(object x, object y)
-            {
-                return ReferenceEquals(x, y);
-            }
-
-            public int GetHashCode(object obj)
-            {
-                return obj == null ? 0 : RuntimeHelpers.GetHashCode(obj);
-            }
         }
 
         private List<SearchDescriptorPlan> BuildPlans(
