@@ -124,11 +124,19 @@ Use `DataGridFastPathOptions` to avoid reflection and surface missing accessors.
 Grid.FastPathOptions = new DataGridFastPathOptions
 {
     UseAccessorsOnly = true,
-    ThrowOnMissingAccessor = true
+    ThrowOnMissingAccessor = true,
+    EnableHighPerformanceSearching = true,
+    HighPerformanceSearchTrackItemChanges = true
 };
 ```
 
 `FastPathOptions` controls filtering and searching adapters. Sorting uses accessors automatically when they are present.
+
+`EnableHighPerformanceSearching` is enabled by default for accessor search adapters. Set it to `false` if you need legacy full-recompute behavior for diagnostics or comparison:
+
+```csharp
+Grid.FastPathOptions.EnableHighPerformanceSearching = false;
+```
 
 Optional: if you prefer explicit adapter factories, use the built-in accessor factories:
 

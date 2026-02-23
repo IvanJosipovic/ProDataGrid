@@ -1,6 +1,6 @@
 # Search Model: High-Performance Mode
 
-This guide explains the opt-in high-performance search mode designed for large, frequently changing collections (for example, streaming updates with 50k to 500k rows).
+This guide explains the high-performance search mode designed for large, frequently changing collections (for example, streaming updates with 50k to 500k rows).
 
 The mode preserves all existing `SearchModel` features and navigation behavior, while reducing expensive full recomputation during add/remove/replace update bursts.
 
@@ -18,8 +18,8 @@ When enabled, accessor-based search can apply many collection changes incrementa
 
 Key points:
 
-- It is opt-in.
-- Default search behavior remains unchanged unless you enable it.
+- It is enabled by default for `DataGridAccessorSearchAdapter`.
+- You can disable it if you need to force full recomputation behavior.
 - It works best with accessor-based columns (fast path).
 - It can track item property changes, or skip them for maximum throughput.
 
@@ -27,8 +27,8 @@ Key points:
 
 The mode is controlled by `DataGridFastPathOptions`:
 
-- `EnableHighPerformanceSearching`
-- `HighPerformanceSearchTrackItemChanges`
+- `EnableHighPerformanceSearching` (default: `true`)
+- `HighPerformanceSearchTrackItemChanges` (default: `true`)
 
 You usually combine it with:
 
@@ -81,7 +81,7 @@ public SearchModel SearchModel { get; } = new()
           SearchModel="{Binding SearchModel}" />
 ```
 
-## 2. Enable fast-path options on the DataGrid
+## 2. Configure fast-path options on the DataGrid
 
 `FastPathOptions` is a CLR property, so assign it in code-behind or view setup:
 
@@ -91,6 +91,16 @@ StreamingGrid.FastPathOptions = new DataGridFastPathOptions
     UseAccessorsOnly = true,
     EnableHighPerformanceSearching = true,
     HighPerformanceSearchTrackItemChanges = false
+};
+```
+
+You only need to set `EnableHighPerformanceSearching` explicitly when you want to turn it off.
+
+```csharp
+StreamingGrid.FastPathOptions = new DataGridFastPathOptions
+{
+    UseAccessorsOnly = true,
+    EnableHighPerformanceSearching = false
 };
 ```
 
@@ -155,7 +165,7 @@ The sample enables:
 - `EnableHighPerformanceSearching = true`
 - `HighPerformanceSearchTrackItemChanges = false`
 
-This is the recommended baseline for high-volume streaming scenarios.
+This is the recommended baseline for high-volume streaming scenarios where row mutations are rare.
 
 ## Related articles
 
