@@ -18,7 +18,7 @@ namespace Avalonia.Controls
     {
         private bool _useAccessorsOnly;
         private bool _throwOnMissingAccessor;
-        private bool _enableHighPerformanceSearching;
+        private bool _enableHighPerformanceSearching = true;
         private bool _highPerformanceSearchTrackItemChanges = true;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -50,6 +50,7 @@ namespace Avalonia.Controls
 
         /// <summary>
         /// Enables incremental search result updates optimized for high-frequency collection changes.
+        /// Enabled by default.
         /// </summary>
         public bool EnableHighPerformanceSearching
         {

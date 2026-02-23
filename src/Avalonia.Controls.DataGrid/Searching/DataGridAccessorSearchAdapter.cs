@@ -44,7 +44,7 @@ namespace Avalonia.Controls.DataGridSearching
             _columnProvider = columnProvider ?? throw new ArgumentNullException(nameof(columnProvider));
             _throwOnMissingAccessor = options?.ThrowOnMissingAccessor ?? false;
             _options = options;
-            _enableHighPerformanceSearching = options?.EnableHighPerformanceSearching ?? false;
+            _enableHighPerformanceSearching = options?.EnableHighPerformanceSearching ?? true;
             _highPerformanceSearchTrackItemChanges = options?.HighPerformanceSearchTrackItemChanges ?? true;
             if (_enableHighPerformanceSearching)
             {

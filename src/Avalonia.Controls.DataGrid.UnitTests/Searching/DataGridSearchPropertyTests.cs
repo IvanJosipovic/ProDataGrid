@@ -64,18 +64,25 @@ public class DataGridSearchPropertyTests
         var field = typeof(DataGrid).GetField("_searchAdapter", BindingFlags.Instance | BindingFlags.NonPublic);
         var firstAdapter = field!.GetValue(grid);
         Assert.IsType<DataGridAccessorSearchAdapter>(firstAdapter);
+        Assert.True(grid.FastPathOptions.EnableHighPerformanceSearching);
 
-        grid.FastPathOptions.EnableHighPerformanceSearching = true;
+        grid.FastPathOptions.EnableHighPerformanceSearching = false;
 
         var secondAdapter = field.GetValue(grid);
         Assert.IsType<DataGridAccessorSearchAdapter>(secondAdapter);
         Assert.NotSame(firstAdapter, secondAdapter);
 
-        grid.FastPathOptions.HighPerformanceSearchTrackItemChanges = false;
+        grid.FastPathOptions.EnableHighPerformanceSearching = true;
 
         var thirdAdapter = field.GetValue(grid);
         Assert.IsType<DataGridAccessorSearchAdapter>(thirdAdapter);
         Assert.NotSame(secondAdapter, thirdAdapter);
+
+        grid.FastPathOptions.HighPerformanceSearchTrackItemChanges = false;
+
+        var fourthAdapter = field.GetValue(grid);
+        Assert.IsType<DataGridAccessorSearchAdapter>(fourthAdapter);
+        Assert.NotSame(thirdAdapter, fourthAdapter);
     }
 
     private sealed class CountingSearchAdapterFactory : IDataGridSearchAdapterFactory
