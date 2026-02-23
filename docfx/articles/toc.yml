@@ -26,6 +26,8 @@
     href: filtering-model-end-to-end.md
   - name: Search Model (End-to-End)
     href: search-model-end-to-end.md
+  - name: Search Model (High-Performance Mode)
+    href: search-model-high-performance-mode.md
   - name: Hierarchical Model (End-to-End)
     href: hierarchical-model-end-to-end.md
   - name: Summaries and Aggregation
