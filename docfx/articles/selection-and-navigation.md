@@ -78,6 +78,15 @@ Enable column header selection with `SelectionUnit=CellOrColumnHeader` (or `Cell
 - With `DataGridCollectionView` paging, you can keep a single `SelectionModel` and preserve selections across page changes.
 - In grouped views, selection targets data rows (group headers are ignored).
 
+## Large Dataset Index Resolution
+
+For large lists, DataGrid now includes optimized item-to-index lookup for selection and currency updates.
+See [Selection Index Resolution Performance](selection-index-resolution-performance.md) for:
+
+- built-in cache behavior (default),
+- `IDataGridIndexOf`,
+- `ReferenceIndexResolver`.
+
 ## Auto-Scroll to Selection
 
 Turn on `AutoScrollToSelectedItem` to keep the current selection in view without handling `SelectionChanged` manually:
