@@ -20,6 +20,10 @@ namespace Avalonia.Controls
     #endif
     sealed class SystemTextJsonDataGridStateSerializer : IDataGridStateSerializer
     {
+#if DATAGRID_INTERNAL
+        private static readonly JsonSerializerOptions s_serializerOptions = CreateSerializerOptions();
+#endif
+
         public string FormatId => "json/system-text";
 
         public byte[] Serialize(DataGridPersistedState state)
@@ -29,16 +33,24 @@ namespace Avalonia.Controls
                 throw new ArgumentNullException(nameof(state));
             }
 
+#if DATAGRID_INTERNAL
+            return JsonSerializer.SerializeToUtf8Bytes(state, s_serializerOptions);
+#else
             return JsonSerializer.SerializeToUtf8Bytes(
                 state,
                 DataGridPersistedStateJsonContext.Default.DataGridPersistedState);
+#endif
         }
 
         public DataGridPersistedState Deserialize(ReadOnlySpan<byte> payload)
         {
+#if DATAGRID_INTERNAL
+            var state = JsonSerializer.Deserialize<DataGridPersistedState>(payload, s_serializerOptions);
+#else
             var state = JsonSerializer.Deserialize(
                 payload,
                 DataGridPersistedStateJsonContext.Default.DataGridPersistedState);
+#endif
 
             if (state == null)
             {
@@ -62,8 +74,22 @@ namespace Avalonia.Controls
 
             return Deserialize(Encoding.UTF8.GetBytes(payload));
         }
+
+#if DATAGRID_INTERNAL
+        private static JsonSerializerOptions CreateSerializerOptions()
+        {
+            return new JsonSerializerOptions
+            {
+                DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+                NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            };
+        }
+#endif
     }
 
+#if !DATAGRID_INTERNAL
     [JsonSourceGenerationOptions(
         GenerationMode = JsonSourceGenerationMode.Default,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
@@ -95,4 +121,5 @@ namespace Avalonia.Controls
     internal sealed partial class DataGridPersistedStateJsonContext : JsonSerializerContext
     {
     }
+#endif
 }
