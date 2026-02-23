@@ -49,6 +49,35 @@ public class DataGridSearchPropertyTests
         Assert.IsType<CountingSearchAdapterFactory.CountingSearchAdapter>(adapter);
     }
 
+    [AvaloniaFact]
+    public void Changing_Search_FastPath_Options_Recreates_Accessor_Adapter()
+    {
+        var grid = new DataGrid
+        {
+            SearchModel = new SearchModel(),
+            FastPathOptions = new DataGridFastPathOptions
+            {
+                UseAccessorsOnly = true
+            }
+        };
+
+        var field = typeof(DataGrid).GetField("_searchAdapter", BindingFlags.Instance | BindingFlags.NonPublic);
+        var firstAdapter = field!.GetValue(grid);
+        Assert.IsType<DataGridAccessorSearchAdapter>(firstAdapter);
+
+        grid.FastPathOptions.EnableHighPerformanceSearching = true;
+
+        var secondAdapter = field.GetValue(grid);
+        Assert.IsType<DataGridAccessorSearchAdapter>(secondAdapter);
+        Assert.NotSame(firstAdapter, secondAdapter);
+
+        grid.FastPathOptions.HighPerformanceSearchTrackItemChanges = false;
+
+        var thirdAdapter = field.GetValue(grid);
+        Assert.IsType<DataGridAccessorSearchAdapter>(thirdAdapter);
+        Assert.NotSame(secondAdapter, thirdAdapter);
+    }
+
     private sealed class CountingSearchAdapterFactory : IDataGridSearchAdapterFactory
     {
         public int CreateCount { get; private set; }

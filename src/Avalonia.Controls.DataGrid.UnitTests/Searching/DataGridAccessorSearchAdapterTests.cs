@@ -1,8 +1,13 @@
 using System;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
+using System.Linq;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridSearching;
+using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Searching;
@@ -294,6 +299,79 @@ public class DataGridAccessorSearchAdapterTests
         }
     }
 
+    [AvaloniaFact]
+    public void AccessorAdapter_HighPerformanceSearch_Updates_Incrementally_For_Add_Remove()
+    {
+        var items = new ObservableCollection<Person>
+        {
+            new("Alpha"),
+            new("Beta")
+        };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+
+        var column = new DataGridTextColumn();
+        DataGridColumnMetadata.SetValueAccessor(column, new DataGridColumnValueAccessor<Person, string>(p => p.Name));
+
+        var options = new DataGridFastPathOptions
+        {
+            EnableHighPerformanceSearching = true,
+            HighPerformanceSearchTrackItemChanges = false
+        };
+        var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column }, options);
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor("Beta", comparison: StringComparison.OrdinalIgnoreCase));
+        Assert.Single(model.Results);
+
+        items.Insert(0, new Person("Gamma"));
+        items.Add(new Person("Beta"));
+
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(2, model.Results.Count);
+        Assert.Equal(new[] { 2, 3 }, model.Results.Select(r => r.RowIndex).ToArray());
+
+        items.RemoveAt(0);
+
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new[] { 1, 2 }, model.Results.Select(r => r.RowIndex).ToArray());
+    }
+
+    [AvaloniaFact]
+    public void AccessorAdapter_HighPerformanceSearch_Tracks_Item_Changes_When_Enabled()
+    {
+        var items = new ObservableCollection<MutablePerson>
+        {
+            new("Alpha")
+        };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+
+        var column = new DataGridTextColumn();
+        DataGridColumnMetadata.SetValueAccessor(column, new DataGridColumnValueAccessor<MutablePerson, string>(p => p.Name));
+
+        var options = new DataGridFastPathOptions
+        {
+            EnableHighPerformanceSearching = true,
+            HighPerformanceSearchTrackItemChanges = true
+        };
+
+        var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column }, options);
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor("Beta", comparison: StringComparison.OrdinalIgnoreCase));
+        Assert.Empty(model.Results);
+
+        items[0].Name = "Beta";
+
+        Dispatcher.UIThread.RunJobs();
+
+        var result = Assert.Single(model.Results);
+        Assert.Same(items[0], result.Item);
+    }
+
     private sealed class Person
     {
         public Person(string name)
@@ -302,6 +380,33 @@ public class DataGridAccessorSearchAdapterTests
         }
 
         public string Name { get; }
+    }
+
+    private sealed class MutablePerson : INotifyPropertyChanged
+    {
+        private string _name;
+
+        public MutablePerson(string name)
+        {
+            _name = name;
+        }
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                if (string.Equals(_name, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _name = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+            }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
     }
 
     private sealed class TextAccessor : IDataGridColumnValueAccessor, IDataGridColumnTextAccessor
