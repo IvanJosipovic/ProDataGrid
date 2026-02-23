@@ -1,10 +1,13 @@
 # State and Persistence
 
-ProDataGrid includes helpers to capture and restore grid state. This is useful for persisting user preferences or restoring UI state after data refreshes.
+ProDataGrid exposes two state APIs:
 
-## Capture and Restore
+- Runtime state API (`CaptureState`, `RestoreState`, section-level capture/restore).
+- Persisted state API (`DataGridStatePersistence`) for file-storable payloads (`string` and `byte[]`).
 
-Use the `Capture*State` and `Restore*State` helpers or capture the full state in one call.
+Use runtime API for in-memory snapshots during a session. Use persisted API when saving state outside the process.
+
+## Runtime state API (in-memory)
 
 ```csharp
 using System.Linq;
@@ -14,63 +17,136 @@ var options = new DataGridStateOptions
     ItemKeySelector = item => (item as MyRow)?.Id,
     ItemKeyResolver = key => Items.FirstOrDefault(row => Equals(row.Id, key)),
     ColumnKeySelector = column => column.Header?.ToString(),
-    ColumnKeyResolver = key => grid.Columns.FirstOrDefault(
-        column => Equals(column.Header, key))
+    ColumnKeyResolver = key => grid.Columns.FirstOrDefault(column => Equals(column.Header, key))
 };
 
-var state = grid.CaptureState(DataGridStateSections.All, options);
-
-// Later
-grid.RestoreState(state, DataGridStateSections.All, options);
+var runtimeState = grid.CaptureState(DataGridStateSections.All, options);
+grid.RestoreState(runtimeState, DataGridStateSections.All, options);
 ```
 
-If you do not supply key selectors/resolvers, the grid falls back to using column instances and item references. For stable persistence across reloads, provide durable keys (such as IDs).
+Section helpers remain available:
 
-## Save and Restore Layout Only
+- `CaptureColumnLayoutState` / `RestoreColumnLayoutState`
+- `CaptureSortingState` / `RestoreSortingState`
+- `CaptureFilteringState` / `RestoreFilteringState`
+- `CaptureSearchState` / `RestoreSearchState`
+- `CaptureGroupingState` / `RestoreGroupingState`
+- `CaptureHierarchicalState` / `RestoreHierarchicalState`
+- `CaptureSelectionState` / `RestoreSelectionState`
+- `CaptureScrollState` / `TryRestoreScrollState`
 
-Use `SaveLayout` and `RestoreLayout` to persist column layout and view operations without selection/scroll state:
+## Persisted state API (string/byte[])
+
+`DataGridStatePersistence` maps runtime state to `DataGridPersistedState`, then serializes with built-in `System.Text.Json` by default.
+
+### JSON string workflow
 
 ```csharp
-var layout = grid.SaveLayout(options);
-grid.RestoreLayout(layout, options);
+var payload = DataGridStatePersistence.SerializeStateToString(
+    grid,
+    DataGridStateSections.All,
+    options);
+
+DataGridStatePersistence.RestoreStateFromString(
+    grid,
+    payload,
+    DataGridStateSections.All,
+    options);
 ```
 
-## Section Helpers
-
-Each section has dedicated capture/restore helpers:
-
-- Columns: `CaptureColumnLayoutState`, `RestoreColumnLayoutState`
-- Sorting: `CaptureSortingState`, `RestoreSortingState`
-- Filtering: `CaptureFilteringState`, `RestoreFilteringState`
-- Search: `CaptureSearchState`, `RestoreSearchState`
-- Grouping: `CaptureGroupingState`, `RestoreGroupingState`
-- Hierarchical: `CaptureHierarchicalState`, `RestoreHierarchicalState`
-- Selection: `CaptureSelectionState`, `RestoreSelectionState`
-- Scroll: `CaptureScrollState`, `TryRestoreScrollState`
-
-Example:
+### Binary + Base64 workflow
 
 ```csharp
-var selection = grid.CaptureSelectionState(options);
-grid.RestoreSelectionState(selection, options);
+var bytes = DataGridStatePersistence.SerializeState(
+    grid,
+    DataGridStateSections.All,
+    options);
 
-var scroll = grid.CaptureScrollState(options);
-grid.TryRestoreScrollState(scroll, options);
+var base64 = DataGridStatePersistence.EncodeBase64(bytes);
+
+var restoredBytes = DataGridStatePersistence.DecodeBase64(base64);
+DataGridStatePersistence.RestoreState(
+    grid,
+    restoredBytes,
+    DataGridStateSections.All,
+    options);
 ```
 
-## Sections
+The `DataGridSample` app includes this workflow in the **State - Full** tab.
 
-You can capture specific slices instead of the full state:
+## Pluggable serializer
 
-- Selection
-- Scroll
-- Sorting
-- Filtering
-- Searching
-- Columns
-- Grouping
-- Hierarchical
-- Layout (Columns + Sorting + Filtering + Searching + Grouping)
-- View (Sorting + Filtering + Searching + Grouping)
+Implement `IDataGridStateSerializer` to use another format:
 
-Selection state includes the current cell when `SelectionUnit` includes cells.
+```csharp
+public sealed class MySerializer : IDataGridStateSerializer
+{
+    public string FormatId => "my-format";
+
+    public byte[] Serialize(DataGridPersistedState state) => ...;
+    public DataGridPersistedState Deserialize(ReadOnlySpan<byte> payload) => ...;
+    public string SerializeToString(DataGridPersistedState state) => ...;
+    public DataGridPersistedState Deserialize(string payload) => ...;
+}
+```
+
+Pass the serializer to `Serialize`, `SerializeToString`, `Deserialize`, `SerializeState`, or `RestoreState`.
+
+## Unsupported runtime members and behavior
+
+Some runtime members are not directly serializable (for example delegates and comparer/theme/converter instances).
+
+Configure behavior with `DataGridStatePersistenceOptions.UnsupportedBehavior`:
+
+- `Throw` (default): fail fast with `DataGridStatePersistenceException`.
+- `Skip`: ignore unsupported entries and continue.
+
+## Token-based runtime reconstruction (advanced)
+
+For custom runtime-only members, use token contracts:
+
+- `IDataGridStatePersistenceTokenProvider` during capture/serialization.
+- `IDataGridStatePersistenceTokenResolver` during restore/deserialization.
+
+These enable persistence for:
+
+- Sorting comparer (`ComparerToken`)
+- Filtering predicate (`PredicateToken`)
+- Conditional formatting predicate/theme (`PredicateToken`, `ThemeToken`)
+- Grouping value converter (`ValueConverterToken`)
+
+Attach them via `DataGridStatePersistenceOptions`:
+
+```csharp
+var persistenceOptions = new DataGridStatePersistenceOptions
+{
+    TokenProvider = myProvider,
+    TokenResolver = myResolver
+};
+
+var payload = DataGridStatePersistence.SerializeStateToString(
+    grid,
+    DataGridStateSections.All,
+    options,
+    serializer: null,
+    persistenceOptions: persistenceOptions);
+```
+
+## Stability guidance
+
+For durable payloads across app restarts and data refreshes:
+
+- Always provide stable item and column keys in `DataGridStateOptions`.
+- Prefer primitive keys/values (`string`, numeric, `bool`, `Guid`, `DateTime`, `DateTimeOffset`, `TimeSpan`, `char`).
+- Avoid using transient object references as keys.
+- Use token provider/resolver for custom comparers, predicates, themes, and converters.
+- Keep `DataGridPersistedState.Version` in persisted payloads for compatibility handling.
+
+## Migration guidance
+
+When moving from runtime state persistence to serialized persistence:
+
+- Keep existing runtime calls for ephemeral in-session scenarios.
+- Replace file/database persistence of runtime state objects with `DataGridStatePersistence`.
+- Reuse existing `DataGridStateOptions` key selectors/resolvers unchanged.
+- Add token provider/resolver only if you depend on custom runtime-only behavior.
