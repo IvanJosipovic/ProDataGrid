@@ -155,6 +155,28 @@ public class DataGridSelectionIndexResolutionTests
         Assert.Equal("resolver failure", exception.Message);
     }
 
+    [AvaloniaFact]
+    public void Default_Cache_Does_Not_Root_Previous_ItemsSource_After_Swap()
+    {
+        var (grid, weakOldSource) = CreateGridWithSwappedItemsSource();
+
+        ForceGc();
+
+        Assert.False(weakOldSource.TryGetTarget(out _));
+        GC.KeepAlive(grid);
+    }
+
+    [AvaloniaFact]
+    public void Default_Cache_Does_Not_Root_Previous_Lookup_After_Rebuild()
+    {
+        var (grid, weakLookup) = CreateGridWithRebuiltLookup();
+
+        ForceGc();
+
+        Assert.False(weakLookup.TryGetTarget(out _));
+        GC.KeepAlive(grid);
+    }
+
     private static DataGrid CreateGrid(TrackingObservableList items)
     {
         return new DataGrid
@@ -164,6 +186,49 @@ public class DataGridSelectionIndexResolutionTests
             CanUserAddRows = false,
             CanUserDeleteRows = false
         };
+    }
+
+    private static (DataGrid Grid, WeakReference<TrackingObservableList> WeakOldSource) CreateGridWithSwappedItemsSource()
+    {
+        var oldSource = new TrackingObservableList { new object(), new object(), new object() };
+        var target = oldSource[1];
+        var grid = CreateGrid(oldSource);
+
+        _ = grid.DataConnection.IndexOf(target);
+        grid.ItemsSource = new TrackingObservableList { new object(), new object(), new object() };
+
+        return (grid, new WeakReference<TrackingObservableList>(oldSource));
+    }
+
+    private static (DataGrid Grid, WeakReference<IDictionary> WeakLookup) CreateGridWithRebuiltLookup()
+    {
+        var target = new object();
+        var items = new TrackingObservableList { new object(), target, new object() };
+        var grid = CreateGrid(items);
+        var connection = grid.DataConnection;
+
+        _ = connection.IndexOf(target);
+        var firstLookup = GetReferenceLookup(connection);
+        Assert.NotNull(firstLookup);
+
+        items.Insert(0, new object());
+        _ = connection.IndexOf(target);
+
+        var secondLookup = GetReferenceLookup(connection);
+        Assert.NotNull(secondLookup);
+        Assert.NotSame(firstLookup, secondLookup);
+
+        return (grid, new WeakReference<IDictionary>(firstLookup!));
+    }
+
+    private static void ForceGc()
+    {
+        for (var i = 0; i < 3; i++)
+        {
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
     }
 
     private static IDictionary? GetReferenceLookup(DataGridDataConnection connection)
