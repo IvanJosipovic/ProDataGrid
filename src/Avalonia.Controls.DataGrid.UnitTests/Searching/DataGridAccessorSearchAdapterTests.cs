@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridSearching;
@@ -174,6 +175,123 @@ public class DataGridAccessorSearchAdapterTests
         Assert.NotEmpty(model.Results);
         Assert.True(accessor.TextCalls > 0);
         Assert.Equal(0, accessor.ValueCalls);
+    }
+
+    [Fact]
+    public void AccessorAdapter_Normalizes_Whitespace_And_Diacritics()
+    {
+        var items = new[]
+        {
+            new Person("Creme Brulee"),
+            new Person("Crème   Brûlée")
+        };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+
+        var column = new DataGridTextColumn();
+        DataGridColumnMetadata.SetValueAccessor(column, new DataGridColumnValueAccessor<Person, string>(p => p.Name));
+
+        var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column });
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor(
+            "creme brulee",
+            comparison: StringComparison.OrdinalIgnoreCase,
+            normalizeWhitespace: true,
+            ignoreDiacritics: true));
+
+        Assert.Equal(2, model.Results.Count);
+    }
+
+    [Fact]
+    public void AccessorAdapter_WholeWord_Wildcard_Uses_Word_Boundaries()
+    {
+        var items = new[]
+        {
+            new Person("alpha"),
+            new Person("alphabet"),
+            new Person("beta alpha")
+        };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+
+        var column = new DataGridTextColumn();
+        DataGridColumnMetadata.SetValueAccessor(column, new DataGridColumnValueAccessor<Person, string>(p => p.Name));
+
+        var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column });
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor(
+            "alpha",
+            matchMode: SearchMatchMode.Wildcard,
+            wholeWord: true,
+            comparison: StringComparison.OrdinalIgnoreCase));
+
+        Assert.Equal(2, model.Results.Count);
+        Assert.DoesNotContain(model.Results, r => ReferenceEquals(r.Item, items[1]));
+    }
+
+    [Fact]
+    public void AccessorAdapter_Wildcard_Default_Comparison_Is_CaseInsensitive()
+    {
+        var items = new[]
+        {
+            new Person("Alpha"),
+            new Person("bravo")
+        };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+
+        var column = new DataGridTextColumn();
+        DataGridColumnMetadata.SetValueAccessor(column, new DataGridColumnValueAccessor<Person, string>(p => p.Name));
+
+        var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column });
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor(
+            "ALPHA",
+            matchMode: SearchMatchMode.Wildcard));
+
+        var result = Assert.Single(model.Results);
+        Assert.Same(items[0], result.Item);
+    }
+
+    [Fact]
+    public void AccessorAdapter_Wildcard_Default_Comparison_Is_CultureInvariant()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("tr-TR");
+            CultureInfo.CurrentUICulture = new CultureInfo("tr-TR");
+
+            var items = new[]
+            {
+                new Person("Istanbul")
+            };
+            var view = new DataGridCollectionView(items);
+            var model = new SearchModel();
+
+            var column = new DataGridTextColumn();
+            DataGridColumnMetadata.SetValueAccessor(column, new DataGridColumnValueAccessor<Person, string>(p => p.Name));
+
+            var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column });
+            adapter.AttachView(view);
+
+            model.SetOrUpdate(new SearchDescriptor(
+                "i*",
+                matchMode: SearchMatchMode.Wildcard));
+
+            var result = Assert.Single(model.Results);
+            Assert.Same(items[0], result.Item);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
     }
 
     private sealed class Person

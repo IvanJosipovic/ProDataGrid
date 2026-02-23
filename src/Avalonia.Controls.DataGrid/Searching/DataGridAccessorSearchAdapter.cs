@@ -84,7 +84,7 @@ namespace Avalonia.Controls.DataGridSearching
                             continue;
                         }
 
-                        var matches = SearchTextMatcher.FindMatches(text, plan.Descriptor);
+                        var matches = SearchTextMatcher.FindMatches(text, plan.PreparedDescriptor);
                         if (matches == null || matches.Count == 0)
                         {
                             continue;
@@ -141,7 +141,13 @@ namespace Avalonia.Controls.DataGridSearching
                     continue;
                 }
 
-                plans.Add(new SearchDescriptorPlan(descriptor, searchColumns));
+                var preparedDescriptor = SearchTextMatcher.Prepare(descriptor);
+                if (preparedDescriptor == null)
+                {
+                    continue;
+                }
+
+                plans.Add(new SearchDescriptorPlan(descriptor, searchColumns, preparedDescriptor));
             }
 
             return plans;
@@ -467,15 +473,21 @@ namespace Avalonia.Controls.DataGridSearching
 
         private sealed class SearchDescriptorPlan
         {
-            public SearchDescriptorPlan(SearchDescriptor descriptor, List<SearchColumnInfo> columns)
+            public SearchDescriptorPlan(
+                SearchDescriptor descriptor,
+                List<SearchColumnInfo> columns,
+                SearchTextMatcher.PreparedDescriptor preparedDescriptor)
             {
                 Descriptor = descriptor;
                 Columns = columns;
+                PreparedDescriptor = preparedDescriptor;
             }
 
             public SearchDescriptor Descriptor { get; }
 
             public List<SearchColumnInfo> Columns { get; }
+
+            public SearchTextMatcher.PreparedDescriptor PreparedDescriptor { get; }
         }
 
         private sealed class SearchResultBuilder
@@ -520,7 +532,160 @@ namespace Avalonia.Controls.DataGridSearching
 
         private static class SearchTextMatcher
         {
+            internal sealed class PreparedDescriptor
+            {
+                public PreparedDescriptor(
+                    SearchMatchMode matchMode,
+                    SearchTermCombineMode termMode,
+                    StringComparison comparison,
+                    bool wholeWord,
+                    bool normalizeWhitespace,
+                    bool ignoreDiacritics,
+                    bool allowEmpty,
+                    bool hasQuery,
+                    bool valid,
+                    IReadOnlyList<string> terms,
+                    Regex regex)
+                {
+                    MatchMode = matchMode;
+                    TermMode = termMode;
+                    Comparison = comparison;
+                    WholeWord = wholeWord;
+                    NormalizeWhitespace = normalizeWhitespace;
+                    IgnoreDiacritics = ignoreDiacritics;
+                    AllowEmpty = allowEmpty;
+                    HasQuery = hasQuery;
+                    Valid = valid;
+                    Terms = terms ?? Array.Empty<string>();
+                    Regex = regex;
+                }
+
+                public SearchMatchMode MatchMode { get; }
+
+                public SearchTermCombineMode TermMode { get; }
+
+                public StringComparison Comparison { get; }
+
+                public bool WholeWord { get; }
+
+                public bool NormalizeWhitespace { get; }
+
+                public bool IgnoreDiacritics { get; }
+
+                public bool AllowEmpty { get; }
+
+                public bool HasQuery { get; }
+
+                public bool Valid { get; }
+
+                public IReadOnlyList<string> Terms { get; }
+
+                public Regex Regex { get; }
+            }
+
+            public static PreparedDescriptor Prepare(SearchDescriptor descriptor)
+            {
+                if (descriptor == null)
+                {
+                    return null;
+                }
+
+                var comparison = descriptor.Comparison ?? StringComparison.OrdinalIgnoreCase;
+                var hasQuery = !string.IsNullOrEmpty(descriptor.Query);
+
+                if (!hasQuery)
+                {
+                    return new PreparedDescriptor(
+                        descriptor.MatchMode,
+                        descriptor.TermMode,
+                        comparison,
+                        descriptor.WholeWord,
+                        descriptor.NormalizeWhitespace,
+                        descriptor.IgnoreDiacritics,
+                        descriptor.AllowEmpty,
+                        hasQuery: false,
+                        valid: true,
+                        terms: Array.Empty<string>(),
+                        regex: null);
+                }
+
+                var normalizedQuery = NormalizeQuery(descriptor.Query, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
+                if (descriptor.MatchMode == SearchMatchMode.Regex || descriptor.MatchMode == SearchMatchMode.Wildcard)
+                {
+                    var pattern = descriptor.MatchMode == SearchMatchMode.Wildcard
+                        ? WildcardToRegex(normalizedQuery)
+                        : normalizedQuery;
+
+                    if (descriptor.WholeWord)
+                    {
+                        pattern = $@"\b(?:{pattern})\b";
+                    }
+
+                    var options = RegexOptions.Compiled;
+                    if (IsIgnoreCase(comparison))
+                    {
+                        options |= RegexOptions.IgnoreCase;
+                    }
+
+                    if (IsCultureInvariant(comparison))
+                    {
+                        options |= RegexOptions.CultureInvariant;
+                    }
+
+                    try
+                    {
+                        var regex = new Regex(pattern, options);
+                        return new PreparedDescriptor(
+                            descriptor.MatchMode,
+                            descriptor.TermMode,
+                            comparison,
+                            descriptor.WholeWord,
+                            descriptor.NormalizeWhitespace,
+                            descriptor.IgnoreDiacritics,
+                            descriptor.AllowEmpty,
+                            hasQuery: true,
+                            valid: true,
+                            terms: Array.Empty<string>(),
+                            regex: regex);
+                    }
+                    catch (ArgumentException)
+                    {
+                        return new PreparedDescriptor(
+                            descriptor.MatchMode,
+                            descriptor.TermMode,
+                            comparison,
+                            descriptor.WholeWord,
+                            descriptor.NormalizeWhitespace,
+                            descriptor.IgnoreDiacritics,
+                            descriptor.AllowEmpty,
+                            hasQuery: true,
+                            valid: false,
+                            terms: Array.Empty<string>(),
+                            regex: null);
+                    }
+                }
+
+                var terms = Tokenize(normalizedQuery);
+                return new PreparedDescriptor(
+                    descriptor.MatchMode,
+                    descriptor.TermMode,
+                    comparison,
+                    descriptor.WholeWord,
+                    descriptor.NormalizeWhitespace,
+                    descriptor.IgnoreDiacritics,
+                    descriptor.AllowEmpty,
+                    hasQuery: true,
+                    valid: true,
+                    terms: terms,
+                    regex: null);
+            }
+
             public static IReadOnlyList<SearchMatch> FindMatches(string text, SearchDescriptor descriptor)
+            {
+                return FindMatches(text, Prepare(descriptor));
+            }
+
+            public static IReadOnlyList<SearchMatch> FindMatches(string text, PreparedDescriptor descriptor)
             {
                 if (descriptor == null)
                 {
@@ -532,7 +697,7 @@ namespace Avalonia.Controls.DataGridSearching
                     return Array.Empty<SearchMatch>();
                 }
 
-                if (string.IsNullOrEmpty(descriptor.Query))
+                if (!descriptor.HasQuery)
                 {
                     if (!descriptor.AllowEmpty)
                     {
@@ -542,69 +707,47 @@ namespace Avalonia.Controls.DataGridSearching
                     return text.Length == 0 ? Array.Empty<SearchMatch>() : new[] { new SearchMatch(0, text.Length) };
                 }
 
-                var normalized = NormalizeText(text, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
-                var query = NormalizeQuery(descriptor.Query, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
-
-                if (descriptor.MatchMode == SearchMatchMode.Regex || descriptor.MatchMode == SearchMatchMode.Wildcard)
-                {
-                    var pattern = descriptor.MatchMode == SearchMatchMode.Wildcard
-                        ? WildcardToRegex(query)
-                        : query;
-
-                    if (descriptor.WholeWord)
-                    {
-                        pattern = $@"\\b(?:{pattern})\\b";
-                    }
-
-                    var options = RegexOptions.Compiled;
-                    if (IsIgnoreCase(descriptor.Comparison))
-                    {
-                        options |= RegexOptions.IgnoreCase;
-                    }
-
-                    if (IsCultureInvariant(descriptor.Comparison))
-                    {
-                        options |= RegexOptions.CultureInvariant;
-                    }
-
-                    try
-                    {
-                        var matches = new List<SearchMatch>();
-                        foreach (Match match in Regex.Matches(normalized.Text, pattern, options))
-                        {
-                            if (!match.Success || match.Length == 0)
-                            {
-                                continue;
-                            }
-
-                            matches.Add(new SearchMatch(match.Index, match.Length));
-                        }
-
-                        return MapMatches(matches, normalized.Map);
-                    }
-                    catch (ArgumentException)
-                    {
-                        return Array.Empty<SearchMatch>();
-                    }
-                }
-
-                var terms = Tokenize(query);
-                if (terms.Count == 0)
+                if (!descriptor.Valid)
                 {
                     return Array.Empty<SearchMatch>();
                 }
 
-                var comparison = descriptor.Comparison ?? StringComparison.OrdinalIgnoreCase;
-                var collected = new List<SearchMatch>();
+                var normalized = NormalizeText(text, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
+                if (descriptor.MatchMode == SearchMatchMode.Regex || descriptor.MatchMode == SearchMatchMode.Wildcard)
+                {
+                    if (descriptor.Regex == null)
+                    {
+                        return Array.Empty<SearchMatch>();
+                    }
 
-                foreach (var term in terms)
+                    var matches = new List<SearchMatch>();
+                    foreach (Match match in descriptor.Regex.Matches(normalized.Text))
+                    {
+                        if (!match.Success || match.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        matches.Add(new SearchMatch(match.Index, match.Length));
+                    }
+
+                    return MapMatches(matches, normalized.Map);
+                }
+
+                if (descriptor.Terms.Count == 0)
+                {
+                    return Array.Empty<SearchMatch>();
+                }
+
+                var collected = new List<SearchMatch>();
+                foreach (var term in descriptor.Terms)
                 {
                     if (string.IsNullOrEmpty(term))
                     {
                         continue;
                     }
 
-                    var termMatches = FindTermMatches(normalized.Text, term, descriptor.MatchMode, comparison, descriptor.WholeWord);
+                    var termMatches = FindTermMatches(normalized.Text, term, descriptor.MatchMode, descriptor.Comparison, descriptor.WholeWord);
                     if (termMatches.Count == 0)
                     {
                         if (descriptor.TermMode == SearchTermCombineMode.All)
@@ -719,6 +862,11 @@ namespace Avalonia.Controls.DataGridSearching
                 bool wholeWord,
                 List<SearchMatch> matches)
             {
+                if (string.IsNullOrEmpty(term))
+                {
+                    return;
+                }
+
                 int index = 0;
                 while (index >= 0)
                 {
@@ -774,59 +922,111 @@ namespace Avalonia.Controls.DataGridSearching
                     return new NormalizedText(text, null);
                 }
 
-                var builder = new StringBuilder(text.Length);
-                List<int> map = null;
+                var needsWhitespaceNormalization = NeedsWhitespaceNormalization(text, normalizeWhitespace);
+                if (!ignoreDiacritics && !needsWhitespaceNormalization)
+                {
+                    return new NormalizedText(text, null);
+                }
 
-                int lastWhitespace = -1;
+                if (ignoreDiacritics && IsAscii(text) && !needsWhitespaceNormalization)
+                {
+                    return new NormalizedText(text, null);
+                }
+
+                var builder = new StringBuilder(text.Length);
+                var map = new List<int>(text.Length);
+                bool wasWhitespace = false;
+
                 for (int i = 0; i < text.Length; i++)
                 {
-                    var ch = text[i];
-
-                    if (normalizeWhitespace && char.IsWhiteSpace(ch))
-                    {
-                        if (lastWhitespace >= 0)
-                        {
-                            continue;
-                        }
-
-                        lastWhitespace = builder.Length;
-                        ch = ' ';
-                    }
-                    else
-                    {
-                        lastWhitespace = -1;
-                    }
-
                     if (ignoreDiacritics)
                     {
-                        var normalized = ch.ToString().Normalize(NormalizationForm.FormD);
+                        var normalized = text[i].ToString().Normalize(NormalizationForm.FormD);
                         foreach (var nc in normalized)
                         {
-                            if (CharUnicodeInfo.GetUnicodeCategory(nc) != UnicodeCategory.NonSpacingMark)
+                            if (CharUnicodeInfo.GetUnicodeCategory(nc) == UnicodeCategory.NonSpacingMark)
                             {
-                                if (map == null)
-                                {
-                                    map = new List<int>(text.Length);
-                                }
-
-                                map.Add(i);
-                                builder.Append(nc);
+                                continue;
                             }
+
+                            AppendNormalizedCharacter(builder, map, nc, i, normalizeWhitespace, ref wasWhitespace);
                         }
                     }
                     else
                     {
-                        if (map == null)
-                        {
-                            map = new List<int>(text.Length);
-                        }
-
-                        map.Add(i);
-                        builder.Append(ch);
+                        AppendNormalizedCharacter(builder, map, text[i], i, normalizeWhitespace, ref wasWhitespace);
                     }
                 }
 
-                return new NormalizedText(builder.ToString(), map?.ToArray());
+                return new NormalizedText(builder.ToString(), map.ToArray());
+            }
+
+            private static void AppendNormalizedCharacter(
+                StringBuilder builder,
+                List<int> map,
+                char ch,
+                int sourceIndex,
+                bool normalizeWhitespace,
+                ref bool wasWhitespace)
+            {
+                if (normalizeWhitespace && char.IsWhiteSpace(ch))
+                {
+                    if (wasWhitespace)
+                    {
+                        return;
+                    }
+
+                    ch = ' ';
+                    wasWhitespace = true;
+                }
+                else
+                {
+                    wasWhitespace = false;
+                }
+
+                map.Add(sourceIndex);
+                builder.Append(ch);
+            }
+
+            private static bool NeedsWhitespaceNormalization(string text, bool normalizeWhitespace)
+            {
+                if (!normalizeWhitespace)
+                {
+                    return false;
+                }
+
+                bool wasWhitespace = false;
+                for (int i = 0; i < text.Length; i++)
+                {
+                    var ch = text[i];
+                    if (!char.IsWhiteSpace(ch))
+                    {
+                        wasWhitespace = false;
+                        continue;
+                    }
+
+                    if (ch != ' ' || wasWhitespace)
+                    {
+                        return true;
+                    }
+
+                    wasWhitespace = true;
+                }
+
+                return false;
+            }
+
+            private static bool IsAscii(string text)
+            {
+                for (int i = 0; i < text.Length; i++)
+                {
+                    if (text[i] > 0x7F)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
             private static string NormalizeQuery(string query, bool normalizeWhitespace, bool ignoreDiacritics)
@@ -861,8 +1061,21 @@ namespace Avalonia.Controls.DataGridSearching
 
             private static bool IsCultureInvariant(StringComparison? comparison)
             {
-                return comparison == StringComparison.InvariantCulture
-                    || comparison == StringComparison.InvariantCultureIgnoreCase;
+                if (!comparison.HasValue)
+                {
+                    return true;
+                }
+
+                switch (comparison.Value)
+                {
+                    case StringComparison.Ordinal:
+                    case StringComparison.OrdinalIgnoreCase:
+                    case StringComparison.InvariantCulture:
+                    case StringComparison.InvariantCultureIgnoreCase:
+                        return true;
+                    default:
+                        return false;
+                }
             }
 
             private static string WildcardToRegex(string pattern)
