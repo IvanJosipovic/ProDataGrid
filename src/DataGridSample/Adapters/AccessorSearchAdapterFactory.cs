@@ -13,7 +13,7 @@ namespace DataGridSample.Adapters
     {
         public DataGridSearchAdapter Create(DataGrid grid, ISearchModel model)
         {
-            return new AccessorSearchAdapter(model, () => grid.ColumnDefinitions);
+            return new DataGridAccessorSearchAdapter(model, () => grid.ColumnDefinitions, grid?.FastPathOptions);
         }
     }
 }
