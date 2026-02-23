@@ -1506,6 +1506,133 @@ internal
             return true;
         }
 
+        internal void RemapSelectedCellsToCurrentRows()
+        {
+            if (_selectedCellsView.Count == 0 || DataConnection == null)
+            {
+                return;
+            }
+
+            var remapped = new List<DataGridCellInfo>(_selectedCellsView.Count);
+            var seen = new HashSet<(int RowIndex, int ColumnIndex)>();
+            var resolvedRows = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+            var rowsToSelect = new List<int>();
+            var selectedRows = new HashSet<int>();
+            var changed = false;
+
+            foreach (var cell in _selectedCellsView)
+            {
+                if (!cell.IsValid || cell.Item == null)
+                {
+                    changed = true;
+                    continue;
+                }
+
+                var columnIndex = cell.ColumnIndex;
+                if (columnIndex < 0 && cell.Column != null)
+                {
+                    columnIndex = cell.Column.Index;
+                }
+
+                if (columnIndex < 0)
+                {
+                    changed = true;
+                    continue;
+                }
+
+                var column = (ColumnsItemsInternal != null &&
+                              columnIndex < ColumnsItemsInternal.Count)
+                    ? ColumnsItemsInternal[columnIndex]
+                    : cell.Column;
+                if (column == null)
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (!resolvedRows.TryGetValue(cell.Item, out var rowIndex))
+                {
+                    if (!TryGetRowIndexFromItem(cell.Item, out rowIndex))
+                    {
+                        changed = true;
+                        continue;
+                    }
+
+                    resolvedRows[cell.Item] = rowIndex;
+                }
+
+                if (!seen.Add((rowIndex, columnIndex)))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (selectedRows.Add(rowIndex))
+                {
+                    rowsToSelect.Add(rowIndex);
+                }
+
+                if (rowIndex != cell.RowIndex || columnIndex != cell.ColumnIndex)
+                {
+                    changed = true;
+                }
+
+                remapped.Add(new DataGridCellInfo(cell.Item, column, rowIndex, columnIndex, isValid: true));
+            }
+
+            if (!changed && remapped.Count == _selectedCellsView.Count)
+            {
+                return;
+            }
+
+            var previousSync = _syncingSelectedCells;
+            _syncingSelectedCells = true;
+            try
+            {
+                var removed = _selectedCellsView.ToList();
+                _selectedCells.Clear();
+                _selectedCellsView.Clear();
+                ClearHeaderSelectionTracking();
+                _selectedColumnCounts.Clear();
+                _selectedColumnIndices.Clear();
+                _selectedColumnsView.Clear();
+
+                var added = new List<DataGridCellInfo>(remapped.Count);
+                foreach (var cell in remapped)
+                {
+                    AddCellSelectionInternal(cell, added);
+                }
+
+                foreach (var rowIndex in rowsToSelect)
+                {
+                    var slot = SlotFromRowIndex(rowIndex);
+                    if (slot >= 0)
+                    {
+                        SetRowSelection(slot, isSelected: true, setAnchorSlot: false);
+                    }
+                }
+
+                foreach (var rowIndex in _selectedCells.Keys)
+                {
+                    if (IsRowFullySelectedByCells(rowIndex))
+                    {
+                        _selectedRowHeaderIndices.Add(rowIndex);
+                    }
+                }
+
+                if (added.Count > 0 || removed.Count > 0)
+                {
+                    RaiseSelectedCellsChanged(added, removed);
+                }
+
+                ApplySelectedCellsChangeToBinding(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            }
+            finally
+            {
+                _syncingSelectedCells = previousSync;
+            }
+        }
+
         private void ClearCellSelectionInternal(bool clearRows, bool raiseEvent = true)
         {
             if (_selectedCells.Count == 0 &&

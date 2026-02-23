@@ -152,6 +152,15 @@
     <TabItem Header="SelectionModel Select by Item">
       <pages:SelectionModelItemSelectionPage />
     </TabItem>
+    <TabItem Header="Selection Fast Index (Interface)">
+      <pages:SelectionFastIndexInterfacePage />
+    </TabItem>
+    <TabItem Header="Selection Fast Index (Cache)">
+      <pages:SelectionFastIndexCachePage />
+    </TabItem>
+    <TabItem Header="Selection Fast Index (Resolver)">
+      <pages:SelectionFastIndexResolverPage />
+    </TabItem>
     <TabItem Header="Hierarchical Selection">
       <pages:HierarchicalSelectionModelExpandCollapsePage />
     </TabItem>

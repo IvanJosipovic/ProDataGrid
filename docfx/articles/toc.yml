@@ -160,6 +160,8 @@
     href: selection-and-navigation.md
   - name: Selection Model (End-to-End)
     href: selection-model-end-to-end.md
+  - name: Selection Index Resolution Performance
+    href: selection-index-resolution-performance.md
   - name: Selection Highlighting
     href: selection-highlighting.md
   - name: Drag (Slide) Selection

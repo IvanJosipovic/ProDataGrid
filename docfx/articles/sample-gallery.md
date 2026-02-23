@@ -9,6 +9,7 @@ Highlights include:
 - Sorting/filtering/search models, grouping, and paging.
 - Header context menus with filter flyouts and column visibility toggles.
 - Selection stability, selection origin logging, and current cell tracking.
+- Selection index resolution performance samples (interface, built-in cache, and resolver hook).
 - Selection units and highlighting (row, column, and cell visuals).
 - Clipboard export formats and export customization.
 - Pivot tables with layout toggles, totals, and percent displays.

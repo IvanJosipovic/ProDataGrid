@@ -2,9 +2,12 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
@@ -103,7 +106,77 @@ public class DataGridCellSelectionTests
         Assert.All(GetRows(grid), r => Assert.True(r.IsSelected));
     }
 
-    private static DataGrid CreateGrid(IEnumerable<Item> items)
+    [AvaloniaFact]
+    public void CellSelection_Follows_Item_After_Sorting()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new() { Name = "Beta" },
+            new() { Name = "Alpha" },
+            new() { Name = "Gamma" },
+        };
+
+        var view = new DataGridCollectionView(items);
+        var grid = CreateGrid(view);
+        grid.SelectionUnit = DataGridSelectionUnit.Cell;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.UpdateLayout();
+
+        var firstColumn = grid.Columns.ToList().First();
+        var selectedItem = items[0];
+        grid.SelectedCells = new ObservableCollection<DataGridCellInfo>
+        {
+            new(selectedItem, firstColumn, 0, firstColumn.Index, isValid: true)
+        };
+        grid.UpdateLayout();
+
+        Assert.Equal(0, Assert.Single(grid.SelectedCells).RowIndex);
+
+        view.SortDescriptions.Clear();
+        view.SortDescriptions.Add(DataGridSortDescription.FromPath(nameof(Item.Name), ListSortDirection.Ascending));
+        grid.UpdateLayout();
+
+        Assert.Equal(1, grid.DataConnection.IndexOf(selectedItem));
+        var selectedCell = Assert.Single(grid.SelectedCells);
+        Assert.Same(selectedItem, selectedCell.Item);
+        Assert.Equal(1, selectedCell.RowIndex);
+    }
+
+    [AvaloniaFact]
+    public void CellSelection_Follows_Item_After_Move()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new() { Name = "A" },
+            new() { Name = "B" },
+            new() { Name = "C" },
+        };
+
+        var grid = CreateGrid(items);
+        grid.SelectionUnit = DataGridSelectionUnit.Cell;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.UpdateLayout();
+
+        var firstColumn = grid.Columns.ToList().First();
+        var selectedItem = items[0];
+        grid.SelectedCells = new ObservableCollection<DataGridCellInfo>
+        {
+            new(selectedItem, firstColumn, 0, firstColumn.Index, isValid: true)
+        };
+        grid.UpdateLayout();
+
+        Assert.Equal(0, Assert.Single(grid.SelectedCells).RowIndex);
+
+        items.Move(0, 2);
+        grid.UpdateLayout();
+
+        Assert.Equal(2, grid.DataConnection.IndexOf(selectedItem));
+        var selectedCell = Assert.Single(grid.SelectedCells);
+        Assert.Same(selectedItem, selectedCell.Item);
+        Assert.Equal(2, selectedCell.RowIndex);
+    }
+
+    private static DataGrid CreateGrid(IEnumerable items)
     {
         var root = new Window
         {
