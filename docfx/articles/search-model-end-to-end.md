@@ -180,6 +180,7 @@ Reference implementation:
 
 ## Related articles
 
+- [Search Model: High-Performance Mode](search-model-high-performance-mode.md)
 - [Data Operations](data-operations.md)
 - [Column Definitions (Model Integration)](column-definitions-models.md)
 - [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md)
