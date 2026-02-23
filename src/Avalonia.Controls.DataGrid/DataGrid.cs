@@ -1976,6 +1976,13 @@ internal
         }
 
         /// <summary>
+        /// Optional hook used to resolve an item index for reference-based selection lookups.
+        /// Return a value greater than or equal to zero to use the resolved index, or a negative value to fall back
+        /// to built-in lookup strategies.
+        /// </summary>
+        public Func<IList, object, int> ReferenceIndexResolver { get; set; }
+
+        /// <summary>
         /// Creates the default sorting model for the grid. Override or set <see cref="SortingModelFactory"/>
         /// before construction completes to supply a custom implementation.
         /// </summary>

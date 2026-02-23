@@ -40,6 +40,9 @@ namespace Avalonia.Controls
         private int? _placeholderRowIndexDuringAdd;
         private DataGridCollectionView _groupingCollectionView;
         private bool _pendingGroupingRefresh;
+        private IList _referenceIndexLookupList;
+        private Dictionary<object, int> _referenceIndexLookup;
+        private int _referenceIndexNullIndex = -1;
 
         public DataGridDataConnection(DataGrid owner)
         {
@@ -130,6 +133,7 @@ namespace Avalonia.Controls
             set
             {
                 _dataSource = value;
+                InvalidateReferenceIndexLookup();
                 // Because the DataSource is changing, we need to reset our cached values for DataType and DataProperties,
                 // which are dependent on the current DataSource
                 _dataType = null;
@@ -637,7 +641,7 @@ namespace Avalonia.Controls
 
             if (!isNewItemPlaceholder && DataSource is IList referenceList && dataItem is object)
             {
-                var referenceIndex = FindReferenceIndex(referenceList, dataItem);
+                var referenceIndex = ResolveReferenceIndex(referenceList, dataItem);
                 if (referenceIndex >= 0)
                 {
                     return referenceIndex;
@@ -711,7 +715,125 @@ namespace Avalonia.Controls
                    ReferenceEquals(itemsSource, model.ObservableFlattened);
         }
 
-        private static int FindReferenceIndex(IList list, object dataItem)
+        private int ResolveReferenceIndex(IList list, object dataItem)
+        {
+            var resolver = _owner?.ReferenceIndexResolver;
+            if (resolver != null)
+            {
+                var resolved = resolver(list, dataItem);
+                if ((uint)resolved < (uint)list.Count && ReferenceEquals(list[resolved], dataItem))
+                {
+                    return resolved;
+                }
+            }
+
+            if (TryGetFastReferenceIndex(list, dataItem, out var fastIndex))
+            {
+                return fastIndex;
+            }
+
+            var cachedIndex = FindReferenceIndexWithCache(list, dataItem);
+            if (cachedIndex >= 0)
+            {
+                return cachedIndex;
+            }
+
+            return FindReferenceIndexLinear(list, dataItem);
+        }
+
+        private bool TryGetFastReferenceIndex(IList list, object dataItem, out int index)
+        {
+            if (TryResolveFastReferenceIndex(list as IDataGridIndexOf, list, dataItem, out index))
+            {
+                return true;
+            }
+
+            if (!ReferenceEquals(_owner?.ItemsSource, list) &&
+                _owner?.ItemsSource is IDataGridIndexOf sourceFastIndex &&
+                TryResolveFastReferenceIndex(sourceFastIndex, list, dataItem, out index))
+            {
+                return true;
+            }
+
+            index = -1;
+            return false;
+        }
+
+        private static bool TryResolveFastReferenceIndex(
+            IDataGridIndexOf fastIndexSource,
+            IList list,
+            object dataItem,
+            out int index)
+        {
+            index = -1;
+            if (fastIndexSource == null || !fastIndexSource.TryGetReferenceIndex(dataItem, out var resolved))
+            {
+                return false;
+            }
+
+            if (resolved < 0 || resolved >= list.Count)
+            {
+                return false;
+            }
+
+            if (!ReferenceEquals(list[resolved], dataItem))
+            {
+                return false;
+            }
+
+            index = resolved;
+            return true;
+        }
+
+        private int FindReferenceIndexWithCache(IList list, object dataItem)
+        {
+            EnsureReferenceIndexLookup(list);
+            if (dataItem == null)
+            {
+                return _referenceIndexNullIndex;
+            }
+
+            return _referenceIndexLookup != null &&
+                   _referenceIndexLookup.TryGetValue(dataItem, out var cachedIndex)
+                ? cachedIndex
+                : -1;
+        }
+
+        private void EnsureReferenceIndexLookup(IList list)
+        {
+            if (ReferenceEquals(_referenceIndexLookupList, list) &&
+                (_referenceIndexLookup != null || _referenceIndexNullIndex >= 0))
+            {
+                return;
+            }
+
+            var lookup = new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
+            var nullIndex = -1;
+            for (var i = 0; i < list.Count; i++)
+            {
+                var item = list[i];
+                if (item == null)
+                {
+                    if (nullIndex < 0)
+                    {
+                        nullIndex = i;
+                    }
+
+                    continue;
+                }
+
+                if (!lookup.ContainsKey(item))
+                {
+                    lookup.Add(item, i);
+                }
+            }
+
+            _referenceIndexLookupList = list;
+            _referenceIndexLookup = lookup;
+            _referenceIndexNullIndex = nullIndex;
+        }
+
+        private static int FindReferenceIndexLinear(IList list, object dataItem)
         {
             for (var i = 0; i < list.Count; i++)
             {
@@ -728,6 +850,13 @@ namespace Avalonia.Controls
         {
             _dataProperties = null;
             _dataDescriptors = null;
+        }
+
+        private void InvalidateReferenceIndexLookup()
+        {
+            _referenceIndexLookupList = null;
+            _referenceIndexLookup = null;
+            _referenceIndexNullIndex = -1;
         }
 
         /// <summary>
@@ -1039,6 +1168,7 @@ namespace Avalonia.Controls
 
         private void NotifyingDataSource_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
+            InvalidateReferenceIndexLookup();
             if (IsHierarchicalItemsSource())
             {
                 return;
@@ -1234,6 +1364,8 @@ namespace Avalonia.Controls
                     _owner.RefreshSelectionFromModel();
                 }
 
+                _owner.RemapSelectedCellsToCurrentRows();
+
                 if (restoreSyncingSelectionModel)
                 {
                     _owner.PopSelectionSync(previousSyncingSelectionModel);
@@ -1272,6 +1404,7 @@ namespace Avalonia.Controls
         /// </summary>
         internal void Remove(object item)
         {
+            InvalidateReferenceIndexLookup();
             if (EditableCollectionView != null)
             {
                 EditableCollectionView.Remove(item);
