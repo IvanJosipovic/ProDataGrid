@@ -1,0 +1,32 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.SelectionFastIndexCachePage"
+             x:DataType="viewModels:SelectionFastIndexCacheViewModel">
+  <Grid Margin="12" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2" Text="Selection fast index - built-in cache" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Default DataGridDataConnection lookup uses an internal reference index cache with no extra setup." />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1">
+      <Button Content="Select near end x100"
+              Command="{Binding SelectNearEndCommand}"
+              Margin="0 0 8 8" />
+      <TextBlock VerticalAlignment="Center" Text="{Binding Summary}" />
+    </WrapPanel>
+
+    <DataGrid x:Name="CacheDataGrid"
+              Grid.Row="2"
+              ItemsSource="{Binding Items}"
+              Selection="{Binding SelectionModel}"
+              SelectionMode="Extended"
+              SelectionUnit="Cell"
+              AutoGenerateColumns="True"
+              CanUserAddRows="False"
+              CanUserDeleteRows="False"
+              UseLogicalScrollable="True" />
+  </Grid>
+</UserControl>
+
