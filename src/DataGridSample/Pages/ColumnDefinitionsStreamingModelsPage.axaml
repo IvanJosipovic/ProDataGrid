@@ -74,6 +74,7 @@
 
     <DataGrid Grid.Row="3"
               Grid.Column="0"
+              x:Name="StreamingGrid"
               ItemsSource="{Binding View}"
               FilteringModel="{Binding FilteringModel}"
               SearchModel="{Binding SearchModel}"
