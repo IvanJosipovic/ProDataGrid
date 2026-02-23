@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls;
@@ -24,6 +25,8 @@ namespace DataGridSample.Pages
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+            PayloadBox = this.FindControl<TextBox>("PayloadBox");
+            StatusText = this.FindControl<TextBlock>("StatusText");
             Grid = this.FindControl<DataGrid>("Grid");
         }
 
@@ -37,6 +40,7 @@ namespace DataGridSample.Pages
         private void OnCapture(object? sender, RoutedEventArgs e)
         {
             _state = Grid.CaptureState(DataGridStateSections.All, CreateOptions());
+            SetStatus("Captured full runtime state.");
         }
 
         private void OnRestore(object? sender, RoutedEventArgs e)
@@ -44,6 +48,11 @@ namespace DataGridSample.Pages
             if (_state != null)
             {
                 Grid.RestoreState(_state, DataGridStateSections.All, CreateOptions());
+                SetStatus("Restored full runtime state.");
+            }
+            else
+            {
+                SetStatus("No captured runtime state.");
             }
         }
 
@@ -106,6 +115,8 @@ namespace DataGridSample.Pages
                 Grid.Selection.Select(4);
                 Grid.ScrollIntoView(ViewModel.Items[20], nameColumn ?? Grid.Columns[0]);
             }
+
+            SetStatus("Applied sample state.");
         }
 
         private void OnClearState(object? sender, RoutedEventArgs e)
@@ -132,6 +143,107 @@ namespace DataGridSample.Pages
             {
                 Grid.ScrollIntoView(ViewModel.Items[0], Grid.Columns[0]);
             }
+
+            SetStatus("Cleared grid state.");
+        }
+
+        private void OnSerializeJson(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var payload = DataGridStatePersistence.SerializeStateToString(
+                    Grid,
+                    DataGridStateSections.All,
+                    CreateOptions());
+
+                PayloadBox.Text = payload;
+                SetStatus($"Serialized JSON payload ({payload.Length} chars).");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"JSON serialization failed: {ex.Message}");
+            }
+        }
+
+        private void OnRestoreJson(object? sender, RoutedEventArgs e)
+        {
+            var payload = PayloadBox.Text;
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                SetStatus("JSON payload is empty.");
+                return;
+            }
+
+            try
+            {
+                DataGridStatePersistence.RestoreStateFromString(
+                    Grid,
+                    payload,
+                    DataGridStateSections.All,
+                    CreateOptions());
+
+                SetStatus("Restored state from JSON payload.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"JSON restore failed: {ex.Message}");
+            }
+        }
+
+        private void OnSerializeBase64(object? sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var payload = DataGridStatePersistence.SerializeState(
+                    Grid,
+                    DataGridStateSections.All,
+                    CreateOptions());
+
+                var base64 = DataGridStatePersistence.EncodeBase64(payload);
+                PayloadBox.Text = base64;
+                SetStatus($"Serialized binary payload ({payload.Length} bytes) and encoded to Base64.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Base64 serialization failed: {ex.Message}");
+            }
+        }
+
+        private void OnRestoreBase64(object? sender, RoutedEventArgs e)
+        {
+            var payload = PayloadBox.Text;
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                SetStatus("Base64 payload is empty.");
+                return;
+            }
+
+            try
+            {
+                var bytes = DataGridStatePersistence.DecodeBase64(payload);
+                DataGridStatePersistence.RestoreState(
+                    Grid,
+                    bytes,
+                    DataGridStateSections.All,
+                    CreateOptions());
+
+                SetStatus("Restored state from Base64 payload.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus($"Base64 restore failed: {ex.Message}");
+            }
+        }
+
+        private void OnClearPayload(object? sender, RoutedEventArgs e)
+        {
+            PayloadBox.Text = string.Empty;
+            SetStatus("Cleared payload text.");
+        }
+
+        private void SetStatus(string message)
+        {
+            StatusText.Text = message;
         }
     }
 }

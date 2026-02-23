@@ -5,11 +5,11 @@
              x:Class="DataGridSample.Pages.StateFullPage"
              x:DataType="viewModels:StateSampleViewModel">
 <Grid Margin="12"
-        RowDefinitions="Auto,Auto,*"
+        RowDefinitions="Auto,Auto,Auto,Auto,Auto,*"
         RowSpacing="8">
     <StackPanel Spacing="4">
-      <TextBlock Text="Full state" FontSize="18" FontWeight="Bold" />
-      <TextBlock Text="Capture and restore layout, view, selection, and scroll as a single state."
+      <TextBlock Text="Full state and persistence" FontSize="18" FontWeight="Bold" />
+      <TextBlock Text="Capture and restore runtime state, then serialize/restore using JSON string or Base64 bytes."
                  TextWrapping="Wrap" />
     </StackPanel>
 
@@ -22,7 +22,33 @@
       <Button Content="Clear state" Click="OnClearState" />
     </StackPanel>
 
-    <DataGrid Grid.Row="2"
+    <StackPanel Grid.Row="2"
+                Orientation="Horizontal"
+                Spacing="8">
+      <Button Content="Serialize to JSON" Click="OnSerializeJson" />
+      <Button Content="Restore from JSON" Click="OnRestoreJson" />
+      <Button Content="Serialize to Base64 bytes" Click="OnSerializeBase64" />
+      <Button Content="Restore from Base64 bytes" Click="OnRestoreBase64" />
+      <Button Content="Clear payload" Click="OnClearPayload" />
+    </StackPanel>
+
+    <TextBlock Grid.Row="3"
+               x:Name="StatusText"
+               TextWrapping="Wrap" />
+
+    <Grid Grid.Row="4"
+          RowDefinitions="Auto,*"
+          RowSpacing="8">
+      <TextBlock Text="Payload" FontWeight="SemiBold" />
+      <TextBox Grid.Row="1"
+               x:Name="PayloadBox"
+               AcceptsReturn="True"
+               TextWrapping="Wrap"
+               MinHeight="120"
+               ScrollViewer.VerticalScrollBarVisibility="Auto" />
+    </Grid>
+
+    <DataGrid Grid.Row="5"
               x:Name="Grid"
               ItemsSource="{Binding ItemsView}"
               HeadersVisibility="All"
