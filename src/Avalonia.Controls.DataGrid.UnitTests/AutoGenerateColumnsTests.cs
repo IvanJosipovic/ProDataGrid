@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Controls.Documents;
 using Avalonia.Data.Core.Plugins;
+using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Xunit;
 
@@ -14,7 +15,7 @@ namespace Avalonia.Controls.DataGridTests
 {
     public class AutoGenerateColumnsTests
     {
-        [Fact]
+        [AvaloniaFact]
         public void AutoGenerateColumns_Uses_DataColumn_Descriptors_For_DataTable_DefaultView()
         {
             var table = new DataTable();
@@ -62,7 +63,7 @@ namespace Avalonia.Controls.DataGridTests
                 });
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void AutoGenerateColumns_Uses_DataColumn_Descriptors_For_DataGridCollectionView_Wrapping_DataTable_DefaultView()
         {
             var table = new DataTable();
@@ -109,7 +110,7 @@ namespace Avalonia.Controls.DataGridTests
                 });
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void AutoGenerateColumns_Creates_ComboBox_For_Enum()
         {
             var grid = new DataGrid
@@ -133,7 +134,7 @@ namespace Avalonia.Controls.DataGridTests
             Assert.IsType<Binding>(comboColumn.SelectedItemBinding);
         }
 
-        [Fact]
+        [AvaloniaFact]
         public void AutoGenerateColumns_Creates_Hyperlink_For_Uri()
         {
             var grid = new DataGrid

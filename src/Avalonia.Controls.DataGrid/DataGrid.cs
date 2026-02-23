@@ -2579,7 +2579,9 @@ internal
         {
             if (string.IsNullOrEmpty(e.PropertyName) ||
                 e.PropertyName == nameof(DataGridFastPathOptions.UseAccessorsOnly) ||
-                e.PropertyName == nameof(DataGridFastPathOptions.ThrowOnMissingAccessor))
+                e.PropertyName == nameof(DataGridFastPathOptions.ThrowOnMissingAccessor) ||
+                e.PropertyName == nameof(DataGridFastPathOptions.EnableHighPerformanceSearching) ||
+                e.PropertyName == nameof(DataGridFastPathOptions.HighPerformanceSearchTrackItemChanges))
             {
                 RefreshFastPathAdapters();
             }

@@ -54,6 +54,12 @@ namespace DataGridSample.ViewModels
                 CycleMode = SortCycleMode.AscendingDescendingNone,
                 OwnsViewSorts = true
             };
+            FastPathOptions = new DataGridFastPathOptions
+            {
+                UseAccessorsOnly = true,
+                EnableHighPerformanceSearching = true,
+                HighPerformanceSearchTrackItemChanges = false
+            };
 
             SearchModel.ResultsChanged += SearchModelOnResultsChanged;
             SearchModel.CurrentChanged += SearchModelOnCurrentChanged;
@@ -128,6 +134,8 @@ namespace DataGridSample.ViewModels
         public SearchModel SearchModel { get; }
 
         public SortingModel SortingModel { get; }
+
+        public DataGridFastPathOptions FastPathOptions { get; }
 
         public ObservableCollection<DataGridColumnDefinition> ColumnDefinitions { get; }
 

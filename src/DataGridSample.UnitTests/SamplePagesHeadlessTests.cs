@@ -77,6 +77,46 @@ public sealed class SamplePagesHeadlessTests
         Assert.Null(exception);
     }
 
+    [AvaloniaFact]
+    public void MainWindow_Filter_Selects_Streaming_Models_Tab_Without_Exception()
+    {
+        var window = new MainWindow();
+        window.ApplySampleTheme();
+
+        Exception? exception = null;
+        try
+        {
+            exception = Record.Exception(() =>
+            {
+                window.Show();
+                PumpLayout(window);
+
+                var tabs = window.FindControl<TabControl>("SampleTabs");
+                var filterBox = window.FindControl<TextBox>("TabFilterBox");
+                Assert.NotNull(tabs);
+                Assert.NotNull(filterBox);
+
+                filterBox.Text = "Column Definitions - Streaming Models";
+                PumpLayout(window);
+
+                Assert.NotNull(tabs.SelectedItem);
+                Assert.IsType<TabItem>(tabs.SelectedItem);
+                Assert.Equal("Column Definitions - Streaming Models", ((TabItem)tabs.SelectedItem).Header);
+
+                if (tabs.SelectedContent is Control selectedContent)
+                {
+                    ExerciseBasicInteractions(selectedContent);
+                }
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+
+        Assert.Null(exception);
+    }
+
     public static IEnumerable<object[]> PageIndexes()
     {
         for (var index = 0; index < SamplePageCatalog.All.Count; index++)

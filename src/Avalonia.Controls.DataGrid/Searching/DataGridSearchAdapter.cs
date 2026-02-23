@@ -20,6 +20,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Utilities;
+using Avalonia.Threading;
 
 namespace Avalonia.Controls.DataGridSearching
 {
@@ -39,6 +40,8 @@ namespace Avalonia.Controls.DataGridSearching
         private readonly Dictionary<(Type type, string property), Func<object, object>> _getterCache = new();
         private readonly HashSet<INotifyPropertyChanged> _itemSubscriptions = new();
         private IDataGridCollectionView _view;
+        private bool _refreshQueued;
+        private bool _isDisposed;
 
 #if !DATAGRID_INTERNAL
         public
@@ -94,6 +97,7 @@ namespace Avalonia.Controls.DataGridSearching
 
         public void Dispose()
         {
+            _isDisposed = true;
             DetachView();
             WeakEventHandlerManager.Unsubscribe<SearchChangedEventArgs, DataGridSearchAdapter>(
                 _model,
@@ -110,14 +114,26 @@ namespace Avalonia.Controls.DataGridSearching
             return false;
         }
 
+        protected virtual bool TrackItemPropertyChanges => true;
+
+        protected virtual void OnViewCollectionChanged(NotifyCollectionChangedEventArgs e)
+        {
+        }
+
+        protected virtual void OnViewItemPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+        }
+
         private void OnModelSearchChanged(object sender, SearchChangedEventArgs e)
         {
+            _refreshQueued = false;
             ApplyModelToView(e.NewDescriptors, e.OldDescriptors);
         }
 
         private void View_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            ApplyModelToView(_model.Descriptors);
+            OnViewCollectionChanged(e);
+            QueueRefreshFromViewChanges();
         }
 
         private void ApplyModelToView(
@@ -140,12 +156,23 @@ namespace Avalonia.Controls.DataGridSearching
 
             if (TryApplyModelToView(descriptors, previousDescriptors, out var handledResults))
             {
-                UpdateItemSubscriptionsFromView();
+                if (TrackItemPropertyChanges)
+                {
+                    UpdateItemSubscriptionsFromView();
+                }
+                else
+                {
+                    ClearItemSubscriptions();
+                }
                 _model.UpdateResults(handledResults ?? Array.Empty<SearchResult>());
                 return;
             }
 
-            var results = ComputeResults(descriptors, trackItems: true);
+            var results = ComputeResults(descriptors, trackItems: TrackItemPropertyChanges);
+            if (!TrackItemPropertyChanges)
+            {
+                ClearItemSubscriptions();
+            }
             _model.UpdateResults(results);
         }
 
@@ -188,7 +215,7 @@ namespace Avalonia.Controls.DataGridSearching
                             continue;
                         }
 
-                        var matches = SearchTextMatcher.FindMatches(text, plan.Descriptor);
+                        var matches = SearchTextMatcher.FindMatches(text, plan.PreparedDescriptor);
                         if (matches == null || matches.Count == 0)
                         {
                             continue;
@@ -249,7 +276,13 @@ namespace Avalonia.Controls.DataGridSearching
                     continue;
                 }
 
-                plans.Add(new SearchDescriptorPlan(descriptor, searchColumns));
+                var preparedDescriptor = SearchTextMatcher.Prepare(descriptor);
+                if (preparedDescriptor == null)
+                {
+                    continue;
+                }
+
+                plans.Add(new SearchDescriptorPlan(descriptor, searchColumns, preparedDescriptor));
             }
 
             return plans;
@@ -517,6 +550,7 @@ namespace Avalonia.Controls.DataGridSearching
             }
 
             _view = null;
+            _refreshQueued = false;
             ClearItemSubscriptions();
         }
 
@@ -615,7 +649,45 @@ namespace Avalonia.Controls.DataGridSearching
 
         private void Item_PropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            if (!TrackItemPropertyChanges)
+            {
+                return;
+            }
+
             if (_view == null || _model.Descriptors.Count == 0)
+            {
+                return;
+            }
+
+            OnViewItemPropertyChanged(sender, e);
+            QueueRefreshFromViewChanges();
+        }
+
+        private void QueueRefreshFromViewChanges()
+        {
+            if (_isDisposed || _view == null)
+            {
+                return;
+            }
+
+            if (_refreshQueued)
+            {
+                return;
+            }
+
+            _refreshQueued = true;
+            Dispatcher.UIThread.Post(ApplyQueuedRefresh, DispatcherPriority.Background);
+        }
+
+        private void ApplyQueuedRefresh()
+        {
+            if (!_refreshQueued)
+            {
+                return;
+            }
+
+            _refreshQueued = false;
+            if (_isDisposed || _view == null)
             {
                 return;
             }
@@ -695,15 +767,21 @@ namespace Avalonia.Controls.DataGridSearching
 
         private sealed class SearchDescriptorPlan
         {
-            public SearchDescriptorPlan(SearchDescriptor descriptor, List<SearchColumnInfo> columns)
+            public SearchDescriptorPlan(
+                SearchDescriptor descriptor,
+                List<SearchColumnInfo> columns,
+                SearchTextMatcher.PreparedDescriptor preparedDescriptor)
             {
                 Descriptor = descriptor;
                 Columns = columns;
+                PreparedDescriptor = preparedDescriptor;
             }
 
             public SearchDescriptor Descriptor { get; }
 
             public List<SearchColumnInfo> Columns { get; }
+
+            public SearchTextMatcher.PreparedDescriptor PreparedDescriptor { get; }
         }
 
         private sealed class SearchResultBuilder
@@ -748,36 +826,89 @@ namespace Avalonia.Controls.DataGridSearching
 
         private static class SearchTextMatcher
         {
-            public static IReadOnlyList<SearchMatch> FindMatches(string text, SearchDescriptor descriptor)
+            internal sealed class PreparedDescriptor
+            {
+                public PreparedDescriptor(
+                    SearchMatchMode matchMode,
+                    SearchTermCombineMode termMode,
+                    StringComparison comparison,
+                    bool wholeWord,
+                    bool normalizeWhitespace,
+                    bool ignoreDiacritics,
+                    bool allowEmpty,
+                    bool hasQuery,
+                    bool valid,
+                    IReadOnlyList<string> terms,
+                    Regex regex)
+                {
+                    MatchMode = matchMode;
+                    TermMode = termMode;
+                    Comparison = comparison;
+                    WholeWord = wholeWord;
+                    NormalizeWhitespace = normalizeWhitespace;
+                    IgnoreDiacritics = ignoreDiacritics;
+                    AllowEmpty = allowEmpty;
+                    HasQuery = hasQuery;
+                    Valid = valid;
+                    Terms = terms ?? Array.Empty<string>();
+                    Regex = regex;
+                }
+
+                public SearchMatchMode MatchMode { get; }
+
+                public SearchTermCombineMode TermMode { get; }
+
+                public StringComparison Comparison { get; }
+
+                public bool WholeWord { get; }
+
+                public bool NormalizeWhitespace { get; }
+
+                public bool IgnoreDiacritics { get; }
+
+                public bool AllowEmpty { get; }
+
+                public bool HasQuery { get; }
+
+                public bool Valid { get; }
+
+                public IReadOnlyList<string> Terms { get; }
+
+                public Regex Regex { get; }
+            }
+
+            public static PreparedDescriptor Prepare(SearchDescriptor descriptor)
             {
                 if (descriptor == null)
                 {
-                    return Array.Empty<SearchMatch>();
+                    return null;
                 }
 
-                if (string.IsNullOrEmpty(text))
+                var comparison = descriptor.Comparison ?? StringComparison.OrdinalIgnoreCase;
+                var hasQuery = !string.IsNullOrEmpty(descriptor.Query);
+
+                if (!hasQuery)
                 {
-                    return Array.Empty<SearchMatch>();
+                    return new PreparedDescriptor(
+                        descriptor.MatchMode,
+                        descriptor.TermMode,
+                        comparison,
+                        descriptor.WholeWord,
+                        descriptor.NormalizeWhitespace,
+                        descriptor.IgnoreDiacritics,
+                        descriptor.AllowEmpty,
+                        hasQuery: false,
+                        valid: true,
+                        terms: Array.Empty<string>(),
+                        regex: null);
                 }
 
-                if (string.IsNullOrEmpty(descriptor.Query))
-                {
-                    if (!descriptor.AllowEmpty)
-                    {
-                        return Array.Empty<SearchMatch>();
-                    }
-
-                    return text.Length == 0 ? Array.Empty<SearchMatch>() : new[] { new SearchMatch(0, text.Length) };
-                }
-
-                var normalized = NormalizeText(text, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
-                var query = NormalizeQuery(descriptor.Query, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
-
+                var normalizedQuery = NormalizeQuery(descriptor.Query, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
                 if (descriptor.MatchMode == SearchMatchMode.Regex || descriptor.MatchMode == SearchMatchMode.Wildcard)
                 {
                     var pattern = descriptor.MatchMode == SearchMatchMode.Wildcard
-                        ? WildcardToRegex(query)
-                        : query;
+                        ? WildcardToRegex(normalizedQuery)
+                        : normalizedQuery;
 
                     if (descriptor.WholeWord)
                     {
@@ -797,42 +928,120 @@ namespace Avalonia.Controls.DataGridSearching
 
                     try
                     {
-                        var matches = new List<SearchMatch>();
-                        foreach (Match match in Regex.Matches(normalized.Text, pattern, options))
-                        {
-                            if (!match.Success || match.Length == 0)
-                            {
-                                continue;
-                            }
-
-                            matches.Add(new SearchMatch(match.Index, match.Length));
-                        }
-
-                        return MapMatches(matches, normalized.Map);
+                        var regex = new Regex(pattern, options);
+                        return new PreparedDescriptor(
+                            descriptor.MatchMode,
+                            descriptor.TermMode,
+                            comparison,
+                            descriptor.WholeWord,
+                            descriptor.NormalizeWhitespace,
+                            descriptor.IgnoreDiacritics,
+                            descriptor.AllowEmpty,
+                            hasQuery: true,
+                            valid: true,
+                            terms: Array.Empty<string>(),
+                            regex: regex);
                     }
                     catch (ArgumentException)
                     {
-                        return Array.Empty<SearchMatch>();
+                        return new PreparedDescriptor(
+                            descriptor.MatchMode,
+                            descriptor.TermMode,
+                            comparison,
+                            descriptor.WholeWord,
+                            descriptor.NormalizeWhitespace,
+                            descriptor.IgnoreDiacritics,
+                            descriptor.AllowEmpty,
+                            hasQuery: true,
+                            valid: false,
+                            terms: Array.Empty<string>(),
+                            regex: null);
                     }
                 }
 
-                var terms = Tokenize(query);
-                if (terms.Count == 0)
+                var terms = Tokenize(normalizedQuery);
+                return new PreparedDescriptor(
+                    descriptor.MatchMode,
+                    descriptor.TermMode,
+                    comparison,
+                    descriptor.WholeWord,
+                    descriptor.NormalizeWhitespace,
+                    descriptor.IgnoreDiacritics,
+                    descriptor.AllowEmpty,
+                    hasQuery: true,
+                    valid: true,
+                    terms: terms,
+                    regex: null);
+            }
+
+            public static IReadOnlyList<SearchMatch> FindMatches(string text, SearchDescriptor descriptor)
+            {
+                return FindMatches(text, Prepare(descriptor));
+            }
+
+            public static IReadOnlyList<SearchMatch> FindMatches(string text, PreparedDescriptor descriptor)
+            {
+                if (descriptor == null)
                 {
                     return Array.Empty<SearchMatch>();
                 }
 
-                var comparison = descriptor.Comparison ?? StringComparison.OrdinalIgnoreCase;
-                var collected = new List<SearchMatch>();
+                if (string.IsNullOrEmpty(text))
+                {
+                    return Array.Empty<SearchMatch>();
+                }
 
-                foreach (var term in terms)
+                if (!descriptor.HasQuery)
+                {
+                    if (!descriptor.AllowEmpty)
+                    {
+                        return Array.Empty<SearchMatch>();
+                    }
+
+                    return text.Length == 0 ? Array.Empty<SearchMatch>() : new[] { new SearchMatch(0, text.Length) };
+                }
+
+                if (!descriptor.Valid)
+                {
+                    return Array.Empty<SearchMatch>();
+                }
+
+                var normalized = NormalizeText(text, descriptor.NormalizeWhitespace, descriptor.IgnoreDiacritics);
+                if (descriptor.MatchMode == SearchMatchMode.Regex || descriptor.MatchMode == SearchMatchMode.Wildcard)
+                {
+                    if (descriptor.Regex == null)
+                    {
+                        return Array.Empty<SearchMatch>();
+                    }
+
+                    var matches = new List<SearchMatch>();
+                    foreach (Match match in descriptor.Regex.Matches(normalized.Text))
+                    {
+                        if (!match.Success || match.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        matches.Add(new SearchMatch(match.Index, match.Length));
+                    }
+
+                    return MapMatches(matches, normalized.Map);
+                }
+
+                if (descriptor.Terms.Count == 0)
+                {
+                    return Array.Empty<SearchMatch>();
+                }
+
+                var collected = new List<SearchMatch>();
+                foreach (var term in descriptor.Terms)
                 {
                     if (string.IsNullOrEmpty(term))
                     {
                         continue;
                     }
 
-                    var termMatches = FindTermMatches(normalized.Text, term, descriptor.MatchMode, comparison, descriptor.WholeWord);
+                    var termMatches = FindTermMatches(normalized.Text, term, descriptor.MatchMode, descriptor.Comparison, descriptor.WholeWord);
                     if (termMatches.Count == 0)
                     {
                         if (descriptor.TermMode == SearchTermCombineMode.All)
@@ -1030,6 +1239,7 @@ namespace Avalonia.Controls.DataGridSearching
                 {
                     terms.Add(term);
                 }
+
                 builder.Clear();
             }
 
@@ -1040,15 +1250,28 @@ namespace Avalonia.Controls.DataGridSearching
                     return new NormalizedText(text, null);
                 }
 
-                var chars = new List<char>();
-                var map = new List<int>();
+                var needsWhitespaceNormalization = NeedsWhitespaceNormalization(text, normalizeWhitespace);
+                if (!ignoreDiacritics && !needsWhitespaceNormalization)
+                {
+                    return new NormalizedText(text, null);
+                }
+
+                var isAscii = ignoreDiacritics && IsAscii(text);
+                if (ignoreDiacritics && isAscii && !needsWhitespaceNormalization)
+                {
+                    return new NormalizedText(text, null);
+                }
+
+                var builder = new StringBuilder(text.Length);
+                var map = new List<int>(text.Length);
+                bool wasWhitespace = false;
 
                 for (int i = 0; i < text.Length; i++)
                 {
-                    var ch = text[i];
-                    if (ignoreDiacritics)
+                    var source = text[i];
+                    if (ignoreDiacritics && !isAscii && source > 0x7F)
                     {
-                        var decomposed = ch.ToString().Normalize(NormalizationForm.FormD);
+                        var decomposed = source.ToString().Normalize(NormalizationForm.FormD);
                         foreach (var d in decomposed)
                         {
                             if (IsDiacritic(d))
@@ -1056,50 +1279,84 @@ namespace Avalonia.Controls.DataGridSearching
                                 continue;
                             }
 
-                            chars.Add(d);
-                            map.Add(i);
+                            AppendNormalizedCharacter(builder, map, d, i, normalizeWhitespace, ref wasWhitespace);
                         }
                     }
                     else
                     {
-                        chars.Add(ch);
-                        map.Add(i);
+                        AppendNormalizedCharacter(builder, map, source, i, normalizeWhitespace, ref wasWhitespace);
                     }
                 }
 
+                return new NormalizedText(builder.ToString(), map.ToArray());
+            }
+
+            private static void AppendNormalizedCharacter(
+                StringBuilder builder,
+                List<int> map,
+                char ch,
+                int sourceIndex,
+                bool normalizeWhitespace,
+                ref bool wasWhitespace)
+            {
+                if (normalizeWhitespace && char.IsWhiteSpace(ch))
+                {
+                    if (wasWhitespace)
+                    {
+                        return;
+                    }
+
+                    ch = ' ';
+                    wasWhitespace = true;
+                }
+                else
+                {
+                    wasWhitespace = false;
+                }
+
+                builder.Append(ch);
+                map.Add(sourceIndex);
+            }
+
+            private static bool NeedsWhitespaceNormalization(string text, bool normalizeWhitespace)
+            {
                 if (!normalizeWhitespace)
                 {
-                    return new NormalizedText(new string(chars.ToArray()), map.ToArray());
+                    return false;
                 }
 
-                var builder = new StringBuilder();
-                var normalizedMap = new List<int>();
                 bool wasWhitespace = false;
-
-                for (int i = 0; i < chars.Count; i++)
+                for (int i = 0; i < text.Length; i++)
                 {
-                    var ch = chars[i];
-                    bool isWhitespace = char.IsWhiteSpace(ch);
-                    if (isWhitespace)
+                    var ch = text[i];
+                    if (!char.IsWhiteSpace(ch))
                     {
-                        if (wasWhitespace)
-                        {
-                            continue;
-                        }
-
-                        builder.Append(' ');
-                        normalizedMap.Add(map[i]);
-                        wasWhitespace = true;
-                    }
-                    else
-                    {
-                        builder.Append(ch);
-                        normalizedMap.Add(map[i]);
                         wasWhitespace = false;
+                        continue;
+                    }
+
+                    if (ch != ' ' || wasWhitespace)
+                    {
+                        return true;
+                    }
+
+                    wasWhitespace = true;
+                }
+
+                return false;
+            }
+
+            private static bool IsAscii(string text)
+            {
+                for (int i = 0; i < text.Length; i++)
+                {
+                    if (text[i] > 0x7F)
+                    {
+                        return false;
                     }
                 }
 
-                return new NormalizedText(builder.ToString(), normalizedMap.ToArray());
+                return true;
             }
 
             private static string NormalizeQuery(string query, bool normalizeWhitespace, bool ignoreDiacritics)
@@ -1180,6 +1437,7 @@ namespace Avalonia.Controls.DataGridSearching
                             break;
                     }
                 }
+
                 return builder.ToString();
             }
 
