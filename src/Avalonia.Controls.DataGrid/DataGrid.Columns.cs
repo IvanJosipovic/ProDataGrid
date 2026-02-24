@@ -372,6 +372,7 @@ internal
             // Invalidate layout
             CorrectColumnFrozenStates();
             EnsureHorizontalLayout();
+            RequestSelectionOverlayRefresh();
         }
 
         internal void OnColumnDisplayIndexChanging(DataGridColumn targetColumn, int newDisplayIndex)

@@ -1365,6 +1365,7 @@ namespace Avalonia.Controls
                 }
 
                 _owner.RemapSelectedCellsToCurrentRows();
+                _owner.RequestSelectionOverlayRefresh();
 
                 if (restoreSyncingSelectionModel)
                 {

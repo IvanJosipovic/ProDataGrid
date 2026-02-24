@@ -53,12 +53,65 @@ public class DataGridSelectionOverlayTests
         }
     }
 
+    [AvaloniaFact]
+    public void FillHandle_Hidden_After_Column_Move_Invalidates_Display_Range()
+    {
+        var (window, grid, items) = CreateGrid(itemCount: 4, height: 260);
+        try
+        {
+            SelectRectangle(grid, items, startRow: 0, endRow: 1, startColumn: 0, endColumn: 1);
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            var fillHandle = GetFillHandle(grid);
+            Assert.True(fillHandle.IsVisible);
+
+            // Move the selected second column after an unselected column,
+            // which breaks the contiguous display rectangle.
+            grid.ColumnsInternal[1].DisplayIndex = 2;
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(fillHandle.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FillHandle_Hidden_After_Row_Move_Invalidates_Row_Range()
+    {
+        var (window, grid, items) = CreateGrid(itemCount: 4, height: 260);
+        try
+        {
+            SelectRectangle(grid, items, startRow: 0, endRow: 1, startColumn: 0, endColumn: 1);
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            var fillHandle = GetFillHandle(grid);
+            Assert.True(fillHandle.IsVisible);
+
+            // Move one selected row outside the selected block, making row indexes non-contiguous.
+            items.Move(0, 3);
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(fillHandle.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static (Window Window, DataGrid Grid, ObservableCollection<RowItem> Items) CreateGrid(int itemCount, double height)
     {
         var items = new ObservableCollection<RowItem>();
         for (var i = 0; i < itemCount; i++)
         {
-            items.Add(new RowItem($"Item {i}"));
+            items.Add(new RowItem($"Item {i}", $"Code {i}", $"Group {i % 2}"));
         }
 
         var window = new Window
@@ -84,6 +137,16 @@ public class DataGridSelectionOverlayTests
             Header = "Name",
             Binding = new Binding(nameof(RowItem.Name))
         });
+        grid.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Code",
+            Binding = new Binding(nameof(RowItem.Code))
+        });
+        grid.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Group",
+            Binding = new Binding(nameof(RowItem.Group))
+        });
 
         window.Content = grid;
         window.Show();
@@ -95,13 +158,21 @@ public class DataGridSelectionOverlayTests
 
     private static void SelectRange(DataGrid grid, ObservableCollection<RowItem> items, int startRow, int endRow)
     {
+        SelectRectangle(grid, items, startRow, endRow, startColumn: 0, endColumn: 0);
+    }
+
+    private static void SelectRectangle(DataGrid grid, ObservableCollection<RowItem> items, int startRow, int endRow, int startColumn, int endColumn)
+    {
         var selected = new ObservableCollection<DataGridCellInfo>();
         grid.SelectedCells = selected;
 
-        var column = grid.ColumnsInternal[0];
         for (var rowIndex = startRow; rowIndex <= endRow; rowIndex++)
         {
-            selected.Add(new DataGridCellInfo(items[rowIndex], column, rowIndex, column.Index, isValid: true));
+            for (var columnIndex = startColumn; columnIndex <= endColumn; columnIndex++)
+            {
+                var column = grid.ColumnsInternal[columnIndex];
+                selected.Add(new DataGridCellInfo(items[rowIndex], column, rowIndex, column.Index, isValid: true));
+            }
         }
 
         grid.UpdateLayout();
@@ -117,11 +188,15 @@ public class DataGridSelectionOverlayTests
 
     private sealed class RowItem
     {
-        public RowItem(string name)
+        public RowItem(string name, string code, string group)
         {
             Name = name;
+            Code = code;
+            Group = group;
         }
 
         public string Name { get; }
+        public string Code { get; }
+        public string Group { get; }
     }
 }

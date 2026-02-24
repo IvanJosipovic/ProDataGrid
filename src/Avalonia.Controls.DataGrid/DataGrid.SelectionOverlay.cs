@@ -8,6 +8,7 @@ using Avalonia;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using System;
+using System.Collections.Generic;
 
 namespace Avalonia.Controls
 {
@@ -22,7 +23,7 @@ internal
         private bool _selectionOverlayLayoutHooked;
         private bool _selectionOverlayVisible;
 
-        private void RequestSelectionOverlayRefresh()
+        internal void RequestSelectionOverlayRefresh()
         {
             if (_pendingSelectionOverlayRefresh)
             {
@@ -63,19 +64,23 @@ internal
                 return;
             }
 
-            if (SelectionUnit == DataGridSelectionUnit.FullRow || !TryGetSelectedCellRange(out var range))
+            if (SelectionUnit == DataGridSelectionUnit.FullRow ||
+                !TryGetSelectedCellDisplayRange(out var displayRange, out var selectedDisplayIndexes))
             {
                 SetSelectionOverlayVisible(false);
                 return;
             }
 
-            if (!TryGetVisibleSelectionBounds(range, out var bounds, out var isFullyVisible))
+            if (!TryGetVisibleSelectionBounds(displayRange, selectedDisplayIndexes, out var bounds, out var isFullyVisible))
             {
                 SetSelectionOverlayVisible(false);
                 return;
             }
 
-            SetSelectionOverlayVisible(true, isFullyVisible);
+            // Fill currently operates on logical-index rectangles; hide the handle when selection
+            // is not representable as a logical contiguous range.
+            var showFillHandle = isFullyVisible && TryGetSelectedCellRange(out _);
+            SetSelectionOverlayVisible(true, showFillHandle);
             Canvas.SetLeft(_selectionOutline, bounds.X);
             Canvas.SetTop(_selectionOutline, bounds.Y);
             _selectionOutline.Width = Math.Max(0, bounds.Width);
@@ -192,7 +197,98 @@ internal
             return true;
         }
 
-        private bool TryGetVisibleSelectionBounds(DataGridCellRange range, out Rect bounds, out bool isFullyVisible)
+        private bool TryGetSelectedCellDisplayRange(out DataGridCellRange range, out List<int> selectedDisplayIndexes)
+        {
+            range = default;
+            selectedDisplayIndexes = new List<int>();
+
+            if (_selectedCellsView.Count == 0 || ColumnsInternal == null || ColumnsItemsInternal == null)
+            {
+                return false;
+            }
+
+            var positions = new HashSet<(int RowIndex, int DisplayIndex)>();
+            var minRow = int.MaxValue;
+            var maxRow = int.MinValue;
+            var minDisplay = int.MaxValue;
+            var maxDisplay = int.MinValue;
+
+            foreach (var cell in _selectedCellsView)
+            {
+                if (!cell.IsValid || cell.RowIndex < 0 || cell.ColumnIndex < 0 || cell.ColumnIndex >= ColumnsItemsInternal.Count)
+                {
+                    continue;
+                }
+
+                var column = ColumnsItemsInternal[cell.ColumnIndex];
+                if (column == null || !column.IsVisible)
+                {
+                    return false;
+                }
+
+                var displayIndex = GetColumnDisplayIndex(cell.ColumnIndex);
+                if (displayIndex < 0)
+                {
+                    return false;
+                }
+
+                if (!positions.Add((cell.RowIndex, displayIndex)))
+                {
+                    return false;
+                }
+
+                minRow = Math.Min(minRow, cell.RowIndex);
+                maxRow = Math.Max(maxRow, cell.RowIndex);
+                minDisplay = Math.Min(minDisplay, displayIndex);
+                maxDisplay = Math.Max(maxDisplay, displayIndex);
+            }
+
+            if (positions.Count == 0)
+            {
+                return false;
+            }
+
+            for (var displayIndex = minDisplay; displayIndex <= maxDisplay; displayIndex++)
+            {
+                var column = ColumnsInternal.GetColumnAtDisplayIndex(displayIndex);
+                if (column == null || column is DataGridFillerColumn)
+                {
+                    return false;
+                }
+
+                if (column.IsVisible)
+                {
+                    selectedDisplayIndexes.Add(displayIndex);
+                }
+            }
+
+            if (selectedDisplayIndexes.Count == 0)
+            {
+                return false;
+            }
+
+            var expectedCount = (long)(maxRow - minRow + 1) * selectedDisplayIndexes.Count;
+            if (expectedCount != positions.Count)
+            {
+                return false;
+            }
+
+            for (var rowIndex = minRow; rowIndex <= maxRow; rowIndex++)
+            {
+                foreach (var displayIndex in selectedDisplayIndexes)
+                {
+                    if (!positions.Contains((rowIndex, displayIndex)))
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            range = new DataGridCellRange(minRow, maxRow, minDisplay, maxDisplay);
+            return true;
+        }
+
+        private bool TryGetVisibleSelectionBounds(DataGridCellRange displayRange, IReadOnlyList<int> selectedDisplayIndexes, out Rect bounds, out bool isFullyVisible)
         {
             bounds = default;
             isFullyVisible = false;
@@ -202,35 +298,16 @@ internal
                 return false;
             }
 
-            int? startColumnIndex = null;
-            int? endColumnIndex = null;
-            for (var columnIndex = range.StartColumn; columnIndex <= range.EndColumn; columnIndex++)
+            if (selectedDisplayIndexes == null || selectedDisplayIndexes.Count == 0)
             {
-                if (columnIndex < 0 || columnIndex >= ColumnsItemsInternal.Count)
-                {
-                    continue;
-                }
-
-                var column = ColumnsItemsInternal[columnIndex];
-                if (column == null)
-                {
-                    continue;
-                }
-
-                if (!column.IsVisible)
-                {
-                    return false;
-                }
-
-                if (startColumnIndex == null)
-                {
-                    startColumnIndex = columnIndex;
-                }
-
-                endColumnIndex = columnIndex;
+                return false;
             }
 
-            if (startColumnIndex == null || endColumnIndex == null)
+            var startDisplayIndex = selectedDisplayIndexes[0];
+            var endDisplayIndex = selectedDisplayIndexes[selectedDisplayIndexes.Count - 1];
+            var startColumn = ColumnsInternal?.GetColumnAtDisplayIndex(startDisplayIndex);
+            var endColumn = ColumnsInternal?.GetColumnAtDisplayIndex(endDisplayIndex);
+            if (startColumn == null || endColumn == null)
             {
                 return false;
             }
@@ -252,7 +329,7 @@ internal
                 }
 
                 var rowIndex = RowIndexFromSlot(slot);
-                if (rowIndex < range.StartRow || rowIndex > range.EndRow)
+                if (rowIndex < displayRange.StartRow || rowIndex > displayRange.EndRow)
                 {
                     continue;
                 }
@@ -281,10 +358,10 @@ internal
                 return false;
             }
 
-            var isVerticallyVisible = topRow.Index == range.StartRow && bottomRow.Index == range.EndRow;
+            var isVerticallyVisible = topRow.Index == displayRange.StartRow && bottomRow.Index == displayRange.EndRow;
 
-            var startCol = startColumnIndex.Value;
-            var endCol = endColumnIndex.Value;
+            var startCol = startColumn.Index;
+            var endCol = endColumn.Index;
             if (startCol < 0 || startCol >= topRow.Cells.Count || endCol < 0 || endCol >= bottomRow.Cells.Count)
             {
                 return false;
