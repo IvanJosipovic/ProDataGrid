@@ -815,17 +815,20 @@ internal
 
                 int anchorRowIndex = anchorCell.Value.RowIndex;
                 int targetRowIndex = RowIndexFromSlot(slot);
-                if (anchorRowIndex >= 0 && targetRowIndex >= 0)
+                if (anchorRowIndex >= 0 &&
+                    targetRowIndex >= 0 &&
+                    TryGetSelectionDisplayIndexes(anchorCell.Value.ColumnIndex, columnIndex, out var anchorDisplayIndex, out var targetDisplayIndex))
                 {
-                    var targetCell = new DataGridCellPosition(targetRowIndex, columnIndex);
+                    var selectionAnchorCell = new DataGridCellPosition(anchorRowIndex, anchorDisplayIndex);
+                    var targetCell = new DataGridCellPosition(targetRowIndex, targetDisplayIndex);
                     var model = RangeInteractionModel;
                     var range = model != null
-                        ? model.BuildSelectionRange(new DataGridSelectionRangeContext(this, anchorCell.Value, targetCell, modifiers))
+                        ? model.BuildSelectionRange(new DataGridSelectionRangeContext(this, selectionAnchorCell, targetCell, modifiers))
                         : new DataGridCellRange(
-                            Math.Min(anchorCell.Value.RowIndex, targetRowIndex),
-                            Math.Max(anchorCell.Value.RowIndex, targetRowIndex),
-                            Math.Min(anchorCell.Value.ColumnIndex, columnIndex),
-                            Math.Max(anchorCell.Value.ColumnIndex, columnIndex));
+                            Math.Min(anchorRowIndex, targetRowIndex),
+                            Math.Max(anchorRowIndex, targetRowIndex),
+                            Math.Min(anchorDisplayIndex, targetDisplayIndex),
+                            Math.Max(anchorDisplayIndex, targetDisplayIndex));
 
                     if (!ctrl)
                     {
@@ -834,10 +837,10 @@ internal
                     }
                     else
                     {
-                        RemovePreviousDragCellSelection(anchorRowIndex, anchorCell.Value.ColumnIndex, removed);
+                        RemovePreviousDragCellSelection(anchorRowIndex, anchorDisplayIndex, removed);
                     }
 
-                    SelectCellRangeInternal(range.StartRow, range.EndRow, range.StartColumn, range.EndColumn, added);
+                    SelectCellRangeByDisplayIndexInternal(range.StartRow, range.EndRow, range.StartColumn, range.EndColumn, added);
                 }
             }
             else
@@ -863,7 +866,7 @@ internal
             }
         }
 
-        private void RemovePreviousDragCellSelection(int anchorRowIndex, int anchorColumnIndex, List<DataGridCellInfo> removedCollector)
+        private void RemovePreviousDragCellSelection(int anchorRowIndex, int anchorDisplayIndex, List<DataGridCellInfo> removedCollector)
         {
             if (_dragLastSlot < 0 || _dragLastColumnIndex < 0)
             {
@@ -876,42 +879,58 @@ internal
                 return;
             }
 
+            var previousDisplayIndex = GetColumnDisplayIndex(_dragLastColumnIndex);
+            if (previousDisplayIndex < 0)
+            {
+                previousDisplayIndex = _dragLastColumnIndex;
+            }
+
             int startRow = Math.Min(anchorRowIndex, previousRowIndex);
             int endRow = Math.Max(anchorRowIndex, previousRowIndex);
-            int startCol = Math.Min(anchorColumnIndex, _dragLastColumnIndex);
-            int endCol = Math.Max(anchorColumnIndex, _dragLastColumnIndex);
+            int startDisplay = Math.Min(anchorDisplayIndex, previousDisplayIndex);
+            int endDisplay = Math.Max(anchorDisplayIndex, previousDisplayIndex);
 
-            RemoveCellSelectionRange(startRow, endRow, startCol, endCol, removedCollector);
+            RemoveCellSelectionRangeByDisplayIndex(startRow, endRow, startDisplay, endDisplay, removedCollector);
         }
 
-        private void RemoveCellSelectionRange(int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, List<DataGridCellInfo> removedCollector)
+        private void RemoveCellSelectionRangeByDisplayIndex(int startRowIndex, int endRowIndex, int startDisplayIndex, int endDisplayIndex, List<DataGridCellInfo> removedCollector)
         {
-            if (DataConnection == null)
+            if (DataConnection == null || ColumnsItemsInternal == null || startRowIndex > endRowIndex)
             {
                 return;
             }
 
-            if (startRowIndex > endRowIndex || startColumnIndex > endColumnIndex)
+            var columnsItems = ColumnsItemsInternal;
+            var rowCount = DataConnection.Count;
+            if (rowCount <= 0 || columnsItems.Count == 0)
             {
                 return;
             }
 
-            for (int rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++)
+            var columnIndexes = GetVisibleColumnIndexesInDisplayRange(startDisplayIndex, endDisplayIndex);
+            if (columnIndexes.Count == 0)
             {
-                if (rowIndex < 0 || rowIndex >= DataConnection.Count)
-                {
-                    continue;
-                }
+                return;
+            }
 
-                int slot = SlotFromRowIndex(rowIndex);
+            var firstRow = Math.Max(0, startRowIndex);
+            var lastRow = Math.Min(endRowIndex, rowCount - 1);
+            if (firstRow > lastRow)
+            {
+                return;
+            }
+
+            for (var rowIndex = firstRow; rowIndex <= lastRow; rowIndex++)
+            {
+                var slot = SlotFromRowIndex(rowIndex);
                 if (slot < 0 || IsGroupSlot(slot))
                 {
                     continue;
                 }
 
-                for (int columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++)
+                foreach (var columnIndex in columnIndexes)
                 {
-                    if (columnIndex < 0 || columnIndex >= ColumnsItemsInternal.Count)
+                    if (columnIndex < 0 || columnIndex >= columnsItems.Count)
                     {
                         continue;
                     }

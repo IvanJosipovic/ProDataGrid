@@ -1302,18 +1302,20 @@ internal
                 {
                     int anchorRowIndex = RowIndexFromSlot(_cellAnchor.Slot);
                     int targetRowIndex = RowIndexFromSlot(slot);
-                    if (anchorRowIndex >= 0 && targetRowIndex >= 0)
+                    if (anchorRowIndex >= 0 &&
+                        targetRowIndex >= 0 &&
+                        TryGetSelectionDisplayIndexes(_cellAnchor.ColumnIndex, columnIndex, out var anchorDisplayIndex, out var targetDisplayIndex))
                     {
-                        var anchorCell = new DataGridCellPosition(anchorRowIndex, _cellAnchor.ColumnIndex);
-                        var targetCell = new DataGridCellPosition(targetRowIndex, columnIndex);
+                        var anchorCell = new DataGridCellPosition(anchorRowIndex, anchorDisplayIndex);
+                        var targetCell = new DataGridCellPosition(targetRowIndex, targetDisplayIndex);
                         var model = RangeInteractionModel;
                         var range = model != null
                             ? model.BuildSelectionRange(new DataGridSelectionRangeContext(this, anchorCell, targetCell, pointerPressedEventArgs.KeyModifiers))
                             : new DataGridCellRange(
                                 Math.Min(anchorRowIndex, targetRowIndex),
                                 Math.Max(anchorRowIndex, targetRowIndex),
-                                Math.Min(_cellAnchor.ColumnIndex, columnIndex),
-                                Math.Max(_cellAnchor.ColumnIndex, columnIndex));
+                                Math.Min(anchorDisplayIndex, targetDisplayIndex),
+                                Math.Max(anchorDisplayIndex, targetDisplayIndex));
 
                         if (!ctrl)
                         {
@@ -1321,7 +1323,7 @@ internal
                             ClearCellSelectionInternal(clearRows: true, raiseEvent: false);
                         }
 
-                        SelectCellRangeInternal(range.StartRow, range.EndRow, range.StartColumn, range.EndColumn, added);
+                        SelectCellRangeByDisplayIndexInternal(range.StartRow, range.EndRow, range.StartColumn, range.EndColumn, added);
                     }
                 }
                 else
