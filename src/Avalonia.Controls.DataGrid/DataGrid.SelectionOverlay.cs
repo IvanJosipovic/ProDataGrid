@@ -65,7 +65,7 @@ internal
             }
 
             if (SelectionUnit == DataGridSelectionUnit.FullRow ||
-                !TryGetSelectedCellDisplayRange(out var displayRange, out var selectedDisplayIndexes))
+                !TryGetSelectedCellDisplayRange(out var displayRange, out var selectedDisplayIndexes, out var isLogicalContiguousRange))
             {
                 SetSelectionOverlayVisible(false);
                 return;
@@ -79,7 +79,7 @@ internal
 
             // Fill currently operates on logical-index rectangles; hide the handle when selection
             // is not representable as a logical contiguous range.
-            var showFillHandle = isFullyVisible && TryGetSelectedCellRange(out _);
+            var showFillHandle = isFullyVisible && isLogicalContiguousRange;
             SetSelectionOverlayVisible(true, showFillHandle);
             Canvas.SetLeft(_selectionOutline, bounds.X);
             Canvas.SetTop(_selectionOutline, bounds.Y);
@@ -197,10 +197,11 @@ internal
             return true;
         }
 
-        private bool TryGetSelectedCellDisplayRange(out DataGridCellRange range, out List<int> selectedDisplayIndexes)
+        private bool TryGetSelectedCellDisplayRange(out DataGridCellRange range, out List<int> selectedDisplayIndexes, out bool isLogicalContiguousRange)
         {
             range = default;
             selectedDisplayIndexes = new List<int>();
+            isLogicalContiguousRange = false;
 
             if (_selectedCellsView.Count == 0 || ColumnsInternal == null || ColumnsItemsInternal == null)
             {
@@ -212,6 +213,8 @@ internal
             var maxRow = int.MinValue;
             var minDisplay = int.MaxValue;
             var maxDisplay = int.MinValue;
+            var minLogical = int.MaxValue;
+            var maxLogical = int.MinValue;
 
             foreach (var cell in _selectedCellsView)
             {
@@ -241,6 +244,8 @@ internal
                 maxRow = Math.Max(maxRow, cell.RowIndex);
                 minDisplay = Math.Min(minDisplay, displayIndex);
                 maxDisplay = Math.Max(maxDisplay, displayIndex);
+                minLogical = Math.Min(minLogical, cell.ColumnIndex);
+                maxLogical = Math.Max(maxLogical, cell.ColumnIndex);
             }
 
             if (positions.Count == 0)
@@ -273,15 +278,10 @@ internal
                 return false;
             }
 
-            for (var rowIndex = minRow; rowIndex <= maxRow; rowIndex++)
+            var logicalExpectedCount = (long)(maxRow - minRow + 1) * (maxLogical - minLogical + 1);
+            if (logicalExpectedCount == positions.Count)
             {
-                foreach (var displayIndex in selectedDisplayIndexes)
-                {
-                    if (!positions.Contains((rowIndex, displayIndex)))
-                    {
-                        return false;
-                    }
-                }
+                isLogicalContiguousRange = true;
             }
 
             range = new DataGridCellRange(minRow, maxRow, minDisplay, maxDisplay);

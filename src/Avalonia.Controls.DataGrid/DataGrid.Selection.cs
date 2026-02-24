@@ -2491,11 +2491,6 @@ internal
                 var item = DataConnection.GetDataItem(rowIndex);
                 foreach (var columnIndex in columnIndexes)
                 {
-                    if (columnIndex < 0 || columnIndex >= columnsItems.Count)
-                    {
-                        continue;
-                    }
-
                     var column = columnsItems[columnIndex];
                     if (column == null || !column.IsVisible)
                     {

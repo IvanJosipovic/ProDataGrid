@@ -930,11 +930,6 @@ internal
 
                 foreach (var columnIndex in columnIndexes)
                 {
-                    if (columnIndex < 0 || columnIndex >= columnsItems.Count)
-                    {
-                        continue;
-                    }
-
                     RemoveCellSelectionInternal(rowIndex, columnIndex, removedCollector);
                 }
 
