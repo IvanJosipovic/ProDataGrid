@@ -106,6 +106,35 @@ public class DataGridSelectionOverlayTests
         }
     }
 
+    [AvaloniaFact]
+    public void FillHandle_Recovers_After_Hide_And_Show_Selected_Column()
+    {
+        var (window, grid, items) = CreateGrid(itemCount: 4, height: 260);
+        try
+        {
+            SelectRectangle(grid, items, startRow: 0, endRow: 1, startColumn: 0, endColumn: 1);
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            var fillHandle = GetFillHandle(grid);
+            Assert.True(fillHandle.IsVisible);
+
+            grid.ColumnsInternal[1].IsVisible = false;
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(fillHandle.IsVisible);
+
+            grid.ColumnsInternal[1].IsVisible = true;
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(fillHandle.IsVisible);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static (Window Window, DataGrid Grid, ObservableCollection<RowItem> Items) CreateGrid(int itemCount, double height)
     {
         var items = new ObservableCollection<RowItem>();

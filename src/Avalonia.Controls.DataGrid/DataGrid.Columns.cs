@@ -568,6 +568,7 @@ internal
             }
 
             UpdateSearchAdapterView();
+            RequestSelectionOverlayRefresh();
         }
 
         internal void OnColumnVisibleStateChanging(DataGridColumn targetColumn, bool wasVisible, bool isVisible)
