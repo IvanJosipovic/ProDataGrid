@@ -4,6 +4,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridInteractions;
+using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Xunit;
 
@@ -20,7 +21,7 @@ public class DataGridRangeInteractionModelTests
         Assert.True(model.IsSelectionDragThresholdMet(new Point(0, 0), new Point(4, 0)));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResolveSelectionAnchor_Uses_Existing_When_Valid()
     {
         var model = new DataGridRangeInteractionModel();
@@ -35,7 +36,7 @@ public class DataGridRangeInteractionModelTests
         Assert.Equal(new DataGridCellPosition(1, 2), anchor);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResolveSelectionAnchor_Falls_Back_To_Current_When_Invalid()
     {
         var model = new DataGridRangeInteractionModel();
@@ -50,7 +51,7 @@ public class DataGridRangeInteractionModelTests
         Assert.Equal(new DataGridCellPosition(3, 4), anchor);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void BuildFillHandleRange_Anchors_From_BottomRight()
     {
         var model = new DataGridRangeInteractionModel();
@@ -65,7 +66,7 @@ public class DataGridRangeInteractionModelTests
         Assert.Equal(new DataGridCellRange(1, 3, 2, 3), range);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AutoScrollDirection_Tracks_Presenter_Bounds()
     {
         var model = new DataGridRangeInteractionModel();
