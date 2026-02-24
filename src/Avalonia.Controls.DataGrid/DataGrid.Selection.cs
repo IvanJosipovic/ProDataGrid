@@ -2184,6 +2184,83 @@ internal
             return column.Index;
         }
 
+        private bool TryGetSelectionDisplayIndexes(int anchorColumnIndex, int targetColumnIndex, out int anchorDisplayIndex, out int targetDisplayIndex)
+        {
+            anchorDisplayIndex = -1;
+            targetDisplayIndex = -1;
+
+            if (ColumnsItemsInternal == null ||
+                anchorColumnIndex < 0 ||
+                targetColumnIndex < 0 ||
+                anchorColumnIndex >= ColumnsItemsInternal.Count ||
+                targetColumnIndex >= ColumnsItemsInternal.Count)
+            {
+                return false;
+            }
+
+            anchorDisplayIndex = GetColumnDisplayIndex(anchorColumnIndex);
+            targetDisplayIndex = GetColumnDisplayIndex(targetColumnIndex);
+
+            if (anchorDisplayIndex >= 0 && targetDisplayIndex >= 0)
+            {
+                return true;
+            }
+
+            // Fallback to logical indexes if a display index cannot be resolved.
+            anchorDisplayIndex = anchorColumnIndex;
+            targetDisplayIndex = targetColumnIndex;
+            return true;
+        }
+
+        private List<int> GetVisibleColumnIndexesInDisplayRange(int startDisplayIndex, int endDisplayIndex)
+        {
+            var result = new List<int>();
+            var columnsInternal = ColumnsInternal;
+            var columnsItems = ColumnsItemsInternal;
+            if (columnsInternal == null || columnsItems == null || columnsItems.Count == 0)
+            {
+                return result;
+            }
+
+            var mapCount = columnsInternal.DisplayIndexMap.Count;
+            if (mapCount <= 0)
+            {
+                return result;
+            }
+
+            var first = Math.Max(0, Math.Min(startDisplayIndex, endDisplayIndex));
+            var last = Math.Min(mapCount - 1, Math.Max(startDisplayIndex, endDisplayIndex));
+            if (first > last)
+            {
+                return result;
+            }
+
+            var capacity = Math.Max(0, last - first + 1);
+            if (capacity > 0)
+            {
+                result.Capacity = capacity;
+            }
+
+            for (var displayIndex = first; displayIndex <= last; displayIndex++)
+            {
+                var column = columnsInternal.GetColumnAtDisplayIndex(displayIndex);
+                if (column == null || column is DataGridFillerColumn || !column.IsVisible)
+                {
+                    continue;
+                }
+
+                var columnIndex = column.Index;
+                if (columnIndex < 0 || columnIndex >= columnsItems.Count)
+                {
+                    continue;
+                }
+
+                result.Add(columnIndex);
+            }
+
+            return result;
+        }
+
         private bool IsRowFullySelectedByCells(int rowIndex)
         {
             if (!_selectedCells.TryGetValue(rowIndex, out var columns) || columns.Count == 0)
@@ -2325,38 +2402,101 @@ internal
 
         private void SelectCellRangeInternal(int startRowIndex, int endRowIndex, int startColumnIndex, int endColumnIndex, List<DataGridCellInfo> addedCollector)
         {
-            if (DataConnection == null)
+            if (DataConnection == null || ColumnsItemsInternal == null || startRowIndex > endRowIndex || startColumnIndex > endColumnIndex)
             {
                 return;
             }
 
-            for (int rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++)
+            var columnsItems = ColumnsItemsInternal;
+            var rowCount = DataConnection.Count;
+            if (rowCount <= 0 || columnsItems.Count == 0)
             {
-                if (rowIndex < 0 || rowIndex >= DataConnection.Count)
-                {
-                    continue;
-                }
+                return;
+            }
 
-                int slot = SlotFromRowIndex(rowIndex);
+            var firstRow = Math.Max(0, startRowIndex);
+            var lastRow = Math.Min(endRowIndex, rowCount - 1);
+            if (firstRow > lastRow)
+            {
+                return;
+            }
+
+            var firstColumn = Math.Max(0, startColumnIndex);
+            var lastColumn = Math.Min(endColumnIndex, columnsItems.Count - 1);
+            if (firstColumn > lastColumn)
+            {
+                return;
+            }
+
+            for (var rowIndex = firstRow; rowIndex <= lastRow; rowIndex++)
+            {
+                var slot = SlotFromRowIndex(rowIndex);
                 if (slot < 0 || IsGroupSlot(slot))
                 {
                     continue;
                 }
 
-                for (int columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++)
+                var item = DataConnection.GetDataItem(rowIndex);
+                for (var columnIndex = firstColumn; columnIndex <= lastColumn; columnIndex++)
                 {
-                    if (columnIndex < 0 || columnIndex >= ColumnsItemsInternal.Count)
-                    {
-                        continue;
-                    }
-
-                    var column = ColumnsItemsInternal[columnIndex];
+                    var column = columnsItems[columnIndex];
                     if (column == null || !column.IsVisible)
                     {
                         continue;
                     }
 
-                    var item = DataConnection.GetDataItem(rowIndex);
+                    var cell = new DataGridCellInfo(item, column, rowIndex, columnIndex, isValid: true);
+                    AddCellSelectionInternal(cell, addedCollector);
+                }
+
+                SetRowSelection(slot, isSelected: true, setAnchorSlot: false);
+            }
+        }
+
+        private void SelectCellRangeByDisplayIndexInternal(int startRowIndex, int endRowIndex, int startDisplayIndex, int endDisplayIndex, List<DataGridCellInfo> addedCollector)
+        {
+            if (DataConnection == null || ColumnsItemsInternal == null || startRowIndex > endRowIndex)
+            {
+                return;
+            }
+
+            var columnsItems = ColumnsItemsInternal;
+            var rowCount = DataConnection.Count;
+            if (rowCount <= 0 || columnsItems.Count == 0)
+            {
+                return;
+            }
+
+            var columnIndexes = GetVisibleColumnIndexesInDisplayRange(startDisplayIndex, endDisplayIndex);
+            if (columnIndexes.Count == 0)
+            {
+                return;
+            }
+
+            var firstRow = Math.Max(0, startRowIndex);
+            var lastRow = Math.Min(endRowIndex, rowCount - 1);
+            if (firstRow > lastRow)
+            {
+                return;
+            }
+
+            for (var rowIndex = firstRow; rowIndex <= lastRow; rowIndex++)
+            {
+                var slot = SlotFromRowIndex(rowIndex);
+                if (slot < 0 || IsGroupSlot(slot))
+                {
+                    continue;
+                }
+
+                var item = DataConnection.GetDataItem(rowIndex);
+                foreach (var columnIndex in columnIndexes)
+                {
+                    var column = columnsItems[columnIndex];
+                    if (column == null || !column.IsVisible)
+                    {
+                        continue;
+                    }
+
                     var cell = new DataGridCellInfo(item, column, rowIndex, columnIndex, isValid: true);
                     AddCellSelectionInternal(cell, addedCollector);
                 }

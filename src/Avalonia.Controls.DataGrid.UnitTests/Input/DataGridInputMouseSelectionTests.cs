@@ -1339,6 +1339,99 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
+    public void MouseLeft_CellSelection_Shift_Uses_DisplayIndex_Order_After_Column_Reorder()
+    {
+        var (grid, _) = CreateGrid(rowCount: 2, columnCount: 3, selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
+        var columnA = grid.ColumnsInternal[0];
+        var columnB = grid.ColumnsInternal[1];
+        var columnC = grid.ColumnsInternal[2];
+
+        columnC.DisplayIndex = 0;
+        columnA.DisplayIndex = 1;
+        columnB.DisplayIndex = 2;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot0 = grid.SlotFromRowIndex(0);
+        var slot1 = grid.SlotFromRowIndex(1);
+
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid), columnIndex: columnC.Index, slot: slot0, allowEdit: false);
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid, KeyModifiers.Shift), columnIndex: columnA.Index, slot: slot1, allowEdit: false);
+
+        Assert.Equal(4, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnA.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnA.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.ColumnIndex == columnB.Index);
+    }
+
+    [AvaloniaFact]
+    public void MouseLeft_CellSelection_Shift_Uses_DisplayOrder_When_Hidden_Columns_Are_Between_Anchor_And_Target()
+    {
+        var (grid, _) = CreateGrid(rowCount: 2, columnCount: 4, selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
+        var columnA = grid.ColumnsInternal[0];
+        var columnB = grid.ColumnsInternal[1];
+        var columnC = grid.ColumnsInternal[2];
+        var columnD = grid.ColumnsInternal[3];
+
+        columnD.DisplayIndex = 0;
+        columnA.DisplayIndex = 1;
+        columnB.DisplayIndex = 2;
+        columnC.DisplayIndex = 3;
+        columnA.IsVisible = false;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot0 = grid.SlotFromRowIndex(0);
+        var slot1 = grid.SlotFromRowIndex(1);
+
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid), columnIndex: columnD.Index, slot: slot0, allowEdit: false);
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid, KeyModifiers.Shift), columnIndex: columnB.Index, slot: slot1, allowEdit: false);
+
+        Assert.Equal(4, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnD.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnB.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnD.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnB.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.ColumnIndex == columnA.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.ColumnIndex == columnC.Index);
+    }
+
+    [AvaloniaFact]
+    public void MouseLeft_CellSelection_CtrlShift_Appends_DisplayIndex_Based_Range_After_Column_Reorder()
+    {
+        var (grid, _) = CreateGrid(rowCount: 2, columnCount: 3, selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
+        var columnA = grid.ColumnsInternal[0];
+        var columnB = grid.ColumnsInternal[1];
+        var columnC = grid.ColumnsInternal[2];
+        var ctrl = GetCtrlOrCmdModifier(grid);
+
+        columnC.DisplayIndex = 0;
+        columnA.DisplayIndex = 1;
+        columnB.DisplayIndex = 2;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot0 = grid.SlotFromRowIndex(0);
+        var slot1 = grid.SlotFromRowIndex(1);
+
+        // Existing selection that must remain when ctrl+shift appends.
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid), columnIndex: columnB.Index, slot: slot0, allowEdit: false);
+        // Add second selected cell and make it the anchor without clearing existing selection.
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid, ctrl), columnIndex: columnC.Index, slot: slot0, allowEdit: false);
+        InvokeUpdateStateOnMouseLeftButtonDown(grid, CreateLeftPointerArgs(grid, ctrl | KeyModifiers.Shift), columnIndex: columnA.Index, slot: slot1, allowEdit: false);
+
+        Assert.Equal(5, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnB.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnA.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnA.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnB.Index);
+    }
+
+    [AvaloniaFact]
     public void MouseLeft_CellSelection_NoCtrl_Covers_Empty_And_Populated_Selection()
     {
         var (grid, _) = CreateGrid(selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
@@ -1411,6 +1504,90 @@ public class DataGridInputMouseSelectionTests
         Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == 1);
         Assert.Equal(endSlot, grid.CurrentSlot);
         Assert.Equal(1, grid.CurrentColumnIndex);
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public void MouseDrag_CellSelection_Uses_DisplayIndex_Order_After_Column_Reorder()
+    {
+        var (grid, _) = CreateGrid(rowCount: 2, columnCount: 3, selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
+        var columnA = grid.ColumnsInternal[0];
+        var columnB = grid.ColumnsInternal[1];
+        var columnC = grid.ColumnsInternal[2];
+
+        columnC.DisplayIndex = 0;
+        columnA.DisplayIndex = 1;
+        columnB.DisplayIndex = 2;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var startSlot = grid.SlotFromRowIndex(0);
+        var endSlot = grid.SlotFromRowIndex(1);
+        var startRow = grid.DisplayData.GetDisplayedElement(startSlot) as DataGridRow;
+        var endRow = grid.DisplayData.GetDisplayedElement(endSlot) as DataGridRow;
+        Assert.NotNull(startRow);
+        Assert.NotNull(endRow);
+
+        var startCell = startRow!.Cells[columnC.Index];
+        var endCell = endRow!.Cells[columnA.Index];
+        var startPoint = GetCenterPoint(startCell, grid);
+        var endPoint = GetCenterPoint(endCell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        startCell.RaiseEvent(CreatePointerPressedArgs(startCell, grid, pointer, startPoint, KeyModifiers.None));
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
+
+        Assert.Equal(4, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnA.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnA.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.ColumnIndex == columnB.Index);
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public void MouseDrag_CellSelection_Uses_DisplayOrder_When_Hidden_Columns_Are_Between_Anchor_And_Target()
+    {
+        var (grid, _) = CreateGrid(rowCount: 2, columnCount: 4, selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
+        var columnA = grid.ColumnsInternal[0];
+        var columnB = grid.ColumnsInternal[1];
+        var columnC = grid.ColumnsInternal[2];
+        var columnD = grid.ColumnsInternal[3];
+
+        columnD.DisplayIndex = 0;
+        columnA.DisplayIndex = 1;
+        columnB.DisplayIndex = 2;
+        columnC.DisplayIndex = 3;
+        columnA.IsVisible = false;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var startSlot = grid.SlotFromRowIndex(0);
+        var endSlot = grid.SlotFromRowIndex(1);
+        var startRow = grid.DisplayData.GetDisplayedElement(startSlot) as DataGridRow;
+        var endRow = grid.DisplayData.GetDisplayedElement(endSlot) as DataGridRow;
+        Assert.NotNull(startRow);
+        Assert.NotNull(endRow);
+
+        var startCell = startRow!.Cells[columnD.Index];
+        var endCell = endRow!.Cells[columnB.Index];
+        var startPoint = GetCenterPoint(startCell, grid);
+        var endPoint = GetCenterPoint(endCell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        startCell.RaiseEvent(CreatePointerPressedArgs(startCell, grid, pointer, startPoint, KeyModifiers.None));
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
+
+        Assert.Equal(4, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnD.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnB.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnD.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnB.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.ColumnIndex == columnA.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.ColumnIndex == columnC.Index);
 
         grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
     }
@@ -1517,6 +1694,68 @@ public class DataGridInputMouseSelectionTests
         Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 3 && cell.ColumnIndex == 2);
         Assert.DoesNotContain(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == 0);
         Assert.DoesNotContain(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == 1);
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, midPoint, ctrl));
+    }
+
+    [AvaloniaFact]
+    public void MouseDrag_CellSelection_Ctrl_Shrinks_Using_DisplayOrder_After_Column_Reorder()
+    {
+        var (grid, _) = CreateGrid(rowCount: 4, columnCount: 3, selectionUnit: DataGridSelectionUnit.Cell, selectionMode: DataGridSelectionMode.Extended);
+        var columnA = grid.ColumnsInternal[0];
+        var columnB = grid.ColumnsInternal[1];
+        var columnC = grid.ColumnsInternal[2];
+        var ctrl = GetCtrlOrCmdModifier(grid);
+
+        columnC.DisplayIndex = 0;
+        columnA.DisplayIndex = 1;
+        columnB.DisplayIndex = 2;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var preSlot = grid.SlotFromRowIndex(3);
+        var preRow = grid.DisplayData.GetDisplayedElement(preSlot) as DataGridRow;
+        Assert.NotNull(preRow);
+
+        var preCell = preRow!.Cells[columnB.Index];
+        var prePoint = GetCenterPoint(preCell, grid);
+        var prePointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        preCell.RaiseEvent(CreatePointerPressedArgs(preCell, grid, prePointer, prePoint, KeyModifiers.None));
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, prePointer, prePoint, KeyModifiers.None));
+
+        var startSlot = grid.SlotFromRowIndex(0);
+        var endSlot = grid.SlotFromRowIndex(1);
+        var startRow = grid.DisplayData.GetDisplayedElement(startSlot) as DataGridRow;
+        var endRow = grid.DisplayData.GetDisplayedElement(endSlot) as DataGridRow;
+        Assert.NotNull(startRow);
+        Assert.NotNull(endRow);
+
+        var startCell = startRow!.Cells[columnC.Index];
+        var midCell = startRow.Cells[columnA.Index];
+        var endCell = endRow!.Cells[columnA.Index];
+        var startPoint = GetCenterPoint(startCell, grid);
+        var midPoint = GetCenterPoint(midCell, grid);
+        var endPoint = GetCenterPoint(endCell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        startCell.RaiseEvent(CreatePointerPressedArgs(startCell, grid, pointer, startPoint, ctrl));
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, endPoint, ctrl));
+
+        Assert.Equal(5, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnA.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnA.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 3 && cell.ColumnIndex == columnB.Index);
+
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, midPoint, ctrl));
+
+        Assert.Equal(3, grid.SelectedCells.Count);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnC.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 0 && cell.ColumnIndex == columnA.Index);
+        Assert.Contains(grid.SelectedCells, cell => cell.RowIndex == 3 && cell.ColumnIndex == columnB.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnC.Index);
+        Assert.DoesNotContain(grid.SelectedCells, cell => cell.RowIndex == 1 && cell.ColumnIndex == columnA.Index);
 
         grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, midPoint, ctrl));
     }
@@ -1662,7 +1901,7 @@ public class DataGridInputMouseSelectionTests
         var items = new ObservableCollection<RowItem>();
         for (var i = 0; i < rowCount; i++)
         {
-            items.Add(new RowItem { A = i, B = i + 100, C = i + 200 });
+            items.Add(new RowItem { A = i, B = i + 100, C = i + 200, D = i + 300 });
         }
 
         var root = new Window
@@ -1707,6 +1946,15 @@ public class DataGridInputMouseSelectionTests
             {
                 Header = "C",
                 Binding = new Binding(nameof(RowItem.C))
+            });
+        }
+
+        if (columnCount >= 4)
+        {
+            grid.ColumnsInternal.Add(new DataGridTextColumn
+            {
+                Header = "D",
+                Binding = new Binding(nameof(RowItem.D))
             });
         }
 
@@ -1952,5 +2200,6 @@ public class DataGridInputMouseSelectionTests
         public int A { get; set; }
         public int B { get; set; }
         public int C { get; set; }
+        public int D { get; set; }
     }
 }

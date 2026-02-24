@@ -20,6 +20,7 @@
               CanUserAddRows="False"
               HeadersVisibility="All"
               GridLinesVisibility="All"
+              CanUserReorderColumns="True"
               Height="420">
       <DataGrid.Styles>
         <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">

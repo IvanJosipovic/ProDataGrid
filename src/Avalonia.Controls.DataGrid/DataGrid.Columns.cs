@@ -372,6 +372,7 @@ internal
             // Invalidate layout
             CorrectColumnFrozenStates();
             EnsureHorizontalLayout();
+            RequestSelectionOverlayRefresh();
         }
 
         internal void OnColumnDisplayIndexChanging(DataGridColumn targetColumn, int newDisplayIndex)
@@ -567,6 +568,7 @@ internal
             }
 
             UpdateSearchAdapterView();
+            RequestSelectionOverlayRefresh();
         }
 
         internal void OnColumnVisibleStateChanging(DataGridColumn targetColumn, bool wasVisible, bool isVisible)
