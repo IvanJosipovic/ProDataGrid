@@ -1,0 +1,248 @@
+# Custom Drawing Columns and Skia Draw Operations
+
+`DataGridCustomDrawingColumn` is a read-only bound column that renders cell content through `DataGridCustomDrawingCell`. It supports:
+
+- low-level text rendering using the control text path (`FormattedText`),
+- custom `ICustomDrawOperation` rendering (`DrawingContext.Custom(...)`),
+- optional draw-operation-driven measure/arrange fast path,
+- shared text layout caching for high-frequency text scenarios.
+
+Use this column when you need lower render overhead than template columns and you want full control over drawing behavior.
+
+## API Surface
+
+Core types:
+
+- `DataGridCustomDrawingColumn`
+- `DataGridCustomDrawingCell`
+- `DataGridCustomDrawingColumnDefinition` (for `ColumnDefinitionsSource`)
+- `DataGridCustomDrawingMode` (`Text`, `DrawOperation`, `TextAndDrawOperation`)
+- `DataGridCustomDrawingTextLayoutCacheMode` (`PerCell`, `Shared`)
+- `IDataGridCellDrawOperationFactory`
+- `IDataGridCellDrawOperationMeasureProvider` (optional)
+- `IDataGridCellDrawOperationArrangeProvider` (optional)
+- `DataGridCellDrawOperationContext`
+- `DataGridCellDrawOperationMeasureContext`
+- `DataGridCellDrawOperationArrangeContext`
+
+Primary column properties:
+
+| Property | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `Binding` | `IBinding` | n/a | Bound value used as source text/value for the cell. |
+| `DrawOperationFactory` | `IDataGridCellDrawOperationFactory` | `null` | Factory creating per-cell draw operations. |
+| `DrawingMode` | `DataGridCustomDrawingMode` | `Text` | Selects text path, draw-operation path, or both. |
+| `TextLayoutCacheMode` | `DataGridCustomDrawingTextLayoutCacheMode` | `PerCell` | Per-cell text layout cache or shared per-column cache. |
+| `SharedTextLayoutCacheCapacity` | `int` | `1024` | Max entry count for shared layout cache (minimum effective value: `1`). |
+| `DrawOperationLayoutFastPath` | `bool` | `false` | Opt-in measure/arrange fast path driven by draw-operation provider interfaces. |
+| `FontFamily`, `FontSize`, `FontStyle`, `FontWeight`, `FontStretch`, `Foreground`, `TextAlignment`, `TextTrimming` | standard text properties | inherited/default | Applied to `DataGridCustomDrawingCell`. |
+
+## Rendering and Layout Pipeline
+
+1. `DataGridCustomDrawingColumn` creates `DataGridCustomDrawingCell` for each realized cell.
+2. Cell resolves display text from `Value` (string or `Convert.ToString(...)`).
+3. Measure path:
+   - If `DrawOperationLayoutFastPath=true`, `DrawingMode=DrawOperation`, and factory implements `IDataGridCellDrawOperationMeasureProvider`, `TryMeasure(...)` is used.
+   - Otherwise cell measures text using `FormattedText`.
+4. Arrange path:
+   - If fast path is enabled and factory implements `IDataGridCellDrawOperationArrangeProvider`, `TryArrange(...)` is used.
+   - Otherwise default arrange path is used.
+5. Render path:
+   - Text draws when mode includes text (`Text`/`TextAndDrawOperation`) or when draw operation is unavailable.
+   - Draw operation draws when factory is available and mode includes draw operations (`DrawOperation`/`TextAndDrawOperation`).
+
+## Direct Column Usage (XAML)
+
+This is the same pattern used by the variable-height Skia sample page.
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:customDrawing="clr-namespace:DataGridSample.CustomDrawing"
+             xmlns:models="clr-namespace:DataGridSample.Models">
+  <UserControl.Resources>
+    <customDrawing:SkiaTextCellDrawOperationFactory x:Key="DefaultSkiaTextFactory"
+                                                     Padding="4,2,4,2"
+                                                     TextAlignment="Left"
+                                                     VerticalAlignment="Center" />
+  </UserControl.Resources>
+
+  <DataGrid ItemsSource="{Binding Items}" AutoGenerateColumns="False">
+    <DataGrid.Columns>
+      <DataGridCustomDrawingColumn Header="Title"
+                                   Binding="{Binding Title}"
+                                   Width="*"
+                                   DrawingMode="DrawOperation"
+                                   DrawOperationFactory="{StaticResource DefaultSkiaTextFactory}"
+                                   TextLayoutCacheMode="Shared"
+                                   SharedTextLayoutCacheCapacity="4096"
+                                   DrawOperationLayoutFastPath="True"
+                                   Foreground="{DynamicResource ThemeForegroundBrush}"
+                                   x:DataType="models:VariableHeightItem" />
+    </DataGrid.Columns>
+  </DataGrid>
+</UserControl>
+```
+
+## Draw Operation Factory (Skia API Lease)
+
+Implement `IDataGridCellDrawOperationFactory` to render with `ICustomDrawOperation`. For Skia, lease the current `ISkiaSharpApiLeaseFeature` in `Render(...)`.
+
+```csharp
+public sealed class SkiaTextCellDrawOperationFactory :
+    IDataGridCellDrawOperationFactory,
+    IDataGridCellDrawOperationMeasureProvider,
+    IDataGridCellDrawOperationArrangeProvider
+{
+    public ICustomDrawOperation CreateDrawOperation(DataGridCellDrawOperationContext context)
+    {
+        return new SkiaTextCellDrawOperation(context);
+    }
+
+    public bool TryMeasure(DataGridCellDrawOperationMeasureContext context, out Size desiredSize)
+    {
+        // Return draw-operation text metrics (optionally cached) for fast measure.
+        desiredSize = new Size(120, 20);
+        return true;
+    }
+
+    public bool TryArrange(DataGridCellDrawOperationArrangeContext context, out Size arrangedSize)
+    {
+        // Usually pass through final size.
+        arrangedSize = context.FinalSize;
+        return true;
+    }
+}
+
+internal sealed class SkiaTextCellDrawOperation : ICustomDrawOperation
+{
+    private readonly DataGridCellDrawOperationContext _context;
+
+    public SkiaTextCellDrawOperation(DataGridCellDrawOperationContext context)
+    {
+        _context = context;
+        Bounds = context.Bounds;
+    }
+
+    public Rect Bounds { get; }
+    public void Dispose() { }
+    public bool HitTest(Point p) => Bounds.Contains(p);
+    public bool Equals(ICustomDrawOperation? other) => false;
+
+    public void Render(ImmediateDrawingContext context)
+    {
+        using ISkiaSharpApiLease? lease = context.TryGetFeature<ISkiaSharpApiLeaseFeature>()?.Lease();
+        if (lease is null)
+        {
+            return;
+        }
+
+        // Use lease.SkCanvas and draw text/glyphs/shapes here.
+    }
+}
+```
+
+Context objects provide cell, column, item, value, resolved text, typography, foreground, and selection/current flags. Measure/arrange contexts additionally provide `AvailableSize` / `FinalSize`, trimming, alignment, and flow direction.
+
+## Column Definitions (MVVM / DataGrid Design Pattern)
+
+`DataGridCustomDrawingColumnDefinition` exposes the same custom drawing settings for `ColumnDefinitionsSource`.
+
+```csharp
+public DataGridColumnDefinitionList ColumnDefinitions { get; }
+
+public MyViewModel(IDataGridCellDrawOperationFactory factory)
+{
+    ColumnDefinitions = new DataGridColumnDefinitionList
+    {
+        new DataGridCustomDrawingColumnDefinition
+        {
+            Header = "Description",
+            Binding = DataGridBindingDefinition.Create<RowItem, string>(x => x.Description),
+            DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+            DrawOperationFactory = factory,
+            TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
+            SharedTextLayoutCacheCapacity = 4096,
+            DrawOperationLayoutFastPath = true
+        }
+    };
+}
+```
+
+```xml
+<DataGrid ItemsSource="{Binding Items}"
+          ColumnDefinitionsSource="{Binding ColumnDefinitions}"
+          AutoGenerateColumns="False" />
+```
+
+Typed builder support is also available:
+
+```csharp
+var builder = DataGridColumnDefinitionBuilder.For<RowItem>();
+
+var definition = builder.CustomDrawing(
+    header: "Description",
+    property: descriptionPropertyInfo,
+    getter: row => row.Description,
+    setter: null,
+    configure: d =>
+    {
+        d.DrawingMode = DataGridCustomDrawingMode.DrawOperation;
+        d.DrawOperationFactory = factory;
+        d.TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared;
+        d.SharedTextLayoutCacheCapacity = 4096;
+        d.DrawOperationLayoutFastPath = true;
+    });
+```
+
+## Text Layout Caching
+
+`TextLayoutCacheMode` controls `FormattedText` reuse:
+
+- `PerCell`: cache is local to each realized `DataGridCustomDrawingCell`.
+- `Shared`: all realized cells in the same `DataGridCustomDrawingColumn` share a bounded LRU cache.
+
+Shared cache keys include text, typography, alignment, trimming, flow direction, culture, and max text width/height constraints. This makes shared cache mode suitable for repeated text patterns across many rows.
+
+Use larger `SharedTextLayoutCacheCapacity` when:
+
+- the dataset is large,
+- repeated texts are common,
+- typography/constraints are stable.
+
+## Fast Path Guidance
+
+Enable `DrawOperationLayoutFastPath` only when:
+
+- `DrawingMode` is `DrawOperation`,
+- your factory implements measure (and optionally arrange) providers,
+- measured metrics are consistent with rendered output.
+
+Recommended approach for high-performance variable-height cells:
+
+1. Cache draw-operation text metrics in the factory (LRU or bounded dictionary).
+2. Return those metrics from `TryMeasure(...)`.
+3. Return `context.FinalSize` from `TryArrange(...)` unless custom arrange math is required.
+4. Keep `TextLayoutCacheMode=Shared` for fallback text path and hybrid modes.
+
+## End-to-End Sample
+
+Sample app page:
+
+- Tab: `Variable Height Scrolling (Skia Custom Draw)`
+- Files:
+  - `src/DataGridSample/Pages/VariableHeightSkiaCustomDrawPage.axaml`
+  - `src/DataGridSample/CustomDrawing/SkiaTextCellDrawOperationFactory.cs`
+
+Run:
+
+```bash
+dotnet run --project src/DataGridSample/DataGridSample.csproj
+```
+
+## Related Articles
+
+- [Column Types Reference](column-types-reference.md)
+- [Column Definitions](column-definitions.md)
+- [Column Definitions: Fast Path Overview](column-definitions-fast-path-overview.md)
+- [Scrolling and Virtualization](scrolling-virtualization.md)
