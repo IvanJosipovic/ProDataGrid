@@ -178,5 +178,6 @@ internal static class SamplePageCatalog
             ("DataGridSample.RightFrozenColumnsPage", static () => new global::DataGridSample.RightFrozenColumnsPage()),
             ("DataGridSample.ScrollInteractionsPage", static () => new global::DataGridSample.ScrollInteractionsPage()),
             ("DataGridSample.VariableHeightPage", static () => new global::DataGridSample.VariableHeightPage()),
+            ("DataGridSample.VariableHeightSkiaCustomDrawPage", static () => new global::DataGridSample.VariableHeightSkiaCustomDrawPage()),
         };
 }

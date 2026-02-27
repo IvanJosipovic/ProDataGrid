@@ -347,6 +347,9 @@
     <TabItem Header="Variable Height Scrolling">
       <local:VariableHeightPage />
     </TabItem>
+    <TabItem Header="Variable Height Scrolling (Skia Custom Draw)">
+      <local:VariableHeightSkiaCustomDrawPage />
+    </TabItem>
     <TabItem Header="Scroll Snap &amp; Details">
       <local:ScrollInteractionsPage />
     </TabItem>
