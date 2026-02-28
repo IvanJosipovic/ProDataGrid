@@ -16,6 +16,7 @@ namespace DataGridSample.CustomDrawing
         IDataGridCellDrawOperationMeasureProvider,
         IDataGridCellDrawOperationArrangeProvider
     {
+        private static readonly string[] s_lineSeparators = { "\r\n", "\n" };
         private readonly Dictionary<MetricsCacheKey, LinkedListNode<MetricsCacheEntry>> _metricsCache = new();
         private readonly LinkedList<MetricsCacheEntry> _metricsCacheLru = new();
         private readonly object _metricsCacheGate = new();
@@ -41,14 +42,22 @@ namespace DataGridSample.CustomDrawing
         public ICustomDrawOperation CreateDrawOperation(DataGridCellDrawOperationContext context)
         {
             float fontSize = (float)Math.Max(1d, context.FontSize);
-            var metrics = GetOrCreateMetrics(context.Item, context.Text ?? string.Empty, fontSize, context.Typeface.ToString() ?? string.Empty);
+            var metrics = GetOrCreateMetrics(
+                context.Item,
+                context.Text ?? string.Empty,
+                fontSize,
+                TypefaceCacheKey.From(context.Typeface));
             return new SkiaTextCellDrawOperation(context, TextAlignment, VerticalAlignment, Padding, metrics);
         }
 
         public bool TryMeasure(DataGridCellDrawOperationMeasureContext context, out Size desiredSize)
         {
             float fontSize = (float)Math.Max(1d, context.FontSize);
-            var metrics = GetOrCreateMetrics(context.Item, context.Text ?? string.Empty, fontSize, context.Typeface.ToString() ?? string.Empty);
+            var metrics = GetOrCreateMetrics(
+                context.Item,
+                context.Text ?? string.Empty,
+                fontSize,
+                TypefaceCacheKey.From(context.Typeface));
             double width = metrics.MaxLineWidth + Padding.Left + Padding.Right;
             double height = metrics.TotalHeight + Padding.Top + Padding.Bottom;
 
@@ -65,7 +74,11 @@ namespace DataGridSample.CustomDrawing
             return true;
         }
 
-        private SkiaTextLayoutMetrics GetOrCreateMetrics(object? item, string text, float fontSize, string typefaceKey)
+        private SkiaTextLayoutMetrics GetOrCreateMetrics(
+            object? item,
+            string text,
+            float fontSize,
+            TypefaceCacheKey typefaceKey)
         {
             var key = new MetricsCacheKey(text, fontSize, typefaceKey);
             int itemCacheSlot = ItemCacheSlot;
@@ -125,7 +138,7 @@ namespace DataGridSample.CustomDrawing
 
         private static SkiaTextLayoutMetrics CreateMetrics(string text, float fontSize)
         {
-            var lines = (text ?? string.Empty).Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            var lines = (text ?? string.Empty).Split(s_lineSeparators, StringSplitOptions.None);
             if (lines.Length == 0)
             {
                 lines = new[] { string.Empty };
@@ -237,9 +250,9 @@ namespace DataGridSample.CustomDrawing
         {
             private readonly string _text;
             private readonly float _fontSize;
-            private readonly string _typefaceKey;
+            private readonly TypefaceCacheKey _typefaceKey;
 
-            public MetricsCacheKey(string text, float fontSize, string typefaceKey)
+            public MetricsCacheKey(string text, float fontSize, TypefaceCacheKey typefaceKey)
             {
                 _text = text;
                 _fontSize = fontSize;
@@ -250,7 +263,7 @@ namespace DataGridSample.CustomDrawing
             {
                 return string.Equals(_text, other._text, StringComparison.Ordinal) &&
                        _fontSize.Equals(other._fontSize) &&
-                       string.Equals(_typefaceKey, other._typefaceKey, StringComparison.Ordinal);
+                       _typefaceKey.Equals(other._typefaceKey);
             }
 
             public override bool Equals(object? obj)
@@ -263,7 +276,65 @@ namespace DataGridSample.CustomDrawing
                 var hash = new HashCode();
                 hash.Add(_text, StringComparer.Ordinal);
                 hash.Add(_fontSize);
-                hash.Add(_typefaceKey, StringComparer.Ordinal);
+                hash.Add(_typefaceKey);
+                return hash.ToHashCode();
+            }
+        }
+
+        private readonly struct TypefaceCacheKey : IEquatable<TypefaceCacheKey>
+        {
+            private readonly string _fontFamilyName;
+            private readonly FontStyle _fontStyle;
+            private readonly FontWeight _fontWeight;
+            private readonly FontStretch _fontStretch;
+
+            public TypefaceCacheKey(
+                string fontFamilyName,
+                FontStyle fontStyle,
+                FontWeight fontWeight,
+                FontStretch fontStretch)
+            {
+                _fontFamilyName = fontFamilyName;
+                _fontStyle = fontStyle;
+                _fontWeight = fontWeight;
+                _fontStretch = fontStretch;
+            }
+
+            public static TypefaceCacheKey From(Typeface? typeface)
+            {
+                if (!typeface.HasValue)
+                {
+                    return default;
+                }
+
+                var resolved = typeface.Value;
+                return new TypefaceCacheKey(
+                    resolved.FontFamily?.Name ?? string.Empty,
+                    resolved.Style,
+                    resolved.Weight,
+                    resolved.Stretch);
+            }
+
+            public bool Equals(TypefaceCacheKey other)
+            {
+                return string.Equals(_fontFamilyName, other._fontFamilyName, StringComparison.Ordinal) &&
+                       _fontStyle == other._fontStyle &&
+                       _fontWeight == other._fontWeight &&
+                       _fontStretch == other._fontStretch;
+            }
+
+            public override bool Equals(object? obj)
+            {
+                return obj is TypefaceCacheKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                var hash = new HashCode();
+                hash.Add(_fontFamilyName, StringComparer.Ordinal);
+                hash.Add(_fontStyle);
+                hash.Add(_fontWeight);
+                hash.Add(_fontStretch);
                 return hash.ToHashCode();
             }
         }
@@ -324,7 +395,19 @@ namespace DataGridSample.CustomDrawing
 
         public bool Equals(ICustomDrawOperation? other)
         {
-            return false;
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return other is SkiaTextCellDrawOperation operation &&
+                   Bounds.Equals(operation.Bounds) &&
+                   ReferenceEquals(_metrics, operation._metrics) &&
+                   _color.Equals(operation._color) &&
+                   _fontSize.Equals(operation._fontSize) &&
+                   _textAlignment == operation._textAlignment &&
+                   _verticalAlignment == operation._verticalAlignment &&
+                   _contentRect.Equals(operation._contentRect);
         }
 
         public void Render(ImmediateDrawingContext context)

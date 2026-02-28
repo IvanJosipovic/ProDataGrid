@@ -152,7 +152,21 @@ internal sealed class SkiaAnimatedTextCellDrawOperation : ICustomDrawOperation
 
     public bool Equals(ICustomDrawOperation? other)
     {
-        return false;
+        if (ReferenceEquals(this, other))
+        {
+            return true;
+        }
+
+        return other is SkiaAnimatedTextCellDrawOperation operation &&
+               Bounds.Equals(operation.Bounds) &&
+               string.Equals(_text, operation._text, StringComparison.Ordinal) &&
+               _baseColor.Equals(operation._baseColor) &&
+               _fontSize.Equals(operation._fontSize) &&
+               _textAlignment == operation._textAlignment &&
+               _verticalAlignment == operation._verticalAlignment &&
+               _phase.Equals(operation._phase) &&
+               _waveAmplitude.Equals(operation._waveAmplitude) &&
+               _contentRect.Equals(operation._contentRect);
     }
 
     public void Render(ImmediateDrawingContext context)

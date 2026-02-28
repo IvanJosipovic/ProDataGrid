@@ -40,7 +40,7 @@
         Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Custom Drawing Columns (Editing)</TextBlock>
-      <TextBlock Text="This sample shows DataGridCustomDrawingColumn rendering via Skia draw operations while still supporting in-place text editing. Double-click a Title, Notes, or Category cell, or press F2."
+      <TextBlock Text="This sample shows DataGridCustomDrawingColumn rendering through the CompositionCustomVisual backend with Skia draw operations while still supporting in-place text editing. Double-click a Title, Notes, or Category cell, or press F2."
                  TextWrapping="Wrap" />
     </StackPanel>
 
@@ -69,6 +69,7 @@
                                      Width="90"
                                      IsReadOnly="True"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource IdSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="1024"
@@ -81,6 +82,7 @@
                                      Width="220"
                                      IsReadOnly="False"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource TitleSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="1024"
@@ -93,6 +95,7 @@
                                      Width="*"
                                      IsReadOnly="False"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource NotesSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="1024"
@@ -105,6 +108,7 @@
                                      Width="140"
                                      IsReadOnly="False"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource CategorySkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="1024"

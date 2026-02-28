@@ -43,7 +43,7 @@
     <StackPanel Orientation="Vertical" Spacing="4" Grid.Row="0" Margin="0,0,0,8">
       <TextBlock Classes="h2" Text="Variable Row Height Scrolling Test (Skia Custom Draw)" />
       <TextBlock TextWrapping="Wrap"
-                 Text="This page mirrors the variable-height sample, but columns render via DataGridCustomDrawingColumn and Skia custom draw operations with per-item metrics cache contract enabled." />
+                 Text="This page mirrors the variable-height sample, but columns render via DataGridCustomDrawingColumn using the CompositionCustomVisual backend with Skia draw operations and per-item metrics cache contract enabled." />
     </StackPanel>
 
     <!-- Controls -->
@@ -105,6 +105,7 @@
                                      Binding="{Binding Id}"
                                      Width="60"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource IdSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="4096"
@@ -116,6 +117,7 @@
                                      Binding="{Binding Title}"
                                      Width="100"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource TitleSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="4096"
@@ -127,6 +129,7 @@
                                      Binding="{Binding LineCount}"
                                      Width="60"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource LineCountSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="4096"
@@ -138,6 +141,7 @@
                                      Binding="{Binding ExpectedHeight, StringFormat='{}{0:F0}'}"
                                      Width="80"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource ExpectedHeightSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="4096"
@@ -149,6 +153,7 @@
                                      Binding="{Binding Description}"
                                      Width="*"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource DescriptionSkiaTextFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="4096"

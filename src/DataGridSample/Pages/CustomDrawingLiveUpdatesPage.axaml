@@ -17,7 +17,7 @@
         Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Custom Drawing Columns (Live Updates)</TextBlock>
-      <TextBlock Text="This sample animates Skia-rendered custom drawing cells in real time using factory invalidation events. Bound row values stay static; redraw is driven by explicit invalidation."
+      <TextBlock Text="This sample animates Skia-rendered custom drawing cells in real time using the CompositionCustomVisual backend and factory invalidation events. Bound row values stay static; redraw is driven by explicit invalidation."
                  TextWrapping="Wrap" />
     </StackPanel>
 
@@ -67,6 +67,7 @@
                                      Binding="{Binding Message}"
                                      Width="*"
                                      DrawingMode="DrawOperation"
+                                     RenderBackend="CompositionCustomVisual"
                                      DrawOperationFactory="{StaticResource LiveSkiaFactory}"
                                      TextLayoutCacheMode="Shared"
                                      SharedTextLayoutCacheCapacity="1024"
