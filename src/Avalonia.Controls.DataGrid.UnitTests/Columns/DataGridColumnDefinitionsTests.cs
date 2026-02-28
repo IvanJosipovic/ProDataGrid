@@ -63,6 +63,7 @@ public class DataGridColumnDefinitionsTests
             Binding = DataGridBindingDefinition.Create<Person, string>(p => p.Name),
             IsReadOnly = false,
             DrawingMode = DataGridCustomDrawingMode.TextAndDrawOperation,
+            RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
             DrawOperationFactory = factory,
             Foreground = Brushes.Green,
             TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
@@ -73,6 +74,7 @@ public class DataGridColumnDefinitionsTests
         var column = Assert.IsType<DataGridCustomDrawingColumn>(definition.CreateColumn(new DataGridColumnDefinitionContext(new DataGrid())));
 
         Assert.Equal(DataGridCustomDrawingMode.TextAndDrawOperation, column.DrawingMode);
+        Assert.Equal(DataGridCustomDrawingRenderBackend.CompositionCustomVisual, column.RenderBackend);
         Assert.Same(factory, column.DrawOperationFactory);
         Assert.Equal(Brushes.Green, column.Foreground);
         Assert.Equal(DataGridCustomDrawingTextLayoutCacheMode.Shared, column.TextLayoutCacheMode);

@@ -49,6 +49,7 @@ public class DataGridCustomDrawingColumnTests
             Binding = new Binding("Name"),
             DrawOperationFactory = drawFactory,
             DrawingMode = DataGridCustomDrawingMode.TextAndDrawOperation,
+            RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
             Foreground = Brushes.Red,
             TextAlignment = TextAlignment.Right,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -64,6 +65,7 @@ public class DataGridCustomDrawingColumnTests
         Assert.Same(theme, content.Theme);
         Assert.Same(drawFactory, content.DrawOperationFactory);
         Assert.Equal(DataGridCustomDrawingMode.TextAndDrawOperation, content.DrawingMode);
+        Assert.Equal(DataGridCustomDrawingRenderBackend.CompositionCustomVisual, content.RenderBackend);
         Assert.Equal(Brushes.Red, content.Foreground);
         Assert.Equal(TextAlignment.Right, content.TextAlignment);
         Assert.Equal(TextTrimming.CharacterEllipsis, content.TextTrimming);
@@ -91,6 +93,24 @@ public class DataGridCustomDrawingColumnTests
         column.RefreshCellContentPublic(content, nameof(DataGridCustomDrawingColumn.DrawOperationFactory));
 
         Assert.Same(newFactory, content.DrawOperationFactory);
+    }
+
+    [AvaloniaFact]
+    public void CustomDrawingColumn_RefreshCellContent_Updates_RenderBackend()
+    {
+        var column = new TestCustomDrawingColumn
+        {
+            Binding = new Binding("Name"),
+            RenderBackend = DataGridCustomDrawingRenderBackend.ImmediateDrawOperation
+        };
+
+        var content = column.CreateDisplayElement(new DataGridCell(), new Person { Name = "Ada" });
+        Assert.Equal(DataGridCustomDrawingRenderBackend.ImmediateDrawOperation, content.RenderBackend);
+
+        column.RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual;
+        column.RefreshCellContentPublic(content, nameof(DataGridCustomDrawingColumn.RenderBackend));
+
+        Assert.Equal(DataGridCustomDrawingRenderBackend.CompositionCustomVisual, content.RenderBackend);
     }
 
     [AvaloniaFact]
@@ -326,6 +346,39 @@ public class DataGridCustomDrawingColumnTests
         Assert.Equal(1, column.RenderInvalidationToken);
     }
 
+    [AvaloniaFact]
+    public void CustomDrawingCompositionHandler_Drops_Equivalent_Operation_Without_Replacing_Current()
+    {
+        var handler = new DataGridCustomDrawingCompositionVisualHandler();
+        var first = new EquatableTestDrawOperation(new Rect(0, 0, 120, 24), key: 1);
+        var equivalent = new EquatableTestDrawOperation(new Rect(0, 0, 120, 24), key: 1);
+
+        Assert.True(SetHandlerOperation(handler, first));
+        Assert.False(SetHandlerOperation(handler, equivalent));
+
+        Assert.Equal(1, equivalent.DisposeCount);
+        Assert.Equal(0, first.DisposeCount);
+        Assert.Same(first, GetHandlerOperation(handler));
+    }
+
+    [AvaloniaFact]
+    public void CustomDrawingCompositionHandler_Replaces_NonEquivalent_Operation_And_Disposes_Previous()
+    {
+        var handler = new DataGridCustomDrawingCompositionVisualHandler();
+        var first = new EquatableTestDrawOperation(new Rect(0, 0, 120, 24), key: 1);
+        var second = new EquatableTestDrawOperation(new Rect(0, 0, 120, 24), key: 2);
+
+        Assert.True(SetHandlerOperation(handler, first));
+        Assert.True(SetHandlerOperation(handler, second));
+
+        Assert.Equal(1, first.DisposeCount);
+        Assert.Equal(0, second.DisposeCount);
+        Assert.Same(second, GetHandlerOperation(handler));
+
+        Assert.True(SetHandlerOperation(handler, null));
+        Assert.Equal(1, second.DisposeCount);
+    }
+
     private sealed class TestCustomDrawingColumn : DataGridCustomDrawingColumn
     {
         public DataGridCustomDrawingCell CreateDisplayElement(DataGridCell cell, object dataItem)
@@ -435,10 +488,62 @@ public class DataGridCustomDrawingColumnTests
         }
     }
 
+    private sealed class EquatableTestDrawOperation : ICustomDrawOperation
+    {
+        public EquatableTestDrawOperation(Rect bounds, int key)
+        {
+            Bounds = bounds;
+            Key = key;
+        }
+
+        public Rect Bounds { get; }
+
+        public int Key { get; }
+
+        public int DisposeCount { get; private set; }
+
+        public void Dispose()
+        {
+            DisposeCount++;
+        }
+
+        public bool Equals(ICustomDrawOperation? other)
+        {
+            return other is EquatableTestDrawOperation operation &&
+                   Key == operation.Key &&
+                   Bounds.Equals(operation.Bounds);
+        }
+
+        public bool HitTest(Point p)
+        {
+            return Bounds.Contains(p);
+        }
+
+        public void Render(ImmediateDrawingContext context)
+        {
+        }
+    }
+
     private static FormattedText? GetFormattedText(DataGridCustomDrawingCell cell)
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
         var field = typeof(DataGridCustomDrawingCell).GetField("_formattedText", flags);
         return field?.GetValue(cell) as FormattedText;
+    }
+
+    private static ICustomDrawOperation? GetHandlerOperation(DataGridCustomDrawingCompositionVisualHandler handler)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var field = typeof(DataGridCustomDrawingCompositionVisualHandler).GetField("_drawOperation", flags);
+        return field?.GetValue(handler) as ICustomDrawOperation;
+    }
+
+    private static bool SetHandlerOperation(
+        DataGridCustomDrawingCompositionVisualHandler handler,
+        ICustomDrawOperation? operation)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var method = typeof(DataGridCustomDrawingCompositionVisualHandler).GetMethod("SetDrawOperation", flags);
+        return method?.Invoke(handler, new object?[] { operation }) is bool changed && changed;
     }
 }
