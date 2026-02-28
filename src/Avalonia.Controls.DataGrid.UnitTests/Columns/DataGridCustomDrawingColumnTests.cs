@@ -5,6 +5,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Rendering.SceneGraph;
 using Avalonia.Styling;
@@ -176,11 +178,81 @@ public class DataGridCustomDrawingColumnTests
         Assert.Null(GetFormattedText(cell));
     }
 
+    [AvaloniaFact]
+    public void CustomDrawingColumn_GenerateEditingElement_Applies_Theme_And_Text_Properties()
+    {
+        var editorTheme = new ControlTheme(typeof(TextBox));
+        var grid = new DataGrid();
+        grid.Resources.Add("DataGridCellTextBoxTheme", editorTheme);
+
+        var column = new TestCustomDrawingColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Name"),
+            FontSize = 18,
+            Foreground = Brushes.Blue,
+            TextAlignment = TextAlignment.Right
+        };
+
+        grid.ColumnsInternal.Add(column);
+
+        var editor = column.CreateEditingElement(new DataGridCell(), new Person { Name = "Ada" });
+
+        Assert.Same(editorTheme, editor.Theme);
+        Assert.Equal(18, editor.FontSize);
+        Assert.Equal(Brushes.Blue, editor.Foreground);
+        Assert.Equal(TextAlignment.Right, editor.TextAlignment);
+    }
+
+    [AvaloniaFact]
+    public void CustomDrawingColumn_Prepare_And_Cancel_CellEdit_Uses_TextBox_Text()
+    {
+        var column = new TestCustomDrawingColumn();
+        var editor = new TextBox { Text = "Ada" };
+
+        var unedited = column.PrepareCellForEditPublic(editor, new RoutedEventArgs());
+        Assert.Equal("Ada", unedited);
+
+        editor.Text = "Changed";
+        column.CancelCellEditPublic(editor, unedited);
+
+        Assert.Equal("Ada", editor.Text);
+    }
+
+    [AvaloniaFact]
+    public void CustomDrawingColumn_PrepareCellForEdit_WithF2_PlacesCaretAtEnd()
+    {
+        var column = new TestCustomDrawingColumn();
+        var editor = new TextBox { Text = "Ada" };
+        var args = new KeyEventArgs { Key = Key.F2 };
+
+        var unedited = column.PrepareCellForEditPublic(editor, args);
+
+        Assert.Equal("Ada", unedited);
+        Assert.Equal(3, editor.SelectionStart);
+        Assert.Equal(3, editor.SelectionEnd);
+    }
+
     private sealed class TestCustomDrawingColumn : DataGridCustomDrawingColumn
     {
         public DataGridCustomDrawingCell CreateDisplayElement(DataGridCell cell, object dataItem)
         {
             return (DataGridCustomDrawingCell)GenerateElement(cell, dataItem);
+        }
+
+        public TextBox CreateEditingElement(DataGridCell cell, object dataItem)
+        {
+            return (TextBox)GenerateEditingElementDirect(cell, dataItem);
+        }
+
+        public object PrepareCellForEditPublic(Control editingElement, RoutedEventArgs editingEventArgs)
+        {
+            return PrepareCellForEdit(editingElement, editingEventArgs);
+        }
+
+        public void CancelCellEditPublic(Control editingElement, object uneditedValue)
+        {
+            CancelCellEdit(editingElement, uneditedValue);
         }
 
         public void RefreshCellContentPublic(Control element, string propertyName)

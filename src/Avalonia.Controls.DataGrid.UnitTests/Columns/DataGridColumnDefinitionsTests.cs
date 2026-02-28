@@ -61,6 +61,7 @@ public class DataGridColumnDefinitionsTests
         var definition = new DataGridCustomDrawingColumnDefinition
         {
             Binding = DataGridBindingDefinition.Create<Person, string>(p => p.Name),
+            IsReadOnly = false,
             DrawingMode = DataGridCustomDrawingMode.TextAndDrawOperation,
             DrawOperationFactory = factory,
             Foreground = Brushes.Green,
@@ -77,6 +78,7 @@ public class DataGridColumnDefinitionsTests
         Assert.Equal(DataGridCustomDrawingTextLayoutCacheMode.Shared, column.TextLayoutCacheMode);
         Assert.Equal(512, column.SharedTextLayoutCacheCapacity);
         Assert.True(column.DrawOperationLayoutFastPath);
+        Assert.False(column.IsReadOnly);
     }
 
     [Fact]

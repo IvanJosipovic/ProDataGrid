@@ -1,6 +1,6 @@
 # Custom Drawing Columns and Skia Draw Operations
 
-`DataGridCustomDrawingColumn` is a read-only bound column that renders cell content through `DataGridCustomDrawingCell`. It supports:
+`DataGridCustomDrawingColumn` is a bound column that renders display cell content through `DataGridCustomDrawingCell`. It is read-only by default, and supports opt-in editing via `IsReadOnly="False"`. It supports:
 
 - low-level text rendering using the control text path (`FormattedText`),
 - custom `ICustomDrawOperation` rendering (`DrawingContext.Custom(...)`),
@@ -289,6 +289,27 @@ Recommended approach for high-performance variable-height cells:
 2. Return those metrics from `TryMeasure(...)`.
 3. Return `context.FinalSize` from `TryArrange(...)` unless custom arrange math is required.
 4. Keep `TextLayoutCacheMode=Shared` for fallback text path and hybrid modes.
+
+## Editing Support
+
+`DataGridCustomDrawingColumn` supports the standard DataGrid editing pipeline when `IsReadOnly` is set to `False`.
+
+- Display mode remains custom drawing (`DataGridCustomDrawingCell`).
+- Editing mode uses a `TextBox` editor bound to the same `Binding`.
+- Editor theme uses `DataGridCellTextBoxTheme`.
+- Font/foreground/text alignment column properties are applied to both display and editing elements.
+
+Example:
+
+```xml
+<DataGridCustomDrawingColumn Header="Title"
+                             Binding="{Binding Title}"
+                             DrawingMode="DrawOperation"
+                             DrawOperationFactory="{StaticResource TitleSkiaTextFactory}"
+                             IsReadOnly="False"
+                             Foreground="{DynamicResource ThemeForegroundBrush}"
+                             x:DataType="models:VariableHeightItem" />
+```
 
 ## End-to-End Sample
 
