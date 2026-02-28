@@ -36,6 +36,8 @@ Primary column properties:
 | `TextLayoutCacheMode` | `DataGridCustomDrawingTextLayoutCacheMode` | `PerCell` | Per-cell text layout cache or shared per-column cache. |
 | `SharedTextLayoutCacheCapacity` | `int` | `1024` | Max entry count for shared layout cache (minimum effective value: `1`). |
 | `DrawOperationLayoutFastPath` | `bool` | `false` | Opt-in measure/arrange fast path driven by draw-operation provider interfaces. |
+| `RenderInvalidationToken` | `int` | `0` | Increment to force redraw of realized custom drawing display cells. |
+| `LayoutInvalidationToken` | `int` | `0` | Increment to force measure/arrange + redraw of realized custom drawing display cells. |
 | `FontFamily`, `FontSize`, `FontStyle`, `FontWeight`, `FontStretch`, `Foreground`, `TextAlignment`, `TextTrimming` | standard text properties | inherited/default | Applied to `DataGridCustomDrawingCell`. |
 
 ## Rendering and Layout Pipeline
@@ -290,6 +292,50 @@ Recommended approach for high-performance variable-height cells:
 3. Return `context.FinalSize` from `TryArrange(...)` unless custom arrange math is required.
 4. Keep `TextLayoutCacheMode=Shared` for fallback text path and hybrid modes.
 
+## Explicit Invalidation for Custom Draw
+
+When draw output depends on external mutable state (animation phase, external diagnostics values, etc.) and bound row values do not change, use explicit invalidation.
+
+### Column API
+
+`DataGridCustomDrawingColumn` now exposes:
+
+- `InvalidateCustomDrawingCells(bool invalidateMeasure = false, bool clearSharedTextLayoutCache = false)`
+- `RenderInvalidationToken`
+- `LayoutInvalidationToken`
+
+Typical usage:
+
+```csharp
+// Render-only refresh (recommended for most animations).
+myCustomDrawingColumn.InvalidateCustomDrawingCells();
+
+// Force measure/arrange and clear shared text cache when layout-affecting state changed.
+myCustomDrawingColumn.InvalidateCustomDrawingCells(
+    invalidateMeasure: true,
+    clearSharedTextLayoutCache: true);
+```
+
+### Factory-Driven Invalidation (Optional)
+
+If your draw-operation factory can emit invalidation events, implement `IDataGridCellDrawOperationInvalidationSource`.
+When assigned to `DrawOperationFactory`, `DataGridCustomDrawingColumn` subscribes automatically and invalidates realized cells when the factory raises `Invalidated`.
+
+```csharp
+public sealed class AnimatedFactory :
+    IDataGridCellDrawOperationFactory,
+    IDataGridCellDrawOperationInvalidationSource
+{
+    public event EventHandler<DataGridCellDrawOperationInvalidatedEventArgs>? Invalidated;
+
+    public void Tick(float phase)
+    {
+        // update internal render state
+        Invalidated?.Invoke(this, new DataGridCellDrawOperationInvalidatedEventArgs());
+    }
+}
+```
+
 ## Editing Support
 
 `DataGridCustomDrawingColumn` supports the standard DataGrid editing pipeline when `IsReadOnly` is set to `False`.
@@ -316,9 +362,12 @@ Example:
 Sample app page:
 
 - Tab: `Variable Height Scrolling (Skia Custom Draw)`
+- Tab: `Custom Drawing Columns (Live Updates)`
 - Files:
   - `src/DataGridSample/Pages/VariableHeightSkiaCustomDrawPage.axaml`
   - `src/DataGridSample/CustomDrawing/SkiaTextCellDrawOperationFactory.cs`
+  - `src/DataGridSample/Pages/CustomDrawingLiveUpdatesPage.axaml`
+  - `src/DataGridSample/CustomDrawing/SkiaAnimatedTextCellDrawOperationFactory.cs`
 
 Run:
 

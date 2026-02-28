@@ -26,6 +26,7 @@ Highlights include:
 - Hierarchical data, hierarchical drag/drop, and tree-like mimics.
 - Virtualization and scrolling diagnostics (large datasets, row height estimators, recycling).
 - Variable-height scrolling with `DataGridCustomDrawingColumn`, Skia custom draw operations, shared text cache, and layout fast path.
+- Live custom-drawing updates with factory-driven invalidation (`DataGridCustomDrawingColumn.InvalidateCustomDrawingCells` and `IDataGridCellDrawOperationInvalidationSource`).
 - Styling showcases and column theme usage.
 - Column banding with stacked headers for non-pivot tables.
 
