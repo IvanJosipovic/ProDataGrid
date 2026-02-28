@@ -131,25 +131,31 @@ namespace DataGridSample.CustomDrawing
                 lines = new[] { string.Empty };
             }
 
+            using var font = new SKFont
+            {
+                Size = fontSize,
+                Edging = SKFontEdging.Antialias,
+                Subpixel = true
+            };
+
             using var paint = new SKPaint
             {
                 IsAntialias = true,
-                IsStroke = false,
-                TextSize = fontSize
+                IsStroke = false
             };
 
-            paint.GetFontMetrics(out SKFontMetrics metrics);
+            font.GetFontMetrics(out SKFontMetrics metrics);
             float lineHeight = metrics.Descent - metrics.Ascent;
             if (lineHeight <= 0f)
             {
-                lineHeight = paint.TextSize * 1.2f;
+                lineHeight = Math.Max(1f, fontSize * 1.2f);
             }
 
             float[] lineWidths = new float[lines.Length];
             float maxLineWidth = 0f;
             for (int i = 0; i < lines.Length; i++)
             {
-                float width = paint.MeasureText(lines[i]);
+                float width = MeasureTextWidth(lines[i], font, paint);
                 lineWidths[i] = width;
                 if (width > maxLineWidth)
                 {
@@ -159,6 +165,31 @@ namespace DataGridSample.CustomDrawing
 
             float totalHeight = lines.Length * lineHeight;
             return new SkiaTextLayoutMetrics(lines, lineWidths, maxLineWidth, lineHeight, totalHeight, metrics.Ascent);
+        }
+
+        private static float MeasureTextWidth(string text, SKFont font, SKPaint paint)
+        {
+            if (string.IsNullOrEmpty(text))
+            {
+                return 0f;
+            }
+
+            int glyphCount = font.CountGlyphs(text);
+            if (glyphCount <= 0)
+            {
+                return 0f;
+            }
+
+            if (glyphCount <= 256)
+            {
+                Span<ushort> glyphs = stackalloc ushort[glyphCount];
+                font.GetGlyphs(text, glyphs);
+                return font.MeasureText(glyphs, paint);
+            }
+
+            var glyphsArray = new ushort[glyphCount];
+            font.GetGlyphs(text, glyphsArray);
+            return font.MeasureText(glyphsArray, paint);
         }
 
         private static double CoerceDimension(double value, double limit)
@@ -312,8 +343,14 @@ namespace DataGridSample.CustomDrawing
             {
                 IsAntialias = true,
                 IsStroke = false,
-                Color = _color,
-                TextSize = _fontSize
+                Color = _color
+            };
+
+            using SKFont font = new SKFont
+            {
+                Size = _fontSize,
+                Edging = SKFontEdging.Antialias,
+                Subpixel = true
             };
 
             float y = GetInitialBaselineY(
@@ -328,7 +365,7 @@ namespace DataGridSample.CustomDrawing
                 string line = _metrics.Lines[i];
                 float lineWidth = _metrics.LineWidths[i];
                 float x = GetAlignedX(_contentRect, lineWidth, _textAlignment);
-                canvas.DrawText(line, x, y, paint);
+                canvas.DrawText(line, x, y, font, paint);
                 y += _metrics.LineHeight;
             }
 
