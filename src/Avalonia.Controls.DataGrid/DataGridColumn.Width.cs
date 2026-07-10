@@ -57,8 +57,13 @@ namespace Avalonia.Controls
                     double totalStarValues = 0;
                     double totalStarDesiredValues = 0;
                     double totalNonStarDisplayWidths = 0;
-                    foreach (DataGridColumn column in target.OwningGrid.ColumnsInternal.GetDisplayedColumns(c => c.IsVisible && c != target && !double.IsNaN(c.Width.DesiredValue)))
+                    foreach (DataGridColumn column in target.OwningGrid.ColumnsInternal.GetDisplayedColumns())
                     {
+                        if (!column.IsVisible || column == target || double.IsNaN(column.Width.DesiredValue))
+                        {
+                            continue;
+                        }
+
                         if (column.Width.IsStar)
                         {
                             totalStarValues += column.Width.Value;
