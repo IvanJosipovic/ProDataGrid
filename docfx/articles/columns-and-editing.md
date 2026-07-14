@@ -203,6 +203,8 @@ Validation integrates with Avalonia validation rules and per-column settings. Se
 
 When binding to `DataTable.DefaultView`, ProDataGrid binds cells via `TypeDescriptor` so you do not need manual indexers.
 
+With `CanUserAddRows="True"` and `EditTriggers="TextInput"`, typing in a new-row placeholder cell starts editing in that same column and applies the initial text there. Existing auto-generated columns are preserved while the new `DataRowView` is materialized.
+
 ## Custom Columns
 
 Derive from a built-in column to customize element creation while still reusing the grid's theme resources:
