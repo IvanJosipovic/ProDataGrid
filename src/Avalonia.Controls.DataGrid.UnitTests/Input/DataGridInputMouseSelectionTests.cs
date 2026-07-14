@@ -254,7 +254,7 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
-    public void RowDragHandle_Row_Preserves_MultiSelection_On_Selected_Row_Press_When_Suppression_Enabled()
+    public void RowDragHandle_Row_Defers_MultiSelection_Collapse_Until_Selected_Row_Release()
     {
         var (grid, items) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
         grid.CanUserReorderRows = true;
@@ -281,6 +281,69 @@ public class DataGridInputMouseSelectionTests
         Assert.Equal(2, grid.SelectedItems.Count);
         Assert.Contains(items[0], grid.SelectedItems.Cast<RowItem>());
         Assert.Contains(items[1], grid.SelectedItems.Cast<RowItem>());
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, point, KeyModifiers.None));
+
+        Assert.Single(grid.SelectedItems);
+        Assert.Contains(items[0], grid.SelectedItems.Cast<RowItem>());
+    }
+
+    [AvaloniaFact]
+    public void RowDragHandle_Row_Canceled_Deferred_Selection_Remains_MultiSelected_On_Release()
+    {
+        var (grid, items) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
+        grid.CanUserReorderRows = true;
+        grid.RowDragHandle = DataGridRowDragHandle.Row;
+        grid.RowDragDropOptions = new DataGridRowDragDropOptions
+        {
+            SuppressSelectionDragFromDragHandle = true
+        };
+        grid.SelectedItems.Add(items[0]);
+        grid.SelectedItems.Add(items[1]);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot = grid.SlotFromRowIndex(0);
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+
+        var cell = row!.Cells[0];
+        var point = GetCenterPoint(cell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        cell.RaiseEvent(CreatePointerPressedArgs(cell, grid, pointer, point, KeyModifiers.None));
+        grid.CancelDeferredRowDragSelection(pointer.Id);
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, point, KeyModifiers.None));
+
+        Assert.Equal(2, grid.SelectedItems.Count);
+        Assert.Contains(items[0], grid.SelectedItems.Cast<RowItem>());
+        Assert.Contains(items[1], grid.SelectedItems.Cast<RowItem>());
+    }
+
+    [AvaloniaFact]
+    public void RowDragHandle_Row_Does_Not_Defer_Selection_When_Row_Drag_Cannot_Start()
+    {
+        var (grid, items) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
+        grid.CanUserReorderRows = true;
+        grid.RowDragHandle = DataGridRowDragHandle.Row;
+        grid.IsReadOnly = true;
+        grid.SelectedItems.Add(items[0]);
+        grid.SelectedItems.Add(items[1]);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var slot = grid.SlotFromRowIndex(0);
+        var row = grid.DisplayData.GetDisplayedElement(slot) as DataGridRow;
+        Assert.NotNull(row);
+
+        var cell = row!.Cells[0];
+        var point = GetCenterPoint(cell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        cell.RaiseEvent(CreatePointerPressedArgs(cell, grid, pointer, point, KeyModifiers.None));
+
+        Assert.Single(grid.SelectedItems);
+        Assert.Contains(items[0], grid.SelectedItems.Cast<RowItem>());
 
         grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, point, KeyModifiers.None));
     }
@@ -378,7 +441,7 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
-    public void RowDragHandle_RowHeader_Preserves_MultiSelection_On_Selected_Row_Press_When_Suppression_Enabled()
+    public void RowDragHandle_RowHeader_Defers_MultiSelection_Collapse_Until_Selected_Row_Release()
     {
         var (grid, items) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
         grid.HeadersVisibility = DataGridHeadersVisibility.All;
@@ -410,6 +473,9 @@ public class DataGridInputMouseSelectionTests
         Assert.Contains(items[1], grid.SelectedItems.Cast<RowItem>());
 
         grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, point, KeyModifiers.None));
+
+        Assert.Single(grid.SelectedItems);
+        Assert.Contains(items[0], grid.SelectedItems.Cast<RowItem>());
     }
 
     [AvaloniaFact]

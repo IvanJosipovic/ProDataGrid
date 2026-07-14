@@ -13,6 +13,8 @@ namespace Avalonia.Controls
 #nullable enable
     partial class DataGrid
     {
+        private DeferredRowDragSelection? _deferredRowDragSelection;
+
         public static readonly RoutedEvent<DataGridRowDragStartingEventArgs> RowDragStartingEvent =
             RoutedEvent.Register<DataGrid, DataGridRowDragStartingEventArgs>(
                 nameof(RowDragStarting),
@@ -110,7 +112,7 @@ namespace Avalonia.Controls
 
         internal bool ShouldSuppressSelectionDragFromRowDragHandle(int columnIndex)
         {
-            if (!CanUserReorderRows)
+            if (!CanStartRowDragGesture())
             {
                 return false;
             }
@@ -131,8 +133,24 @@ namespace Avalonia.Controls
                    RowDragHandle == DataGridRowDragHandle.RowHeaderAndRow;
         }
 
-        internal bool ShouldPreserveSelectionForRowDrag(int columnIndex, int slot, bool isSelected, KeyModifiers modifiers)
+        internal bool CanStartRowDragGesture()
         {
+            return CanUserReorderRows &&
+                   !IsReadOnly &&
+                   IsEnabled &&
+                   EditingRow == null &&
+                   DataConnection?.EditableCollectionView?.IsAddingNew != true &&
+                   DataConnection?.EditableCollectionView?.IsEditingItem != true;
+        }
+
+        internal bool ShouldDeferSelectionForRowDrag(
+            int columnIndex,
+            int slot,
+            bool isSelected,
+            PointerPressedEventArgs pointerPressedEventArgs)
+        {
+            _deferredRowDragSelection = null;
+
             if (!ShouldSuppressSelectionDragFromRowDragHandle(columnIndex) ||
                 SelectionUnit != DataGridSelectionUnit.FullRow ||
                 SelectionMode != DataGridSelectionMode.Extended ||
@@ -143,8 +161,52 @@ namespace Avalonia.Controls
                 return false;
             }
 
-            KeyboardHelper.GetMetaKeyState(this, modifiers, out var ctrl, out _);
-            return !ctrl && !modifiers.HasFlag(KeyModifiers.Shift);
+            KeyboardHelper.GetMetaKeyState(this, pointerPressedEventArgs.KeyModifiers, out bool ctrl, out _);
+            if (ctrl || pointerPressedEventArgs.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            {
+                return false;
+            }
+
+            _deferredRowDragSelection = new DeferredRowDragSelection(
+                pointerPressedEventArgs.Pointer.Id,
+                columnIndex,
+                slot,
+                pointerPressedEventArgs);
+            return true;
+        }
+
+        internal void CompleteDeferredRowDragSelection(int pointerId)
+        {
+            DeferredRowDragSelection? deferred = TakeDeferredRowDragSelection(pointerId);
+            if (deferred == null ||
+                !GetRowSelection(deferred.Slot) ||
+                _selectedItems.Count <= 1)
+            {
+                return;
+            }
+
+            UpdateStateOnMouseLeftButtonDown(
+                deferred.TriggerEvent,
+                deferred.ColumnIndex,
+                deferred.Slot,
+                allowEdit: false);
+        }
+
+        internal void CancelDeferredRowDragSelection(int pointerId)
+        {
+            TakeDeferredRowDragSelection(pointerId);
+        }
+
+        private DeferredRowDragSelection? TakeDeferredRowDragSelection(int pointerId)
+        {
+            if (_deferredRowDragSelection?.PointerId != pointerId)
+            {
+                return null;
+            }
+
+            DeferredRowDragSelection deferred = _deferredRowDragSelection;
+            _deferredRowDragSelection = null;
+            return deferred;
         }
 
         private void RefreshRowDragDropController()
@@ -239,6 +301,29 @@ namespace Avalonia.Controls
 
             _rowDragDropControllerFactory = e.NewValue as IDataGridRowDragDropControllerFactory;
             RefreshRowDragDropController();
+        }
+
+        private sealed class DeferredRowDragSelection
+        {
+            public DeferredRowDragSelection(
+                int pointerId,
+                int columnIndex,
+                int slot,
+                PointerPressedEventArgs triggerEvent)
+            {
+                PointerId = pointerId;
+                ColumnIndex = columnIndex;
+                Slot = slot;
+                TriggerEvent = triggerEvent;
+            }
+
+            public int PointerId { get; }
+
+            public int ColumnIndex { get; }
+
+            public int Slot { get; }
+
+            public PointerPressedEventArgs TriggerEvent { get; }
         }
     }
 #nullable restore

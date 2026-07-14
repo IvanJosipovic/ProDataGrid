@@ -127,6 +127,8 @@ Built-in `DataGridRowReorderHandler` and `DataGridHierarchicalRowReorderHandler`
 - `true` keeps click-to-select but prevents range-selection drag from taking over the intended row drag gesture.
 - `false` restores the older behavior where selection drag can begin from the same surface.
 
+With suppression enabled and extended full-row selection active, pressing an already selected row keeps the complete selection available for drag detection. Crossing the drag threshold starts one drag containing all selected rows. Releasing without starting a drag applies the normal click behavior and collapses the selection to the clicked row.
+
 ## Drop Visuals and Feedback
 
 Drag/drop exposes pseudo-classes you can style:

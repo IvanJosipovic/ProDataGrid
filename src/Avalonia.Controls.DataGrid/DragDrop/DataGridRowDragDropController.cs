@@ -116,9 +116,7 @@ namespace Avalonia.Controls.DataGridDragDrop
 
         private bool ShouldHandlePointer(PointerEventArgs e)
         {
-            if (!_grid.CanUserReorderRows ||
-                _grid.IsReadOnly ||
-                !_grid.IsEnabled)
+            if (!_grid.CanStartRowDragGesture())
             {
                 return false;
             }
@@ -138,13 +136,6 @@ namespace Avalonia.Controls.DataGridDragDrop
             // Don't intercept clicks on expand/collapse toggle buttons (hierarchical expanders)
             if (IsExpanderButtonHit(e.Source) ||
                 IsExpanderButtonHit(_grid.GetVisualAt(point.Position)))
-            {
-                return false;
-            }
-
-            if (_grid.EditingRow != null ||
-                _grid.DataConnection?.EditableCollectionView?.IsAddingNew == true ||
-                _grid.DataConnection?.EditableCollectionView?.IsEditingItem == true)
             {
                 return false;
             }
@@ -431,11 +422,17 @@ namespace Avalonia.Controls.DataGridDragDrop
                 return;
             }
 
+            _grid.CompleteDeferredRowDragSelection(_pointerId.Value);
             ResetPointerState();
         }
 
         private void ResetPointerState()
         {
+            if (_pointerId.HasValue)
+            {
+                _grid.CancelDeferredRowDragSelection(_pointerId.Value);
+            }
+
             _pointerId = null;
             _pointerStart = default;
             _dragStartRow = null;
@@ -459,6 +456,11 @@ namespace Avalonia.Controls.DataGridDragDrop
             {
                 ResetPointerState();
                 return;
+            }
+
+            if (_pointerId.HasValue)
+            {
+                _grid.CancelDeferredRowDragSelection(_pointerId.Value);
             }
 
             var session = new DataGridRowDragSession(_grid, info.Items, info.Indices, info.FromSelection);
