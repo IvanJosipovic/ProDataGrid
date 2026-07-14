@@ -24,6 +24,8 @@
     href: sorting-model-end-to-end.md
   - name: Filtering Model (End-to-End)
     href: filtering-model-end-to-end.md
+  - name: Distinct-Value Column Filtering
+    href: distinct-value-column-filtering.md
   - name: Search Model (End-to-End)
     href: search-model-end-to-end.md
   - name: Search Model (High-Performance Mode)

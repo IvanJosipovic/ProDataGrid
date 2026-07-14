@@ -125,6 +125,7 @@ For a full end-to-end walkthrough (ViewModel + XAML + flyouts + troubleshooting)
 - Use stable column ids (`ColumnKey`, definition instance, or definition `ColumnKey`) and include `propertyPath` when you are not using a custom predicate.
 - Adapter guarantees: descriptor to predicate for string/between/in/custom cases, duplicate guards, observer-mode reconciliation, and selection stability are covered by unit tests.
 - The filter button glyphs and default editor templates (text/number/date/enum) live in `Themes/Generic.xaml` and can be reused across themes and samples.
+- `DataGridDistinctValueFilterFlyout` adds a built-in searchable checkbox/value/count popup that writes `FilteringOperator.In` descriptors through the same model. See [Distinct-Value Column Filtering](distinct-value-column-filtering.md).
 
 `FilteringModelFactory` and `FilteringAdapterFactory` are CLR properties; set them in code before the grid is loaded if you need custom creation.
 
@@ -184,6 +185,16 @@ Columns expose `FilterFlyout` and `ShowFilterButton` so you can plug in custom e
 ```
 
 Use `ShowFilterButton="True"` if you want a filter glyph without a flyout (for example, to open an external panel).
+
+For an Excel/DataGrip-style popup backed by a typed value accessor:
+
+```xml
+<DataGridTextColumn.FilterFlyout>
+  <filtering:DataGridDistinctValueFilterFlyout />
+</DataGridTextColumn.FilterFlyout>
+```
+
+The popup provides substring search and distinct values with row counts; checking values immediately creates an `In` descriptor, while clearing all checks removes the descriptor. See [Distinct-Value Column Filtering](distinct-value-column-filtering.md) for the reflection-free accessor setup.
 
 ### DynamicData Integration (Filtering)
 

@@ -4,6 +4,8 @@ This guide covers header context menus, programmatic filter flyout display, and 
 
 For complete `FilteringModel` wiring (descriptors, column ids, flyout templates, and adapter behavior), see [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md).
 
+For the built-in searchable checkbox/value/count popup, see [Distinct-Value Column Filtering](distinct-value-column-filtering.md).
+
 ## UX Reference (Common Grids)
 
 In mature grid controls, column headers typically support:
@@ -23,6 +25,7 @@ ProDataGrid now follows the same UX patterns using Avalonia concepts such as `Co
 - `DataGrid.ClearFilter(DataGridColumn column)`: clear the active filter for a column.
 - `DataGridColumn.ClearFilter()`: clear the active filter for the column instance.
 - `DataGridColumnDefinition.FilterFlyout` / `FilterFlyoutKey`: configure per-column flyouts when using `ColumnDefinitionsSource`.
+- `DataGridDistinctValueFilterFlyout`: generate distinct values and counts through a typed accessor and update the central filtering model with `In` descriptors.
 
 ## Context Menu with Filter Actions
 

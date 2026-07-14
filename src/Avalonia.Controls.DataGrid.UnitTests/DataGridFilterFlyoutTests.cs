@@ -194,6 +194,178 @@ public class DataGridFilterFlyoutTests
         }
     }
 
+    [AvaloniaFact]
+    public void Distinct_Value_Flyout_Counts_Searches_And_Filters_Through_Central_Model()
+    {
+        var flyout = new DataGridDistinctValueFilterFlyout();
+        var items = new ObservableCollection<Item>
+        {
+            new("Ada"),
+            new("Ada"),
+            new("Grace")
+        };
+        var (grid, root, column) = CreateGrid(flyout, items);
+
+        try
+        {
+            column.ColumnKey = "Name";
+            DataGridColumnFilter.SetValueAccessor(
+                column,
+                new DataGridColumnValueAccessor<Item, string>(item => item.Name));
+
+            Assert.True(column.TryShowFilterFlyout());
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.True(flyout.IsOpen);
+            Assert.Null(flyout.LastError);
+            Assert.NotNull(flyout.ContentTemplate);
+            DataGridDistinctValueFilterContext context = Assert.IsType<DataGridDistinctValueFilterContext>(flyout.Content);
+            Assert.Same(context, flyout.Context);
+            Assert.Collection(
+                context.Options,
+                option =>
+                {
+                    Assert.Equal("Ada", option.Display);
+                    Assert.Equal(2, option.Count);
+                    Assert.False(option.IsSelected);
+                },
+                option =>
+                {
+                    Assert.Equal("Grace", option.Display);
+                    Assert.Equal(1, option.Count);
+                    Assert.False(option.IsSelected);
+                });
+
+            IFilterDistinctValueOption ada = context.Options.Single(option => option.Display == "Ada");
+            ada.IsSelected = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(2, grid.DataConnection.Count);
+            FilteringDescriptor descriptor = Assert.Single(grid.FilteringModel.Descriptors);
+            Assert.Equal(FilteringOperator.In, descriptor.Operator);
+            Assert.Equal("Ada", Assert.Single(descriptor.Values));
+
+            context.SearchText = "rac";
+            IFilterDistinctValueOption visible = Assert.Single(context.Options);
+            Assert.Equal("Grace", visible.Display);
+
+            ada.IsSelected = false;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Empty(grid.FilteringModel.Descriptors);
+            Assert.Equal(3, grid.DataConnection.Count);
+        }
+        finally
+        {
+            flyout.Hide();
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Distinct_Value_Flyout_Overrides_Accessor_Comparer_And_Formatter()
+    {
+        var flyout = new DataGridDistinctValueFilterFlyout
+        {
+            ValueAccessor = new DataGridColumnValueAccessor<Item, string>(item => item.Name),
+            ValueComparer = System.StringComparer.OrdinalIgnoreCase,
+            DisplayFormatter = value => value?.ToString()?.ToUpperInvariant() ?? "EMPTY"
+        };
+        var items = new ObservableCollection<Item>
+        {
+            new("Ada"),
+            new("ADA"),
+            new("Grace")
+        };
+        var (grid, root, column) = CreateGrid(flyout, items);
+
+        try
+        {
+            column.ColumnKey = "Name";
+
+            Assert.True(column.TryShowFilterFlyout());
+            Dispatcher.UIThread.RunJobs();
+
+            DataGridDistinctValueFilterContext context = Assert.IsType<DataGridDistinctValueFilterContext>(flyout.Content);
+            IFilterDistinctValueOption ada = context.Options.Single(option => option.Display == "ADA");
+            Assert.Equal(2, ada.Count);
+            Assert.Equal("GRACE", context.Options.Single(option => option.Display == "GRACE").Display);
+
+            ada.IsSelected = true;
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(2, grid.DataConnection.Count);
+        }
+        finally
+        {
+            flyout.Hide();
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Distinct_Value_Flyout_Uses_Unfiltered_Source_When_Reopened()
+    {
+        var flyout = new DataGridDistinctValueFilterFlyout();
+        var items = new ObservableCollection<Item>
+        {
+            new("Ada"),
+            new("Ada"),
+            new("Grace")
+        };
+        var (grid, root, column) = CreateGrid(flyout, items);
+
+        try
+        {
+            column.ColumnKey = "Name";
+            DataGridColumnFilter.SetValueAccessor(
+                column,
+                new DataGridColumnValueAccessor<Item, string>(item => item.Name));
+
+            Assert.True(column.TryShowFilterFlyout());
+            Dispatcher.UIThread.RunJobs();
+            DataGridDistinctValueFilterContext firstContext = Assert.IsType<DataGridDistinctValueFilterContext>(flyout.Content);
+            firstContext.Options.Single(option => option.Display == "Grace").IsSelected = true;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, grid.DataConnection.Count);
+
+            flyout.Hide();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(column.TryShowFilterFlyout());
+            Dispatcher.UIThread.RunJobs();
+
+            DataGridDistinctValueFilterContext reopened = Assert.IsType<DataGridDistinctValueFilterContext>(flyout.Content);
+            Assert.Equal(2, reopened.Options.Count);
+            Assert.Equal(2, reopened.Options.Single(option => option.Display == "Ada").Count);
+            Assert.True(reopened.Options.Single(option => option.Display == "Grace").IsSelected);
+        }
+        finally
+        {
+            flyout.Hide();
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Distinct_Value_Flyout_Cancels_Open_When_Accessor_Is_Missing()
+    {
+        var flyout = new DataGridDistinctValueFilterFlyout();
+        var (grid, root, column) = CreateGrid(flyout);
+
+        try
+        {
+            Assert.True(column.TryShowFilterFlyout());
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(flyout.IsOpen);
+            Assert.Contains("IDataGridColumnValueAccessor", flyout.LastError);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
     private static (DataGrid grid, Window root, DataGridTextColumn column) CreateGrid(Flyout? flyout)
     {
         var items = new ObservableCollection<Item>
@@ -202,6 +374,13 @@ public class DataGridFilterFlyoutTests
             new("Grace")
         };
 
+        return CreateGrid(flyout, items);
+    }
+
+    private static (DataGrid grid, Window root, DataGridTextColumn column) CreateGrid(
+        Flyout? flyout,
+        ObservableCollection<Item> items)
+    {
         var root = new Window
         {
             Width = 400,

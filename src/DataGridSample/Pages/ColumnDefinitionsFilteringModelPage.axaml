@@ -9,6 +9,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:adapters="clr-namespace:DataGridSample.Adapters"
+    xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid"
     xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
     x:DataType="viewModels:FilteringModelSampleViewModel"
     d:DesignHeight="720"
@@ -41,12 +42,8 @@
             Content="{Binding CustomerFilter}"
             ContentTemplate="{StaticResource DataGridFilterTextEditorTemplate}" />
 
-    <Flyout x:Key="StatusFilterFlyout"
-            x:DataType="viewModels:FilteringModelSampleViewModel"
-            Placement="Bottom"
-            FlyoutPresenterTheme="{StaticResource DataGridFilterFlyoutPresenterTheme}"
-            Content="{Binding StatusFilter}"
-            ContentTemplate="{StaticResource DataGridFilterEnumEditorTemplate}" />
+    <filtering:DataGridDistinctValueFilterFlyout x:Key="StatusFilterFlyout"
+                                                 Placement="Bottom" />
 
     <Flyout x:Key="RegionFilterFlyout"
             x:DataType="viewModels:FilteringModelSampleViewModel"
@@ -79,7 +76,7 @@
                 Spacing="4">
       <TextBlock Classes="h2">Column Definitions + FilteringModel</TextBlock>
       <TextBlock TextWrapping="Wrap"
-                 Text="Filter using model descriptors while columns are defined in view models. Per-column filter flyouts are resolved from resources via definition keys, including a custom Region template." />
+                 Text="Filter using model descriptors while columns are defined in view models. The Status header uses the built-in searchable distinct-value/count popup; other columns demonstrate shared and custom editors resolved through definition keys." />
     </StackPanel>
 
     <DataGrid Grid.Row="1"
