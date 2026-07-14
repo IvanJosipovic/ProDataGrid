@@ -11,6 +11,7 @@ using Avalonia.Controls.Selection;
 using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.DataGridFilling;
+using Avalonia.Controls.DataGridSizing;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Media;
@@ -463,6 +464,21 @@ internal
         {
             get { return GetValue(ColumnWidthProperty); }
             set { SetValue(ColumnWidthProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="ColumnWidthSharingScope"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<DataGridColumnWidthSharingScope> ColumnWidthSharingScopeProperty =
+            AvaloniaProperty.Register<DataGrid, DataGridColumnWidthSharingScope>(nameof(ColumnWidthSharingScope));
+
+        /// <summary>
+        /// Gets or sets the scope that synchronizes columns with matching width-sharing group names.
+        /// </summary>
+        public DataGridColumnWidthSharingScope ColumnWidthSharingScope
+        {
+            get { return GetValue(ColumnWidthSharingScopeProperty); }
+            set { SetValue(ColumnWidthSharingScopeProperty, value); }
         }
 
         /// <summary>

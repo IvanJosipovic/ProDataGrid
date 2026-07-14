@@ -604,6 +604,8 @@ internal
                 EnsureHorizontalLayout();
                 UpdateSummaryRowLayout();
             }
+
+            ColumnWidthSharingScope?.ReportWidth(updatedColumn);
         }
 
         internal void OnFillerColumnWidthNeeded(double finalWidth)
