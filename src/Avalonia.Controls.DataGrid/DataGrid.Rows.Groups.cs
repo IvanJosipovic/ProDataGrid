@@ -1147,6 +1147,13 @@ namespace Avalonia.Controls
                 }
             }
 
+            if (DisplayData.FirstScrollingSlot >= 0)
+            {
+                // The per-group removals are incremental; reconcile once after every collapsed-slot
+                // update has settled so stale realized rows cannot survive the batch operation.
+                UpdateDisplayedRows(DisplayData.FirstScrollingSlot, CellsEstimatedHeight);
+            }
+
             ComputeScrollBarsLayout();
             RefreshLogicalScrollStateAfterGroupingVisibilityChange();
             InvalidateRowsArrange();
