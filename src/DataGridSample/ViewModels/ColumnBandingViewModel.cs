@@ -22,7 +22,10 @@ namespace DataGridSample.ViewModels
 
         private static ColumnBandModel BuildBands()
         {
-            var model = new ColumnBandModel();
+            var model = new ColumnBandModel
+            {
+                HeaderLayout = ColumnBandHeaderLayout.Grouped
+            };
 
             var orderDateBinding = ColumnDefinitionBindingFactory.CreateBinding<SalesRecord, DateTime>(
                 nameof(SalesRecord.OrderDate),

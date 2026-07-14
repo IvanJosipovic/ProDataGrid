@@ -8,6 +8,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls.DataGridTests;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridBanding;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
@@ -391,6 +392,7 @@ public class DataGridThemeResourceCoverageTests
         new(typeof(DataGridHierarchicalPresenter), typeof(DataGridHierarchicalPresenter)),
         new(typeof(DataGridCell), typeof(DataGridCell)),
         new(typeof(DataGridColumnHeader), typeof(DataGridColumnHeader)),
+        new(typeof(DataGridColumnBandHeaderCell), typeof(DataGridColumnBandHeaderCell)),
         new("DataGridTopLeftColumnHeader", typeof(DataGridColumnHeader)),
         new(typeof(DataGridRowHeader), typeof(DataGridRowHeader)),
         new(typeof(DataGridRow), typeof(DataGridRow)),
@@ -553,6 +555,7 @@ public class DataGridThemeResourceCoverageTests
         "DataGridCellTextBlockMargin",
         "DataGridCellComboBoxPadding",
         "DataGridColumnHeaderPadding",
+        "DataGridColumnBandHeaderBorderThickness",
         "DataGridColumnHeaderSortIconMargin",
         "DataGridColumnHeaderDragGripMargin",
         "DataGridRowGroupHeaderExpanderMargin",
@@ -724,6 +727,7 @@ public class DataGridThemeResourceCoverageTests
         "DataGridCellTextBlockMargin",
         "DataGridCellComboBoxPadding",
         "DataGridColumnHeaderPadding",
+        "DataGridColumnBandHeaderBorderThickness",
         "DataGridColumnHeaderSortIconMargin",
         "DataGridColumnHeaderDragGripMargin",
         "DataGridRowGroupHeaderExpanderMargin",

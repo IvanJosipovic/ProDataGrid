@@ -129,6 +129,7 @@
       <x:Double x:Key="DataGridFilterEnumEditorWidth">240</x:Double>
       <x:Double x:Key="DataGridPivotHeaderSegmentsSpacing">2</x:Double>
       <x:Double x:Key="DataGridColumnBandHeaderSegmentsSpacing">2</x:Double>
+      <Thickness x:Key="DataGridColumnBandHeaderBorderThickness">0,0,1,1</Thickness>
       <x:Double x:Key="DataGridFilterButtonSize">22</x:Double>
       <x:Double x:Key="DataGridFilterGlyphSize">12</x:Double>
       <x:Double x:Key="DataGridFilterGlyphStrokeThickness">1.2</x:Double>
