@@ -478,7 +478,30 @@ internal
             }
 
             UpdateTrackedCollectionValidationItemState(notifyDataErrorInfo);
+            RefreshRealizedRowValidationState(notifyDataErrorInfo);
             UpdateGridValidationState();
+        }
+
+        private void RefreshRealizedRowValidationState(INotifyDataErrorInfo notifyDataErrorInfo)
+        {
+            if (DisplayData == null)
+            {
+                return;
+            }
+
+            for (int slot = DisplayData.FirstScrollingSlot;
+                slot > -1 && slot <= DisplayData.LastScrollingSlot;
+                slot++)
+            {
+                if (DisplayData.GetDisplayedElement(slot) is not DataGridRow row ||
+                    ReferenceEquals(row, EditingRow) ||
+                    !ReferenceEquals(row.DataContext, notifyDataErrorInfo))
+                {
+                    continue;
+                }
+
+                RestoreRowValidationState(row, notifyDataErrorInfo);
+            }
         }
 
         private void DetachCollectionValidationTracking()

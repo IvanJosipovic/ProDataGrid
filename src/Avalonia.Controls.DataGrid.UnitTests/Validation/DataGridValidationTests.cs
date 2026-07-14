@@ -448,6 +448,37 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_programmatic_change_refreshes_realized_cell_validation()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid(initialCode: "Valid");
+
+        try
+        {
+            var cell = FindCell(grid, item, column.Index);
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "X";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(((IPseudoClasses)cell.Classes).Contains(":warning"));
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(((IPseudoClasses)cell.Classes).Contains(":warning"));
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Grid_invalid_when_offscreen_item_has_error()
     {
         var (grid, root, errorItem, items) = CreateOffscreenErrorValidationGrid();
@@ -830,14 +861,19 @@ public class DataGridValidationTests
 
     private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid()
     {
-        return CreateNotifyValidationGrid(TwoWayBinding(nameof(NotifyValidationItem.Code)));
+        return CreateNotifyValidationGrid(TwoWayBinding(nameof(NotifyValidationItem.Code)), "X");
     }
 
-    private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid(BindingBase binding)
+    private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid(string initialCode)
+    {
+        return CreateNotifyValidationGrid(TwoWayBinding(nameof(NotifyValidationItem.Code)), initialCode);
+    }
+
+    private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid(BindingBase binding, string initialCode = "X")
     {
         var item = new NotifyValidationItem
         {
-            Code = "X"
+            Code = initialCode
         };
 
         var items = new ObservableCollection<NotifyValidationItem> { item };
