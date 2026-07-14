@@ -495,7 +495,10 @@ internal
 
             if (column.OwningGrid != null && column.OwningGrid != this)
             {
-                throw new InvalidOperationException("Column already belongs to another DataGrid. Detach it before binding.");
+                throw new InvalidOperationException(
+                    "DataGridColumn instances cannot be shared by multiple DataGrid controls. " +
+                    "Bind a shared DataGridColumnDefinition collection to ColumnDefinitionsSource so each grid " +
+                    "materializes its own columns, or detach the column before binding it here.");
             }
         }
 

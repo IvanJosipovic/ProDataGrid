@@ -708,7 +708,8 @@ internal
         }
 
         /// <summary>
-        /// Gets or sets the bound column definitions source (IList + INotifyCollectionChanged enables live updates).
+        /// Gets or sets the bound column definitions source. Definitions may be shared by multiple grids;
+        /// each grid materializes its own column instances. IList + INotifyCollectionChanged enables live updates.
         /// </summary>
 #if !DATAGRID_INTERNAL
         public
