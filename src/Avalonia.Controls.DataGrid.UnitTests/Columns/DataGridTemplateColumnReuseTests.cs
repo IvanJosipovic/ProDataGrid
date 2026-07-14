@@ -50,6 +50,53 @@ public class DataGridTemplateColumnReuseTests
         Assert.Equal(2, template.BuildCount);
     }
 
+    [AvaloniaFact]
+    public void Recycled_row_reuses_existing_content_when_enabled()
+    {
+        var template = new CountingTemplate();
+        var column = new TestTemplateColumn
+        {
+            CellTemplate = template,
+            ReuseCellContent = true
+        };
+        var grid = new DataGrid();
+        grid.ColumnsInternal.Add(column);
+
+        var row = new DataGridRow
+        {
+            OwningGrid = grid,
+            DataContext = new object(),
+            Index = 0,
+            Slot = 0
+        };
+        var cell = new DataGridCell
+        {
+            OwningColumn = column
+        };
+        var initialContent = column.GenerateElementPublic(cell, row.DataContext);
+        cell.Content = initialContent;
+        row.Cells.Insert(column.Index, cell);
+
+        var root = new Window
+        {
+            Content = grid
+        };
+        root.Show();
+
+        try
+        {
+            grid.DisplayData.RecycleRow(row);
+            row.DataContext = new object();
+
+            Assert.Same(initialContent, cell.Content);
+            Assert.Equal(1, template.BuildCount);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
     private sealed class TestTemplateColumn : DataGridTemplateColumn
     {
         public Control GenerateElementPublic(DataGridCell cell, object dataItem)

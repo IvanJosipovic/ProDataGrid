@@ -112,26 +112,30 @@ internal
 
         protected override void EndCellEdit()
         {
-            //the next call to generate element should not resuse the current content as we need to exit edit mode
+            // The next regular generation must replace the editing control with display content.
             _forceGenerateCellFromTemplate = true;
             base.EndCellEdit();
         }
 
         protected override Control GenerateElement(DataGridCell cell, object dataItem)
         {
-            Control recycledContent = _forceGenerateCellFromTemplate ? null : cell.Content as Control;
+            var forceNewContent = _forceGenerateCellFromTemplate;
+            _forceGenerateCellFromTemplate = false;
+            return GenerateElementCore(cell, dataItem, forceNewContent);
+        }
+
+        private Control GenerateElementCore(DataGridCell cell, object dataItem, bool forceNewContent)
+        {
+            Control recycledContent = forceNewContent ? null : cell.Content as Control;
 
             // A recycled row can briefly clear its DataContext while being re-templated; avoid invoking user templates with null.
             if (dataItem is null)
             {
-                _forceGenerateCellFromTemplate = false;
                 return recycledContent ?? new Control();
             }
 
             if (dataItem == DataGridCollectionView.NewItemPlaceholder)
             {
-                _forceGenerateCellFromTemplate = false;
-
                 if (NewRowCellTemplate != null)
                 {
                     if (NewRowCellTemplate is IRecyclingDataTemplate recyclingNewRowTemplate)
@@ -147,12 +151,6 @@ internal
 
             if (CellTemplate != null)
             {
-                if (_forceGenerateCellFromTemplate)
-                {
-                    _forceGenerateCellFromTemplate = false;
-                    return CellTemplate.Build(dataItem);
-                }
-
                 if (ReuseCellContent &&
                     recycledContent != null &&
                     CellTemplate is not IRecyclingDataTemplate)
@@ -204,11 +202,20 @@ internal
             var cell = element?.Parent as DataGridCell;
             if(cell is not null && (propertyName == nameof(CellTemplate) || propertyName == nameof(NewRowCellTemplate)))
             {
-                _forceGenerateCellFromTemplate = true;
-                cell.Content = GenerateElement(cell, cell.DataContext);
+                cell.Content = GenerateElementCore(cell, cell.DataContext, forceNewContent: true);
             }
 
             base.RefreshCellContent(element, propertyName);
+        }
+
+        internal void RefreshCellContentForDataContextChange(DataGridCell cell)
+        {
+            if (cell is null)
+            {
+                return;
+            }
+
+            cell.Content = GenerateElementCore(cell, cell.DataContext, forceNewContent: false);
         }
         
         public override bool IsReadOnly
