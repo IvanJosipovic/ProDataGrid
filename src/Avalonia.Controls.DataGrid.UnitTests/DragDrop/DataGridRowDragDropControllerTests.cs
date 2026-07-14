@@ -351,6 +351,41 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
     }
 
     [AvaloniaFact]
+    public void DragOver_Uses_Grid_Relative_Position_When_Grid_Is_Offset_From_Root()
+    {
+        var items = new ObservableCollection<RowItem>(
+            Enumerable.Range(0, 20).Select(index => new RowItem($"Item {index}")));
+        var (grid, window) = CreateGrid(items, new Thickness(48, 72, 0, 0));
+        grid.CanUserReorderRows = true;
+        grid.UpdateLayout();
+
+        var handler = new DataGridRowReorderHandler();
+        using var controller = new DataGridRowDragDropController(grid, handler, new DataGridRowDragDropOptions());
+
+        var targetRow = grid.GetVisualDescendants().OfType<DataGridRow>().Skip(1).First();
+        var rowPoint = targetRow.TranslatePoint(new Point(2, 2), grid) ?? new Point(2, 2);
+        var dragInfo = new DataGridRowDragInfo(
+            grid,
+            new List<object> { items[0] },
+            new List<int> { 0 },
+            fromSelection: false);
+        var dragEvent = CreateDragEventArgs(
+            AvaloniaDragDrop.DragOverEvent,
+            grid,
+            rowPoint,
+            KeyModifiers.None);
+
+        var dropArgs = InvokeCreateDropArgs(controller, dragInfo, dragEvent, DragDropEffects.Move);
+
+        Assert.NotNull(dropArgs);
+        Assert.Same(targetRow, dropArgs!.TargetRow);
+        Assert.Same(targetRow.DataContext, dropArgs.TargetItem);
+        Assert.Equal(targetRow.Index, dropArgs.InsertIndex);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void DragOver_Above_First_Row_Produces_Before_Target()
     {
         var items = new ObservableCollection<RowItem>
@@ -976,7 +1011,7 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
         return (bool)(field?.GetValue(controller) ?? false);
     }
 
-    private static (DataGrid Grid, Window Window) CreateGrid(IEnumerable items)
+    private static (DataGrid Grid, Window Window) CreateGrid(IEnumerable items, Thickness? containerPadding = null)
     {
         var window = new Window
         {
@@ -1000,7 +1035,13 @@ namespace Avalonia.Controls.DataGridTests.DragDrop;
             Binding = new Binding("Value")
         });
         
-        window.Content = grid;
+        window.Content = containerPadding.HasValue
+            ? new Border
+            {
+                Padding = containerPadding.Value,
+                Child = grid
+            }
+            : grid;
 
         window.Show();
         grid.ApplyTemplate();
