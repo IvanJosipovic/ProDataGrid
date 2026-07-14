@@ -84,6 +84,27 @@ internal
     }
 
     /// <summary>
+    /// Specifies how the ENTER key moves the current cell while a cell is being edited.
+    /// </summary>
+#if !DATAGRID_INTERNAL
+public
+#else
+internal
+#endif
+    enum DataGridEnterKeyNavigationMode
+    {
+        /// <summary>
+        /// Move to the cell below in the current column.
+        /// </summary>
+        Down = 0,
+
+        /// <summary>
+        /// Move to the next writable cell, wrapping to the first writable cell in the next row.
+        /// </summary>
+        NextCell = 1
+    }
+
+    /// <summary>
     /// Determines whether the row/column headers are shown or not.
     /// </summary>
     [Flags]

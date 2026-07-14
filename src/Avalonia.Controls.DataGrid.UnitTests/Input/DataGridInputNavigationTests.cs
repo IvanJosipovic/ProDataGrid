@@ -19,6 +19,15 @@ namespace Avalonia.Controls.DataGridTests.Input;
 public class DataGridInputNavigationTests
 {
     [AvaloniaFact]
+    public void Enter_Navigation_Defaults_Preserve_Existing_Behavior()
+    {
+        var grid = new DataGrid();
+
+        Assert.Equal(DataGridEnterKeyNavigationMode.Down, grid.EnterKeyNavigationMode);
+        Assert.False(grid.ContinueEditingOnEnter);
+    }
+
+    [AvaloniaFact]
     public void ProcessDataGridKey_Handles_All_Key_Cases()
     {
         var (grid, _) = CreateGrid();
@@ -136,6 +145,44 @@ public class DataGridInputNavigationTests
         Assert.True(handled);
         Assert.Equal(1, grid.CurrentColumnIndex);
         Assert.Equal(grid.SlotFromRowIndex(0), grid.CurrentSlot);
+    }
+
+    [AvaloniaFact]
+    public void Tab_Commits_And_Opens_Editor_In_Next_Cell()
+    {
+        var (grid, _) = CreateGrid(selectionMode: DataGridSelectionMode.Single);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        Assert.True(grid.BeginEdit());
+
+        var handled = InvokeKeyHandler(grid, "ProcessTabKey", Key.Tab, KeyModifiers.None);
+
+        Assert.True(handled);
+        Assert.Equal(1, grid.CurrentColumnIndex);
+        Assert.Equal(1, grid.EditingColumnIndex);
+        Assert.NotNull(grid.EditingRow);
+    }
+
+    [AvaloniaFact]
+    public void Tab_From_Last_Cell_Appends_Row_And_Opens_First_Editor()
+    {
+        var (grid, items) = CreateGrid(rowCount: 2, columnCount: 2);
+        grid.CanUserAddRows = true;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var originalCount = items.Count;
+        SetCurrentCell(grid, rowIndex: originalCount - 1, columnIndex: 1);
+        Assert.True(grid.BeginEdit());
+
+        var handled = InvokeKeyHandler(grid, "ProcessTabKey", Key.Tab, KeyModifiers.None);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(handled);
+        Assert.Equal(originalCount + 1, items.Count);
+        Assert.Equal(0, grid.CurrentColumnIndex);
+        Assert.Equal(0, grid.EditingColumnIndex);
+        Assert.Same(items[^1], grid.EditingRow?.DataContext);
     }
 
     [AvaloniaFact]
@@ -747,6 +794,54 @@ public class DataGridInputNavigationTests
     }
 
     [AvaloniaFact]
+    public void Enter_ContinueEditing_Moves_Down_And_Opens_Editor()
+    {
+        var (grid, _) = CreateGrid(rowCount: 3);
+        grid.ContinueEditingOnEnter = true;
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 1);
+        Assert.True(grid.BeginEdit());
+
+        var handled = InvokeKeyHandler(grid, "ProcessEnterKey", Key.Enter, KeyModifiers.None);
+
+        Assert.True(handled);
+        Assert.Equal(grid.SlotFromRowIndex(1), grid.CurrentSlot);
+        Assert.Equal(1, grid.CurrentColumnIndex);
+        Assert.Equal(1, grid.EditingColumnIndex);
+    }
+
+    [AvaloniaFact]
+    public void Enter_NextCell_ContinueEditing_Opens_Adjacent_Editor()
+    {
+        var (grid, _) = CreateGrid(rowCount: 3);
+        grid.EnterKeyNavigationMode = DataGridEnterKeyNavigationMode.NextCell;
+        grid.ContinueEditingOnEnter = true;
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        Assert.True(grid.BeginEdit());
+
+        var handled = InvokeKeyHandler(grid, "ProcessEnterKey", Key.Enter, KeyModifiers.None);
+
+        Assert.True(handled);
+        Assert.Equal(grid.SlotFromRowIndex(0), grid.CurrentSlot);
+        Assert.Equal(1, grid.CurrentColumnIndex);
+        Assert.Equal(1, grid.EditingColumnIndex);
+    }
+
+    [AvaloniaFact]
+    public void Enter_NextCell_Without_Continuation_Exits_Edit_Mode()
+    {
+        var (grid, _) = CreateGrid(rowCount: 3);
+        grid.EnterKeyNavigationMode = DataGridEnterKeyNavigationMode.NextCell;
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        Assert.True(grid.BeginEdit());
+
+        var handled = InvokeKeyHandler(grid, "ProcessEnterKey", Key.Enter, KeyModifiers.None);
+
+        Assert.True(handled);
+        Assert.Equal(1, grid.CurrentColumnIndex);
+        Assert.Equal(-1, grid.EditingColumnIndex);
+    }
+
+    [AvaloniaFact]
     public void Enter_Returns_False_When_ProcessDownKeyInternal_Fails()
     {
         var (grid, _) = CreateGrid();
@@ -1323,6 +1418,10 @@ public class DataGridInputNavigationTests
 
     private sealed class InputRow : IEditableObject
     {
+        public InputRow()
+        {
+        }
+
         public int A { get; set; }
         public int B { get; set; }
         public int C { get; set; }

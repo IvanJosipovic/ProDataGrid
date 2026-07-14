@@ -107,6 +107,10 @@ internal
             else if (MatchesGesture(ResolveGesture(overrides?.Enter, defaults.Enter), e, allowAdditionalModifiers: true))
             {
                 focusDataGrid = ProcessEnterKey(e);
+                if (focusDataGrid && _editingColumnIndex != -1)
+                {
+                    return true;
+                }
             }
             else if (MatchesGesture(ResolveGesture(overrides?.CancelEdit, defaults.CancelEdit), e, allowAdditionalModifiers: true))
             {
@@ -232,6 +236,11 @@ internal
 
         private bool ProcessTabKey(KeyEventArgs e, bool shift, bool ctrl, bool allowCtrl)
         {
+            return ProcessTabKey(e, shift, ctrl, allowCtrl, continueEditing: true);
+        }
+
+        private bool ProcessTabKey(KeyEventArgs e, bool shift, bool ctrl, bool allowCtrl, bool continueEditing)
+        {
             if ((!allowCtrl && ctrl) || _editingColumnIndex == -1 || IsReadOnly)
             {
                 //Go to the next/previous control on the page when
@@ -272,15 +281,42 @@ internal
             }
             neighborVisibleWritableColumnIndex = (dataGridColumn == null) ? -1 : dataGridColumn.Index;
 
-            if (neighborVisibleWritableColumnIndex == -1 && (neighborSlot == -1 || neighborSlot >= SlotCount))
+            bool shouldTryAppendRow =
+                !shift &&
+                neighborVisibleWritableColumnIndex == -1 &&
+                (neighborSlot == -1 || neighborSlot >= SlotCount || IsSlotPlaceholderRow(neighborSlot)) &&
+                CanUserAddRows;
+
+            if (!shouldTryAppendRow &&
+                neighborVisibleWritableColumnIndex == -1 &&
+                (neighborSlot == -1 || neighborSlot >= SlotCount))
             {
                 // There is no previous/next row and no previous/next writable cell on the current row
                 return false;
             }
 
-            if (WaitForLostFocus(() => ProcessTabKey(e, shift, ctrl, allowCtrl)))
+            if (WaitForLostFocus(() => ProcessTabKey(e, shift, ctrl, allowCtrl, continueEditing)))
             {
                 return true;
+            }
+
+            if (shouldTryAppendRow)
+            {
+                if (!CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true))
+                {
+                    return true;
+                }
+
+                neighborSlot = GetNextVisibleSlot(CurrentSlot);
+                while (neighborSlot < SlotCount && IsGroupSlot(neighborSlot))
+                {
+                    neighborSlot = GetNextVisibleSlot(neighborSlot);
+                }
+
+                if (neighborSlot < 0 || neighborSlot >= SlotCount)
+                {
+                    return false;
+                }
             }
 
             int targetSlot = -1, targetColumnIndex = -1;
@@ -329,7 +365,7 @@ internal
                 NoSelectionChangeCount--;
             }
 
-            if (_successfullyUpdatedSelection)
+            if (_successfullyUpdatedSelection && continueEditing)
             {
                 BeginCellEdit(e);
             }
@@ -730,7 +766,13 @@ internal
 
         private bool ProcessEnterKey(bool shift, bool ctrl)
         {
+            return ProcessEnterKey(null, shift, ctrl);
+        }
+
+        private bool ProcessEnterKey(KeyEventArgs e, bool shift, bool ctrl)
+        {
             int oldCurrentSlot = CurrentSlot;
+            bool wasEditing = _editingColumnIndex != -1;
 
             if (!ctrl)
             {
@@ -742,7 +784,17 @@ internal
                     return false;
                 }
 
-                if (WaitForLostFocus(() => ProcessEnterKey(shift, ctrl)))
+                if (wasEditing && EnterKeyNavigationMode == DataGridEnterKeyNavigationMode.NextCell)
+                {
+                    return ProcessTabKey(
+                        e,
+                        shift,
+                        ctrl,
+                        allowCtrl: false,
+                        continueEditing: ContinueEditingOnEnter);
+                }
+
+                if (WaitForLostFocus(() => ProcessEnterKey(e, shift, ctrl)))
                 {
                     return true;
                 }
@@ -756,9 +808,17 @@ internal
                     }
                 }
             }
-            else if (WaitForLostFocus(() => ProcessEnterKey(shift, ctrl)))
+            else if (WaitForLostFocus(() => ProcessEnterKey(e, shift, ctrl)))
             {
                 return true;
+            }
+
+            if (wasEditing &&
+                ContinueEditingOnEnter &&
+                oldCurrentSlot != CurrentSlot &&
+                _successfullyUpdatedSelection)
+            {
+                BeginCellEdit(e);
             }
 
             // Try to commit the potential editing
@@ -923,6 +983,11 @@ internal
         {
             if (e.Handled)
             {
+                if (e is KeyEventArgs handledKeyEventArgs)
+                {
+                    ProcessHandledEditingTabKey(handledKeyEventArgs);
+                }
+
                 return;
             }
 
@@ -945,6 +1010,30 @@ internal
             }
 
             DataGrid_KeyDown(this, keyEventArgs);
+        }
+
+        private void ProcessHandledEditingTabKey(KeyEventArgs e)
+        {
+            if (_editingColumnIndex == -1 || !IsKeyEventFromThisGrid(e) || e.Source is not Visual source)
+            {
+                return;
+            }
+
+            var cell = source.GetSelfAndVisualAncestors().OfType<DataGridCell>().FirstOrDefault();
+            if (cell?.OwningGrid != this ||
+                cell.OwningRow != EditingRow ||
+                cell.ColumnIndex != _editingColumnIndex ||
+                cell.Content is not InputElement editor ||
+                KeyboardNavigation.GetTabNavigation(editor) != KeyboardNavigationMode.None)
+            {
+                return;
+            }
+
+            var tabGesture = ResolveGesture(KeyboardGestureOverrides?.Tab, GetDefaultKeyboardGestures().Tab);
+            if (MatchesGesture(tabGesture, e, allowAdditionalModifiers: true))
+            {
+                ProcessTabKey(e, allowCtrl: AllowsCtrlModifier(tabGesture));
+            }
         }
 
         private void OnKeyUpRouteFinished(RoutedEventArgs e)

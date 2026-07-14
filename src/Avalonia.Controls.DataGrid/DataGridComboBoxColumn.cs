@@ -8,6 +8,7 @@ using System.Collections;
 using System.Collections.Generic;
 using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.DataGridEditing;
 using Avalonia.Controls.Templates;
 using Avalonia.Controls.Utils;
 using Avalonia.Data;
@@ -366,6 +367,15 @@ internal
                     comboBox.IsDropDownOpen = true;
                 }
 
+                if (comboBox.IsEditable)
+                {
+                    DataGridEditorFocus.FocusTextInput(comboBox, selectAll: true);
+                }
+                else
+                {
+                    comboBox.Focus();
+                }
+
                 return originalValue;
             }
 
@@ -498,6 +508,10 @@ internal
             if (!isEditing)
             {
                 comboBox.IsTabStop = false;
+            }
+            else
+            {
+                DataGridEditorFocus.ConfigureSingleTabStop(comboBox);
             }
 
             return comboBox;

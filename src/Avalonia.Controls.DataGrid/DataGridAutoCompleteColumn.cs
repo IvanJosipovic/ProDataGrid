@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using Avalonia.Collections;
 using Avalonia.Controls.Templates;
+using Avalonia.Controls.DataGridEditing;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -245,6 +246,8 @@ internal
                 VerticalAlignment = VerticalAlignment.Center
             };
 
+            DataGridEditorFocus.ConfigureSingleTabStop(autoComplete);
+
             if (CellAutoCompleteTheme is { } theme)
             {
                 autoComplete.Theme = theme;
@@ -264,8 +267,7 @@ internal
             {
                 string uneditedText = autoComplete.Text ?? string.Empty;
 
-                // Select all text for easy replacement
-                autoComplete.Focus();
+                DataGridEditorFocus.FocusTextInput(autoComplete, selectAll: true);
 
                 return uneditedText;
             }

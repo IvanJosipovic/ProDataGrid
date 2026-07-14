@@ -170,7 +170,7 @@ namespace Avalonia.Controls
         internal bool ProcessEnterKey(KeyEventArgs e)
         {
             KeyboardHelper.GetMetaKeyState(this, e.KeyModifiers, out bool ctrl, out bool shift);
-            return ProcessEnterKey(shift, ctrl);
+            return ProcessEnterKey(e, shift, ctrl);
         }
 
         private bool ProcessEscapeKey()

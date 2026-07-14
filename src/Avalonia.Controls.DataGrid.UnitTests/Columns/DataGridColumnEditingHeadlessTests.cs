@@ -181,6 +181,28 @@ public class DataGridColumnEditingHeadlessTests
     }
 
     [AvaloniaFact]
+    public void Editable_ComboBoxColumn_Focuses_Text_Input_And_Uses_One_Tab_Stop()
+    {
+        var vm = new EditingTestViewModel();
+        var column = (DataGridComboBoxColumn)CreateComboBoxColumn();
+        column.IsEditable = true;
+        var (window, grid) = CreateWindow(vm, column);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        SelectCellAndBeginEdit(grid, 0, 1);
+
+        var cell = GetCell(grid, "Choice", 0);
+        var comboBox = Assert.IsType<ComboBox>(cell.Content);
+        var textBox = Assert.Single(comboBox.GetVisualDescendants().OfType<TextBox>());
+
+        Assert.True(textBox.IsFocused || comboBox.IsFocused);
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(comboBox));
+    }
+
+    [AvaloniaFact]
     public void ComboBoxColumn_Edit_Does_Not_Update_Source_Until_Commit()
     {
         var vm = new EditingTestViewModel();
@@ -246,6 +268,68 @@ public class DataGridColumnEditingHeadlessTests
 
         var cell = GetCell(grid, "Price", 0);
         Assert.IsType<NumericUpDown>(cell.Content);
+    }
+
+    [AvaloniaFact]
+    public void NumericColumn_Selects_Text_And_Uses_One_Tab_Stop()
+    {
+        var vm = new EditingTestViewModel();
+        var (window, grid) = CreateWindow(vm, CreateNumericColumn());
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        SelectCellAndBeginEdit(grid, 0, 1);
+
+        var cell = GetCell(grid, "Price", 0);
+        var numericUpDown = Assert.IsType<NumericUpDown>(cell.Content);
+        var textBox = Assert.Single(numericUpDown.GetVisualDescendants().OfType<TextBox>());
+
+        Assert.Equal(0, textBox.SelectionStart);
+        Assert.Equal(textBox.Text?.Length ?? 0, textBox.SelectionEnd);
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(numericUpDown));
+    }
+
+    [AvaloniaFact]
+    public void NumericColumn_Tab_From_Text_Input_Advances_Continuous_Edit()
+    {
+        var vm = new EditingTestViewModel();
+        var (window, grid) = CreateWindowWithMultipleColumns(vm,
+        [
+            new DataGridTextColumn
+            {
+                Header = "Name",
+                Binding = new Binding("Name"),
+                IsReadOnly = true
+            },
+            CreateNumericColumn(),
+            CreateTextColumn()
+        ]);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        SelectCellAndBeginEdit(grid, 0, 1);
+        var numericCell = GetCell(grid, "Price", 0);
+        var numericUpDown = Assert.IsType<NumericUpDown>(numericCell.Content);
+        var textBox = Assert.Single(numericUpDown.GetVisualDescendants().OfType<TextBox>());
+        var args = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Route = InputElement.KeyDownEvent.RoutingStrategies,
+            Key = Key.Tab,
+            Source = textBox,
+            KeyDeviceType = KeyDeviceType.Keyboard
+        };
+
+        textBox.RaiseEvent(args);
+        grid.UpdateLayout();
+
+        Assert.True(args.Handled);
+        Assert.Equal(2, grid.CurrentColumnIndex);
+        Assert.Equal(2, grid.EditingColumnIndex);
     }
 
     [AvaloniaFact]
@@ -349,6 +433,26 @@ public class DataGridColumnEditingHeadlessTests
 
         var cell = GetCell(grid, "Date", 0);
         Assert.IsType<CalendarDatePicker>(cell.Content);
+    }
+
+    [AvaloniaFact]
+    public void DatePickerColumn_Focuses_Text_Input_And_Uses_One_Tab_Stop()
+    {
+        var vm = new EditingTestViewModel();
+        var (window, grid) = CreateWindow(vm, CreateDatePickerColumn());
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        SelectCellAndBeginEdit(grid, 0, 1);
+
+        var cell = GetCell(grid, "Date", 0);
+        var datePicker = Assert.IsType<CalendarDatePicker>(cell.Content);
+        var textBox = Assert.Single(datePicker.GetVisualDescendants().OfType<TextBox>());
+
+        Assert.False(textBox.IsReadOnly);
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(datePicker));
     }
 
     [AvaloniaFact]

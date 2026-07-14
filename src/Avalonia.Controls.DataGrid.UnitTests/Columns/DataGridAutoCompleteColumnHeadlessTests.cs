@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
@@ -148,6 +149,16 @@ public class DataGridAutoCompleteColumnHeadlessTests
         };
 
         Assert.Equal("Search...", column.Watermark);
+    }
+
+    [AvaloniaFact]
+    public void AutoCompleteColumn_Editor_Uses_One_Tab_Stop()
+    {
+        var column = new TestAutoCompleteColumn();
+
+        var autoComplete = column.CreateEditingElement(new DataGridCell(), new object());
+
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(autoComplete));
     }
 
     private static (Window window, DataGrid grid) CreateWindow(AutoCompleteTestViewModel vm)
