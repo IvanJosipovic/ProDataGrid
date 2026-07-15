@@ -532,13 +532,11 @@ internal
 
                         if (editingCell != null)
                         {
-                            var aggregateError = new AggregateException(binding.ValidationErrors);
-                            bool isNotifyDataErrorInfoValidation =
-                                _editingCellHadNotifyDataErrorInfoValidation ||
-                                HasNotifyDataErrorInfoValidation(
-                                    editingRow?.DataContext,
-                                    editingCell.OwningColumn);
-                            if (isNotifyDataErrorInfoValidation)
+                            var bindingErrors = binding.ValidationErrors.ToList();
+                            var notifyDataErrorInfoErrors = GetNotifyDataErrorInfoValidationExceptions(
+                                editingRow?.DataContext,
+                                editingCell.OwningColumn);
+                            if (notifyDataErrorInfoErrors.Count > 0)
                             {
                                 var displayedErrors = new List<object>();
                                 if (_editingCellPreservedValidationErrors is not null)
@@ -546,15 +544,26 @@ internal
                                     displayedErrors.AddRange(_editingCellPreservedValidationErrors);
                                 }
 
-                                displayedErrors.Add(aggregateError);
+                                RemoveMatchingValidationErrors(bindingErrors, notifyDataErrorInfoErrors);
+                                if (bindingErrors.Count > 0)
+                                {
+                                    displayedErrors.Add(new AggregateException(bindingErrors));
+                                }
+
+                                object ownedError = notifyDataErrorInfoErrors.Count == 1
+                                    ? notifyDataErrorInfoErrors[0]
+                                    : new AggregateException(notifyDataErrorInfoErrors);
+                                displayedErrors.Add(ownedError);
                                 DataValidationErrors.SetErrors(editingCell, displayedErrors);
                                 _notifyDataErrorInfoCellErrors[editingCell] =
-                                    new object[] { aggregateError };
+                                    new object[] { ownedError };
                             }
                             else
                             {
                                 _notifyDataErrorInfoCellErrors.Remove(editingCell);
-                                DataValidationErrors.SetError(editingCell, aggregateError);
+                                DataValidationErrors.SetError(
+                                    editingCell,
+                                    new AggregateException(bindingErrors));
                             }
                         }
                     }

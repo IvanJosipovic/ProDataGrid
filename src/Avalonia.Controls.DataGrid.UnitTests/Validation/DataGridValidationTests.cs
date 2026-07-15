@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Controls.Utils;
 using Avalonia.Data;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Headless.XUnit;
@@ -640,6 +641,71 @@ public class DataGridValidationTests
 
             Assert.Equal(DataGridValidationSeverity.None, errorCell.ValidationSeverity);
             Assert.False(DataValidationErrors.GetHasErrors(errorCell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_clear_preserves_same_cell_setter_warning_after_edit()
+    {
+        var item = new MixedValidationItem
+        {
+            WarningValue = "Okay"
+        };
+        item.SetWarningValueError();
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<MixedValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var warningColumn = new MixedSourceValidationColumn();
+        grid.ColumnsInternal.Add(warningColumn);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                warningColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell warningCell = FindCell(grid, item, warningColumn.Index);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Contains(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Model warning"));
+            Assert.Contains(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Warning value should"));
+
+            item.ClearWarningValueError();
+            grid.UpdateLayout();
+
+            Assert.DoesNotContain(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Model warning"));
+            Assert.Contains(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Warning value should"));
+            Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
         }
         finally
         {
@@ -2057,6 +2123,18 @@ public class DataGridValidationTests
             ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(null));
         }
 
+        public void SetWarningValueError()
+        {
+            SetError(
+                nameof(WarningValue),
+                new DataGridValidationResult("Model warning.", DataGridValidationSeverity.Warning));
+        }
+
+        public void ClearWarningValueError()
+        {
+            SetError(nameof(WarningValue), null);
+        }
+
         private void SetError(string propertyName, DataGridValidationResult? error)
         {
             if (error == null)
@@ -2091,6 +2169,68 @@ public class DataGridValidationTests
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             return true;
+        }
+    }
+
+    private sealed class MixedSourceValidationColumn : DataGridComboBoxColumn
+    {
+        public MixedSourceValidationColumn()
+        {
+            Header = "Warning";
+            SelectedValueBinding = TwoWayBinding(nameof(MixedValidationItem.WarningValue));
+        }
+
+        protected override Control GenerateEditingElement(
+            DataGridCell cell,
+            object dataItem,
+            out ICellEditBinding editBinding)
+        {
+            editBinding = new MixedSourceEditBinding();
+            return new TextBox();
+        }
+
+        protected override object PrepareCellForEdit(
+            Control editingElement,
+            Avalonia.Interactivity.RoutedEventArgs editingEventArgs)
+        {
+            return null!;
+        }
+    }
+
+    private sealed class MixedSourceEditBinding : ICellEditBinding
+    {
+        public bool IsValid => true;
+
+        public IEnumerable<Exception> ValidationErrors => new Exception[]
+        {
+            new DataValidationException(
+                new DataGridValidationResult("Model warning.", DataGridValidationSeverity.Warning)),
+            new DataValidationException(
+                new DataGridValidationResult(
+                    "Warning value should be at least 3 characters.",
+                    DataGridValidationSeverity.Warning))
+        };
+
+        public IObservable<bool> ValidationChanged { get; } = new EmptyValidationObservable();
+
+        public bool CommitEdit() => true;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class EmptyValidationObservable : IObservable<bool>
+    {
+        public IDisposable Subscribe(IObserver<bool> observer) => EmptyValidationDisposable.Instance;
+    }
+
+    private sealed class EmptyValidationDisposable : IDisposable
+    {
+        public static EmptyValidationDisposable Instance { get; } = new();
+
+        public void Dispose()
+        {
         }
     }
 

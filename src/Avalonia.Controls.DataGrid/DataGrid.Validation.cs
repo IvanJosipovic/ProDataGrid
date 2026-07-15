@@ -699,34 +699,62 @@ internal
             return exceptions;
         }
 
-        private static bool HasNotifyDataErrorInfoValidation(object item, DataGridColumn column)
+        private static List<Exception> GetNotifyDataErrorInfoValidationExceptions(
+            object item,
+            DataGridColumn column)
         {
             if (item is not INotifyDataErrorInfo notifyDataErrorInfo)
             {
-                return false;
+                return new List<Exception>();
             }
 
             string bindingPath = GetColumnBindingPath(column);
             if (string.IsNullOrWhiteSpace(bindingPath))
             {
-                return false;
+                return new List<Exception>();
             }
 
             IEnumerable errors = notifyDataErrorInfo.GetErrors(bindingPath);
-            if (errors is null)
-            {
-                return false;
-            }
+            return errors is null
+                ? new List<Exception>()
+                : CreateValidationExceptions(errors);
+        }
 
-            foreach (object error in errors)
+        private static void RemoveMatchingValidationErrors(
+            List<Exception> bindingErrors,
+            List<Exception> notifyDataErrorInfoErrors)
+        {
+            foreach (Exception notifyDataErrorInfoError in notifyDataErrorInfoErrors)
             {
-                if (error is not null)
+                for (int index = 0; index < bindingErrors.Count; index++)
                 {
-                    return true;
+                    if (ValidationErrorsMatch(bindingErrors[index], notifyDataErrorInfoError))
+                    {
+                        bindingErrors.RemoveAt(index);
+                        break;
+                    }
                 }
             }
+        }
 
-            return false;
+        private static bool ValidationErrorsMatch(Exception first, Exception second)
+        {
+            object firstData = ValidationUtil.UnpackDataValidationException(first);
+            object secondData = ValidationUtil.UnpackDataValidationException(second);
+            if (ReferenceEquals(firstData, secondData) || Equals(firstData, secondData))
+            {
+                return true;
+            }
+
+            if (firstData is DataGridValidationResult firstResult &&
+                secondData is DataGridValidationResult secondResult)
+            {
+                return firstResult.Severity == secondResult.Severity &&
+                    string.Equals(firstResult.Message, secondResult.Message, StringComparison.Ordinal);
+            }
+
+            return first.GetType() == second.GetType() &&
+                string.Equals(first.Message, second.Message, StringComparison.Ordinal);
         }
 
         private List<Exception> _bindingValidationErrors;
