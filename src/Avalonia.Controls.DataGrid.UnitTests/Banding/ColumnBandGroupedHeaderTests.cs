@@ -228,6 +228,72 @@ public sealed class ColumnBandGroupedHeaderTests
         }
     }
 
+    [AvaloniaFact]
+    public void Grouped_Header_Grows_Auto_Sized_Leaf_Columns_To_Fit_Its_Caption()
+    {
+        const string Caption = "A parent caption that is substantially wider than its leaf headers";
+        using var model = new ColumnBandModel
+        {
+            HeaderLayout = ColumnBandHeaderLayout.Grouped
+        };
+        using (model.DeferRefresh())
+        {
+            model.Bands.Add(new ColumnBand
+            {
+                Header = Caption,
+                Children =
+                {
+                    CreateAutoSizedLeaf("A"),
+                    CreateAutoSizedLeaf("B")
+                }
+            });
+        }
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ColumnHeaderHeight = 80,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            ItemsSource = new ObservableCollection<RowItem> { new() },
+            ColumnDefinitionsSource = model.ColumnDefinitions
+        };
+        var window = new Window
+        {
+            Width = 700,
+            Height = 160,
+            Background = Brushes.White
+        };
+        window.SetThemeStyles();
+        window.Content = grid;
+
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.ApplyTemplate();
+            grid.UpdateLayout();
+
+            Assert.Equal(2, grid.Columns.Count);
+            Assert.All(grid.Columns, column => Assert.IsType<ColumnBandHeader>(column.Header));
+            var presenter = Assert.Single(grid.GetVisualDescendants().OfType<DataGridColumnHeadersPresenter>());
+            var bandHeader = Assert.Single(
+                presenter.Children.OfType<DataGridColumnBandHeaderCell>(),
+                cell => Equals(cell.Content, Caption));
+
+            Assert.True(bandHeader.Bounds.Width > 300);
+            AssertClose(
+                grid.ColumnsInternal.ItemsInternal
+                    .Where(column => column is not DataGridFillerColumn)
+                    .Sum(column => column.ActualWidth),
+                bandHeader.Bounds.Width);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static ColumnBandModel CreateGroupedModel()
     {
         var model = new ColumnBandModel
@@ -284,6 +350,19 @@ public sealed class ColumnBandGroupedHeaderTests
             {
                 Header = header,
                 Width = new DataGridLength(100)
+            }
+        };
+    }
+
+    private static ColumnBand CreateAutoSizedLeaf(string header)
+    {
+        return new ColumnBand
+        {
+            Header = header,
+            ColumnDefinition = new DataGridTextColumnDefinition
+            {
+                Header = header,
+                Width = DataGridLength.Auto
             }
         };
     }

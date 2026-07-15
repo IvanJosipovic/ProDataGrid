@@ -462,6 +462,8 @@ internal
 
             foreach (DataGridColumnBandHeaderCell bandHeader in _bandHeaderCells)
             {
+                bandHeader.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                AutoSizeColumnsForBandHeader(bandHeader, bandHeader.DesiredSize.Width);
                 bandHeader.Measure(new Size(GetBandHeaderWidth(bandHeader), double.PositiveInfinity));
                 if (autoSizeHeight)
                 {
@@ -660,6 +662,57 @@ internal
             }
 
             return width;
+        }
+
+        private void AutoSizeColumnsForBandHeader(DataGridColumnBandHeaderCell cell, double desiredWidth)
+        {
+            double remainingGrowth = desiredWidth - GetBandHeaderWidth(cell);
+            if (remainingGrowth <= 0)
+            {
+                return;
+            }
+
+            while (remainingGrowth > 0.001)
+            {
+                int candidateCount = 0;
+                for (int index = cell.StartColumnIndex; index <= cell.EndColumnIndex; index++)
+                {
+                    DataGridColumn column = _visibleBandColumns[index];
+                    if ((column.Width.IsAuto || column.Width.IsSizeToHeader) &&
+                        column.ActualWidth + 0.001 < column.ActualMaxWidth)
+                    {
+                        candidateCount++;
+                    }
+                }
+
+                if (candidateCount == 0)
+                {
+                    break;
+                }
+
+                double requestedGrowth = remainingGrowth / candidateCount;
+                double appliedGrowth = 0;
+                for (int index = cell.StartColumnIndex; index <= cell.EndColumnIndex; index++)
+                {
+                    DataGridColumn column = _visibleBandColumns[index];
+                    if ((!column.Width.IsAuto && !column.Width.IsSizeToHeader) ||
+                        column.ActualWidth + 0.001 >= column.ActualMaxWidth)
+                    {
+                        continue;
+                    }
+
+                    double currentWidth = column.ActualWidth;
+                    OwningGrid.AutoSizeColumn(column, currentWidth + requestedGrowth);
+                    appliedGrowth += Math.Max(0, column.ActualWidth - currentWidth);
+                }
+
+                if (appliedGrowth <= 0.001)
+                {
+                    break;
+                }
+
+                remainingGrowth = Math.Max(0, remainingGrowth - appliedGrowth);
+            }
         }
 
         private static bool TryGetGroupedHeader(DataGridColumn column, out ColumnBandHeader header)
