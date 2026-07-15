@@ -139,6 +139,43 @@ public class DataGridColumnWidthSharingTests
         }
     }
 
+    [AvaloniaFact]
+    public void Detached_Grid_Scope_Change_Removes_Old_Scope_Registration()
+    {
+        var oldScope = new DataGridColumnWidthSharingScope();
+        var newScope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn oldScopeColumn = CreateColumn(100, "name");
+        DataGridTextColumn movedColumn = CreateColumn(150, "name");
+        DataGridTextColumn newScopeColumn = CreateColumn(175, "name");
+        CreateGrid(oldScope, oldScopeColumn);
+        DataGrid movedGrid = CreateGrid(oldScope, movedColumn);
+        CreateGrid(newScope, newScopeColumn);
+        var root = new Window { Content = movedGrid };
+
+        try
+        {
+            root.Show();
+            root.Content = null;
+            movedGrid.ColumnWidthSharingScope = newScope;
+            root.Content = movedGrid;
+            root.UpdateLayout();
+
+            Assert.Equal(175, movedColumn.ActualWidth);
+
+            oldScopeColumn.Width = new DataGridLength(220);
+
+            Assert.Equal(175, movedColumn.ActualWidth);
+
+            newScopeColumn.Width = new DataGridLength(240);
+
+            Assert.Equal(240, movedColumn.ActualWidth);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
     [Fact]
     public void Scope_Uses_Common_Constraints_And_Preserves_Auto_Sizing_Mode()
     {
@@ -196,6 +233,32 @@ public class DataGridColumnWidthSharingTests
 
         Assert.True(firstColumn.Width.IsStar);
         Assert.True(secondColumn.Width.IsStar);
+    }
+
+    [Fact]
+    public void First_Measure_Completion_Reports_Previously_Unmeasured_Star_Columns()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn firstColumn = CreateColumn(
+            new DataGridLength(1, DataGridLengthUnitType.Star),
+            "name");
+        DataGridTextColumn secondColumn = CreateColumn(
+            new DataGridLength(1, DataGridLengthUnitType.Star),
+            "name");
+        CreateGrid(scope, firstColumn);
+        CreateGrid(scope, secondColumn);
+
+        firstColumn.SetWidthInternalNoCallback(
+            new DataGridLength(1, DataGridLengthUnitType.Star, 100, 100));
+        firstColumn.IsInitialDesiredWidthDetermined = true;
+        secondColumn.SetWidthInternalNoCallback(
+            new DataGridLength(1, DataGridLengthUnitType.Star, 180, 180));
+        secondColumn.IsInitialDesiredWidthDetermined = true;
+
+        Assert.True(firstColumn.Width.IsAbsolute);
+        Assert.True(secondColumn.Width.IsAbsolute);
+        Assert.Equal(180, firstColumn.ActualWidth);
+        Assert.Equal(firstColumn.ActualWidth, secondColumn.ActualWidth);
     }
 
     [Fact]

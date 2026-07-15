@@ -41,6 +41,11 @@ namespace Avalonia.Controls
             ColumnWidthSharingScope?.UnregisterColumn(column);
         }
 
+        internal void OnColumnWidthSharingColumnMeasured(DataGridColumn column)
+        {
+            ColumnWidthSharingScope?.ReportWidth(column);
+        }
+
         internal void RefreshColumnWidthSharingRegistration()
         {
             DataGridColumnWidthSharingScope scope = ColumnWidthSharingScope;

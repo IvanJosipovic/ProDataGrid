@@ -67,7 +67,10 @@ namespace Avalonia.Controls.DataGridSizing
 
             foreach (string group in new List<string>(_groups.Keys))
             {
-                RemoveMatching(group, column => column.OwningGrid == grid);
+                RemoveMatching(
+                    group,
+                    column => column.OwningGrid == grid ||
+                        grid.ColumnsInternal.ItemsInternal.Contains(column));
             }
         }
 
