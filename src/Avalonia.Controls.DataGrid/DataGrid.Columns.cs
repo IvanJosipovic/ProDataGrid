@@ -1399,7 +1399,8 @@ internal
             {
                 if (column.InheritsWidth)
                 {
-                    column.SetWidthInternalNoCallback(value);
+                    column.SetWidthInternalNoCallback(value, preserveInheritance: true);
+                    ColumnWidthSharingScope?.ReportWidth(column);
                 }
             }
 

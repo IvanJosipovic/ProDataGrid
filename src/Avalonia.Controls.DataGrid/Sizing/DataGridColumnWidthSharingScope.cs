@@ -209,7 +209,7 @@ namespace Avalonia.Controls.DataGridSizing
                     DataGridLength synchronized = current.IsAbsolute || current.IsStar
                         ? new DataGridLength(width)
                         : new DataGridLength(current.Value, current.UnitType, width, width);
-                    column.SetWidthInternalNoCallback(synchronized);
+                    column.SetWidthInternalNoCallback(synchronized, preserveInheritance: column.InheritsWidth);
                     column.OwningGrid.OnColumnWidthChanged(column);
                 }
             }

@@ -147,6 +147,31 @@ public class DataGridColumnWidthSharingTests
     }
 
     [Fact]
+    public void Inherited_Grid_ColumnWidth_Changes_Are_Shared()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        var firstColumn = new DataGridTextColumn();
+        var secondColumn = new DataGridTextColumn();
+        DataGridColumnWidthSharing.SetGroup(firstColumn, "name");
+        DataGridColumnWidthSharing.SetGroup(secondColumn, "name");
+        DataGrid firstGrid = CreateGrid(scope, firstColumn);
+        DataGrid secondGrid = CreateGrid(scope, secondColumn);
+
+        Assert.True(firstColumn.InheritsWidth);
+        Assert.True(secondColumn.InheritsWidth);
+
+        firstGrid.ColumnWidth = new DataGridLength(165);
+
+        Assert.Equal(165, firstColumn.ActualWidth);
+        Assert.Equal(165, secondColumn.ActualWidth);
+
+        secondGrid.ColumnWidth = new DataGridLength(210);
+
+        Assert.Equal(210, firstColumn.ActualWidth);
+        Assert.Equal(210, secondColumn.ActualWidth);
+    }
+
+    [Fact]
     public void Column_Definitions_Apply_And_Update_Width_Sharing_Group()
     {
         var scope = new DataGridColumnWidthSharingScope();
