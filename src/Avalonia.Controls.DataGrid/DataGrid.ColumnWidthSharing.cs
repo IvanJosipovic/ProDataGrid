@@ -46,6 +46,11 @@ namespace Avalonia.Controls
             ColumnWidthSharingScope?.ReportWidth(column);
         }
 
+        internal void OnColumnWidthSharingSideEffect(DataGridColumn column)
+        {
+            ColumnWidthSharingScope?.ReportWidth(column);
+        }
+
         internal void RefreshColumnWidthSharingRegistration()
         {
             DataGridColumnWidthSharingScope scope = ColumnWidthSharingScope;
@@ -55,7 +60,7 @@ namespace Avalonia.Controls
             }
 
             scope.UnregisterGrid(this);
-            scope.RegisterGrid(this);
+            scope.RegisterGrid(this, adoptExistingWidths: true);
         }
     }
 }

@@ -140,6 +140,85 @@ public class DataGridColumnWidthSharingTests
     }
 
     [AvaloniaFact]
+    public void Reattached_Grid_Adopts_Active_Group_Width_Instead_Of_Stale_Width()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn detachedColumn = CreateColumn(200, "name");
+        DataGridTextColumn activeColumn = CreateColumn(100, "name");
+        DataGrid detachedGrid = CreateGrid(scope, detachedColumn);
+        CreateGrid(scope, activeColumn);
+        var root = new Window { Content = detachedGrid };
+
+        try
+        {
+            root.Show();
+            root.Content = null;
+
+            activeColumn.Width = new DataGridLength(100);
+            Assert.Equal(100, activeColumn.ActualWidth);
+            detachedColumn.Width = new DataGridLength(200);
+
+            root.Content = detachedGrid;
+            root.UpdateLayout();
+
+            Assert.Equal(100, detachedColumn.ActualWidth);
+            Assert.Equal(100, activeColumn.ActualWidth);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Width_Adjustment_Side_Effects_Are_Reported_To_Shared_Participants()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn leadingColumn = CreateColumn(100, group: null);
+        DataGridTextColumn adjustedColumn = CreateColumn(160, "name");
+        DataGridTextColumn peerColumn = CreateColumn(160, "name");
+        DataGrid firstGrid = CreateGrid(scope, leadingColumn);
+        firstGrid.Columns.Add(adjustedColumn);
+        DataGrid secondGrid = CreateGrid(scope, peerColumn);
+        firstGrid.CanUserResizeColumns = true;
+        firstGrid.Height = 120;
+        secondGrid.Height = 120;
+        var root = new Window
+        {
+            Width = 500,
+            Height = 300,
+            Content = new StackPanel
+            {
+                Children =
+                {
+                    firstGrid,
+                    secondGrid
+                }
+            }
+        };
+
+        try
+        {
+            root.Show();
+            root.UpdateLayout();
+
+            double startingWidth = adjustedColumn.ActualWidth;
+            double remaining = firstGrid.DecreaseColumnWidths(
+                adjustedColumn.DisplayIndex,
+                amount: -40,
+                userInitiated: false);
+
+            Assert.Equal(0, remaining);
+            Assert.Equal(startingWidth - 40, adjustedColumn.ActualWidth);
+            Assert.Equal(adjustedColumn.ActualWidth, peerColumn.ActualWidth);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Detached_Grid_Scope_Change_Removes_Old_Scope_Registration()
     {
         var oldScope = new DataGridColumnWidthSharingScope();

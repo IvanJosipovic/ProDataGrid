@@ -45,7 +45,7 @@ namespace Avalonia.Controls.DataGridSizing
             }
         }
 
-        internal void RegisterGrid(DataGrid grid)
+        internal void RegisterGrid(DataGrid grid, bool adoptExistingWidths = false)
         {
             if (grid == null)
             {
@@ -54,7 +54,7 @@ namespace Avalonia.Controls.DataGridSizing
 
             foreach (DataGridColumn column in grid.ColumnsInternal.ItemsInternal)
             {
-                RegisterColumn(column);
+                RegisterColumn(column, adoptExistingWidths);
             }
         }
 
@@ -74,7 +74,7 @@ namespace Avalonia.Controls.DataGridSizing
             }
         }
 
-        internal void RegisterColumn(DataGridColumn column)
+        internal void RegisterColumn(DataGridColumn column, bool adoptExistingWidth = false)
         {
             if (column?.OwningGrid == null)
             {
@@ -89,6 +89,9 @@ namespace Avalonia.Controls.DataGridSizing
 
             List<WeakReference<DataGridColumn>> participants = GetOrCreateGroup(group);
             Prune(participants);
+            double existingWidth = adoptExistingWidth
+                ? GetLargestMeasuredWidth(participants)
+                : 0;
             foreach (WeakReference<DataGridColumn> reference in participants)
             {
                 if (reference.TryGetTarget(out DataGridColumn existing) && ReferenceEquals(existing, column))
@@ -98,7 +101,14 @@ namespace Avalonia.Controls.DataGridSizing
             }
 
             participants.Add(new WeakReference<DataGridColumn>(column));
-            SynchronizeLargestWidth(group);
+            if (existingWidth > 0)
+            {
+                ApplyWidth(participants, existingWidth);
+            }
+            else
+            {
+                SynchronizeLargestWidth(group);
+            }
         }
 
         internal void UnregisterColumn(DataGridColumn column, string group = null)
@@ -138,6 +148,24 @@ namespace Avalonia.Controls.DataGridSizing
                 return;
             }
 
+            Prune(participants);
+            bool isRegistered = false;
+            foreach (WeakReference<DataGridColumn> reference in participants)
+            {
+                if (reference.TryGetTarget(out DataGridColumn column) &&
+                    ReferenceEquals(column, source))
+                {
+                    isRegistered = true;
+                    break;
+                }
+            }
+
+            if (!isRegistered)
+            {
+                RemoveGroupIfEmpty(group, participants);
+                return;
+            }
+
             ApplyWidth(participants, source.ActualWidth);
             RemoveGroupIfEmpty(group, participants);
         }
@@ -150,6 +178,19 @@ namespace Avalonia.Controls.DataGridSizing
             }
 
             Prune(participants);
+            double width = GetLargestMeasuredWidth(participants);
+
+            if (width > 0)
+            {
+                ApplyWidth(participants, width);
+            }
+
+            RemoveGroupIfEmpty(group, participants);
+        }
+
+        private static double GetLargestMeasuredWidth(
+            List<WeakReference<DataGridColumn>> participants)
+        {
             double width = 0;
             foreach (WeakReference<DataGridColumn> reference in participants)
             {
@@ -159,12 +200,7 @@ namespace Avalonia.Controls.DataGridSizing
                 }
             }
 
-            if (width > 0)
-            {
-                ApplyWidth(participants, width);
-            }
-
-            RemoveGroupIfEmpty(group, participants);
+            return width;
         }
 
         private void ApplyWidth(List<WeakReference<DataGridColumn>> participants, double requestedWidth)

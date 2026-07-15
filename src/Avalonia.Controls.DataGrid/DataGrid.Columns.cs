@@ -1019,6 +1019,7 @@ internal
                 var expected = totalStarColumnsWidth * column.Width.Value / totalStarWeights;
                 column.SetWidthDesiredValue(expected);
                 column.SetWidthDisplayValue(expected);
+                OnColumnWidthSharingSideEffect(column);
             }
         }
 
@@ -1080,6 +1081,7 @@ internal
                 remainingAdjustment -= adjustment;
                 totalStarWeights -= starColumnPair.Key.Width.Value;
                 starColumnPair.Key.SetWidthDisplayValue(Math.Max(DataGrid.DATAGRID_minimumStarColumnWidth, starColumnPair.Key.Width.DisplayValue + adjustment));
+                OnColumnWidthSharingSideEffect(starColumnPair.Key);
             }
 
             return remainingAdjustment;

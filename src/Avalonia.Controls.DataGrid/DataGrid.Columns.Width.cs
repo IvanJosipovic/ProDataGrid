@@ -42,6 +42,7 @@ namespace Avalonia.Controls
             Math.Max(targetWidth - column.Width.DisplayValue, amount));
 
             column.SetWidthDisplayValue(column.Width.DisplayValue + adjustment);
+            column.OwningGrid?.OnColumnWidthSharingSideEffect(column);
             return amount - adjustment;
         }
 
@@ -109,6 +110,7 @@ namespace Avalonia.Controls
             Math.Min(targetWidth - column.Width.DisplayValue, amount));
 
             column.SetWidthDisplayValue(column.Width.DisplayValue + adjustment);
+            column.OwningGrid?.OnColumnWidthSharingSideEffect(column);
             return amount - adjustment;
         }
 
