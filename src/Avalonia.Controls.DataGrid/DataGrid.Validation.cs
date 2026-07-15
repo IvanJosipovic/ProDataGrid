@@ -68,7 +68,11 @@ internal
             DataValidationErrors.ClearErrors(cell);
         }
 
-        private void RestoreRowValidationState(DataGridRow row, object item, bool clearIfNoIndei = true)
+        private void RestoreRowValidationState(
+            DataGridRow row,
+            object item,
+            bool clearIfNoIndei = true,
+            string propertyName = null)
         {
             if (row is null)
             {
@@ -101,6 +105,12 @@ internal
                 var bindingPath = GetColumnBindingPath(column);
 
                 if (string.IsNullOrWhiteSpace(bindingPath))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(propertyName) &&
+                    !string.Equals(bindingPath, propertyName, StringComparison.Ordinal))
                 {
                     continue;
                 }
@@ -478,11 +488,13 @@ internal
             }
 
             UpdateTrackedCollectionValidationItemState(notifyDataErrorInfo);
-            RefreshRealizedRowValidationState(notifyDataErrorInfo);
+            RefreshRealizedRowValidationState(notifyDataErrorInfo, e.PropertyName);
             UpdateGridValidationState();
         }
 
-        private void RefreshRealizedRowValidationState(INotifyDataErrorInfo notifyDataErrorInfo)
+        private void RefreshRealizedRowValidationState(
+            INotifyDataErrorInfo notifyDataErrorInfo,
+            string propertyName)
         {
             if (DisplayData == null)
             {
@@ -500,7 +512,7 @@ internal
                     continue;
                 }
 
-                RestoreRowValidationState(row, notifyDataErrorInfo);
+                RestoreRowValidationState(row, notifyDataErrorInfo, propertyName: propertyName);
             }
         }
 

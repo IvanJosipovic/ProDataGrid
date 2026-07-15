@@ -479,6 +479,46 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_change_preserves_binding_validation_on_other_property()
+    {
+        var (grid, root, item, _, warningColumn) = CreateMixedValidationGrid();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                warningColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            grid.UpdateLayout();
+
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell warningCell = FindCell(grid, item, warningColumn.Index);
+            TextBox textBox = Assert.IsType<TextBox>(warningCell.Content);
+            textBox.Text = "X";
+            UpdateEditingElementSource(textBox);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(warningCell));
+
+            item.ErrorValue = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(warningCell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Grid_invalid_when_offscreen_item_has_error()
     {
         var (grid, root, errorItem, items) = CreateOffscreenErrorValidationGrid();
