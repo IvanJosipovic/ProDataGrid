@@ -714,6 +714,69 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_clear_preserves_identical_setter_warning_after_edit()
+    {
+        var item = new SameMessageValidationItem();
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<SameMessageValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var column = new DataGridTextColumn
+        {
+            Header = "Value",
+            Binding = TwoWayBinding(nameof(SameMessageValidationItem.Value))
+        };
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            TextBox textBox = Assert.IsType<TextBox>(cell.Content);
+            textBox.Text = "Rejected";
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Equal(
+                2,
+                DataValidationErrors.GetErrors(cell).Count(
+                    error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage)));
+
+            item.ClearModelError();
+            grid.UpdateLayout();
+
+            Assert.Single(
+                DataValidationErrors.GetErrors(cell),
+                error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage));
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(cell.IsValid);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void INotifyDataErrorInfo_change_refreshes_non_editing_cell_on_editing_row()
     {
         var (grid, root, item, errorColumn, warningColumn) = CreateMixedValidationGrid();
@@ -2169,6 +2232,58 @@ public class DataGridValidationTests
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             return true;
+        }
+    }
+
+    private sealed class SameMessageValidationItem : INotifyPropertyChanged, INotifyDataErrorInfo
+    {
+        public const string ErrorMessage = "Value is rejected.";
+
+        private string _value = "Initial";
+        private bool _hasModelError = true;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
+
+        public string Value
+        {
+            get => _value;
+            set
+            {
+                if (string.Equals(value, "Rejected", StringComparison.Ordinal))
+                {
+                    throw new DataValidationException(
+                        new DataGridValidationResult(ErrorMessage, DataGridValidationSeverity.Warning));
+                }
+
+                if (!string.Equals(_value, value, StringComparison.Ordinal))
+                {
+                    _value = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+                }
+            }
+        }
+
+        public bool HasErrors => _hasModelError;
+
+        public IEnumerable GetErrors(string? propertyName)
+        {
+            if (_hasModelError &&
+                (string.IsNullOrEmpty(propertyName) || propertyName == nameof(Value)))
+            {
+                return new[]
+                {
+                    new DataGridValidationResult(ErrorMessage, DataGridValidationSeverity.Warning)
+                };
+            }
+
+            return Array.Empty<object>();
+        }
+
+        public void ClearModelError()
+        {
+            _hasModelError = false;
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(Value)));
         }
     }
 
