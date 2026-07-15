@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls.DataGridFiltering;
 using Xunit;
@@ -110,6 +111,34 @@ public class DataGridDistinctValueFilterContextTests
     }
 
     [Fact]
+    public void Refresh_Prefers_Exact_Column_Descriptor_When_Property_Path_Is_Shared()
+    {
+        IFilteringModel model = new ReadOnlyFilteringModel(new[]
+        {
+            new FilteringDescriptor(
+                "FirstNameColumn",
+                FilteringOperator.In,
+                nameof(Item.Name),
+                values: new object[] { "Alpha" }),
+            new FilteringDescriptor(
+                "Name",
+                FilteringOperator.In,
+                nameof(Item.Name),
+                values: new object[] { "Beta" })
+        });
+        var context = CreateContext(model);
+
+        context.Refresh(new[]
+        {
+            new Item("Alpha"),
+            new Item("Beta")
+        });
+
+        Assert.False(context.Options.Single(option => option.Display == "Alpha").IsSelected);
+        Assert.True(context.Options.Single(option => option.Display == "Beta").IsSelected);
+    }
+
+    [Fact]
     public void Custom_Comparer_Groups_And_Filters_Values_Consistently()
     {
         var model = new FilteringModel();
@@ -139,7 +168,7 @@ public class DataGridDistinctValueFilterContextTests
         Assert.False(descriptor.Predicate(new Item("Beta")));
     }
 
-    private static DataGridDistinctValueFilterContext CreateContext(FilteringModel model)
+    private static DataGridDistinctValueFilterContext CreateContext(IFilteringModel model)
     {
         return new DataGridDistinctValueFilterContext(
             model,
@@ -161,4 +190,50 @@ public class DataGridDistinctValueFilterContextTests
     }
 
     private sealed record Item(string? Name);
+
+    private sealed class ReadOnlyFilteringModel : IFilteringModel
+    {
+        public ReadOnlyFilteringModel(IReadOnlyList<FilteringDescriptor> descriptors)
+        {
+            Descriptors = descriptors;
+        }
+
+        public IReadOnlyList<FilteringDescriptor> Descriptors { get; }
+
+        public bool OwnsViewFilter { get; set; }
+
+        public event PropertyChangedEventHandler? PropertyChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public event EventHandler<FilteringChangedEventArgs>? FilteringChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public event EventHandler<FilteringChangingEventArgs>? FilteringChanging
+        {
+            add { }
+            remove { }
+        }
+
+        public void SetOrUpdate(FilteringDescriptor descriptor) => throw new NotSupportedException();
+
+        public void Apply(IEnumerable<FilteringDescriptor> descriptors) => throw new NotSupportedException();
+
+        public void Clear() => throw new NotSupportedException();
+
+        public bool Remove(object columnId) => throw new NotSupportedException();
+
+        public bool Move(object columnId, int newIndex) => throw new NotSupportedException();
+
+        public void BeginUpdate() => throw new NotSupportedException();
+
+        public void EndUpdate() => throw new NotSupportedException();
+
+        public IDisposable DeferRefresh() => throw new NotSupportedException();
+    }
 }

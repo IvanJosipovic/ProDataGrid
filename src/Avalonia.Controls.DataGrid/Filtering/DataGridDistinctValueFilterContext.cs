@@ -209,11 +209,21 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
         for (int i = 0; i < descriptors.Count; i++)
         {
             FilteringDescriptor descriptor = descriptors[i];
-            if (Equals(descriptor.ColumnId, _columnId) ||
-                (!string.IsNullOrEmpty(_propertyPath) &&
-                 string.Equals(descriptor.PropertyPath, _propertyPath, StringComparison.Ordinal)))
+            if (Equals(descriptor.ColumnId, _columnId))
             {
                 return descriptor;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(_propertyPath))
+        {
+            for (int i = 0; i < descriptors.Count; i++)
+            {
+                FilteringDescriptor descriptor = descriptors[i];
+                if (string.Equals(descriptor.PropertyPath, _propertyPath, StringComparison.Ordinal))
+                {
+                    return descriptor;
+                }
             }
         }
 
