@@ -31,6 +31,7 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
     private readonly bool _usesCustomValueComparer;
     private readonly Func<object?, string> _displayFormatter;
     private readonly List<DataGridDistinctValueFilterOption> _allOptions = new();
+    private object _activeDescriptorColumnId;
     private string? _searchText;
     private bool _suppressFilterUpdates;
 
@@ -55,6 +56,7 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
     {
         _filteringModel = filteringModel ?? throw new ArgumentNullException(nameof(filteringModel));
         _columnId = columnId ?? throw new ArgumentNullException(nameof(columnId));
+        _activeDescriptorColumnId = _columnId;
         _valueAccessor = valueAccessor ?? throw new ArgumentNullException(nameof(valueAccessor));
         _propertyPath = propertyPath;
         _usesCustomValueComparer = valueComparer != null;
@@ -123,6 +125,7 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
         }
 
         FilteringDescriptor? activeDescriptor = FindActiveDescriptor();
+        _activeDescriptorColumnId = activeDescriptor?.ColumnId ?? _columnId;
         IReadOnlyList<object>? selectedValues = activeDescriptor?.Operator == FilteringOperator.In
             ? activeDescriptor.Values
             : null;
@@ -174,7 +177,8 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
 
         if (selectedValues.Count == 0)
         {
-            _filteringModel.Remove(_columnId);
+            _filteringModel.Remove(_activeDescriptorColumnId);
+            _activeDescriptorColumnId = _columnId;
             return;
         }
 
@@ -182,7 +186,7 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
             ? item => Contains(selectedValues, _valueAccessor.GetValue(item))
             : null;
         _filteringModel.SetOrUpdate(new FilteringDescriptor(
-            columnId: _columnId,
+            columnId: _activeDescriptorColumnId,
             @operator: FilteringOperator.In,
             propertyPath: _propertyPath,
             values: selectedValues,

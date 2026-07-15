@@ -139,6 +139,39 @@ public class DataGridDistinctValueFilterContextTests
     }
 
     [Fact]
+    public void Property_Path_Fallback_Updates_And_Removes_The_Matched_Descriptor_Identity()
+    {
+        var model = new FilteringModel();
+        model.SetOrUpdate(new FilteringDescriptor(
+            "LegacyNameColumn",
+            FilteringOperator.In,
+            nameof(Item.Name),
+            values: new object[] { "Beta" }));
+        var context = CreateContext(model);
+
+        context.Refresh(new[]
+        {
+            new Item("Alpha"),
+            new Item("Beta")
+        });
+
+        IFilterDistinctValueOption alpha = context.Options.Single(option => option.Display == "Alpha");
+        IFilterDistinctValueOption beta = context.Options.Single(option => option.Display == "Beta");
+        Assert.True(beta.IsSelected);
+
+        alpha.IsSelected = true;
+
+        FilteringDescriptor descriptor = Assert.Single(model.Descriptors);
+        Assert.Equal("LegacyNameColumn", descriptor.ColumnId);
+        Assert.Equal(new object[] { "Alpha", "Beta" }, descriptor.Values);
+
+        alpha.IsSelected = false;
+        beta.IsSelected = false;
+
+        Assert.Empty(model.Descriptors);
+    }
+
+    [Fact]
     public void Custom_Comparer_Groups_And_Filters_Values_Consistently()
     {
         var model = new FilteringModel();
