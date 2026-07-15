@@ -58,9 +58,9 @@ public class DataGridRowGroupExpandCollapseAllTests
         {
             items.Add(new Item("Dominant", $"Segment {index / 4}", $"Item {index}"));
         }
-        for (var index = 640; index < 850; index++)
+        for (var index = 640; index < 680; index++)
         {
-            items.Add(new Item($"Group {(index - 640) / 70}", $"Segment {index / 20}", $"Item {index}"));
+            items.Add(new Item($"Group {index - 640}", "Segment", $"Item {index}"));
         }
 
         var (grid, _, root) = CreateNestedGroupedGrid(items, height: 320);
@@ -84,6 +84,9 @@ public class DataGridRowGroupExpandCollapseAllTests
             grid.CollapseAllGroups();
 
             Assert.Empty(GetVisibleRows(grid));
+            Assert.InRange(grid.GetVerticalOffset(), 0, 0.01);
+            Assert.Equal(0, grid.DisplayData.FirstScrollingSlot);
+            Assert.IsType<DataGridRowGroupHeader>(grid.DisplayData.GetDisplayedElement(0));
         }
         finally
         {

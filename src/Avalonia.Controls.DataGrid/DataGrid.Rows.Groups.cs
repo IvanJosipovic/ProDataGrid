@@ -1152,8 +1152,16 @@ namespace Avalonia.Controls
                 // The per-group removals are incremental and can leave the numeric displayed range
                 // spanning slots that became collapsed. Rebuild the realized range once after every
                 // collapsed-slot update has settled so no stale row remains mapped inside that range.
-                int firstVisibleSlot = NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
+                bool isAtTop = MathUtilities.AreClose(_verticalOffset, 0);
+                int firstVisibleSlot = isAtTop
+                    ? GetNextVisibleSlot(-1)
+                    : NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
                 ResetDisplayedRows();
+                if (isAtTop)
+                {
+                    NegVerticalOffset = 0;
+                    SetVerticalOffset(0);
+                }
                 if (firstVisibleSlot >= 0)
                 {
                     UpdateDisplayedRows(firstVisibleSlot, CellsEstimatedHeight);
