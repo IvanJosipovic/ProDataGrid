@@ -57,8 +57,17 @@ namespace Avalonia.Controls.DataGridBanding
         /// <param name="segments">The root-to-leaf header path.</param>
         /// <param name="layout">The header layout mode.</param>
         public ColumnBandHeader(IReadOnlyList<string> segments, ColumnBandHeaderLayout layout)
+            : this(segments, Array.Empty<object>(), layout)
+        {
+        }
+
+        internal ColumnBandHeader(
+            IReadOnlyList<string> segments,
+            IReadOnlyList<object> segmentKeys,
+            ColumnBandHeaderLayout layout)
         {
             Segments = segments ?? Array.Empty<string>();
+            SegmentKeys = segmentKeys ?? Array.Empty<object>();
             Layout = layout;
             DisplaySegments = layout == ColumnBandHeaderLayout.Grouped && Segments.Count > 0
                 ? new[] { Segments[Segments.Count - 1] }
@@ -69,6 +78,8 @@ namespace Avalonia.Controls.DataGridBanding
         /// Gets the complete root-to-leaf header path.
         /// </summary>
         public IReadOnlyList<string> Segments { get; }
+
+        internal IReadOnlyList<object> SegmentKeys { get; }
 
         /// <summary>
         /// Gets the segments displayed inside the owning leaf column header.
@@ -455,21 +466,24 @@ namespace Avalonia.Controls.DataGridBanding
             var definitions = new List<DataGridColumnDefinition>();
             foreach (var band in Bands)
             {
-                AppendBand(definitions, band, Array.Empty<string>());
+                AppendBand(definitions, band, Array.Empty<ColumnBand>());
             }
 
             return definitions;
         }
 
-        private void AppendBand(List<DataGridColumnDefinition> definitions, ColumnBand band, IReadOnlyList<string> path)
+        private void AppendBand(
+            List<DataGridColumnDefinition> definitions,
+            ColumnBand band,
+            IReadOnlyList<ColumnBand> path)
         {
             var header = band.Header;
             var nextPath = path;
             if (!string.IsNullOrEmpty(header))
             {
-                var newPath = new List<string>(path.Count + 1);
+                var newPath = new List<ColumnBand>(path.Count + 1);
                 newPath.AddRange(path);
-                newPath.Add(header);
+                newPath.Add(band);
                 nextPath = newPath;
             }
 
@@ -488,11 +502,11 @@ namespace Avalonia.Controls.DataGridBanding
                 return;
             }
 
-            var segments = BuildSegments(nextPath, band.ColumnDefinition, band.Header);
+            BuildSegments(nextPath, band, out IReadOnlyList<string> segments, out IReadOnlyList<object> segmentKeys);
             if (band.ColumnDefinition.Header is not ColumnBandHeader bandHeader ||
-                !HeadersMatch(bandHeader, segments, _headerLayout))
+                !HeadersMatch(bandHeader, segments, segmentKeys, _headerLayout))
             {
-                band.ColumnDefinition.Header = new ColumnBandHeader(segments, _headerLayout);
+                band.ColumnDefinition.Header = new ColumnBandHeader(segments, segmentKeys, _headerLayout);
             }
             if (!string.IsNullOrEmpty(_headerTemplateKey))
             {
@@ -502,29 +516,44 @@ namespace Avalonia.Controls.DataGridBanding
             definitions.Add(band.ColumnDefinition);
         }
 
-        private static IReadOnlyList<string> BuildSegments(IReadOnlyList<string> path, DataGridColumnDefinition definition, string? bandHeader)
+        private static void BuildSegments(
+            IReadOnlyList<ColumnBand> path,
+            ColumnBand leafBand,
+            out IReadOnlyList<string> segments,
+            out IReadOnlyList<object> segmentKeys)
         {
-            var segments = new List<string>(path.Count + 1);
-            segments.AddRange(path);
-
-            if (!string.IsNullOrEmpty(bandHeader))
+            var segmentList = new List<string>(path.Count + 1);
+            var keyList = new List<object>(path.Count + 1);
+            for (int index = 0; index < path.Count; index++)
             {
-                if (segments.Count == 0 || !string.Equals(segments[segments.Count - 1], bandHeader, StringComparison.Ordinal))
+                ColumnBand pathBand = path[index];
+                segmentList.Add(pathBand.Header ?? string.Empty);
+                keyList.Add(pathBand);
+            }
+
+            if (!string.IsNullOrEmpty(leafBand.Header))
+            {
+                if (segmentList.Count == 0 ||
+                    !string.Equals(segmentList[segmentList.Count - 1], leafBand.Header, StringComparison.Ordinal))
                 {
-                    segments.Add(bandHeader);
+                    segmentList.Add(leafBand.Header);
+                    keyList.Add(leafBand);
                 }
             }
             else
             {
-                var headerText = GetHeaderText(definition.Header);
+                var headerText = GetHeaderText(leafBand.ColumnDefinition?.Header);
                 if (!string.IsNullOrEmpty(headerText) &&
-                    (segments.Count == 0 || !string.Equals(segments[segments.Count - 1], headerText, StringComparison.Ordinal)))
+                    (segmentList.Count == 0 ||
+                     !string.Equals(segmentList[segmentList.Count - 1], headerText, StringComparison.Ordinal)))
                 {
-                    segments.Add(headerText);
+                    segmentList.Add(headerText);
+                    keyList.Add(leafBand);
                 }
             }
 
-            return segments;
+            segments = segmentList;
+            segmentKeys = keyList;
         }
 
         private static string GetHeaderText(object? header)
@@ -545,9 +574,12 @@ namespace Avalonia.Controls.DataGridBanding
         private static bool HeadersMatch(
             ColumnBandHeader header,
             IReadOnlyList<string> segments,
+            IReadOnlyList<object> segmentKeys,
             ColumnBandHeaderLayout layout)
         {
-            if (header.Layout != layout || header.Segments.Count != segments.Count)
+            if (header.Layout != layout ||
+                header.Segments.Count != segments.Count ||
+                header.SegmentKeys.Count != segmentKeys.Count)
             {
                 return false;
             }
@@ -555,6 +587,11 @@ namespace Avalonia.Controls.DataGridBanding
             for (var i = 0; i < segments.Count; i++)
             {
                 if (!string.Equals(header.Segments[i], segments[i], StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (!ReferenceEquals(header.SegmentKeys[i], segmentKeys[i]))
                 {
                     return false;
                 }

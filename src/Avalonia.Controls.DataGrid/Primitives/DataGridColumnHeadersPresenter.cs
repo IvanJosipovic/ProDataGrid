@@ -684,6 +684,20 @@ internal
 
             for (int index = 0; index <= level; index++)
             {
+                bool startHasKey = startHeader.SegmentKeys.Count > index;
+                bool candidateHasKey = candidateHeader.SegmentKeys.Count > index;
+                if (startHasKey || candidateHasKey)
+                {
+                    if (!startHasKey ||
+                        !candidateHasKey ||
+                        !ReferenceEquals(startHeader.SegmentKeys[index], candidateHeader.SegmentKeys[index]))
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
                 if (!string.Equals(startHeader.Segments[index], candidateHeader.Segments[index], StringComparison.Ordinal))
                 {
                     return false;

@@ -168,6 +168,66 @@ public sealed class ColumnBandGroupedHeaderTests
         }
     }
 
+    [AvaloniaFact]
+    public void Grouped_Header_Does_Not_Merge_Distinct_Bands_With_The_Same_Caption()
+    {
+        using var model = new ColumnBandModel
+        {
+            HeaderLayout = ColumnBandHeaderLayout.Grouped
+        };
+        using (model.DeferRefresh())
+        {
+            model.Bands.Add(new ColumnBand
+            {
+                Header = "Repeated",
+                Children = { CreateLeaf("First") }
+            });
+            model.Bands.Add(new ColumnBand
+            {
+                Header = "Repeated",
+                Children = { CreateLeaf("Second") }
+            });
+        }
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ColumnHeaderHeight = 80,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            ColumnDefinitionsSource = model.ColumnDefinitions
+        };
+        var window = new Window
+        {
+            Width = 240,
+            Height = 160,
+            Background = Brushes.White
+        };
+        window.SetThemeStyles();
+        window.Content = grid;
+
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.ApplyTemplate();
+            grid.UpdateLayout();
+
+            var presenter = Assert.Single(grid.GetVisualDescendants().OfType<DataGridColumnHeadersPresenter>());
+            var repeatedHeaders = presenter.Children
+                .OfType<DataGridColumnBandHeaderCell>()
+                .Where(cell => Equals(cell.Content, "Repeated"))
+                .ToArray();
+
+            Assert.Equal(2, repeatedHeaders.Length);
+            Assert.All(repeatedHeaders, cell => AssertClose(100, cell.Bounds.Width));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static ColumnBandModel CreateGroupedModel()
     {
         var model = new ColumnBandModel
