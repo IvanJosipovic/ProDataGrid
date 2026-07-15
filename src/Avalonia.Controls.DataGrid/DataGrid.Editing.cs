@@ -533,7 +533,12 @@ internal
                         if (editingCell != null)
                         {
                             var aggregateError = new AggregateException(binding.ValidationErrors);
-                            if (_editingCellHadNotifyDataErrorInfoValidation)
+                            bool isNotifyDataErrorInfoValidation =
+                                _editingCellHadNotifyDataErrorInfoValidation ||
+                                HasNotifyDataErrorInfoValidation(
+                                    editingRow?.DataContext,
+                                    editingCell.OwningColumn);
+                            if (isNotifyDataErrorInfoValidation)
                             {
                                 var displayedErrors = new List<object>();
                                 if (_editingCellPreservedValidationErrors is not null)

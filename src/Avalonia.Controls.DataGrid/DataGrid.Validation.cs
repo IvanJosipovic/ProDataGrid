@@ -699,6 +699,36 @@ internal
             return exceptions;
         }
 
+        private static bool HasNotifyDataErrorInfoValidation(object item, DataGridColumn column)
+        {
+            if (item is not INotifyDataErrorInfo notifyDataErrorInfo)
+            {
+                return false;
+            }
+
+            string bindingPath = GetColumnBindingPath(column);
+            if (string.IsNullOrWhiteSpace(bindingPath))
+            {
+                return false;
+            }
+
+            IEnumerable errors = notifyDataErrorInfo.GetErrors(bindingPath);
+            if (errors is null)
+            {
+                return false;
+            }
+
+            foreach (object error in errors)
+            {
+                if (error is not null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private List<Exception> _bindingValidationErrors;
 
         private IDisposable _validationSubscription;
