@@ -544,6 +544,38 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_change_refreshes_non_editing_cell_on_editing_row()
+    {
+        var (grid, root, item, errorColumn, warningColumn) = CreateMixedValidationGrid();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                warningColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell errorCell = FindCell(grid, item, errorColumn.Index);
+            Assert.Equal(DataGridValidationSeverity.Error, errorCell.ValidationSeverity);
+
+            item.ErrorValue = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, errorCell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(errorCell));
+            Assert.Equal(warningColumn.Index, grid.EditingColumnIndex);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Grid_invalid_when_offscreen_item_has_error()
     {
         var (grid, root, errorItem, items) = CreateOffscreenErrorValidationGrid();

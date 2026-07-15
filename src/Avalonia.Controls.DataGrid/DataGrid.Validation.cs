@@ -72,7 +72,8 @@ internal
             DataGridRow row,
             object item,
             bool clearIfNoIndei = true,
-            string propertyName = null)
+            string propertyName = null,
+            int excludedColumnIndex = -1)
         {
             if (row is null)
             {
@@ -97,6 +98,11 @@ internal
             foreach (var column in ColumnsItemsInternal)
             {
                 if (column.Index < 0 || column.Index >= row.Cells.Count)
+                {
+                    continue;
+                }
+
+                if (column.Index == excludedColumnIndex)
                 {
                     continue;
                 }
@@ -548,13 +554,19 @@ internal
                 slot++)
             {
                 if (DisplayData.GetDisplayedElement(slot) is not DataGridRow row ||
-                    ReferenceEquals(row, EditingRow) ||
                     !ReferenceEquals(row.DataContext, notifyDataErrorInfo))
                 {
                     continue;
                 }
 
-                RestoreRowValidationState(row, notifyDataErrorInfo, propertyName: propertyName);
+                int excludedColumnIndex = ReferenceEquals(row, EditingRow)
+                    ? _editingColumnIndex
+                    : -1;
+                RestoreRowValidationState(
+                    row,
+                    notifyDataErrorInfo,
+                    propertyName: propertyName,
+                    excludedColumnIndex: excludedColumnIndex);
             }
         }
 
