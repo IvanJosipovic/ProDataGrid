@@ -215,7 +215,8 @@ namespace Avalonia.Controls.DataGridSizing
             double maximum = double.PositiveInfinity;
             foreach (WeakReference<DataGridColumn> reference in participants)
             {
-                if (reference.TryGetTarget(out DataGridColumn column))
+                if (reference.TryGetTarget(out DataGridColumn column) &&
+                    !IsUnmeasuredStar(column))
                 {
                     minimum = Math.Max(minimum, column.ActualMinWidth);
                     maximum = Math.Min(maximum, column.ActualMaxWidth);

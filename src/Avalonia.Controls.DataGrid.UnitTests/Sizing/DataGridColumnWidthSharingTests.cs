@@ -315,6 +315,30 @@ public class DataGridColumnWidthSharingTests
     }
 
     [Fact]
+    public void Unmeasured_Star_Column_Does_Not_Clamp_Measured_Participant()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn measuredColumn = CreateColumn(10, "name");
+        measuredColumn.MinWidth = 0;
+        DataGridTextColumn unmeasuredStarColumn = CreateColumn(
+            new DataGridLength(1, DataGridLengthUnitType.Star),
+            "name");
+
+        CreateGrid(scope, measuredColumn);
+        CreateGrid(scope, unmeasuredStarColumn);
+
+        Assert.Equal(10, measuredColumn.ActualWidth);
+        Assert.True(unmeasuredStarColumn.Width.IsStar);
+
+        unmeasuredStarColumn.SetWidthInternalNoCallback(
+            new DataGridLength(1, DataGridLengthUnitType.Star, 30, 30));
+        unmeasuredStarColumn.IsInitialDesiredWidthDetermined = true;
+
+        Assert.Equal(30, measuredColumn.ActualWidth);
+        Assert.Equal(30, unmeasuredStarColumn.ActualWidth);
+    }
+
+    [Fact]
     public void First_Measure_Completion_Reports_Previously_Unmeasured_Star_Columns()
     {
         var scope = new DataGridColumnWidthSharingScope();
