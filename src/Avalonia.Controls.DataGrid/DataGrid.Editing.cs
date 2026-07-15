@@ -346,6 +346,12 @@ internal
 
             // Finally, we can prepare the cell for editing
             _editingCellValidationSnapshot = CellValidationSnapshot.Capture(dataGridCell);
+            _editingCellHadNotifyDataErrorInfoValidation =
+                _notifyDataErrorInfoCellErrors.ContainsKey(dataGridCell);
+            _editingCellPreservedValidationErrors = _editingCellHadNotifyDataErrorInfoValidation
+                ? GetErrorsWithoutOwnedNotifyDataErrorInfoErrors(dataGridCell).ToArray()
+                : null;
+            _notifyDataErrorInfoCellErrors.Remove(dataGridCell);
             // Hide existing cell errors while editing to avoid duplicate validation visuals.
             DataValidationErrors.ClearErrors(dataGridCell);
             _editingColumnIndex = CurrentColumnIndex;
@@ -526,8 +532,25 @@ internal
 
                         if (editingCell != null)
                         {
-                            DataValidationErrors.SetError(editingCell,
-                                new AggregateException(binding.ValidationErrors));
+                            var aggregateError = new AggregateException(binding.ValidationErrors);
+                            if (_editingCellHadNotifyDataErrorInfoValidation)
+                            {
+                                var displayedErrors = new List<object>();
+                                if (_editingCellPreservedValidationErrors is not null)
+                                {
+                                    displayedErrors.AddRange(_editingCellPreservedValidationErrors);
+                                }
+
+                                displayedErrors.Add(aggregateError);
+                                DataValidationErrors.SetErrors(editingCell, displayedErrors);
+                                _notifyDataErrorInfoCellErrors[editingCell] =
+                                    new object[] { aggregateError };
+                            }
+                            else
+                            {
+                                _notifyDataErrorInfoCellErrors.Remove(editingCell);
+                                DataValidationErrors.SetError(editingCell, aggregateError);
+                            }
                         }
                     }
                 }
@@ -586,6 +609,8 @@ internal
                 }
             }
             _editingCellValidationSnapshot = null;
+            _editingCellHadNotifyDataErrorInfoValidation = false;
+            _editingCellPreservedValidationErrors = null;
 
             if (exitEditingMode)
             {
@@ -1061,6 +1086,8 @@ internal
             EditingRow = null;
             _editingRowValidationSnapshot = null;
             _editingCellValidationSnapshot = null;
+            _editingCellHadNotifyDataErrorInfoValidation = false;
+            _editingCellPreservedValidationErrors = null;
         }
 
 
@@ -1415,6 +1442,8 @@ internal
         private bool _focusEditingControl;
         private List<CellValidationSnapshot> _editingRowValidationSnapshot;
         private CellValidationSnapshot _editingCellValidationSnapshot;
+        private bool _editingCellHadNotifyDataErrorInfoValidation;
+        private object[] _editingCellPreservedValidationErrors;
 
 
         /// <summary>

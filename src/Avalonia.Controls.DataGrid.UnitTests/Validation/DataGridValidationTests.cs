@@ -413,6 +413,39 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_committed_warning_is_cleared_by_later_model_change()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void INotifyDataErrorInfo_validation_restores_on_row_recycle()
     {
         var (grid, root, item, column) = CreateNotifyValidationGrid();
