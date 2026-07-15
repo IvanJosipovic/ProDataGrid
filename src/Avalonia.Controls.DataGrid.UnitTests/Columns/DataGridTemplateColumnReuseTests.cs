@@ -1,6 +1,7 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Headless.XUnit;
@@ -95,6 +96,39 @@ public class DataGridTemplateColumnReuseTests
         {
             root.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public void Recycled_placeholder_content_is_replaced_when_row_becomes_data_row()
+    {
+        var displayTemplate = new CountingTemplate();
+        var newRowTemplate = new CountingTemplate();
+        var column = new TestTemplateColumn
+        {
+            CellTemplate = displayTemplate,
+            NewRowCellTemplate = newRowTemplate,
+            ReuseCellContent = true
+        };
+        var row = new DataGridRow
+        {
+            DataContext = new object(),
+            IsPlaceholder = false,
+            RecycledIsPlaceholder = true
+        };
+        var cell = new DataGridCell
+        {
+            OwningColumn = column,
+            OwningRow = row,
+            DataContext = row.DataContext
+        };
+        var placeholderContent = column.GenerateElementPublic(cell, DataGridCollectionView.NewItemPlaceholder);
+        cell.Content = placeholderContent;
+
+        column.RefreshCellContentForDataContextChange(cell);
+
+        Assert.NotSame(placeholderContent, cell.Content);
+        Assert.Equal(1, newRowTemplate.BuildCount);
+        Assert.Equal(1, displayTemplate.BuildCount);
     }
 
     private sealed class TestTemplateColumn : DataGridTemplateColumn

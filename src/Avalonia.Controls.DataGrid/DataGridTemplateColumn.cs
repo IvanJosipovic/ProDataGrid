@@ -215,7 +215,9 @@ internal
                 return;
             }
 
-            cell.Content = GenerateElementCore(cell, cell.DataContext, forceNewContent: false);
+            DataGridRow row = cell.OwningRow;
+            bool placeholderStateChanged = row != null && row.RecycledIsPlaceholder != row.IsPlaceholder;
+            cell.Content = GenerateElementCore(cell, cell.DataContext, placeholderStateChanged);
         }
         
         public override bool IsReadOnly
