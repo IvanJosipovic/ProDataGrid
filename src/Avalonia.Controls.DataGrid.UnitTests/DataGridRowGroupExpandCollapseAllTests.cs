@@ -73,6 +73,14 @@ public class DataGridRowGroupExpandCollapseAllTests
             PumpLayout(grid);
             Assert.NotEmpty(GetVisibleRows(grid));
 
+            DataGridRowGroupInfo dominantGroup = GetRowGroupInfos(grid)
+                .First(info => info.Level == 0);
+            grid.ScrollIntoView(items[500], grid.ColumnsInternal[0]);
+            PumpLayout(grid);
+
+            Assert.True(dominantGroup.Slot < grid.DisplayData.FirstScrollingSlot);
+            Assert.Contains(GetVisibleRows(grid), row => ReferenceEquals(row.DataContext, items[500]));
+
             grid.CollapseAllGroups();
 
             Assert.Empty(GetVisibleRows(grid));

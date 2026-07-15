@@ -1149,9 +1149,15 @@ namespace Avalonia.Controls
 
             if (DisplayData.FirstScrollingSlot >= 0)
             {
-                // The per-group removals are incremental; reconcile once after every collapsed-slot
-                // update has settled so stale realized rows cannot survive the batch operation.
-                UpdateDisplayedRows(DisplayData.FirstScrollingSlot, CellsEstimatedHeight);
+                // The per-group removals are incremental and can leave the numeric displayed range
+                // spanning slots that became collapsed. Rebuild the realized range once after every
+                // collapsed-slot update has settled so no stale row remains mapped inside that range.
+                int firstVisibleSlot = NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
+                ResetDisplayedRows();
+                if (firstVisibleSlot >= 0)
+                {
+                    UpdateDisplayedRows(firstVisibleSlot, CellsEstimatedHeight);
+                }
             }
 
             ComputeScrollBarsLayout();
