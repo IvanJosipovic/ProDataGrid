@@ -130,6 +130,23 @@ public class DataGridColumnWidthSharingTests
     }
 
     [Fact]
+    public void Scope_Converts_Equal_Width_Star_Column_To_Synchronized_Pixels()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn pixelColumn = CreateColumn(100, "name");
+        DataGridTextColumn starColumn = CreateColumn(
+            new DataGridLength(1, DataGridLengthUnitType.Star, 100, 100),
+            "name");
+
+        CreateGrid(scope, pixelColumn);
+        CreateGrid(scope, starColumn);
+
+        Assert.True(starColumn.Width.IsAbsolute);
+        Assert.Equal(100, starColumn.ActualWidth);
+        Assert.Equal(pixelColumn.ActualWidth, starColumn.ActualWidth);
+    }
+
+    [Fact]
     public void Column_Definitions_Apply_And_Update_Width_Sharing_Group()
     {
         var scope = new DataGridColumnWidthSharingScope();

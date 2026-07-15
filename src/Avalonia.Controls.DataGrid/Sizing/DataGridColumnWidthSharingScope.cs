@@ -200,12 +200,12 @@ namespace Avalonia.Controls.DataGridSizing
                     double width = minimum <= maximum
                         ? sharedWidth
                         : Math.Clamp(sharedWidth, column.ActualMinWidth, column.ActualMaxWidth);
-                    if (Math.Abs(column.ActualWidth - width) <= 0.001)
+                    DataGridLength current = column.Width;
+                    if (Math.Abs(column.ActualWidth - width) <= 0.001 && !current.IsStar)
                     {
                         continue;
                     }
 
-                    DataGridLength current = column.Width;
                     DataGridLength synchronized = current.IsAbsolute || current.IsStar
                         ? new DataGridLength(width)
                         : new DataGridLength(current.Value, current.UnitType, width, width);
