@@ -147,6 +147,26 @@ public class DataGridColumnWidthSharingTests
     }
 
     [Fact]
+    public void Scope_Does_Not_Convert_Unmeasured_Star_Columns_During_Registration()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn firstColumn = CreateColumn(
+            new DataGridLength(1, DataGridLengthUnitType.Star),
+            "name");
+        DataGridTextColumn secondColumn = CreateColumn(
+            new DataGridLength(1, DataGridLengthUnitType.Star),
+            "name");
+
+        CreateGrid(scope, firstColumn);
+        Assert.True(firstColumn.Width.IsStar);
+
+        CreateGrid(scope, secondColumn);
+
+        Assert.True(firstColumn.Width.IsStar);
+        Assert.True(secondColumn.Width.IsStar);
+    }
+
+    [Fact]
     public void Inherited_Grid_ColumnWidth_Changes_Are_Shared()
     {
         var scope = new DataGridColumnWidthSharingScope();

@@ -123,7 +123,7 @@ namespace Avalonia.Controls.DataGridSizing
 
         internal void ReportWidth(DataGridColumn source)
         {
-            if (_isSynchronizing || source?.OwningGrid == null)
+            if (_isSynchronizing || source?.OwningGrid == null || IsUnmeasuredStar(source))
             {
                 return;
             }
@@ -150,7 +150,7 @@ namespace Avalonia.Controls.DataGridSizing
             double width = 0;
             foreach (WeakReference<DataGridColumn> reference in participants)
             {
-                if (reference.TryGetTarget(out DataGridColumn column))
+                if (reference.TryGetTarget(out DataGridColumn column) && !IsUnmeasuredStar(column))
                 {
                     width = Math.Max(width, column.ActualWidth);
                 }
@@ -192,7 +192,9 @@ namespace Avalonia.Controls.DataGridSizing
             {
                 foreach (WeakReference<DataGridColumn> reference in participants)
                 {
-                    if (!reference.TryGetTarget(out DataGridColumn column) || column.OwningGrid == null)
+                    if (!reference.TryGetTarget(out DataGridColumn column) ||
+                        column.OwningGrid == null ||
+                        IsUnmeasuredStar(column))
                     {
                         continue;
                     }
@@ -217,6 +219,17 @@ namespace Avalonia.Controls.DataGridSizing
             {
                 _isSynchronizing = false;
             }
+        }
+
+        private static bool IsUnmeasuredStar(DataGridColumn column)
+        {
+            if (!column.Width.IsStar || column.IsInitialDesiredWidthDetermined)
+            {
+                return false;
+            }
+
+            return double.IsNaN(column.Width.DisplayValue) ||
+                column.Width.DisplayValue <= column.ActualMinWidth + 0.001;
         }
 
         private List<WeakReference<DataGridColumn>> GetOrCreateGroup(string group)
