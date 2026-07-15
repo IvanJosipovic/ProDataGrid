@@ -95,6 +95,52 @@ public class DataGridRowGroupExpandCollapseAllTests
     }
 
     [AvaloniaFact]
+    public void CollapseAllGroups_Rebuilds_From_Positive_Adjusted_Legacy_Offset()
+    {
+        const int prefixGroupCount = 80;
+        var items = new List<Item>();
+        for (var index = 0; index < prefixGroupCount; index++)
+        {
+            items.Add(new Item($"Prefix {index:D2}", "Segment", $"Prefix item {index}"));
+        }
+        for (var index = 0; index < 640; index++)
+        {
+            items.Add(new Item("Dominant", $"Segment {index / 4}", $"Dominant item {index}"));
+        }
+        for (var index = 0; index < 20; index++)
+        {
+            items.Add(new Item($"Suffix {index:D2}", "Segment", $"Suffix item {index}"));
+        }
+
+        var (grid, _, root) = CreateNestedGroupedGrid(items, height: 320);
+
+        try
+        {
+            DataGridRowGroupInfo dominantGroup = GetRowGroupInfos(grid)
+                .Where(info => info.Level == 0)
+                .Skip(prefixGroupCount)
+                .First();
+            Item targetItem = items[prefixGroupCount + 630];
+            grid.ScrollIntoView(targetItem, grid.ColumnsInternal[0]);
+            PumpLayout(grid);
+
+            Assert.True(dominantGroup.Slot < grid.DisplayData.FirstScrollingSlot);
+
+            grid.CollapseAllGroups();
+
+            Assert.Empty(GetVisibleRows(grid));
+            Assert.True(grid.GetVerticalOffset() > 0);
+            Assert.True(grid.DisplayData.FirstScrollingSlot < dominantGroup.Slot);
+            Assert.IsType<DataGridRowGroupHeader>(
+                grid.DisplayData.GetDisplayedElement(grid.DisplayData.FirstScrollingSlot));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void ExpandAllGroups_Expands_All_Groups_After_Collapse()
     {
         var (grid, view, root) = CreateNestedGroupedGrid();
