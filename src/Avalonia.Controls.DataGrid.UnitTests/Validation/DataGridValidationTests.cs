@@ -479,6 +479,41 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_refresh_preserves_same_cell_binding_error()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid(initialCode: "Valid");
+
+        try
+        {
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            var bindingError = new DataValidationException(
+                new DataGridValidationResult("Binding error", DataGridValidationSeverity.Error));
+            DataValidationErrors.SetError(cell, bindingError);
+            object displayedBindingError = Assert.Single(DataValidationErrors.GetErrors(cell));
+            cell.IsValid = false;
+            cell.ValidationSeverity = DataGridValidationSeverity.Error;
+            cell.UpdatePseudoClasses();
+
+            item.Code = "X";
+            grid.UpdateLayout();
+
+            Assert.Contains(displayedBindingError, DataValidationErrors.GetErrors(cell));
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Same(displayedBindingError, Assert.Single(DataValidationErrors.GetErrors(cell)));
+            Assert.Equal(DataGridValidationSeverity.Error, cell.ValidationSeverity);
+            Assert.False(cell.IsValid);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void INotifyDataErrorInfo_all_property_change_preserves_binding_validation()
     {
         var (grid, root, item, _, warningColumn) = CreateMixedValidationGrid();
