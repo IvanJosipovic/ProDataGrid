@@ -834,6 +834,60 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_error_overrides_custom_binding_warning_during_edit()
+    {
+        var item = new SameMessageValidationItem(DataGridValidationSeverity.Error);
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<SameMessageValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var column = new SameMessageCustomValidationColumn();
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            DataGridRow row = FindRow(grid, item);
+            Assert.False(grid.CommitEdit());
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Error, cell.ValidationSeverity);
+            Assert.False(cell.IsValid);
+            Assert.Equal(DataGridValidationSeverity.Error, row.ValidationSeverity);
+            Assert.False(row.IsValid);
+            Assert.False(grid.IsValid);
+            Assert.Equal(
+                2,
+                DataValidationErrors.GetErrors(cell).Count(
+                    error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage)));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void INotifyDataErrorInfo_change_refreshes_non_editing_cell_on_editing_row()
     {
         var (grid, root, item, errorColumn, warningColumn) = CreateMixedValidationGrid();
@@ -2296,8 +2350,15 @@ public class DataGridValidationTests
     {
         public const string ErrorMessage = "Value is rejected.";
 
+        private readonly DataGridValidationSeverity _modelSeverity;
         private string _value = "Initial";
         private bool _hasModelError = true;
+
+        public SameMessageValidationItem(
+            DataGridValidationSeverity modelSeverity = DataGridValidationSeverity.Warning)
+        {
+            _modelSeverity = modelSeverity;
+        }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
@@ -2330,7 +2391,7 @@ public class DataGridValidationTests
             {
                 return new[]
                 {
-                    new DataGridValidationResult(ErrorMessage, DataGridValidationSeverity.Warning)
+                    new DataGridValidationResult(ErrorMessage, _modelSeverity)
                 };
             }
 

@@ -503,16 +503,46 @@ internal
             // If we're committing, explicitly update the source but watch out for any validation errors
             if (editAction == DataGridEditAction.Commit)
             {
-                void SetValidationStatus(ICellEditBinding binding)
+                DataGridValidationSeverity SetValidationStatus(ICellEditBinding binding)
                 {
-                    var severity = ValidationUtil.GetValidationSeverity(binding.ValidationErrors);
+                    var bindingErrors = binding.ValidationErrors.ToList();
+                    var notifyDataErrorInfoErrors = editingCell is null
+                        ? new List<Exception>()
+                        : GetNotifyDataErrorInfoValidationExceptions(
+                            editingRow?.DataContext,
+                            editingCell.OwningColumn);
+                    var displayedErrors = new List<object>();
+                    if (_editingCellPreservedValidationErrors is not null)
+                    {
+                        displayedErrors.AddRange(_editingCellPreservedValidationErrors);
+                    }
+
+                    if (notifyDataErrorInfoErrors.Count > 0 && !binding.HasSourceWriteError)
+                    {
+                        RemoveMatchingValidationErrors(bindingErrors, notifyDataErrorInfoErrors);
+                    }
+                    if (bindingErrors.Count > 0)
+                    {
+                        displayedErrors.Add(new AggregateException(bindingErrors));
+                    }
+
+                    if (notifyDataErrorInfoErrors.Count > 0)
+                    {
+                        object ownedError = notifyDataErrorInfoErrors.Count == 1
+                            ? notifyDataErrorInfoErrors[0]
+                            : new AggregateException(notifyDataErrorInfoErrors);
+                        displayedErrors.Add(ownedError);
+                        _notifyDataErrorInfoCellErrors[editingCell] = new object[] { ownedError };
+                    }
+                    else if (editingCell is not null)
+                    {
+                        _notifyDataErrorInfoCellErrors.Remove(editingCell);
+                    }
+
+                    var severity = GetDisplayedValidationSeverity(displayedErrors);
                     if (severity == DataGridValidationSeverity.None)
                     {
                         ResetValidationStatus(editingCell);
-                        if (editingElement != null)
-                        {
-                            DataValidationErrors.ClearErrors(editingElement);
-                        }
                     }
                     else
                     {
@@ -525,78 +555,36 @@ internal
                         }
                         UpdateGridValidationState();
 
-                        if (editingElement != null)
-                        {
-                            DataValidationErrors.ClearErrors(editingElement);
-                        }
-
                         if (editingCell != null)
                         {
-                            var bindingErrors = binding.ValidationErrors.ToList();
-                            var notifyDataErrorInfoErrors = GetNotifyDataErrorInfoValidationExceptions(
-                                editingRow?.DataContext,
-                                editingCell.OwningColumn);
-                            if (notifyDataErrorInfoErrors.Count > 0)
-                            {
-                                var displayedErrors = new List<object>();
-                                if (_editingCellPreservedValidationErrors is not null)
-                                {
-                                    displayedErrors.AddRange(_editingCellPreservedValidationErrors);
-                                }
-
-                                if (!binding.HasSourceWriteError)
-                                {
-                                    RemoveMatchingValidationErrors(bindingErrors, notifyDataErrorInfoErrors);
-                                }
-                                if (bindingErrors.Count > 0)
-                                {
-                                    displayedErrors.Add(new AggregateException(bindingErrors));
-                                }
-
-                                object ownedError = notifyDataErrorInfoErrors.Count == 1
-                                    ? notifyDataErrorInfoErrors[0]
-                                    : new AggregateException(notifyDataErrorInfoErrors);
-                                displayedErrors.Add(ownedError);
-                                DataValidationErrors.SetErrors(editingCell, displayedErrors);
-                                _notifyDataErrorInfoCellErrors[editingCell] =
-                                    new object[] { ownedError };
-                            }
-                            else
-                            {
-                                _notifyDataErrorInfoCellErrors.Remove(editingCell);
-                                DataValidationErrors.SetError(
-                                    editingCell,
-                                    new AggregateException(bindingErrors));
-                            }
+                            DataValidationErrors.SetErrors(editingCell, displayedErrors);
                         }
                     }
+
+                    if (editingElement != null)
+                    {
+                        DataValidationErrors.ClearErrors(editingElement);
+                    }
+
+                    return severity;
                 }
 
                 var editBinding = CurrentColumn?.CellEditBinding;
                 if (editBinding != null)
                 {
                     editBinding.CommitEdit();
-                    var severity = ValidationUtil.GetValidationSeverity(editBinding.ValidationErrors);
-                    if (severity != DataGridValidationSeverity.None)
+                    var severity = SetValidationStatus(editBinding);
+                    if (severity == DataGridValidationSeverity.Error)
                     {
-                        SetValidationStatus(editBinding);
-
-                        if (severity == DataGridValidationSeverity.Error)
-                        {
-                            _validationSubscription?.Dispose();
-                            _validationSubscription = editBinding.ValidationChanged.Subscribe(v => SetValidationStatus(editBinding));
-
-                            ScrollSlotIntoView(CurrentColumnIndex, CurrentSlot, forCurrentCellChange: false, forceHorizontalScroll: true);
-                            return false;
-                        }
-
                         _validationSubscription?.Dispose();
-                        _validationSubscription = null;
+                        _validationSubscription = editBinding.ValidationChanged.Subscribe(v => SetValidationStatus(editBinding));
+
+                        ScrollSlotIntoView(CurrentColumnIndex, CurrentSlot, forCurrentCellChange: false, forceHorizontalScroll: true);
+                        return false;
                     }
-                    else
-                    {
-                        ResetValidationStatus(editingCell);
-                    }
+
+                    _validationSubscription?.Dispose();
+                    _validationSubscription = null;
                 }
                 else
                 {
