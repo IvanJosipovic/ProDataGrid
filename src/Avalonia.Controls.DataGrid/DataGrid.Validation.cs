@@ -56,7 +56,7 @@ internal
             _validationSubscription = null;
         }
 
-        private static void ClearCellValidation(DataGridCell cell)
+        private void ClearCellValidation(DataGridCell cell)
         {
             if (!cell.IsValid || cell.ValidationSeverity != DataGridValidationSeverity.None)
             {
@@ -118,14 +118,14 @@ internal
                 var errors = notifyDataErrorInfo.GetErrors(bindingPath);
                 if (errors is null)
                 {
-                    ClearCellValidation(cell);
+                    ClearNotifyDataErrorInfoValidation(cell);
                     continue;
                 }
 
                 var exceptions = CreateValidationExceptions(errors);
                 if (exceptions.Count == 0)
                 {
-                    ClearCellValidation(cell);
+                    ClearNotifyDataErrorInfoValidation(cell);
                     continue;
                 }
 
@@ -138,10 +138,51 @@ internal
                     ? exceptions[0]
                     : new AggregateException(exceptions);
                 DataValidationErrors.SetError(cell, errorException);
+                IEnumerable<object> displayedErrors = DataValidationErrors.GetErrors(cell);
+                if (displayedErrors is not null)
+                {
+                    var trackedErrors = new List<object>();
+                    foreach (object displayedError in displayedErrors)
+                    {
+                        trackedErrors.Add(displayedError);
+                    }
+
+                    _notifyDataErrorInfoCellErrors[cell] = trackedErrors.ToArray();
+                }
             }
 
             UpdateRowValidationStateFromCells(row);
             UpdateGridValidationState();
+        }
+
+        private void ClearNotifyDataErrorInfoValidation(DataGridCell cell)
+        {
+            if (!_notifyDataErrorInfoCellErrors.Remove(cell, out object[] expectedErrors))
+            {
+                return;
+            }
+
+            IEnumerable<object> currentErrors = DataValidationErrors.GetErrors(cell);
+            if (currentErrors is null)
+            {
+                return;
+            }
+
+            int index = 0;
+            foreach (object currentError in currentErrors)
+            {
+                if (index >= expectedErrors.Length || !Equals(currentError, expectedErrors[index]))
+                {
+                    return;
+                }
+
+                index++;
+            }
+
+            if (index == expectedErrors.Length)
+            {
+                ClearCellValidation(cell);
+            }
         }
 
         private void ClearRowValidation(DataGridRow row)
@@ -156,6 +197,7 @@ internal
 
             foreach (DataGridCell cell in row.Cells)
             {
+                _notifyDataErrorInfoCellErrors.Remove(cell);
                 ClearCellValidation(cell);
             }
 
@@ -585,6 +627,7 @@ internal
         private bool _isValid = true;
         private readonly HashSet<INotifyDataErrorInfo> _collectionValidationTrackedItems = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<INotifyDataErrorInfo> _collectionValidationItemsWithError = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<DataGridCell, object[]> _notifyDataErrorInfoCellErrors = new();
         private bool _collectionValidationStateInitialized;
         private bool _collectionValidationStateInvalidated = true;
 

@@ -479,12 +479,14 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
-    public void INotifyDataErrorInfo_change_preserves_binding_validation_on_other_property()
+    public void INotifyDataErrorInfo_all_property_change_preserves_binding_validation()
     {
         var (grid, root, item, _, warningColumn) = CreateMixedValidationGrid();
 
         try
         {
+            item.ErrorValue = "Valid";
+            grid.UpdateLayout();
             int slot = grid.SlotFromRowIndex(0);
             Assert.True(grid.UpdateSelectionAndCurrency(
                 warningColumn.Index,
@@ -501,16 +503,39 @@ public class DataGridValidationTests
             textBox.Text = "X";
             UpdateEditingElementSource(textBox);
             Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true));
             grid.UpdateLayout();
 
             Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
             Assert.True(DataValidationErrors.GetHasErrors(warningCell));
 
-            item.ErrorValue = "Valid";
+            item.NotifyAllPropertiesChanged();
             grid.UpdateLayout();
 
             Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
             Assert.True(DataValidationErrors.GetHasErrors(warningCell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_all_property_change_clears_removed_indei_error()
+    {
+        var (grid, root, item, errorColumn, _) = CreateMixedValidationGrid();
+
+        try
+        {
+            DataGridCell errorCell = FindCell(grid, item, errorColumn.Index);
+            Assert.Equal(DataGridValidationSeverity.Error, errorCell.ValidationSeverity);
+
+            item.ClearErrorsAndNotifyAllProperties();
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, errorCell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(errorCell));
         }
         finally
         {
@@ -1883,6 +1908,17 @@ public class DataGridValidationTests
             }
 
             return Array.Empty<object>();
+        }
+
+        public void ClearErrorsAndNotifyAllProperties()
+        {
+            _errors.Clear();
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(null));
+        }
+
+        public void NotifyAllPropertiesChanged()
+        {
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(null));
         }
 
         private void SetError(string propertyName, DataGridValidationResult? error)
