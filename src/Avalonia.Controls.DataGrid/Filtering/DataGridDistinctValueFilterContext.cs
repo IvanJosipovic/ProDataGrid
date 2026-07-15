@@ -130,6 +130,19 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
             ? activeDescriptor.Values
             : null;
 
+        if (selectedValues != null)
+        {
+            for (int i = 0; i < selectedValues.Count; i++)
+            {
+                object? selectedValue = selectedValues[i];
+                object key = selectedValue ?? s_nullKey;
+                if (!counts.ContainsKey(key))
+                {
+                    counts.Add(key, new ValueCount(selectedValue, count: 0));
+                }
+            }
+        }
+
         var nextOptions = new List<DataGridDistinctValueFilterOption>(counts.Count);
         foreach (ValueCount entry in counts.Values)
         {
@@ -269,10 +282,10 @@ sealed class DataGridDistinctValueFilterContext : IFilterDistinctValuesContext, 
 
     private sealed class ValueCount
     {
-        public ValueCount(object? value)
+        public ValueCount(object? value, int count = 1)
         {
             Value = value;
-            Count = 1;
+            Count = count;
         }
 
         public object? Value { get; }

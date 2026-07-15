@@ -111,6 +111,33 @@ public class DataGridDistinctValueFilterContextTests
     }
 
     [Fact]
+    public void Refresh_Retains_Selected_Value_Missing_From_Source_With_Zero_Count()
+    {
+        var model = new FilteringModel();
+        model.SetOrUpdate(new FilteringDescriptor(
+            "Name",
+            FilteringOperator.In,
+            nameof(Item.Name),
+            values: new object[] { "Beta", "Persisted" }));
+        var context = CreateContext(model);
+
+        context.Refresh(new[]
+        {
+            new Item("Alpha"),
+            new Item("Beta")
+        });
+
+        IFilterDistinctValueOption persisted = context.Options.Single(option => option.Display == "Persisted");
+        Assert.True(persisted.IsSelected);
+        Assert.Equal(0, persisted.Count);
+
+        persisted.IsSelected = false;
+
+        FilteringDescriptor descriptor = Assert.Single(model.Descriptors);
+        Assert.Equal("Beta", Assert.Single(descriptor.Values));
+    }
+
+    [Fact]
     public void Refresh_Prefers_Exact_Column_Descriptor_When_Property_Path_Is_Shared()
     {
         IFilteringModel model = new ReadOnlyFilteringModel(new[]
