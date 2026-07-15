@@ -24,15 +24,21 @@ internal
         bool IsValid { get; }
         IEnumerable<Exception> ValidationErrors { get; }
         IObservable<bool> ValidationChanged { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current validation errors were produced by a
+        /// failed write to the binding source.
+        /// </summary>
+        /// <remarks>
+        /// Custom edit bindings should return <see langword="true"/> while exposing source-write
+        /// errors so the grid does not conflate them with equivalent model validation errors.
+        /// </remarks>
+        bool HasSourceWriteError => false;
+
         bool CommitEdit();
     }
 
-    internal interface ICellEditBindingValidationSource
-    {
-        bool HasSourceWriteError { get; }
-    }
-
-    internal abstract class CellEditBindingBase : ICellEditBinding, ICellEditBindingValidationSource
+    internal abstract class CellEditBindingBase : ICellEditBinding
     {
         private readonly AvaloniaObject _target;
         private readonly AvaloniaProperty _property;

@@ -777,6 +777,63 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_clear_preserves_identical_custom_binding_warning_after_edit()
+    {
+        var item = new SameMessageValidationItem();
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<SameMessageValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var column = new SameMessageCustomValidationColumn();
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Equal(
+                2,
+                DataValidationErrors.GetErrors(cell).Count(
+                    error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage)));
+
+            item.ClearModelError();
+            grid.UpdateLayout();
+
+            Assert.Single(
+                DataValidationErrors.GetErrors(cell),
+                error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage));
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(cell.IsValid);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void INotifyDataErrorInfo_change_refreshes_non_editing_cell_on_editing_row()
     {
         var (grid, root, item, errorColumn, warningColumn) = CreateMixedValidationGrid();
@@ -2284,6 +2341,54 @@ public class DataGridValidationTests
         {
             _hasModelError = false;
             ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(Value)));
+        }
+    }
+
+    private sealed class SameMessageCustomValidationColumn : DataGridComboBoxColumn
+    {
+        public SameMessageCustomValidationColumn()
+        {
+            Header = "Value";
+            SelectedValueBinding = TwoWayBinding(nameof(SameMessageValidationItem.Value));
+        }
+
+        protected override Control GenerateEditingElement(
+            DataGridCell cell,
+            object dataItem,
+            out ICellEditBinding editBinding)
+        {
+            editBinding = new SameMessageCustomEditBinding();
+            return new TextBox();
+        }
+
+        protected override object PrepareCellForEdit(
+            Control editingElement,
+            Avalonia.Interactivity.RoutedEventArgs editingEventArgs)
+        {
+            return null!;
+        }
+    }
+
+    private sealed class SameMessageCustomEditBinding : ICellEditBinding
+    {
+        public bool IsValid => true;
+
+        public IEnumerable<Exception> ValidationErrors => new[]
+        {
+            new DataValidationException(
+                new DataGridValidationResult(
+                    SameMessageValidationItem.ErrorMessage,
+                    DataGridValidationSeverity.Warning))
+        };
+
+        public IObservable<bool> ValidationChanged { get; } = new EmptyValidationObservable();
+
+        public bool HasSourceWriteError => true;
+
+        public bool CommitEdit() => true;
+
+        public void Dispose()
+        {
         }
     }
 

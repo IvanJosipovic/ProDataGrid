@@ -544,7 +544,7 @@ internal
                                     displayedErrors.AddRange(_editingCellPreservedValidationErrors);
                                 }
 
-                                if (binding is not ICellEditBindingValidationSource { HasSourceWriteError: true })
+                                if (!binding.HasSourceWriteError)
                                 {
                                     RemoveMatchingValidationErrors(bindingErrors, notifyDataErrorInfoErrors);
                                 }
