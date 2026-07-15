@@ -1014,7 +1014,13 @@ internal
 
         private void ProcessHandledEditingTabKey(KeyEventArgs e)
         {
-            if (_editingColumnIndex == -1 || !IsKeyEventFromThisGrid(e) || e.Source is not Visual source)
+            // Avalonia's top-level keyboard navigation moves focus to the grid when a compound
+            // editor is configured as a single tab stop. A user handler that vetoes Tab by setting
+            // Handled leaves focus on the editor subtree, so it must not trigger this fallback.
+            if (_editingColumnIndex == -1 ||
+                !IsFocused ||
+                !IsKeyEventFromThisGrid(e) ||
+                e.Source is not Visual source)
             {
                 return;
             }

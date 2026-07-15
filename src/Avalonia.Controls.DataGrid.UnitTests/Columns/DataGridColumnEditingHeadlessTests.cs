@@ -333,6 +333,48 @@ public class DataGridColumnEditingHeadlessTests
     }
 
     [AvaloniaFact]
+    public void NumericColumn_Handled_Tab_From_Text_Input_Does_Not_Advance_Continuous_Edit()
+    {
+        var vm = new EditingTestViewModel();
+        var (window, grid) = CreateWindowWithMultipleColumns(vm,
+        [
+            new DataGridTextColumn
+            {
+                Header = "Name",
+                Binding = new Binding("Name"),
+                IsReadOnly = true
+            },
+            CreateNumericColumn(),
+            CreateTextColumn()
+        ]);
+
+        window.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        SelectCellAndBeginEdit(grid, 0, 1);
+        var numericCell = GetCell(grid, "Price", 0);
+        var numericUpDown = Assert.IsType<NumericUpDown>(numericCell.Content);
+        var textBox = Assert.Single(numericUpDown.GetVisualDescendants().OfType<TextBox>());
+        textBox.KeyDown += (_, eventArgs) => eventArgs.Handled = true;
+        var args = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Route = InputElement.KeyDownEvent.RoutingStrategies,
+            Key = Key.Tab,
+            Source = textBox,
+            KeyDeviceType = KeyDeviceType.Keyboard
+        };
+
+        textBox.RaiseEvent(args);
+        grid.UpdateLayout();
+
+        Assert.True(args.Handled);
+        Assert.Equal(1, grid.CurrentColumnIndex);
+        Assert.Equal(1, grid.EditingColumnIndex);
+    }
+
+    [AvaloniaFact]
     public void NumericColumn_CommitEdit_Updates_Value()
     {
         var vm = new EditingTestViewModel();
