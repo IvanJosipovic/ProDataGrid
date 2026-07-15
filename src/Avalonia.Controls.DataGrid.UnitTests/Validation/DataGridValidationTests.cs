@@ -731,7 +731,7 @@ public class DataGridValidationTests
         var column = new DataGridTextColumn
         {
             Header = "Value",
-            Binding = TwoWayBinding(nameof(SameMessageValidationItem.Value))
+            Binding = new Binding(nameof(SameMessageValidationItem.Value))
         };
         grid.ColumnsInternal.Add(column);
         root.Content = grid;
