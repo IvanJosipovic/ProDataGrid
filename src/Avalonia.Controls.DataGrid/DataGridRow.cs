@@ -647,6 +647,7 @@ internal
 
         private void DataGridCellCollection_CellRemoved(object sender, DataGridCellEventArgs e)
         {
+            OwningGrid?.OnCellRemovedForValidation(e.Cell);
             _cellsElement?.Children.Remove(e.Cell);
         }
 

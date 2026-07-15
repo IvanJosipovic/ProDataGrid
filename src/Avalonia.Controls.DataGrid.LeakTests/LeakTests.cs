@@ -1016,6 +1016,24 @@ public class LeakTests
     }
 
     [ReleaseFact]
+    public void DataGrid_RemovedNotifyDataErrorInfoCell_DoesNotLeak()
+    {
+        var items = new ObservableCollection<NotifyDataErrorRowItem>
+        {
+            new NotifyDataErrorRowItem("A")
+        };
+        items[0].SetErrors(new[] { "Invalid" });
+
+        var (grid, cellRef) = RunInSession(() =>
+            RunRemovedNotifyDataErrorInfoCell(items));
+
+        AssertCollected(cellRef);
+
+        GC.KeepAlive(grid);
+        GC.KeepAlive(items);
+    }
+
+    [ReleaseFact]
     public void DataGrid_NotifyDataErrorInfo_ErrorsChanged_DoesNotLeak()
     {
         var items = new ObservableCollection<NotifyDataErrorRowItem>
@@ -1815,6 +1833,52 @@ public class LeakTests
         CleanupWindow(window);
 
         return gridRef;
+    }
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static (DataGrid Grid, WeakReference CellRef) RunRemovedNotifyDataErrorInfoCell(
+        ObservableCollection<NotifyDataErrorRowItem> items)
+    {
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ItemsSource = items
+        };
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new Binding(nameof(NotifyDataErrorRowItem.Name))
+        });
+
+        var window = new Window
+        {
+            Width = 600,
+            Height = 300,
+            Content = grid
+        };
+        window.SetThemeStyles();
+        ShowWindow(window);
+        grid.ScrollIntoView(items[0], grid.Columns[0]);
+        Dispatcher.UIThread.RunJobs();
+        PumpLayout(grid);
+
+        grid.SelectedItem = items[0];
+        grid.CurrentCell = new DataGridCellInfo(items[0], grid.Columns[0], 0, 0);
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(grid.BeginEdit());
+        Dispatcher.UIThread.RunJobs();
+        var row = Assert.IsType<DataGridRow>(grid.EditingRow);
+        DataGridCell cell = row.Cells[0];
+        Assert.True(grid.CancelEdit(DataGridEditingUnit.Cell));
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(DataValidationErrors.GetHasErrors(cell));
+        var cellRef = new WeakReference(cell);
+
+        grid.Columns.RemoveAt(0);
+        Dispatcher.UIThread.RunJobs();
+        CleanupWindow(window);
+
+        return (grid, cellRef);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]

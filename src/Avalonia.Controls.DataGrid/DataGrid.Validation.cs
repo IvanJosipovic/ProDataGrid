@@ -70,6 +70,14 @@ internal
             DataValidationErrors.ClearErrors(cell);
         }
 
+        internal void OnCellRemovedForValidation(DataGridCell cell)
+        {
+            if (cell is not null)
+            {
+                _notifyDataErrorInfoCellErrors.Remove(cell);
+            }
+        }
+
         private void RestoreRowValidationState(
             DataGridRow row,
             object item,
