@@ -164,6 +164,7 @@ internal
                 }
             }
             NormalizeColumnDisplayIndexesAfterDetachedMutations();
+            RefreshColumnWidthSharingRegistration();
             if (_columnHeadersPresenter != null && _columnHeadersPresenter.OwningGrid == null)
             {
                 _columnHeadersPresenter.OwningGrid = this;

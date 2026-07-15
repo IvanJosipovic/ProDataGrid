@@ -4,6 +4,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridSizing;
+using Avalonia.Headless.XUnit;
 using Avalonia.Markup.Xaml;
 using Xunit;
 
@@ -105,6 +106,37 @@ public class DataGridColumnWidthSharingTests
 
         Assert.Equal(220, firstColumn.ActualWidth);
         Assert.Equal(160, secondColumn.ActualWidth);
+    }
+
+    [AvaloniaFact]
+    public void Reattached_Grid_Reregisters_Columns_Pruned_While_Detached()
+    {
+        var scope = new DataGridColumnWidthSharingScope();
+        DataGridTextColumn detachedColumn = CreateColumn(100, "name");
+        DataGridTextColumn activeColumn = CreateColumn(150, "name");
+        DataGrid detachedGrid = CreateGrid(scope, detachedColumn);
+        CreateGrid(scope, activeColumn);
+        var root = new Window { Content = detachedGrid };
+
+        try
+        {
+            root.Show();
+            root.Content = null;
+
+            activeColumn.Width = new DataGridLength(210);
+            root.Content = detachedGrid;
+            root.UpdateLayout();
+
+            Assert.Equal(210, detachedColumn.ActualWidth);
+
+            activeColumn.Width = new DataGridLength(240);
+
+            Assert.Equal(240, detachedColumn.ActualWidth);
+        }
+        finally
+        {
+            root.Close();
+        }
     }
 
     [Fact]
