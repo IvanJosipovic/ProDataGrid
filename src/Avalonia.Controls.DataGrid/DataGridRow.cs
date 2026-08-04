@@ -722,7 +722,7 @@ internal
                         {
                             if (column.Index >= 0 && column.Index < Cells.Count)
                             {
-                                column.RefreshCellContent((Control)Cells[column.Index].Content, nameof(DataGridTemplateColumn.CellTemplate));
+                                column.RefreshCellContentForDataContextChange(Cells[column.Index]);
                             }
                         }
                     }
