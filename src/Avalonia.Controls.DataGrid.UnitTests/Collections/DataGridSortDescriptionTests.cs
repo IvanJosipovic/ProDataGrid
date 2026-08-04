@@ -137,6 +137,165 @@ namespace Avalonia.Controls.DataGridTests.Collections
             Assert.IsType<DataGridColumnValueAccessorComparer<NumericItem, int>>(comparerSort.SourceComparer);
         }
 
+        [Theory]
+        [InlineData(ListSortDirection.Ascending, "Alice", "Bob", "Charlie")]
+        [InlineData(ListSortDirection.Descending, "Charlie", "Bob", "Alice")]
+        public void FromPath_Orders_Explicit_Interface_Property(
+            ListSortDirection direction,
+            params string[] expected)
+        {
+            IExplicitRow[] items =
+            {
+                new ExplicitRow("Charlie", 3),
+                new ExplicitRow("Alice", 1),
+                new ExplicitRow("Bob", 2)
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(IExplicitRow.Name), direction);
+
+            sortDescription.Initialize(typeof(IExplicitRow));
+            var result = sortDescription.OrderBy(items).Cast<IExplicitRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void FromPath_Orders_Explicit_Interface_Property_When_Initialized_With_Concrete_Type()
+        {
+            var items = new[]
+            {
+                new ExplicitRow("Charlie", 3),
+                new ExplicitRow("Alice", 1),
+                new ExplicitRow("Bob", 2)
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(IExplicitRow.Name));
+
+            sortDescription.Initialize(typeof(ExplicitRow));
+            var result = sortDescription.OrderBy(items).Cast<IExplicitRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, result);
+        }
+
+        [Fact]
+        public void FromPath_Orders_Explicit_Interface_Property_Without_Initialize()
+        {
+            var items = new[]
+            {
+                new ExplicitRow("Charlie", 3),
+                new ExplicitRow("Alice", 1),
+                new ExplicitRow("Bob", 2)
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(IExplicitRow.Name));
+
+            var result = sortDescription.OrderBy(items).Cast<IExplicitRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, result);
+        }
+
+        [Fact]
+        public void FromPath_Orders_Inherited_Explicit_Interface_Property()
+        {
+            IInheritedRow[] items =
+            {
+                new InheritedRow("Charlie"),
+                new InheritedRow("Alice"),
+                new InheritedRow("Bob")
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(IBaseRow.Name));
+
+            sortDescription.Initialize(typeof(IInheritedRow));
+            var result = sortDescription.OrderBy(items).Cast<IBaseRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, result);
+        }
+
+        [Fact]
+        public void FromPath_Orders_Nested_Explicit_Interface_Path_And_Nulls()
+        {
+            INestedRow[] items =
+            {
+                new NestedRow(new ExplicitRow("Charlie", 3)),
+                new NestedRow(null),
+                new NestedRow(new ExplicitRow("Alice", 1)),
+                new NestedRow(new ExplicitRow("Bob", 2))
+            };
+            var sortDescription = DataGridSortDescription.FromPath(
+                $"{nameof(INestedRow.Detail)}.{nameof(IExplicitRow.Rank)}");
+
+            sortDescription.Initialize(typeof(INestedRow));
+            var result = sortDescription.OrderBy(items).Cast<INestedRow>().Select(item => item.Detail?.Rank).ToArray();
+
+            Assert.Equal(new int?[] { null, 1, 2, 3 }, result);
+        }
+
+        [Fact]
+        public void FromPath_Orders_Polymorphic_Explicit_Interface_Implementations()
+        {
+            IExplicitRow[] items =
+            {
+                new AlternateExplicitRow("Charlie", 3),
+                new ExplicitRow("Alice", 1),
+                new AlternateExplicitRow("Bob", 2)
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(IExplicitRow.Name));
+
+            sortDescription.Initialize(typeof(IExplicitRow));
+            var result = sortDescription.OrderBy(items).Cast<IExplicitRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, result);
+        }
+
+        [Fact]
+        public void SwitchSortDirection_Preserves_Explicit_Interface_Item_Type()
+        {
+            IExplicitRow[] items =
+            {
+                new ExplicitRow("Charlie", 3),
+                new ExplicitRow("Alice", 1),
+                new ExplicitRow("Bob", 2)
+            };
+            var ascending = DataGridSortDescription.FromPath(nameof(IExplicitRow.Name));
+            ascending.Initialize(typeof(IExplicitRow));
+
+            var descending = ascending.SwitchSortDirection();
+            var result = descending.OrderBy(items).Cast<IExplicitRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(new[] { "Charlie", "Bob", "Alice" }, result);
+        }
+
+        [Fact]
+        public void FromPath_Uses_Declared_Interface_To_Disambiguate_Explicit_Properties()
+        {
+            IPrimaryLabel[] items =
+            {
+                new AmbiguousLabel("Charlie", "Alpha"),
+                new AmbiguousLabel("Alice", "Zulu"),
+                new AmbiguousLabel("Bob", "Mike")
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(IPrimaryLabel.Label));
+
+            sortDescription.Initialize(typeof(IPrimaryLabel));
+            var result = sortDescription.OrderBy(items).Cast<IPrimaryLabel>().Select(item => item.Label).ToArray();
+
+            Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, result);
+        }
+
+        [Fact]
+        public void FromPath_Falls_Back_To_Runtime_Type_When_Declared_Base_Type_Has_No_Path()
+        {
+            RuntimeBaseRow[] items =
+            {
+                new RuntimeDerivedRow("Charlie"),
+                new RuntimeDerivedRow("Alice"),
+                new RuntimeDerivedRow("Bob")
+            };
+            var sortDescription = DataGridSortDescription.FromPath(nameof(RuntimeDerivedRow.Name));
+
+            sortDescription.Initialize(typeof(RuntimeBaseRow));
+            var result = sortDescription.OrderBy(items).Cast<RuntimeDerivedRow>().Select(item => item.Name).ToArray();
+
+            Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, result);
+        }
+
         private class Item : IEquatable<Item>
         {
             public Item(string? prop1, string? prop2)
@@ -180,6 +339,123 @@ namespace Avalonia.Controls.DataGridTests.Collections
             }
 
             public int Value { get; }
+        }
+
+        private interface IExplicitRow
+        {
+            string Name { get; }
+
+            int Rank { get; }
+        }
+
+        private interface IBaseRow
+        {
+            string Name { get; }
+        }
+
+        private interface IInheritedRow : IBaseRow
+        {
+        }
+
+        private interface INestedRow
+        {
+            IExplicitRow? Detail { get; }
+        }
+
+        private interface IPrimaryLabel
+        {
+            string Label { get; }
+        }
+
+        private interface ISecondaryLabel
+        {
+            string Label { get; }
+        }
+
+        private sealed class ExplicitRow : IExplicitRow
+        {
+            private readonly string _name;
+            private readonly int _rank;
+
+            public ExplicitRow(string name, int rank)
+            {
+                _name = name;
+                _rank = rank;
+            }
+
+            string IExplicitRow.Name => _name;
+
+            int IExplicitRow.Rank => _rank;
+        }
+
+        private sealed class AlternateExplicitRow : IExplicitRow
+        {
+            private readonly string _name;
+            private readonly int _rank;
+
+            public AlternateExplicitRow(string name, int rank)
+            {
+                _name = name;
+                _rank = rank;
+            }
+
+            string IExplicitRow.Name => _name;
+
+            int IExplicitRow.Rank => _rank;
+        }
+
+        private sealed class InheritedRow : IInheritedRow
+        {
+            private readonly string _name;
+
+            public InheritedRow(string name)
+            {
+                _name = name;
+            }
+
+            string IBaseRow.Name => _name;
+        }
+
+        private sealed class NestedRow : INestedRow
+        {
+            private readonly IExplicitRow? _detail;
+
+            public NestedRow(IExplicitRow? detail)
+            {
+                _detail = detail;
+            }
+
+            IExplicitRow? INestedRow.Detail => _detail;
+        }
+
+        private sealed class AmbiguousLabel : IPrimaryLabel, ISecondaryLabel
+        {
+            private readonly string _primary;
+            private readonly string _secondary;
+
+            public AmbiguousLabel(string primary, string secondary)
+            {
+                _primary = primary;
+                _secondary = secondary;
+            }
+
+            string IPrimaryLabel.Label => _primary;
+
+            string ISecondaryLabel.Label => _secondary;
+        }
+
+        private abstract class RuntimeBaseRow
+        {
+        }
+
+        private sealed class RuntimeDerivedRow : RuntimeBaseRow
+        {
+            public RuntimeDerivedRow(string name)
+            {
+                Name = name;
+            }
+
+            public string Name { get; }
         }
     }
 }

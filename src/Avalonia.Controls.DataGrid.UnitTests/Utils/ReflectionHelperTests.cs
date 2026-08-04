@@ -81,6 +81,96 @@ namespace Avalonia.Controls.DataGridTests.Utils
         }
 
         [Fact]
+        public void GetPropertyOrIndexer_Finds_Explicit_Interface_Property_On_Class()
+        {
+            var property = typeof(ExplicitInterfaceItem).GetPropertyOrIndexer(
+                nameof(IExplicitInterfaceItem.Name),
+                out var index);
+
+            Assert.NotNull(property);
+            Assert.Null(index);
+            Assert.Equal(typeof(IExplicitInterfaceItem), property!.DeclaringType);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Finds_Inherited_Explicit_Interface_Property_On_Class()
+        {
+            var property = typeof(InheritedExplicitInterfaceItem).GetPropertyOrIndexer(
+                nameof(IParentInterface.Name),
+                out var index);
+
+            Assert.NotNull(property);
+            Assert.Null(index);
+            Assert.Equal(typeof(IParentInterface), property!.DeclaringType);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Prefers_Public_Class_Property_Over_Interface_Property()
+        {
+            var property = typeof(PublicAndExplicitInterfaceItem).GetPropertyOrIndexer(
+                nameof(IExplicitInterfaceItem.Name),
+                out var index);
+
+            Assert.NotNull(property);
+            Assert.Null(index);
+            Assert.Equal(typeof(PublicAndExplicitInterfaceItem), property!.DeclaringType);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Prefers_Most_Derived_Interface_Property()
+        {
+            var property = typeof(RedeclaredExplicitInterfaceItem).GetPropertyOrIndexer(
+                nameof(IRedeclaredChildInterface.Value),
+                out var index);
+
+            Assert.NotNull(property);
+            Assert.Null(index);
+            Assert.Equal(typeof(IRedeclaredChildInterface), property!.DeclaringType);
+            Assert.Equal(typeof(string), property.PropertyType);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Uses_Diamond_Interface_Redeclaration_To_Disambiguate_Property()
+        {
+            var property = typeof(DiamondExplicitInterfaceItem).GetPropertyOrIndexer(
+                nameof(IDiamondInterface.Value),
+                out var index);
+
+            Assert.NotNull(property);
+            Assert.Null(index);
+            Assert.Equal(typeof(IDiamondInterface), property!.DeclaringType);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Returns_Null_For_Unrelated_Ambiguous_Interface_Properties()
+        {
+            var property = typeof(AmbiguousExplicitInterfaceItem).GetPropertyOrIndexer("Value", out var index);
+
+            Assert.Null(property);
+            Assert.Null(index);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Finds_Explicit_Interface_Indexer_On_Class()
+        {
+            var property = typeof(ExplicitInterfaceIndexer).GetPropertyOrIndexer("[2]", out var index);
+
+            Assert.NotNull(property);
+            Assert.Equal(typeof(IExplicitInterfaceIndexer), property!.DeclaringType);
+            Assert.Equal(new object[] { 2 }, index);
+        }
+
+        [Fact]
+        public void GetPropertyOrIndexer_Uses_Diamond_Interface_Redeclaration_To_Disambiguate_Indexer()
+        {
+            var property = typeof(DiamondExplicitInterfaceIndexer).GetPropertyOrIndexer("[2]", out var index);
+
+            Assert.NotNull(property);
+            Assert.Equal(typeof(IDiamondIndexer), property!.DeclaringType);
+            Assert.Equal(new object[] { 2 }, index);
+        }
+
+        [Fact]
         public void GetNestedProperty_Resolves_Indexer_Path()
         {
             var model = new ParentWithChildren
@@ -124,6 +214,54 @@ namespace Avalonia.Controls.DataGridTests.Utils
             var value = TypeHelper.GetNestedPropertyValue(model, "Child.Name");
 
             Assert.Equal("beta", value);
+        }
+
+        [Fact]
+        public void GetNestedPropertyValue_Reads_Explicit_Interface_Property()
+        {
+            IExplicitInterfaceItem model = new ExplicitInterfaceItem("alpha");
+
+            var value = TypeHelper.GetNestedPropertyValue(model, nameof(IExplicitInterfaceItem.Name));
+
+            Assert.Equal("alpha", value);
+        }
+
+        [Fact]
+        public void GetNestedPropertyValue_Reads_Nested_Explicit_Interface_Properties()
+        {
+            INestedExplicitContainer model = new NestedExplicitContainer(new ExplicitInterfaceItem("nested"));
+
+            var value = TypeHelper.GetNestedPropertyValue(
+                model,
+                $"{nameof(INestedExplicitContainer.Item)}.{nameof(IExplicitInterfaceItem.Name)}");
+
+            Assert.Equal("nested", value);
+        }
+
+        [Fact]
+        public void GetNestedPropertyValue_Reads_Explicit_Interface_Indexer()
+        {
+            IExplicitInterfaceIndexer model = new ExplicitInterfaceIndexer();
+
+            var value = TypeHelper.GetNestedPropertyValue(model, "[3]");
+
+            Assert.Equal("item-3", value);
+        }
+
+        [Fact]
+        public void TrySetNestedPropertyValue_Writes_Explicit_Interface_Property()
+        {
+            var model = new WritableExplicitInterfaceItem();
+
+            var result = TypeHelper.TrySetNestedPropertyValue(
+                model,
+                nameof(IWritableExplicitInterfaceItem.Value),
+                42,
+                out var exception);
+
+            Assert.True(result);
+            Assert.Null(exception);
+            Assert.Equal(42, ((IWritableExplicitInterfaceItem)model).Value);
         }
 
         [Fact]
@@ -250,6 +388,144 @@ namespace Avalonia.Controls.DataGridTests.Utils
 
         private interface IChildInterface : IParentInterface
         {
+        }
+
+        private interface IExplicitInterfaceItem
+        {
+            string Name { get; }
+        }
+
+        private interface INestedExplicitContainer
+        {
+            IExplicitInterfaceItem Item { get; }
+        }
+
+        private interface IWritableExplicitInterfaceItem
+        {
+            int Value { get; set; }
+        }
+
+        private interface IRedeclaredParentInterface
+        {
+            object Value { get; }
+        }
+
+        private interface IRedeclaredChildInterface : IRedeclaredParentInterface
+        {
+            new string Value { get; }
+        }
+
+        private interface IAmbiguousLeftInterface
+        {
+            string Value { get; }
+        }
+
+        private interface IAmbiguousRightInterface
+        {
+            string Value { get; }
+        }
+
+        private interface IDiamondInterface : IAmbiguousLeftInterface, IAmbiguousRightInterface
+        {
+            new string Value { get; }
+        }
+
+        private interface IExplicitInterfaceIndexer
+        {
+            string this[int index] { get; }
+        }
+
+        private interface ILeftExplicitInterfaceIndexer
+        {
+            string this[int index] { get; }
+        }
+
+        private interface IRightExplicitInterfaceIndexer
+        {
+            string this[int index] { get; }
+        }
+
+        private interface IDiamondIndexer : ILeftExplicitInterfaceIndexer, IRightExplicitInterfaceIndexer
+        {
+            new string this[int index] { get; }
+        }
+
+        private sealed class ExplicitInterfaceItem : IExplicitInterfaceItem
+        {
+            private readonly string _name;
+
+            public ExplicitInterfaceItem(string name)
+            {
+                _name = name;
+            }
+
+            string IExplicitInterfaceItem.Name => _name;
+        }
+
+        private sealed class InheritedExplicitInterfaceItem : IChildInterface
+        {
+            string IParentInterface.Name => "inherited";
+        }
+
+        private sealed class PublicAndExplicitInterfaceItem : IExplicitInterfaceItem
+        {
+            public string Name => "public";
+
+            string IExplicitInterfaceItem.Name => "explicit";
+        }
+
+        private sealed class NestedExplicitContainer : INestedExplicitContainer
+        {
+            private readonly IExplicitInterfaceItem _item;
+
+            public NestedExplicitContainer(IExplicitInterfaceItem item)
+            {
+                _item = item;
+            }
+
+            IExplicitInterfaceItem INestedExplicitContainer.Item => _item;
+        }
+
+        private sealed class WritableExplicitInterfaceItem : IWritableExplicitInterfaceItem
+        {
+            int IWritableExplicitInterfaceItem.Value { get; set; }
+        }
+
+        private sealed class RedeclaredExplicitInterfaceItem : IRedeclaredChildInterface
+        {
+            object IRedeclaredParentInterface.Value => "parent";
+
+            string IRedeclaredChildInterface.Value => "child";
+        }
+
+        private sealed class AmbiguousExplicitInterfaceItem : IAmbiguousLeftInterface, IAmbiguousRightInterface
+        {
+            string IAmbiguousLeftInterface.Value => "left";
+
+            string IAmbiguousRightInterface.Value => "right";
+        }
+
+        private sealed class DiamondExplicitInterfaceItem : IDiamondInterface
+        {
+            string IAmbiguousLeftInterface.Value => "left";
+
+            string IAmbiguousRightInterface.Value => "right";
+
+            string IDiamondInterface.Value => "diamond";
+        }
+
+        private sealed class ExplicitInterfaceIndexer : IExplicitInterfaceIndexer
+        {
+            string IExplicitInterfaceIndexer.this[int index] => $"item-{index}";
+        }
+
+        private sealed class DiamondExplicitInterfaceIndexer : IDiamondIndexer
+        {
+            string ILeftExplicitInterfaceIndexer.this[int index] => $"left-{index}";
+
+            string IRightExplicitInterfaceIndexer.this[int index] => $"right-{index}";
+
+            string IDiamondIndexer.this[int index] => $"diamond-{index}";
         }
 
         private class ParentWithChildren

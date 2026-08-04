@@ -1,0 +1,142 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ExplicitInterfaceSortingPage"
+             x:DataType="viewModels:ExplicitInterfaceSortingViewModel">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="12" Spacing="12">
+      <StackPanel Spacing="4">
+        <TextBlock Classes="h2" Text="Explicit interface property sorting" />
+        <TextBlock TextWrapping="Wrap"
+                   Text="Click every column header to sort. The grids cover direct and polymorphic implementations, inherited interface members, nullable nested paths, and unrelated interfaces that expose the same member name." />
+      </StackPanel>
+
+      <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="10">
+        <Grid RowDefinitions="Auto,Auto,180" RowSpacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Direct + polymorphic explicit implementations" />
+          <TextBlock Grid.Row="1"
+                     TextWrapping="Wrap"
+                     Text="ObservableCollection&lt;IExplicitSortRow&gt; contains two concrete runtime types. Sort Name or Time in both directions." />
+          <DataGrid x:Name="DirectGrid"
+                    Grid.Row="2"
+                    ItemsSource="{Binding DirectRows}"
+                    AutoGenerateColumns="False"
+                    CanUserSortColumns="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn x:DataType="models:IExplicitSortRow"
+                                  Header="Name"
+                                  Binding="{Binding Name}"
+                                  SortMemberPath="Name" />
+              <DataGridTextColumn x:DataType="models:IExplicitSortRow"
+                                  Header="Time"
+                                  Binding="{Binding Time, StringFormat='{}{0:yyyy-MM-dd HH:mm}'}"
+                                  SortMemberPath="Time" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </Border>
+
+      <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="10">
+        <Grid RowDefinitions="Auto,Auto,180" RowSpacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Inherited interface members" />
+          <TextBlock Grid.Row="1"
+                     TextWrapping="Wrap"
+                     Text="Name is declared by IBaseExplicitSortRow; Priority is declared by the derived interface. Both are explicit on the concrete row." />
+          <DataGrid x:Name="InheritedGrid"
+                    Grid.Row="2"
+                    ItemsSource="{Binding InheritedRows}"
+                    AutoGenerateColumns="False"
+                    CanUserSortColumns="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn x:DataType="models:IInheritedExplicitSortRow"
+                                  Header="Name"
+                                  Binding="{Binding Name}"
+                                  SortMemberPath="Name" />
+              <DataGridTextColumn x:DataType="models:IInheritedExplicitSortRow"
+                                  Header="Priority"
+                                  Binding="{Binding Priority}"
+                                  SortMemberPath="Priority" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </Border>
+
+      <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="10">
+        <Grid RowDefinitions="Auto,Auto,200" RowSpacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Nested explicit paths + nulls" />
+          <TextBlock Grid.Row="1"
+                     TextWrapping="Wrap"
+                     Text="The root Id and Detail properties are explicit, as are Detail.Name and Detail.Score. One row has null details to exercise null ordering." />
+          <DataGrid x:Name="NestedGrid"
+                    Grid.Row="2"
+                    ItemsSource="{Binding NestedRows}"
+                    AutoGenerateColumns="False"
+                    CanUserSortColumns="True">
+            <DataGrid.Columns>
+              <DataGridTextColumn x:DataType="models:INestedExplicitSortRow"
+                                  Header="Id"
+                                  Binding="{Binding Id}"
+                                  SortMemberPath="Id" />
+              <DataGridTextColumn x:DataType="models:INestedExplicitSortRow"
+                                  Header="Detail name"
+                                  Binding="{Binding Detail.Name}"
+                                  SortMemberPath="Detail.Name" />
+              <DataGridTextColumn x:DataType="models:INestedExplicitSortRow"
+                                  Header="Detail score"
+                                  Binding="{Binding Detail.Score}"
+                                  SortMemberPath="Detail.Score" />
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </Border>
+
+      <Border BorderBrush="{DynamicResource ThemeBorderLowBrush}"
+              BorderThickness="1"
+              CornerRadius="6"
+              Padding="10">
+        <Grid RowDefinitions="Auto,Auto,200" RowSpacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Same member name on unrelated interfaces" />
+          <TextBlock Grid.Row="1"
+                     TextWrapping="Wrap"
+                     Text="Both grids contain the same objects. Their declared collection item interface disambiguates which explicit Label property SortMemberPath resolves." />
+          <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="10">
+            <DataGrid x:Name="PrimaryLabelGrid"
+                      ItemsSource="{Binding PrimaryLabelRows}"
+                      AutoGenerateColumns="False"
+                      CanUserSortColumns="True">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="models:IPrimaryExplicitLabel"
+                                    Header="Primary label"
+                                    Binding="{Binding Label}"
+                                    SortMemberPath="Label" />
+              </DataGrid.Columns>
+            </DataGrid>
+            <DataGrid x:Name="SecondaryLabelGrid"
+                      Grid.Column="1"
+                      ItemsSource="{Binding SecondaryLabelRows}"
+                      AutoGenerateColumns="False"
+                      CanUserSortColumns="True">
+              <DataGrid.Columns>
+                <DataGridTextColumn x:DataType="models:ISecondaryExplicitLabel"
+                                    Header="Secondary label"
+                                    Binding="{Binding Label}"
+                                    SortMemberPath="Label" />
+              </DataGrid.Columns>
+            </DataGrid>
+          </Grid>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

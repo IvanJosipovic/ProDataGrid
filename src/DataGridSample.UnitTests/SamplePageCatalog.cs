@@ -73,6 +73,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.DynamicDataStreamingSourceListPage", static () => new global::DataGridSample.Pages.DynamicDataStreamingSourceListPage()),
             ("DataGridSample.Pages.EditingInteractionModelPage", static () => new global::DataGridSample.Pages.EditingInteractionModelPage()),
             ("DataGridSample.Pages.ExcelLikeEditingPage", static () => new global::DataGridSample.Pages.ExcelLikeEditingPage()),
+            ("DataGridSample.Pages.ExplicitInterfaceSortingPage", static () => new global::DataGridSample.Pages.ExplicitInterfaceSortingPage()),
             ("DataGridSample.Pages.FillHandleModelPage", static () => new global::DataGridSample.Pages.FillHandleModelPage()),
             ("DataGridSample.Pages.FilteringModelSamplePage", static () => new global::DataGridSample.Pages.FilteringModelSamplePage()),
             ("DataGridSample.Pages.FocusLossOnScrollPage", static () => new global::DataGridSample.Pages.FocusLossOnScrollPage()),

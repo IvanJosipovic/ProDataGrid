@@ -58,6 +58,37 @@ public class DataGridSortingHeaderTests
     }
 
     [AvaloniaFact]
+    public void Header_Click_Sorts_Explicit_Interface_Property_And_Updates_Indicator()
+    {
+        var items = new ObservableCollection<IExplicitHeaderRow>
+        {
+            new ExplicitHeaderRow("Charlie", new DateTime(2026, 7, 30, 12, 30, 0)),
+            new ExplicitHeaderRow("Alice", new DateTime(2026, 7, 30, 8, 15, 0)),
+            new ExplicitHeaderRow("Bob", new DateTime(2026, 7, 30, 10, 45, 0))
+        };
+        var grid = CreateExplicitInterfaceGrid(items);
+
+        ClickHeader(grid, "Name");
+        grid.UpdateLayout();
+
+        Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, GetExplicitRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: true, desc: false);
+
+        ClickHeader(grid, "Name");
+        grid.UpdateLayout();
+
+        Assert.Equal(new[] { "Charlie", "Bob", "Alice" }, GetExplicitRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: false, desc: true);
+
+        ClickHeader(grid, "Time");
+        grid.UpdateLayout();
+
+        Assert.Equal(new[] { "Alice", "Bob", "Charlie" }, GetExplicitRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: false, desc: false);
+        AssertHeaderSort(grid, "Time", asc: true, desc: false);
+    }
+
+    [AvaloniaFact]
     public void Header_Click_Two_State_Cycle_Works_In_Observe_Mode()
     {
         var items = new ObservableCollection<Item>
@@ -297,6 +328,39 @@ public class DataGridSortingHeaderTests
         return grid;
     }
 
+    private static DataGrid CreateExplicitInterfaceGrid(IEnumerable<IExplicitHeaderRow> items)
+    {
+        var root = new Window
+        {
+            Width = 400,
+            Height = 300
+        };
+        root.SetThemeStyles();
+
+        var grid = new DataGrid
+        {
+            ItemsSource = new DataGridCollectionView(items),
+            SelectionMode = DataGridSelectionMode.Extended
+        };
+        grid.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new Binding(nameof(IExplicitHeaderRow.Name)),
+            SortMemberPath = nameof(IExplicitHeaderRow.Name)
+        });
+        grid.ColumnsInternal.Add(new DataGridTextColumn
+        {
+            Header = "Time",
+            Binding = new Binding(nameof(IExplicitHeaderRow.Time)),
+            SortMemberPath = nameof(IExplicitHeaderRow.Time)
+        });
+
+        root.Content = grid;
+        root.Show();
+        grid.UpdateLayout();
+        return grid;
+    }
+
     private static void ClickHeader(DataGrid grid, string header, KeyModifiers modifiers = KeyModifiers.None)
     {
         var headerCell = grid.GetVisualDescendants()
@@ -343,6 +407,14 @@ public class DataGridSortingHeaderTests
             .ToArray();
     }
 
+    private static string[] GetExplicitRowOrder(DataGrid grid)
+    {
+        return ((System.Collections.IEnumerable)grid.ItemsSource!)
+            .Cast<IExplicitHeaderRow>()
+            .Select(item => item.Name)
+            .ToArray();
+    }
+
     private class Item
     {
         public Item(string name, string group = "", int value = 0)
@@ -357,5 +429,28 @@ public class DataGridSortingHeaderTests
         public string Group { get; }
 
         public int Value { get; }
+    }
+
+    private interface IExplicitHeaderRow
+    {
+        string Name { get; }
+
+        DateTime Time { get; }
+    }
+
+    private sealed class ExplicitHeaderRow : IExplicitHeaderRow
+    {
+        private readonly string _name;
+        private readonly DateTime _time;
+
+        public ExplicitHeaderRow(string name, DateTime time)
+        {
+            _name = name;
+            _time = time;
+        }
+
+        string IExplicitHeaderRow.Name => _name;
+
+        DateTime IExplicitHeaderRow.Time => _time;
     }
 }

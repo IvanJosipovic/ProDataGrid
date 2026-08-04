@@ -72,7 +72,7 @@ namespace Avalonia.Controls.Utils
 
                 // Only a single parameter is supported and it must be a string or Int32 value.
                 parameters = pi.GetIndexParameters();
-                if (parameters.Length > 1)
+                if (parameters.Length != 1)
                 {
                     continue;
                 }
@@ -96,6 +96,132 @@ namespace Avalonia.Controls.Utils
             }
 
             return stringIndexer;
+        }
+
+        private static PropertyInfo? FindIndexerInInterfaces(Type type, string stringIndex, out object[]? index)
+        {
+            PropertyInfo? candidate = null;
+            Type? candidateInterface = null;
+            Type? candidateParameterType = null;
+            object[]? candidateIndex = null;
+            Type[] interfaces = type.GetInterfaces();
+
+            foreach (Type typeInterface in interfaces)
+            {
+                PropertyInfo? indexer = FindIndexerInMembers(typeInterface.GetDefaultMembers(), stringIndex, out object[]? currentIndex);
+                if (indexer == null)
+                {
+                    continue;
+                }
+
+                Type currentParameterType = indexer.GetIndexParameters()[0].ParameterType;
+                Type currentInterface = indexer.DeclaringType ?? typeInterface;
+                if (candidate == null ||
+                    (candidateParameterType == typeof(string) && currentParameterType == typeof(int)))
+                {
+                    candidate = indexer;
+                    candidateInterface = currentInterface;
+                    candidateParameterType = currentParameterType;
+                    candidateIndex = currentIndex;
+                    continue;
+                }
+
+                if (candidateParameterType == typeof(int) && currentParameterType == typeof(string))
+                {
+                    continue;
+                }
+
+                if (candidateInterface!.IsAssignableFrom(currentInterface))
+                {
+                    candidate = indexer;
+                    candidateInterface = currentInterface;
+                    candidateParameterType = currentParameterType;
+                    candidateIndex = currentIndex;
+                }
+            }
+
+            if (candidate == null)
+            {
+                index = null;
+                return null;
+            }
+
+            // Reflection does not define interface enumeration order. Validate that
+            // the selected member is declared by a unique interface which is at least
+            // as specific as every other candidate of the preferred indexer kind.
+            foreach (Type typeInterface in interfaces)
+            {
+                PropertyInfo? indexer = FindIndexerInMembers(typeInterface.GetDefaultMembers(), stringIndex, out _);
+                if (indexer == null || indexer.GetIndexParameters()[0].ParameterType != candidateParameterType)
+                {
+                    continue;
+                }
+
+                Type currentInterface = indexer.DeclaringType ?? typeInterface;
+                if (!currentInterface.IsAssignableFrom(candidateInterface))
+                {
+                    index = null;
+                    return null;
+                }
+            }
+
+            index = candidateIndex;
+            return candidate;
+        }
+
+        private static PropertyInfo? FindPropertyInInterfaces(Type type, string propertyName)
+        {
+            PropertyInfo? candidate = null;
+            Type? candidateInterface = null;
+            Type[] interfaces = type.GetInterfaces();
+
+            foreach (Type typeInterface in interfaces)
+            {
+                PropertyInfo? property = typeInterface.GetProperty(propertyName);
+                if (property == null)
+                {
+                    continue;
+                }
+
+                Type propertyInterface = property.DeclaringType ?? typeInterface;
+                if (candidate == null)
+                {
+                    candidate = property;
+                    candidateInterface = propertyInterface;
+                    continue;
+                }
+
+                if (candidateInterface!.IsAssignableFrom(propertyInterface))
+                {
+                    candidate = property;
+                    candidateInterface = propertyInterface;
+                }
+            }
+
+            if (candidate == null)
+            {
+                return null;
+            }
+
+            // A derived interface may intentionally redeclare members from otherwise
+            // unrelated parents, so defer ambiguity detection until the most-specific
+            // candidate has been selected independently of reflection enumeration order.
+            foreach (Type typeInterface in interfaces)
+            {
+                PropertyInfo? property = typeInterface.GetProperty(propertyName);
+                if (property == null)
+                {
+                    continue;
+                }
+
+                Type propertyInterface = property.DeclaringType ?? typeInterface;
+                if (!propertyInterface.IsAssignableFrom(candidateInterface))
+                {
+                    return null;
+                }
+            }
+
+            return candidate;
         }
 
         /// <summary>
@@ -277,6 +403,16 @@ namespace Avalonia.Controls.Utils
         /// <returns>Property value</returns>
         internal static object? GetNestedPropertyValue(object? item, string? propertyPath, Type propertyType, out Exception? exception)
         {
+            return GetNestedPropertyValue(item, propertyPath, propertyType, null, out exception);
+        }
+
+        internal static object? GetNestedPropertyValue(
+            object? item,
+            string? propertyPath,
+            Type propertyType,
+            Type? parentType,
+            out Exception? exception)
+        {
             exception = null;
 
             // if the item is null, treat the property value as null
@@ -292,15 +428,15 @@ namespace Avalonia.Controls.Utils
             }
 
             object? propertyValue = item;
-            Type? itemType = item.GetType();
-            if (itemType != null)
+            Type itemType = parentType != null && parentType.IsInstanceOfType(item)
+                ? parentType
+                : item.GetType();
+            PropertyInfo? propertyInfo = itemType.GetNestedProperty(propertyPath, out exception, ref propertyValue);
+            if (propertyInfo != null && propertyInfo.PropertyType != propertyType)
             {
-                PropertyInfo? propertyInfo = itemType.GetNestedProperty(propertyPath, out exception, ref propertyValue);
-                if (propertyInfo != null && propertyInfo.PropertyType != propertyType)
-                {
-                    return null;
-                }
+                return null;
             }
+
             return propertyValue;
         }
 
@@ -434,18 +570,13 @@ namespace Avalonia.Controls.Utils
                     return property;
                 }
 
-                // GetProperty does not return inherited interface properties,
-                // so we need to enumerate them manually.
-                if (type.IsInterface)
+                // GetProperty does not return inherited interface properties or
+                // properties implemented explicitly by a class, so inspect the
+                // implemented interfaces when no public class property was found.
+                property = FindPropertyInInterfaces(type, propertyPath);
+                if (property != null)
                 {
-                    foreach (var typeInterface in type.GetInterfaces())
-                    {
-                        property = typeInterface.GetProperty(propertyPath);
-                        if (property != null)
-                        {
-                            return property;
-                        }
-                    }
+                    return property;
                 }
 
                 return null;
@@ -462,6 +593,12 @@ namespace Avalonia.Controls.Utils
             if (indexer != null)
             {
                 // We found the indexer, so return it.
+                return indexer;
+            }
+
+            indexer = FindIndexerInInterfaces(type, stringIndex, out index);
+            if (indexer != null)
+            {
                 return indexer;
             }
 
