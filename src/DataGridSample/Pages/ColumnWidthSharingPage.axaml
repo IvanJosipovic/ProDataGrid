@@ -1,0 +1,100 @@
+<!--
+  Copyright (c) Wieslaw Soltes. All rights reserved.
+  Licensed under the MIT license. See LICENSE file in the project root for details.
+-->
+<UserControl
+    x:Class="DataGridSample.Pages.ColumnWidthSharingPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:sizing="clr-namespace:Avalonia.Controls.DataGridSizing;assembly=Avalonia.Controls.DataGrid"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:ColumnWidthSharingViewModel"
+    d:DesignHeight="720"
+    d:DesignWidth="1100"
+    mc:Ignorable="d">
+
+  <UserControl.Resources>
+    <sizing:DataGridColumnWidthSharingScope x:Key="ComparisonColumnWidths" />
+  </UserControl.Resources>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,*,*"
+        RowSpacing="10">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2" Text="Shared Column Widths" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="Resize a column in either grid. The matching column follows immediately, even though the first grid declares groups in XAML and the second uses MVVM column definitions." />
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            Padding="10"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+      <Grid RowDefinitions="Auto,*"
+            RowSpacing="6">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock FontWeight="SemiBold" Text="Current plan" />
+          <TextBlock Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}"
+                     Text="XAML columns · Group attached property" />
+        </StackPanel>
+
+        <DataGrid x:Name="XamlColumnsGrid"
+                  Grid.Row="1"
+                  ItemsSource="{Binding CurrentItems}"
+                  ColumnWidthSharingScope="{StaticResource ComparisonColumnWidths}"
+                  AutoGenerateColumns="False"
+                  CanUserResizeColumns="True"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="All"
+                  IsReadOnly="True">
+          <DataGrid.Columns>
+            <DataGridTextColumn Header="Work item"
+                                Binding="{Binding WorkItem}"
+                                Width="Auto"
+                                sizing:DataGridColumnWidthSharing.Group="work-item"
+                                x:DataType="viewModels:ColumnWidthSharingViewModel+ComparisonRow" />
+            <DataGridTextColumn Header="Owner"
+                                Binding="{Binding Owner}"
+                                Width="130"
+                                sizing:DataGridColumnWidthSharing.Group="owner"
+                                x:DataType="viewModels:ColumnWidthSharingViewModel+ComparisonRow" />
+            <DataGridTextColumn Header="Status"
+                                Binding="{Binding Status}"
+                                Width="*"
+                                sizing:DataGridColumnWidthSharing.Group="status"
+                                x:DataType="viewModels:ColumnWidthSharingViewModel+ComparisonRow" />
+          </DataGrid.Columns>
+        </DataGrid>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2"
+            Padding="10"
+            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            BorderThickness="1"
+            CornerRadius="6">
+      <Grid RowDefinitions="Auto,*"
+            RowSpacing="6">
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <TextBlock FontWeight="SemiBold" Text="Baseline plan" />
+          <TextBlock Foreground="{DynamicResource SystemControlForegroundBaseMediumHighBrush}"
+                     Text="ColumnDefinitionsSource · WidthSharingGroup" />
+        </StackPanel>
+
+        <DataGrid x:Name="DefinitionColumnsGrid"
+                  Grid.Row="1"
+                  ItemsSource="{Binding BaselineItems}"
+                  ColumnDefinitionsSource="{Binding BaselineColumns}"
+                  ColumnWidthSharingScope="{StaticResource ComparisonColumnWidths}"
+                  AutoGenerateColumns="False"
+                  CanUserResizeColumns="True"
+                  GridLinesVisibility="Horizontal"
+                  HeadersVisibility="All"
+                  IsReadOnly="True" />
+      </Grid>
+    </Border>
+  </Grid>
+</UserControl>
