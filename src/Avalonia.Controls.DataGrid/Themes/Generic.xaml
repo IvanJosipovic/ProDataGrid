@@ -115,6 +115,41 @@
         </StackPanel>
       </DataTemplate>
 
+      <!-- Excel/DataGrip-style distinct-value filter -->
+      <DataTemplate x:Key="DataGridFilterDistinctValuesEditorTemplate"
+                    x:DataType="filtering:IFilterDistinctValuesContext">
+        <StackPanel Spacing="{DynamicResource DataGridFilterEditorSpacing}"
+                    Width="{DynamicResource DataGridFilterDistinctValuesEditorWidth}">
+          <TextBlock Text="{Binding Label, FallbackValue=Values}"
+                     FontWeight="SemiBold" />
+          <TextBox PlaceholderText="Search values"
+                   AutomationProperties.Name="Search distinct values"
+                   Text="{Binding SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+          <ListBox ItemsSource="{Binding Options}"
+                   AutomationProperties.Name="Distinct values"
+                   MaxHeight="{DynamicResource DataGridFilterDistinctValuesListMaxHeight}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="filtering:IFilterDistinctValueOption">
+                <Grid ColumnDefinitions="Auto,*,Auto"
+                      ColumnSpacing="{DynamicResource DataGridFilterEditorActionSpacing}">
+                  <CheckBox AutomationProperties.Name="{Binding Display}"
+                            IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                            VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="1"
+                             Text="{Binding Display}"
+                             TextTrimming="CharacterEllipsis"
+                             VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2"
+                             Text="{Binding Count, StringFormat='({0})'}"
+                             Opacity="0.7"
+                             VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </StackPanel>
+      </DataTemplate>
+
       <!-- Column chooser item template -->
       <DataTemplate x:Key="DataGridColumnChooserItemTemplate"
                     x:DataType="controls:DataGridColumnChooserItem">

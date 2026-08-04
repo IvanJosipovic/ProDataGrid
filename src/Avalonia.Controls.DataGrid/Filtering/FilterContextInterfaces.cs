@@ -87,3 +87,55 @@ interface IEnumOption
     string Display { get; }
     bool IsSelected { get; set; }
 }
+
+/// <summary>
+/// Contract consumed by the built-in distinct-value filter template.
+/// </summary>
+#if !DATAGRID_INTERNAL
+public
+#else
+internal
+#endif
+interface IFilterDistinctValuesContext
+{
+    /// <summary>
+    /// Gets the label displayed above the filter values.
+    /// </summary>
+    string Label { get; }
+
+    /// <summary>
+    /// Gets or sets the substring used to search the available values.
+    /// </summary>
+    string? SearchText { get; set; }
+
+    /// <summary>
+    /// Gets the values currently visible after applying <see cref="SearchText"/>.
+    /// </summary>
+    ObservableCollection<IFilterDistinctValueOption> Options { get; }
+}
+
+/// <summary>
+/// Represents one value in a distinct-value filter.
+/// </summary>
+#if !DATAGRID_INTERNAL
+public
+#else
+internal
+#endif
+interface IFilterDistinctValueOption
+{
+    /// <summary>
+    /// Gets the display text for the value.
+    /// </summary>
+    string Display { get; }
+
+    /// <summary>
+    /// Gets the number of source rows containing the value.
+    /// </summary>
+    int Count { get; }
+
+    /// <summary>
+    /// Gets or sets whether the value participates in the active filter.
+    /// </summary>
+    bool IsSelected { get; set; }
+}

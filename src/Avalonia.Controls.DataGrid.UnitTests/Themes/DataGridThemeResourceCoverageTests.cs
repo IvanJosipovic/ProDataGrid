@@ -409,6 +409,7 @@ public class DataGridThemeResourceCoverageTests
         new("DataGridFilterNumberEditorTemplate", typeof(IDataTemplate)),
         new("DataGridFilterDateEditorTemplate", typeof(IDataTemplate)),
         new("DataGridFilterEnumEditorTemplate", typeof(IDataTemplate)),
+        new("DataGridFilterDistinctValuesEditorTemplate", typeof(IDataTemplate)),
         new("DataGridColumnChooserItemTemplate", typeof(IDataTemplate)),
         new("DataGridHierarchicalCellTemplate", typeof(IDataTemplate))
     };
@@ -504,6 +505,8 @@ public class DataGridThemeResourceCoverageTests
         "DataGridFilterDateEditorWidth",
         "DataGridFilterDateEditorFieldSpacing",
         "DataGridFilterEnumEditorWidth",
+        "DataGridFilterDistinctValuesEditorWidth",
+        "DataGridFilterDistinctValuesListMaxHeight",
         "DataGridPivotHeaderSegmentsSpacing",
         "DataGridColumnBandHeaderSegmentsSpacing",
         "DataGridFilterButtonSize",
@@ -675,6 +678,8 @@ public class DataGridThemeResourceCoverageTests
         "DataGridFilterDateEditorWidth",
         "DataGridFilterDateEditorFieldSpacing",
         "DataGridFilterEnumEditorWidth",
+        "DataGridFilterDistinctValuesEditorWidth",
+        "DataGridFilterDistinctValuesListMaxHeight",
         "DataGridPivotHeaderSegmentsSpacing",
         "DataGridColumnBandHeaderSegmentsSpacing",
         "DataGridFilterButtonSize",
