@@ -49,6 +49,30 @@ public DataGridColumnDefinitionList ColumnDefinitions { get; } = new()
 };
 ```
 
+## Share definitions across multiple grids
+
+`DataGridColumn` objects are controls and can belong to only one `DataGrid`. Do not bind the same `Columns` collection to multiple grids. Bind the same definition collection to `ColumnDefinitionsSource` instead:
+
+```xml
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MyApp.ViewModels"
+             x:DataType="vm:ComparisonViewModel">
+  <Grid ColumnDefinitions="*,*">
+    <DataGrid Grid.Column="0"
+              ItemsSource="{CompiledBinding CurrentItems}"
+              ColumnDefinitionsSource="{CompiledBinding ColumnDefinitions}"
+              AutoGenerateColumns="False" />
+    <DataGrid Grid.Column="1"
+              ItemsSource="{CompiledBinding ComparisonItems}"
+              ColumnDefinitionsSource="{CompiledBinding ColumnDefinitions}"
+              AutoGenerateColumns="False" />
+  </Grid>
+</UserControl>
+```
+
+Each grid creates and owns a distinct `DataGridColumn` for every shared definition. Collection changes and `DataGridColumnDefinition` property changes are applied to every connected grid, while no column control instance is reused or reparented.
+
 ## Typed builder
 
 If you prefer a strongly typed builder, use `DataGridColumnDefinitionBuilder`:

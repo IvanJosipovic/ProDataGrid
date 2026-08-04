@@ -329,6 +329,58 @@ public class DataGridColumnDefinitionsTests
     }
 
     [AvaloniaFact]
+    public void ColumnDefinitionsSource_Can_Be_Shared_By_Multiple_Grids()
+    {
+        var nameDefinition = new DataGridTextColumnDefinition
+        {
+            Header = "Name",
+            Binding = DataGridBindingDefinition.Create<Person, string>(p => p.Name)
+        };
+        var definitions = new ObservableCollection<DataGridColumnDefinition>
+        {
+            nameDefinition
+        };
+
+        var firstGrid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ColumnDefinitionsSource = definitions
+        };
+        var secondGrid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ColumnDefinitionsSource = definitions
+        };
+
+        var firstColumn = Assert.Single(GetNonFillerColumns(firstGrid));
+        var secondColumn = Assert.Single(GetNonFillerColumns(secondGrid));
+
+        Assert.NotSame(firstColumn, secondColumn);
+        Assert.Same(firstGrid, firstColumn.OwningGrid);
+        Assert.Same(secondGrid, secondColumn.OwningGrid);
+
+        nameDefinition.Header = "Display Name";
+
+        Assert.Equal("Display Name", firstColumn.Header);
+        Assert.Equal("Display Name", secondColumn.Header);
+
+        definitions.Add(new DataGridTextColumnDefinition
+        {
+            Header = "Age",
+            Binding = DataGridBindingDefinition.Create<Person, int>(p => p.Age)
+        });
+
+        Assert.Equal(2, GetNonFillerColumns(firstGrid).Count);
+        Assert.Equal(2, GetNonFillerColumns(secondGrid).Count);
+
+        firstGrid.ColumnDefinitionsSource = null;
+        nameDefinition.Header = "Full Name";
+
+        Assert.Empty(GetNonFillerColumns(firstGrid));
+        Assert.Equal("Full Name", GetNonFillerColumns(secondGrid)[0].Header);
+    }
+
+    [AvaloniaFact]
     public void ColumnDefinition_Applies_SummaryCell_Alignment()
     {
         var definitions = new ObservableCollection<DataGridColumnDefinition>

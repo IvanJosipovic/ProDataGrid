@@ -130,6 +130,30 @@ public class BindableColumnsHeadlessTests
         }
     }
 
+    [AvaloniaFact]
+    public void Columns_Binding_Shared_Control_Instances_Explains_ColumnDefinitionsSource()
+    {
+        var columns = new ObservableCollection<DataGridColumn>
+        {
+            new DataGridTextColumn { Header = "Name" }
+        };
+        var firstGrid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            Columns = columns
+        };
+        var secondGrid = new DataGrid
+        {
+            AutoGenerateColumns = false
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => secondGrid.Columns = columns);
+
+        Assert.Contains("DataGridColumnDefinition", exception.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(DataGrid.ColumnDefinitionsSource), exception.Message, StringComparison.Ordinal);
+        Assert.Same(firstGrid, columns[0].OwningGrid);
+    }
+
     private static DataGridColumn[] GetNonFillerColumns(DataGrid grid)
     {
         return grid.ColumnsInternal.ItemsInternal
