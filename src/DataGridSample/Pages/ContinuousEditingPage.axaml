@@ -1,0 +1,95 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:models="clr-namespace:DataGridSample.Models"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.ContinuousEditingPage"
+             x:Name="Root"
+             x:DataType="viewModels:ContinuousEditingViewModel">
+  <UserControl.DataContext>
+    <viewModels:ContinuousEditingViewModel />
+  </UserControl.DataContext>
+
+  <Grid RowDefinitions="Auto,Auto,*"
+        RowSpacing="12"
+        Margin="12">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2">Continuous editing</TextBlock>
+      <TextBlock Text="Enter commits and opens the next writable cell. Tab and Shift+Tab keep editing active across text, autocomplete, combo, numeric, and date editors."
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <Border Grid.Row="1"
+            Padding="12,8"
+            CornerRadius="6"
+            Background="{DynamicResource SystemControlBackgroundAltHighBrush}">
+      <Grid ColumnDefinitions="Auto,16,Auto,16,*">
+        <StackPanel>
+          <TextBlock FontWeight="SemiBold" Text="Enter" />
+          <TextBlock Foreground="{DynamicResource ThemeForegroundLowBrush}"
+                     Text="Next cell + continue editing" />
+        </StackPanel>
+        <StackPanel Grid.Column="2">
+          <TextBlock FontWeight="SemiBold" Text="Tab / Shift+Tab" />
+          <TextBlock Foreground="{DynamicResource ThemeForegroundLowBrush}"
+                     Text="Next / previous writable cell" />
+        </StackPanel>
+        <TextBlock Grid.Column="4"
+                   VerticalAlignment="Center"
+                   TextWrapping="Wrap"
+                   Text="Tip: Tab from the final Due cell commits the row and opens the first editor in a new row." />
+      </Grid>
+    </Border>
+
+    <DataGrid x:Name="ContinuousEditingGrid"
+              Grid.Row="2"
+              ItemsSource="{Binding Rows}"
+              AutoGenerateColumns="False"
+              IsReadOnly="False"
+              CanUserAddRows="True"
+              CanUserDeleteRows="True"
+              CanUserSortColumns="False"
+              SelectionMode="Single"
+              SelectionUnit="Cell"
+              EditTriggers="CellClick,TextInput,F2"
+              EnterKeyNavigationMode="NextCell"
+              ContinueEditingOnEnter="True"
+              HeadersVisibility="All"
+              RowHeight="38">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="Task"
+                            Binding="{Binding Task}"
+                            Watermark="Describe the task"
+                            Width="2*"
+                            x:DataType="models:ContinuousEditingRow" />
+        <DataGridAutoCompleteColumn Header="Owner"
+                                    Binding="{Binding Owner}"
+                                    ItemsSource="{Binding #Root.((viewModels:ContinuousEditingViewModel)DataContext).OwnerSuggestions}"
+                                    FilterMode="Contains"
+                                    MinimumPrefixLength="0"
+                                    IsTextCompletionEnabled="True"
+                                    Watermark="Choose or type"
+                                    Width="*"
+                                    x:DataType="models:ContinuousEditingRow" />
+        <DataGridComboBoxColumn Header="Priority"
+                                TextBinding="{Binding Priority}"
+                                ItemsSource="{Binding #Root.((viewModels:ContinuousEditingViewModel)DataContext).Priorities}"
+                                IsEditable="True"
+                                Width="*"
+                                x:DataType="models:ContinuousEditingRow" />
+        <DataGridNumericColumn Header="Estimate"
+                               Binding="{Binding Estimate}"
+                               Minimum="0"
+                               Maximum="100"
+                               Increment="1"
+                               FormatString="N0"
+                               Width="*"
+                               x:DataType="models:ContinuousEditingRow" />
+        <DataGridDatePickerColumn Header="Due"
+                                  Binding="{Binding DueDate}"
+                                  SelectedDateFormat="Short"
+                                  Width="140"
+                                  x:DataType="models:ContinuousEditingRow" />
+      </DataGrid.Columns>
+    </DataGrid>
+  </Grid>
+</UserControl>

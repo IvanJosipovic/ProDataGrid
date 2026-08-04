@@ -7,13 +7,13 @@ using System;
 using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.DataGridEditing;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Styling;
-using Avalonia.VisualTree;
 
 namespace Avalonia.Controls
 {
@@ -330,6 +330,8 @@ internal
                 Name = "CellNumericUpDown"
             };
 
+            DataGridEditorFocus.ConfigureSingleTabStop(numericUpDown);
+
             if (CellNumericUpDownTheme is { } theme)
             {
                 numericUpDown.Theme = theme;
@@ -349,13 +351,7 @@ internal
             {
                 var uneditedValue = numericUpDown.Value;
 
-                // Select all text when editing starts
-                var textBox = numericUpDown.FindDescendantOfType<TextBox>();
-                if (textBox != null)
-                {
-                    textBox.SelectAll();
-                    textBox.Focus();
-                }
+                DataGridEditorFocus.FocusTextInput(numericUpDown, selectAll: true);
 
                 return uneditedValue;
             }

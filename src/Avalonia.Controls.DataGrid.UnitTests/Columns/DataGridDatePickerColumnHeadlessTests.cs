@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
@@ -100,6 +101,7 @@ public class DataGridDatePickerColumnHeadlessTests
         Assert.Equal(VerticalAlignment.Bottom, displayElement.VerticalAlignment);
         Assert.Equal(HorizontalAlignment.Right, editingElement.HorizontalContentAlignment);
         Assert.Equal(VerticalAlignment.Bottom, editingElement.VerticalContentAlignment);
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(editingElement));
     }
 
     private static (Window window, DataGrid grid) CreateWindow(DatePickerTestViewModel vm)

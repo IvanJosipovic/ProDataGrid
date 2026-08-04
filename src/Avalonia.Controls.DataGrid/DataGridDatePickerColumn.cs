@@ -5,6 +5,7 @@
 
 using System;
 using Avalonia.Collections;
+using Avalonia.Controls.DataGridEditing;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -279,6 +280,8 @@ internal
                 VerticalAlignment = VerticalAlignment.Center
             };
 
+            DataGridEditorFocus.ConfigureSingleTabStop(datePicker);
+
             if (CellDatePickerTheme is { } theme)
             {
                 datePicker.Theme = theme;
@@ -298,8 +301,7 @@ internal
             {
                 var uneditedValue = datePicker.SelectedDate;
                 
-                // Focus the date picker
-                datePicker.Focus();
+                DataGridEditorFocus.FocusTextInput(datePicker, selectAll: false);
 
                 return uneditedValue;
             }

@@ -6,6 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Styling;
 using Xunit;
@@ -90,6 +91,7 @@ public class DataGridComboBoxColumnThemeTests
         Assert.Equal(VerticalAlignment.Bottom, displayElement.VerticalContentAlignment);
         Assert.Equal(HorizontalAlignment.Center, editingElement.HorizontalContentAlignment);
         Assert.Equal(VerticalAlignment.Bottom, editingElement.VerticalContentAlignment);
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(editingElement));
     }
 
     private class DerivedComboBoxColumn : DataGridComboBoxColumn

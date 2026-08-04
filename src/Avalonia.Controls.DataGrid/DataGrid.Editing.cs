@@ -110,7 +110,14 @@ internal
             }
             var rowIndex = RowIndexFromSlot(slot);
             var dataItem = DataConnection.GetDataItem(rowIndex);
-            return ReferenceEquals(dataItem, DataGridCollectionView.NewItemPlaceholder);
+            if (ReferenceEquals(dataItem, DataGridCollectionView.NewItemPlaceholder))
+            {
+                return true;
+            }
+
+            return slot >= DisplayData.FirstScrollingSlot &&
+                   slot <= DisplayData.LastScrollingSlot &&
+                   DisplayData.GetDisplayedElement(slot) is DataGridRow { IsPlaceholder: true };
         }
 
         /// <summary>

@@ -714,6 +714,39 @@ internal
         }
 
         /// <summary>
+        /// Identifies the <see cref="EnterKeyNavigationMode"/> property.
+        /// </summary>
+        public static readonly StyledProperty<DataGridEnterKeyNavigationMode> EnterKeyNavigationModeProperty =
+            AvaloniaProperty.Register<DataGrid, DataGridEnterKeyNavigationMode>(
+                nameof(EnterKeyNavigationMode),
+                defaultValue: DataGridEnterKeyNavigationMode.Down);
+
+        /// <summary>
+        /// Gets or sets how ENTER moves the current cell while a cell is being edited.
+        /// </summary>
+        public DataGridEnterKeyNavigationMode EnterKeyNavigationMode
+        {
+            get { return GetValue(EnterKeyNavigationModeProperty); }
+            set { SetValue(EnterKeyNavigationModeProperty, value); }
+        }
+
+        /// <summary>
+        /// Identifies the <see cref="ContinueEditingOnEnter"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> ContinueEditingOnEnterProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(nameof(ContinueEditingOnEnter));
+
+        /// <summary>
+        /// Gets or sets a value that indicates whether ENTER opens the editor in the destination cell
+        /// after committing the current cell.
+        /// </summary>
+        public bool ContinueEditingOnEnter
+        {
+            get { return GetValue(ContinueEditingOnEnterProperty); }
+            set { SetValue(ContinueEditingOnEnterProperty, value); }
+        }
+
+        /// <summary>
         /// Identifies the <see cref="RestrictTextInputEditToCells"/> dependency property.
         /// </summary>
         public static readonly StyledProperty<bool> RestrictTextInputEditToCellsProperty =

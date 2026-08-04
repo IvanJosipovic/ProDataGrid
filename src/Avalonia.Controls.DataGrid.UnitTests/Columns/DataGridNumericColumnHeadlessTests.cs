@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
@@ -99,6 +100,7 @@ public class DataGridNumericColumnHeadlessTests
 
         Assert.Equal(VerticalAlignment.Bottom, displayElement.VerticalAlignment);
         Assert.Equal(VerticalAlignment.Bottom, editingElement.VerticalContentAlignment);
+        Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(editingElement));
     }
 
     private static (Window window, DataGrid grid) CreateWindow(NumericTestViewModel vm, string? formatString = null)
