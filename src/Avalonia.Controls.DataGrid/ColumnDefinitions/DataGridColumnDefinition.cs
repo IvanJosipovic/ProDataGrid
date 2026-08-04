@@ -13,6 +13,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Utilities;
 using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.DataGridSorting;
+using Avalonia.Controls.DataGridSizing;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Styling;
@@ -90,6 +91,7 @@ namespace Avalonia.Controls
         private string _sortMemberPath;
         private object _tag;
         private object _columnKey;
+        private string _widthSharingGroup;
         private System.Collections.IComparer _customSortComparer;
         private IDataGridColumnValueAccessor _valueAccessor;
         private Type _valueType;
@@ -273,6 +275,15 @@ namespace Avalonia.Controls
             set => SetProperty(ref _columnKey, value);
         }
 
+        /// <summary>
+        /// Gets or sets the name of the column width-sharing group.
+        /// </summary>
+        public string WidthSharingGroup
+        {
+            get => _widthSharingGroup;
+            set => SetProperty(ref _widthSharingGroup, value);
+        }
+
         public System.Collections.IComparer CustomSortComparer
         {
             get => _customSortComparer;
@@ -397,6 +408,7 @@ namespace Avalonia.Controls
         {
             column.Header = Header;
             column.ColumnKey = ColumnKey;
+            DataGridColumnWidthSharing.SetGroup(column, WidthSharingGroup);
             column.SortMemberPath = SortMemberPath;
             column.Tag = Tag;
             column.CustomSortComparer = CustomSortComparer;
@@ -608,6 +620,9 @@ namespace Avalonia.Controls
                     return true;
                 case nameof(Tag):
                     column.Tag = Tag;
+                    return true;
+                case nameof(WidthSharingGroup):
+                    DataGridColumnWidthSharing.SetGroup(column, WidthSharingGroup);
                     return true;
                 case nameof(CustomSortComparer):
                     column.CustomSortComparer = CustomSortComparer;

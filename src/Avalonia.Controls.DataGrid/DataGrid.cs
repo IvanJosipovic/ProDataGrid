@@ -517,6 +517,7 @@ internal
             ItemsSourceProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnItemsSourcePropertyChanged(e));
             CanUserResizeColumnsProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnCanUserResizeColumnsChanged(e));
             ColumnWidthProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnColumnWidthChanged(e));
+            ColumnWidthSharingScopeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnColumnWidthSharingScopeChanged(e));
             FrozenColumnCountProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnFrozenColumnCountChanged(e));
             FrozenColumnCountRightProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnFrozenColumnCountRightChanged(e));
             GridLinesVisibilityProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnGridLinesVisibilityChanged(e));

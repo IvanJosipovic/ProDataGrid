@@ -163,6 +163,7 @@ namespace Avalonia.Controls
                     for (int columnIndex = 0; columnIndex < ItemsInternal.Count; columnIndex++)
                     {
                         // Detach the column...
+                        _owningGrid.OnColumnWidthSharingColumnDetached(ItemsInternal[columnIndex]);
                         ItemsInternal[columnIndex].OwningGrid = null;
                         ItemsInternal[columnIndex].ClearElementCache();
                     }
@@ -209,6 +210,7 @@ namespace Avalonia.Controls
                 ItemsInternal.Insert(columnIndexWithFiller, dataGridColumn);
                 dataGridColumn.Index = columnIndexWithFiller;
                 dataGridColumn.OwningGrid = _owningGrid;
+                _owningGrid.OnColumnWidthSharingColumnAttached(dataGridColumn);
                 dataGridColumn.RemoveEditingElement();
                 if (dataGridColumn != RowGroupSpacerColumn && dataGridColumn != FillerColumn)
                 {
@@ -612,6 +614,7 @@ namespace Avalonia.Controls
                     VisibleEdgedColumnsWidth -= dataGridColumn.ActualWidth;
                 }
                 // continue with the base remove
+                _owningGrid.OnColumnWidthSharingColumnDetached(dataGridColumn);
                 dataGridColumn.OwningGrid = null;
                 _owningGrid.OnRemovedColumn_PreNotification(dataGridColumn, headerCell);
                 _owningGrid.OnColumnCollectionChanged_PreNotification(false /*columnsGrew*/);

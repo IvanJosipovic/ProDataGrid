@@ -131,7 +131,7 @@ namespace Avalonia.Controls
         /// </summary>
         internal void EnsureWidth()
         {
-            SetWidthInternalNoCallback(CoerceWidth(this, Width));
+            SetWidthInternalNoCallback(CoerceWidth(this, Width), preserveInheritance: InheritsWidth);
         }
 
         /// <summary>
@@ -260,17 +260,21 @@ namespace Avalonia.Controls
         /// Sets the column's Width directly, without any callback effects.
         /// </summary>
         /// <param name="width">The new Width.</param>
-        internal void SetWidthInternalNoCallback(DataGridLength width)
+        /// <param name="preserveInheritance">Whether the internal update should retain grid-level width inheritance.</param>
+        internal void SetWidthInternalNoCallback(DataGridLength width, bool preserveInheritance = false)
         {
-            var originalValue = _setWidthInternalNoCallback;
+            bool originalNoCallback = _setWidthInternalNoCallback;
+            bool originalInternal = _settingWidthInternally;
             _setWidthInternalNoCallback = true;
+            _settingWidthInternally |= preserveInheritance;
             try
             {
                 SetCurrentValue(WidthProperty, width);
             }
             finally
             {
-                _setWidthInternalNoCallback = originalValue;
+                _setWidthInternalNoCallback = originalNoCallback;
+                _settingWidthInternally = originalInternal;
             }
 
         }

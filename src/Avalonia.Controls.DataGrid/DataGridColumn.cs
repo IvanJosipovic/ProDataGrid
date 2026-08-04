@@ -235,9 +235,23 @@ internal
         /// </summary>
         internal bool IsInitialDesiredWidthDetermined
         {
-            get;
-            set;
+            get => _isInitialDesiredWidthDetermined;
+            set
+            {
+                if (_isInitialDesiredWidthDetermined == value)
+                {
+                    return;
+                }
+
+                _isInitialDesiredWidthDetermined = value;
+                if (value)
+                {
+                    OwningGrid?.OnColumnWidthSharingColumnMeasured(this);
+                }
+            }
         }
+
+        private bool _isInitialDesiredWidthDetermined;
 
         internal double LayoutRoundedWidth
         {

@@ -604,6 +604,8 @@ internal
                 EnsureHorizontalLayout();
                 UpdateSummaryRowLayout();
             }
+
+            ColumnWidthSharingScope?.ReportWidth(updatedColumn);
         }
 
         internal void OnFillerColumnWidthNeeded(double finalWidth)
@@ -1017,6 +1019,7 @@ internal
                 var expected = totalStarColumnsWidth * column.Width.Value / totalStarWeights;
                 column.SetWidthDesiredValue(expected);
                 column.SetWidthDisplayValue(expected);
+                OnColumnWidthSharingSideEffect(column);
             }
         }
 
@@ -1078,6 +1081,7 @@ internal
                 remainingAdjustment -= adjustment;
                 totalStarWeights -= starColumnPair.Key.Width.Value;
                 starColumnPair.Key.SetWidthDisplayValue(Math.Max(DataGrid.DATAGRID_minimumStarColumnWidth, starColumnPair.Key.Width.DisplayValue + adjustment));
+                OnColumnWidthSharingSideEffect(starColumnPair.Key);
             }
 
             return remainingAdjustment;
@@ -1397,7 +1401,8 @@ internal
             {
                 if (column.InheritsWidth)
                 {
-                    column.SetWidthInternalNoCallback(value);
+                    column.SetWidthInternalNoCallback(value, preserveInheritance: true);
+                    ColumnWidthSharingScope?.ReportWidth(column);
                 }
             }
 

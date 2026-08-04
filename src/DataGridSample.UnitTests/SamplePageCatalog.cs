@@ -51,6 +51,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.ColumnSearchPage", static () => new global::DataGridSample.Pages.ColumnSearchPage()),
             ("DataGridSample.Pages.ColumnThemesPage", static () => new global::DataGridSample.Pages.ColumnThemesPage()),
             ("DataGridSample.Pages.ColumnTypesPage", static () => new global::DataGridSample.Pages.ColumnTypesPage()),
+            ("DataGridSample.Pages.ColumnWidthSharingPage", static () => new global::DataGridSample.Pages.ColumnWidthSharingPage()),
             ("DataGridSample.Pages.ComboHyperlinkColumnsPage", static () => new global::DataGridSample.Pages.ComboHyperlinkColumnsPage()),
             ("DataGridSample.Pages.ConditionalFormattingPage", static () => new global::DataGridSample.Pages.ConditionalFormattingPage()),
             ("DataGridSample.Pages.ContainerLifecyclePage", static () => new global::DataGridSample.Pages.ContainerLifecyclePage()),
