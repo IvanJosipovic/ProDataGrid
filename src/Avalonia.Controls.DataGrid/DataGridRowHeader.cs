@@ -290,9 +290,9 @@ internal
                         return;
                     }
 
-                    var preserveSelectionForRowDrag =
-                        OwningGrid.ShouldPreserveSelectionForRowDrag(columnIndex: -1, Slot, OwningGrid.GetRowSelection(Slot), e.KeyModifiers);
-                    if (preserveSelectionForRowDrag)
+                    var deferSelectionForRowDrag =
+                        OwningGrid.ShouldDeferSelectionForRowDrag(columnIndex: -1, Slot, OwningGrid.GetRowSelection(Slot), e);
+                    if (deferSelectionForRowDrag)
                     {
                         e.Handled = true;
                     }
