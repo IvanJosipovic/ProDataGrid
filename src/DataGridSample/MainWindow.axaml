@@ -325,6 +325,9 @@
     <TabItem Header="Excel-like Editing">
       <pages:ExcelLikeEditingPage />
     </TabItem>
+    <TabItem Header="Continuous Editing">
+      <pages:ContinuousEditingPage />
+    </TabItem>
     <TabItem Header="Formula Engine Samples">
       <pages:FormulaEngineSamplesPage />
     </TabItem>
