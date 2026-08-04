@@ -192,6 +192,7 @@ internal
         {
             RecycledDataContext = null;
             RecycledIsPlaceholder = false;
+            IsRecycled = false;
         }
 
         static DataGridRow()

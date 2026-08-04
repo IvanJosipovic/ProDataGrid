@@ -95,11 +95,27 @@ namespace Avalonia.Controls
                 ApplyConditionalFormattingForRow(dataGridRow);
                 dataGridRow.ClearRecyclingState();
 
+                // Placeholder transitions clear every cell's Content before DataContext change,
+                // so regenerate all columns (including templates) — same as before.
+                // Normal recycle: non-template cells keep prior Content; indexer bindings on
+                // Fields[i] often do not refresh until the row is fully re-realized. Template
+                // columns already refresh on DataContext change via OnPropertyChanged.
                 if (hasPlaceholderTransition)
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
                     {
                         cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
+                    }
+                }
+                else if (recycledRow != null)
+                {
+                    foreach (DataGridCell cell in dataGridRow.Cells)
+                    {
+                        if (cell.OwningColumn != null &&
+                            cell.OwningColumn is not DataGridTemplateColumn)
+                        {
+                            cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
+                        }
                     }
                 }
 
