@@ -23,6 +23,7 @@ public class DataGridThemeTokenContractTests
         "DataGridFilterEnumEditorWidth",
         "DataGridPivotHeaderSegmentsSpacing",
         "DataGridColumnBandHeaderSegmentsSpacing",
+        "DataGridColumnBandHeaderBorderThickness",
         "DataGridFilterButtonSize",
         "DataGridFilterGlyphSize",
         "DataGridFilterGlyphStrokeThickness",

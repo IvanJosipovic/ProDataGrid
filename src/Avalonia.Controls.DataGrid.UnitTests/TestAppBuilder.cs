@@ -12,12 +12,20 @@ internal sealed class UnitTestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
     {
-        var options = new AvaloniaHeadlessPlatformOptions
+        bool captureScreenshots = !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR"));
+        AvaloniaHeadlessPlatformOptions options = new AvaloniaHeadlessPlatformOptions
         {
-            UseHeadlessDrawing = true
+            UseHeadlessDrawing = !captureScreenshots
         };
 
-        return AppBuilder.Configure<UnitTestApp>()
+        AppBuilder builder = AppBuilder.Configure<UnitTestApp>();
+        if (captureScreenshots)
+        {
+            builder = builder.UseSkia();
+        }
+
+        return builder
             .UseHeadless(options)
             .AfterPlatformServicesSetup(_ => RegisterHeadlessFontManager());
     }

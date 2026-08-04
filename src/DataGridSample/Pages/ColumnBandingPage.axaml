@@ -11,8 +11,8 @@
     </StackPanel>
 
     <DataGrid Grid.Row="1"
-              ItemsSource="{Binding Source}"
-              ColumnDefinitionsSource="{Binding Bands.ColumnDefinitions}"
+              ItemsSource="{CompiledBinding Source}"
+              ColumnDefinitionsSource="{CompiledBinding Bands.ColumnDefinitions}"
               AutoGenerateColumns="False"
               IsReadOnly="True"
               HeadersVisibility="All"

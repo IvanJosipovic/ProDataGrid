@@ -8,10 +8,13 @@
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls.Automation.Peers;
+using Avalonia.Controls.DataGridBanding;
+using Avalonia.Styling;
 
 namespace Avalonia.Controls.Primitives
 {
@@ -29,6 +32,9 @@ internal
         private Control _dragIndicator;
         private Control _dropLocationIndicator;
         private EventHandler<ChildIndexChangedEventArgs> _childIndexChanged;
+        private readonly List<DataGridColumn> _visibleBandColumns = new();
+        private readonly List<DataGridColumnBandHeaderCell> _bandHeaderCells = new();
+        private int _bandHeaderRowCount = 1;
 
         /// <summary>
         /// Tracks which column is currently being dragged.
@@ -124,14 +130,31 @@ internal
 
         int IChildIndexProvider.GetChildIndex(ILogical child)
         {
-            return child is DataGridColumnHeader header
-                ? header.OwningColumn?.DisplayIndex ?? -1
-                : throw new InvalidOperationException("Invalid cell type");
+            if (child is DataGridColumnHeader header)
+            {
+                return header.OwningColumn?.DisplayIndex ?? -1;
+            }
+
+            if (child is DataGridColumnBandHeaderCell bandHeader &&
+                (uint)bandHeader.StartColumnIndex < (uint)_visibleBandColumns.Count)
+            {
+                return _visibleBandColumns[bandHeader.StartColumnIndex].DisplayIndex;
+            }
+
+            return -1;
         }
 
         bool IChildIndexProvider.TryGetTotalCount(out int count)
         {
-            count = Children.Count - 1; // Adjust for filler column
+            count = 0;
+            foreach (Control child in Children)
+            {
+                if (child is DataGridColumnHeader { OwningColumn: not DataGridFillerColumn })
+                {
+                    count++;
+                }
+            }
+
             return true;
         }
 
@@ -177,10 +200,11 @@ internal
             {
                 DataGridColumnHeader columnHeader = dataGridColumn.HeaderCell;
                 Debug.Assert(columnHeader.OwningColumn == dataGridColumn);
+                GetColumnHeaderVerticalBounds(dataGridColumn, finalSize.Height, out double headerTop, out double headerHeight);
 
                 if (dataGridColumn.IsFrozenLeft)
                 {
-                    columnHeader.Arrange(new Rect(frozenLeftEdge, 0, dataGridColumn.LayoutRoundedWidth, finalSize.Height));
+                    columnHeader.Arrange(new Rect(frozenLeftEdge, headerTop, dataGridColumn.LayoutRoundedWidth, headerHeight));
                     columnHeader.Clip = null; // The layout system could have clipped this because it's not aware of our render transform
                     if (DragColumn == dataGridColumn && DragIndicator != null)
                     {
@@ -190,7 +214,7 @@ internal
                 }
                 else if (dataGridColumn.IsFrozenRight)
                 {
-                    columnHeader.Arrange(new Rect(rightFrozenEdge, 0, dataGridColumn.LayoutRoundedWidth, finalSize.Height));
+                    columnHeader.Arrange(new Rect(rightFrozenEdge, headerTop, dataGridColumn.LayoutRoundedWidth, headerHeight));
                     columnHeader.Clip = null; // The layout system could have clipped this because it's not aware of our render transform
                     if (DragColumn == dataGridColumn && DragIndicator != null)
                     {
@@ -200,8 +224,8 @@ internal
                 }
                 else
                 {
-                    columnHeader.Arrange(new Rect(scrollingLeftEdge, 0, dataGridColumn.LayoutRoundedWidth, finalSize.Height));
-                    EnsureColumnHeaderClip(columnHeader, dataGridColumn.ActualWidth, finalSize.Height, frozenLeftWidth, rightFrozenStart, scrollingLeftEdge);
+                    columnHeader.Arrange(new Rect(scrollingLeftEdge, headerTop, dataGridColumn.LayoutRoundedWidth, headerHeight));
+                    EnsureColumnHeaderClip(columnHeader, dataGridColumn.ActualWidth, headerHeight, frozenLeftWidth, rightFrozenStart, scrollingLeftEdge);
                     if (DragColumn == dataGridColumn && DragIndicator != null)
                     {
                         dragIndicatorLeftEdge = scrollingLeftEdge + DragIndicatorOffset;
@@ -210,6 +234,9 @@ internal
                 }
                 scrollingLeftEdge += dataGridColumn.ActualWidth;
             }
+
+            ArrangeBandHeaderCells(finalSize.Height, frozenLeftWidth, rightFrozenStart);
+
             if (DragColumn != null)
             {
                 if (DragIndicator != null)
@@ -350,6 +377,8 @@ internal
             {
                 return default;
             }
+            UpdateBandHeaderCells();
+
             double height = OwningGrid.ColumnHeaderHeight;
             bool autoSizeHeight;
             if (double.IsNaN(height))
@@ -431,6 +460,22 @@ internal
                 }
             }
 
+            foreach (DataGridColumnBandHeaderCell bandHeader in _bandHeaderCells)
+            {
+                bandHeader.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                AutoSizeColumnsForBandHeader(bandHeader, bandHeader.DesiredSize.Width);
+                bandHeader.Measure(new Size(GetBandHeaderWidth(bandHeader), double.PositiveInfinity));
+                if (autoSizeHeight)
+                {
+                    height = Math.Max(height, bandHeader.DesiredSize.Height);
+                }
+            }
+
+            if (autoSizeHeight && _bandHeaderRowCount > 1)
+            {
+                height *= _bandHeaderRowCount;
+            }
+
             // Add the filler column if it's not represented.  We won't know whether we need it or not until Arrange
             DataGridFillerColumn fillerColumn = OwningGrid.ColumnsInternal.FillerColumn;
             if (!fillerColumn.IsRepresented)
@@ -456,6 +501,289 @@ internal
 
             OwningGrid.ColumnsInternal.EnsureVisibleEdgedColumnsWidth();
             return new Size(OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth, height);
+        }
+
+        private void UpdateBandHeaderCells()
+        {
+            _visibleBandColumns.Clear();
+            int maximumDepth = 1;
+            bool hasGroupedHeaders = false;
+
+            foreach (DataGridColumn column in OwningGrid.ColumnsInternal.GetVisibleColumns())
+            {
+                _visibleBandColumns.Add(column);
+                if (TryGetGroupedHeader(column, out ColumnBandHeader header))
+                {
+                    hasGroupedHeaders = true;
+                    maximumDepth = Math.Max(maximumDepth, header.Segments.Count);
+                }
+            }
+
+            _bandHeaderRowCount = hasGroupedHeaders ? maximumDepth : 1;
+            int bandCellIndex = 0;
+            if (hasGroupedHeaders)
+            {
+                for (int level = 0; level < maximumDepth - 1; level++)
+                {
+                    int columnIndex = 0;
+                    while (columnIndex < _visibleBandColumns.Count)
+                    {
+                        DataGridColumn startColumn = _visibleBandColumns[columnIndex];
+                        if (!TryGetGroupedHeader(startColumn, out ColumnBandHeader startHeader) ||
+                            startHeader.Segments.Count <= level + 1)
+                        {
+                            columnIndex++;
+                            continue;
+                        }
+
+                        int startIndex = columnIndex;
+                        columnIndex++;
+                        while (columnIndex < _visibleBandColumns.Count &&
+                               IsSameBandGroup(startColumn, startHeader, _visibleBandColumns[columnIndex], level))
+                        {
+                            columnIndex++;
+                        }
+
+                        DataGridColumnBandHeaderCell cell = GetOrCreateBandHeaderCell(bandCellIndex++);
+                        cell.Content = startHeader.Segments[level];
+                        cell.StartColumnIndex = startIndex;
+                        cell.EndColumnIndex = columnIndex - 1;
+                        cell.Level = level;
+                        cell.IsFrozenLeft = startColumn.IsFrozenLeft;
+                        cell.IsFrozenRight = startColumn.IsFrozenRight;
+                    }
+                }
+            }
+
+            while (_bandHeaderCells.Count > bandCellIndex)
+            {
+                int index = _bandHeaderCells.Count - 1;
+                DataGridColumnBandHeaderCell cell = _bandHeaderCells[index];
+                _bandHeaderCells.RemoveAt(index);
+                Children.Remove(cell);
+            }
+        }
+
+        private DataGridColumnBandHeaderCell GetOrCreateBandHeaderCell(int index)
+        {
+            if (index < _bandHeaderCells.Count)
+            {
+                DataGridColumnBandHeaderCell existing = _bandHeaderCells[index];
+                EnsureBandHeaderCellTheme(existing);
+                if (!Children.Contains(existing))
+                {
+                    Children.Add(existing);
+                }
+
+                return existing;
+            }
+
+            DataGridColumnBandHeaderCell cell = new DataGridColumnBandHeaderCell();
+            EnsureBandHeaderCellTheme(cell);
+            _bandHeaderCells.Add(cell);
+            Children.Add(cell);
+            return cell;
+        }
+
+        private void EnsureBandHeaderCellTheme(DataGridColumnBandHeaderCell cell)
+        {
+            if (cell.Theme == null &&
+                OwningGrid.TryFindResource(typeof(DataGridColumnBandHeaderCell), out object theme) &&
+                theme is ControlTheme controlTheme)
+            {
+                cell.Theme = controlTheme;
+            }
+        }
+
+        private void GetColumnHeaderVerticalBounds(
+            DataGridColumn column,
+            double totalHeight,
+            out double top,
+            out double height)
+        {
+            if (_bandHeaderRowCount > 1 && TryGetGroupedHeader(column, out ColumnBandHeader header))
+            {
+                double rowHeight = totalHeight / _bandHeaderRowCount;
+                int leafLevel = Math.Max(0, header.Segments.Count - 1);
+                top = leafLevel * rowHeight;
+                height = totalHeight - top;
+                return;
+            }
+
+            top = 0;
+            height = totalHeight;
+        }
+
+        private void ArrangeBandHeaderCells(double totalHeight, double frozenLeftWidth, double rightFrozenStart)
+        {
+            if (_bandHeaderCells.Count == 0 || _bandHeaderRowCount <= 1)
+            {
+                return;
+            }
+
+            double rowHeight = totalHeight / _bandHeaderRowCount;
+            foreach (DataGridColumnBandHeaderCell cell in _bandHeaderCells)
+            {
+                if ((uint)cell.StartColumnIndex >= (uint)_visibleBandColumns.Count ||
+                    (uint)cell.EndColumnIndex >= (uint)_visibleBandColumns.Count)
+                {
+                    continue;
+                }
+
+                DataGridColumnHeader firstHeader = _visibleBandColumns[cell.StartColumnIndex].HeaderCell;
+                DataGridColumnHeader lastHeader = _visibleBandColumns[cell.EndColumnIndex].HeaderCell;
+                double left = firstHeader.Bounds.X;
+                double width = Math.Max(0, lastHeader.Bounds.Right - left);
+                cell.Arrange(new Rect(left, cell.Level * rowHeight, width, rowHeight));
+
+                if (cell.IsFrozenLeft || cell.IsFrozenRight)
+                {
+                    cell.Clip = null;
+                }
+                else
+                {
+                    EnsureControlClip(cell, width, rowHeight, frozenLeftWidth, rightFrozenStart, left);
+                }
+            }
+        }
+
+        private double GetBandHeaderWidth(DataGridColumnBandHeaderCell cell)
+        {
+            if ((uint)cell.StartColumnIndex >= (uint)_visibleBandColumns.Count ||
+                (uint)cell.EndColumnIndex >= (uint)_visibleBandColumns.Count)
+            {
+                return 0;
+            }
+
+            double width = 0;
+            for (int index = cell.StartColumnIndex; index <= cell.EndColumnIndex; index++)
+            {
+                width += _visibleBandColumns[index].ActualWidth;
+            }
+
+            return width;
+        }
+
+        private void AutoSizeColumnsForBandHeader(DataGridColumnBandHeaderCell cell, double desiredWidth)
+        {
+            double remainingGrowth = desiredWidth - GetBandHeaderWidth(cell);
+            if (remainingGrowth <= 0)
+            {
+                return;
+            }
+
+            while (remainingGrowth > 0.001)
+            {
+                int candidateCount = 0;
+                for (int index = cell.StartColumnIndex; index <= cell.EndColumnIndex; index++)
+                {
+                    DataGridColumn column = _visibleBandColumns[index];
+                    if ((column.Width.IsAuto || column.Width.IsSizeToHeader) &&
+                        column.ActualWidth + 0.001 < column.ActualMaxWidth)
+                    {
+                        candidateCount++;
+                    }
+                }
+
+                if (candidateCount == 0)
+                {
+                    break;
+                }
+
+                double requestedGrowth = remainingGrowth / candidateCount;
+                double appliedGrowth = 0;
+                for (int index = cell.StartColumnIndex; index <= cell.EndColumnIndex; index++)
+                {
+                    DataGridColumn column = _visibleBandColumns[index];
+                    if ((!column.Width.IsAuto && !column.Width.IsSizeToHeader) ||
+                        column.ActualWidth + 0.001 >= column.ActualMaxWidth)
+                    {
+                        continue;
+                    }
+
+                    double currentWidth = column.ActualWidth;
+                    OwningGrid.AutoSizeColumn(column, currentWidth + requestedGrowth);
+                    appliedGrowth += Math.Max(0, column.ActualWidth - currentWidth);
+                }
+
+                if (appliedGrowth <= 0.001)
+                {
+                    break;
+                }
+
+                remainingGrowth = Math.Max(0, remainingGrowth - appliedGrowth);
+            }
+        }
+
+        private static bool TryGetGroupedHeader(DataGridColumn column, out ColumnBandHeader header)
+        {
+            header = column?.Header as ColumnBandHeader;
+            return header?.Layout == ColumnBandHeaderLayout.Grouped && header.Segments.Count > 0;
+        }
+
+        private static bool IsSameBandGroup(
+            DataGridColumn startColumn,
+            ColumnBandHeader startHeader,
+            DataGridColumn candidateColumn,
+            int level)
+        {
+            if (candidateColumn.IsFrozenLeft != startColumn.IsFrozenLeft ||
+                candidateColumn.IsFrozenRight != startColumn.IsFrozenRight ||
+                !TryGetGroupedHeader(candidateColumn, out ColumnBandHeader candidateHeader) ||
+                candidateHeader.Segments.Count <= level + 1)
+            {
+                return false;
+            }
+
+            for (int index = 0; index <= level; index++)
+            {
+                bool startHasKey = startHeader.SegmentKeys.Count > index;
+                bool candidateHasKey = candidateHeader.SegmentKeys.Count > index;
+                if (startHasKey || candidateHasKey)
+                {
+                    if (!startHasKey ||
+                        !candidateHasKey ||
+                        !ReferenceEquals(startHeader.SegmentKeys[index], candidateHeader.SegmentKeys[index]))
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+
+                if (!string.Equals(startHeader.Segments[index], candidateHeader.Segments[index], StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static void EnsureControlClip(
+            Control control,
+            double width,
+            double height,
+            double frozenLeftWidth,
+            double rightFrozenStart,
+            double leftEdge)
+        {
+            double leftClip = Math.Max(0, frozenLeftWidth - leftEdge);
+            double rightClip = rightFrozenStart < double.PositiveInfinity
+                ? Math.Max(0, (leftEdge + width) - rightFrozenStart)
+                : 0;
+
+            if (leftClip > 0 || rightClip > 0)
+            {
+                control.Clip = new RectangleGeometry
+                {
+                    Rect = new Rect(leftClip, 0, Math.Max(0, width - leftClip - rightClip), height)
+                };
+            }
+            else
+            {
+                control.Clip = null;
+            }
         }
 
         protected override void ChildrenChanged(object sender, NotifyCollectionChangedEventArgs e)
