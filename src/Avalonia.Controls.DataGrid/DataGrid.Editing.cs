@@ -345,7 +345,28 @@ internal
                 CaptureRowValidationSnapshot(dataGridRow);
             }
 
-            dataGridCell = TryGetCell(dataGridRow, CurrentColumnIndex);
+            if (currentColumnIndex < 0 || currentColumnIndex >= ColumnsItemsInternal.Count)
+            {
+                return false;
+            }
+
+            DataGridColumn editingColumn = ColumnsItemsInternal[currentColumnIndex];
+            if (!editingColumn.IsVisible || GetColumnEffectiveReadOnlyState(editingColumn))
+            {
+                return false;
+            }
+
+            if ((CurrentColumnIndex != currentColumnIndex || CurrentSlot != dataGridRow.Slot) &&
+                !SetCurrentCellCore(
+                    currentColumnIndex,
+                    dataGridRow.Slot,
+                    commitEdit: true,
+                    endRowEdit: false))
+            {
+                return false;
+            }
+
+            dataGridCell = TryGetCell(dataGridRow, currentColumnIndex);
             if (dataGridCell == null)
             {
                 return false;
@@ -355,12 +376,12 @@ internal
             _editingCellValidationSnapshot = CellValidationSnapshot.Capture(dataGridCell);
             // Hide existing cell errors while editing to avoid duplicate validation visuals.
             DataValidationErrors.ClearErrors(dataGridCell);
-            _editingColumnIndex = CurrentColumnIndex;
+            _editingColumnIndex = currentColumnIndex;
             _editingEventArgs = editingEventArgs;
             dataGridCell.UpdatePseudoClasses();
             PopulateCellContent(
                 isCellEdited: true,
-                dataGridColumn: CurrentColumn,
+                dataGridColumn: editingColumn,
                 dataGridRow: dataGridRow,
                 dataGridCell: dataGridCell);
             return true;
