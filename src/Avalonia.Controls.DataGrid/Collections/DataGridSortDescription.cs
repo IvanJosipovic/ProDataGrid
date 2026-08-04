@@ -42,9 +42,14 @@ internal
         internal virtual void Initialize(Type itemType)
         { }
 
-        private static object InvokePath(object item, string propertyPath, Type propertyType)
+        private static object InvokePath(object item, string propertyPath, Type propertyType, Type itemType)
         {
-            object propertyValue = TypeHelper.GetNestedPropertyValue(item, propertyPath, propertyType, out Exception exception);
+            object propertyValue = TypeHelper.GetNestedPropertyValue(
+                item,
+                propertyPath,
+                propertyType,
+                itemType,
+                out Exception exception);
             if (exception != null)
             {
                 throw exception;
@@ -118,6 +123,7 @@ internal
                 private readonly string _propertyPath;
                 private readonly Lazy<CultureSensitiveComparer> _cultureSensitiveComparer;
                 private readonly Lazy<IComparer<object>> _comparer;
+                private Type _itemType;
                 private Type _propertyType;
                 private IComparer _internalComparer;
                 private IComparer<object> _internalComparerTyped;
@@ -153,6 +159,7 @@ internal
             {
                 _propertyPath = inner._propertyPath;
                 _direction = direction;
+                _itemType = inner._itemType;
                 _propertyType = inner._propertyType;
                 _cultureSensitiveComparer = inner._cultureSensitiveComparer;
                 _internalComparer = inner._internalComparer;
@@ -167,7 +174,19 @@ internal
                     return null;
 
                 if (HasPropertyPath)
-                    return InvokePath(o, _propertyPath, _propertyType);
+                {
+                    if (_propertyType == null)
+                    {
+                        _propertyType = GetPropertyType(o);
+                    }
+
+                    if (_propertyType == null)
+                    {
+                        return null;
+                    }
+
+                    return InvokePath(o, _propertyPath, _propertyType, _itemType ?? o.GetType());
+                }
 
                 if (_propertyType == o.GetType())
                     return o;
@@ -209,7 +228,33 @@ internal
 
             private Type GetPropertyType(object o)
             {
-                return o.GetType().GetNestedPropertyType(_propertyPath);
+                Type itemType = _itemType ?? GetPathRootType(o.GetType());
+                Type propertyType = itemType.GetNestedPropertyType(_propertyPath);
+                if (propertyType != null)
+                {
+                    _itemType = itemType;
+                }
+
+                return propertyType;
+            }
+
+            private Type GetPathRootType(Type itemType)
+            {
+                if (!HasPropertyPath)
+                {
+                    return itemType;
+                }
+
+                List<string> propertyNames = TypeHelper.SplitPropertyPath(_propertyPath);
+                if (propertyNames.Count == 0)
+                {
+                    return itemType;
+                }
+
+                var property = itemType.GetPropertyOrIndexer(propertyNames[0], out _);
+                return property?.DeclaringType?.IsInterface == true
+                    ? property.DeclaringType
+                    : itemType;
             }
 
             private int Compare(object x, object y)
@@ -247,7 +292,14 @@ internal
                 base.Initialize(itemType);
 
                 if(_propertyType == null)
-                    _propertyType = itemType.GetNestedPropertyType(_propertyPath);
+                {
+                    Type pathRootType = GetPathRootType(itemType);
+                    _propertyType = pathRootType.GetNestedPropertyType(_propertyPath);
+                    if (_propertyType != null)
+                    {
+                        _itemType = pathRootType;
+                    }
+                }
                 if (_internalComparer == null && _propertyType != null)
                     _internalComparer = GetComparerForType(_propertyType);
             }

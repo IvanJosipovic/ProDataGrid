@@ -540,6 +540,13 @@
     <TabItem Header="Sorting Model">
       <pages:SortingModelPage />
     </TabItem>
+    <TabItem Header="Explicit Interface Sorting">
+      <pages:ExplicitInterfaceSortingPage>
+        <pages:ExplicitInterfaceSortingPage.DataContext>
+          <viewModels:ExplicitInterfaceSortingViewModel />
+        </pages:ExplicitInterfaceSortingPage.DataContext>
+      </pages:ExplicitInterfaceSortingPage>
+    </TabItem>
     <TabItem Header="Sort Direction Restore">
       <pages:SortDirectionPage />
     </TabItem>
