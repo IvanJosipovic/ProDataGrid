@@ -51,6 +51,96 @@ public class DataGridRowGroupExpandCollapseAllTests
     }
 
     [AvaloniaFact]
+    public void CollapseAllGroups_Hides_All_Realized_Rows_For_Dominant_Nested_Group()
+    {
+        var items = new List<Item>();
+        for (var index = 0; index < 640; index++)
+        {
+            items.Add(new Item("Dominant", $"Segment {index / 4}", $"Item {index}"));
+        }
+        for (var index = 640; index < 680; index++)
+        {
+            items.Add(new Item($"Group {index - 640}", "Segment", $"Item {index}"));
+        }
+
+        var (grid, _, root) = CreateNestedGroupedGrid(items, height: 320);
+
+        try
+        {
+            grid.CollapseAllGroups();
+            PumpLayout(grid);
+            grid.ExpandAllGroups();
+            PumpLayout(grid);
+            Assert.NotEmpty(GetVisibleRows(grid));
+
+            DataGridRowGroupInfo dominantGroup = GetRowGroupInfos(grid)
+                .First(info => info.Level == 0);
+            grid.ScrollIntoView(items[500], grid.ColumnsInternal[0]);
+            PumpLayout(grid);
+
+            Assert.True(dominantGroup.Slot < grid.DisplayData.FirstScrollingSlot);
+            Assert.Contains(GetVisibleRows(grid), row => ReferenceEquals(row.DataContext, items[500]));
+
+            grid.CollapseAllGroups();
+
+            Assert.Empty(GetVisibleRows(grid));
+            Assert.InRange(grid.GetVerticalOffset(), 0, 0.01);
+            Assert.Equal(0, grid.DisplayData.FirstScrollingSlot);
+            Assert.IsType<DataGridRowGroupHeader>(grid.DisplayData.GetDisplayedElement(0));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void CollapseAllGroups_Rebuilds_From_Positive_Adjusted_Legacy_Offset()
+    {
+        const int prefixGroupCount = 80;
+        var items = new List<Item>();
+        for (var index = 0; index < prefixGroupCount; index++)
+        {
+            items.Add(new Item($"Prefix {index:D2}", "Segment", $"Prefix item {index}"));
+        }
+        for (var index = 0; index < 640; index++)
+        {
+            items.Add(new Item("Dominant", $"Segment {index / 4}", $"Dominant item {index}"));
+        }
+        for (var index = 0; index < 20; index++)
+        {
+            items.Add(new Item($"Suffix {index:D2}", "Segment", $"Suffix item {index}"));
+        }
+
+        var (grid, _, root) = CreateNestedGroupedGrid(items, height: 320);
+
+        try
+        {
+            DataGridRowGroupInfo dominantGroup = GetRowGroupInfos(grid)
+                .Where(info => info.Level == 0)
+                .Skip(prefixGroupCount)
+                .First();
+            Item targetItem = items[prefixGroupCount + 630];
+            grid.ScrollIntoView(targetItem, grid.ColumnsInternal[0]);
+            PumpLayout(grid);
+
+            Assert.True(dominantGroup.Slot < grid.DisplayData.FirstScrollingSlot);
+
+            grid.CollapseAllGroups();
+
+            Assert.Empty(GetVisibleRows(grid));
+            Assert.True(grid.GetVerticalOffset() > 0);
+            Assert.True(grid.DisplayData.FirstScrollingSlot < dominantGroup.Slot);
+            Assert.IsType<DataGridRowGroupHeader>(
+                grid.DisplayData.GetDisplayedElement(grid.DisplayData.FirstScrollingSlot));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void ExpandAllGroups_Expands_All_Groups_After_Collapse()
     {
         var (grid, view, root) = CreateNestedGroupedGrid();
@@ -204,9 +294,11 @@ public class DataGridRowGroupExpandCollapseAllTests
         }
     }
 
-    private static (DataGrid grid, DataGridCollectionView view, Window root) CreateNestedGroupedGrid()
+    private static (DataGrid grid, DataGridCollectionView view, Window root) CreateNestedGroupedGrid(
+        IReadOnlyList<Item>? source = null,
+        double height = 400)
     {
-        var items = new List<Item>
+        var items = source ?? new List<Item>
         {
             new("A", "X", "One"),
             new("A", "Y", "Two"),
@@ -223,7 +315,7 @@ public class DataGridRowGroupExpandCollapseAllTests
         var root = new Window
         {
             Width = 600,
-            Height = 400,
+            Height = height,
         };
 
         root.SetThemeStyles();
@@ -270,6 +362,14 @@ public class DataGridRowGroupExpandCollapseAllTests
         return grid.RowGroupHeadersTable.GetIndexes()
             .Select(slot => grid.RowGroupHeadersTable.GetValueAt(slot))
             .Where(info => info != null)
+            .ToList();
+    }
+
+    private static IReadOnlyList<DataGridRow> GetVisibleRows(DataGrid grid)
+    {
+        return grid.GetVisualDescendants()
+            .OfType<DataGridRow>()
+            .Where(row => row.IsVisible)
             .ToList();
     }
 

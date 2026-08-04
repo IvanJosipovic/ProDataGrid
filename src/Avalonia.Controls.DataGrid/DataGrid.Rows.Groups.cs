@@ -1147,9 +1147,93 @@ namespace Avalonia.Controls
                 }
             }
 
+            if (DisplayData.FirstScrollingSlot >= 0)
+            {
+                // The per-group removals are incremental and can leave the numeric displayed range
+                // spanning slots that became collapsed. Rebuild the realized range once after every
+                // collapsed-slot update has settled so no stale row remains mapped inside that range.
+                bool useAdjustedLegacyOffset = !UseLogicalScrollable;
+                bool isAtTop = MathUtilities.AreClose(_verticalOffset, 0);
+                double adjustedOffset = _verticalOffset;
+                double adjustedNegVerticalOffset = NegVerticalOffset;
+                int firstVisibleSlot = useAdjustedLegacyOffset
+                    ? GetVisibleSlotAtLegacyOffset(
+                        _verticalOffset,
+                        out adjustedOffset,
+                        out adjustedNegVerticalOffset)
+                    : isAtTop
+                        ? GetNextVisibleSlot(-1)
+                        : NormalizeDisplayedFirstSlot(DisplayData.FirstScrollingSlot);
+                ResetDisplayedRows();
+                if (useAdjustedLegacyOffset)
+                {
+                    NegVerticalOffset = adjustedNegVerticalOffset;
+                    SetVerticalOffset(adjustedOffset);
+                }
+                else if (isAtTop)
+                {
+                    NegVerticalOffset = 0;
+                    SetVerticalOffset(0);
+                }
+                if (firstVisibleSlot >= 0)
+                {
+                    UpdateDisplayedRows(firstVisibleSlot, CellsEstimatedHeight);
+                }
+            }
+
             ComputeScrollBarsLayout();
             RefreshLogicalScrollStateAfterGroupingVisibilityChange();
             InvalidateRowsArrange();
+        }
+
+        private int GetVisibleSlotAtLegacyOffset(
+            double requestedOffset,
+            out double adjustedOffset,
+            out double negVerticalOffset)
+        {
+            int firstVisibleSlot = GetNextVisibleSlot(-1);
+            if (firstVisibleSlot < 0 || firstVisibleSlot >= SlotCount)
+            {
+                adjustedOffset = 0;
+                negVerticalOffset = 0;
+                return -1;
+            }
+
+            double visibleContentHeight = 0;
+            for (int slot = firstVisibleSlot;
+                slot >= 0 && slot < SlotCount;
+                slot = GetNextVisibleSlot(slot))
+            {
+                visibleContentHeight += GetSlotElementHeight(slot);
+            }
+
+            double maximumOffset = Math.Max(0, visibleContentHeight - Math.Max(0, CellsEstimatedHeight));
+            adjustedOffset = Math.Clamp(requestedOffset, 0, maximumOffset);
+            double remainingOffset = adjustedOffset;
+            int currentSlot = firstVisibleSlot;
+
+            while (currentSlot >= 0 && currentSlot < SlotCount)
+            {
+                double currentHeight = GetSlotElementHeight(currentSlot);
+                int nextSlot = GetNextVisibleSlot(currentSlot);
+                if (MathUtilities.LessThan(remainingOffset, currentHeight) ||
+                    nextSlot < 0 ||
+                    nextSlot >= SlotCount)
+                {
+                    negVerticalOffset = Math.Clamp(
+                        remainingOffset,
+                        0,
+                        Math.Max(0, currentHeight - MathUtilities.DoubleEpsilon));
+                    return currentSlot;
+                }
+
+                remainingOffset -= currentHeight;
+                currentSlot = nextSlot;
+            }
+
+            adjustedOffset = 0;
+            negVerticalOffset = 0;
+            return firstVisibleSlot;
         }
 
 
