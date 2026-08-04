@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Controls.Utils;
 using Avalonia.Data;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Headless.XUnit;
@@ -413,6 +414,75 @@ public class DataGridValidationTests
     }
 
     [AvaloniaFact]
+    public void INotifyDataErrorInfo_committed_warning_is_cleared_by_later_model_change()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_warning_introduced_by_edit_is_later_cleared()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid(initialCode: "Valid");
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            TextBox textBox = Assert.IsType<TextBox>(cell.Content);
+            textBox.Text = "X";
+            UpdateEditingElementSource(textBox);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void INotifyDataErrorInfo_validation_restores_on_row_recycle()
     {
         var (grid, root, item, column) = CreateNotifyValidationGrid();
@@ -440,6 +510,408 @@ public class DataGridValidationTests
             Assert.True(((IPseudoClasses)restoredCell.Classes).Contains(":warning"));
             Assert.True(DataValidationErrors.GetHasErrors(restoredCell));
             Assert.Equal(DataGridValidationSeverity.None, restoredRow.ValidationSeverity);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_programmatic_change_refreshes_realized_cell_validation()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid(initialCode: "Valid");
+
+        try
+        {
+            var cell = FindCell(grid, item, column.Index);
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "X";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(((IPseudoClasses)cell.Classes).Contains(":warning"));
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, cell.ValidationSeverity);
+            Assert.False(((IPseudoClasses)cell.Classes).Contains(":warning"));
+            Assert.False(DataValidationErrors.GetHasErrors(cell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_refresh_preserves_same_cell_binding_error()
+    {
+        var (grid, root, item, column) = CreateNotifyValidationGrid(initialCode: "Valid");
+
+        try
+        {
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            var bindingError = new DataValidationException(
+                new DataGridValidationResult("Binding error", DataGridValidationSeverity.Error));
+            DataValidationErrors.SetError(cell, bindingError);
+            object displayedBindingError = Assert.Single(DataValidationErrors.GetErrors(cell));
+            cell.IsValid = false;
+            cell.ValidationSeverity = DataGridValidationSeverity.Error;
+            cell.UpdatePseudoClasses();
+
+            item.Code = "X";
+            grid.UpdateLayout();
+
+            Assert.Contains(displayedBindingError, DataValidationErrors.GetErrors(cell));
+            Assert.True(DataValidationErrors.GetHasErrors(cell));
+
+            item.Code = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Same(displayedBindingError, Assert.Single(DataValidationErrors.GetErrors(cell)));
+            Assert.Equal(DataGridValidationSeverity.Error, cell.ValidationSeverity);
+            Assert.False(cell.IsValid);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_all_property_change_preserves_binding_validation()
+    {
+        var (grid, root, item, _, warningColumn) = CreateMixedValidationGrid();
+
+        try
+        {
+            item.ErrorValue = "Valid";
+            grid.UpdateLayout();
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                warningColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            grid.UpdateLayout();
+
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell warningCell = FindCell(grid, item, warningColumn.Index);
+            TextBox textBox = Assert.IsType<TextBox>(warningCell.Content);
+            textBox.Text = "X";
+            UpdateEditingElementSource(textBox);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(warningCell));
+
+            item.NotifyAllPropertiesChanged();
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
+            Assert.True(DataValidationErrors.GetHasErrors(warningCell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_all_property_change_clears_removed_indei_error()
+    {
+        var (grid, root, item, errorColumn, _) = CreateMixedValidationGrid();
+
+        try
+        {
+            DataGridCell errorCell = FindCell(grid, item, errorColumn.Index);
+            Assert.Equal(DataGridValidationSeverity.Error, errorCell.ValidationSeverity);
+
+            item.ClearErrorsAndNotifyAllProperties();
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, errorCell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(errorCell));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_clear_preserves_same_cell_setter_warning_after_edit()
+    {
+        var item = new MixedValidationItem
+        {
+            WarningValue = "Okay"
+        };
+        item.SetWarningValueError();
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<MixedValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var warningColumn = new MixedSourceValidationColumn();
+        grid.ColumnsInternal.Add(warningColumn);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                warningColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell warningCell = FindCell(grid, item, warningColumn.Index);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Contains(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Model warning"));
+            Assert.Contains(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Warning value should"));
+
+            item.ClearWarningValueError();
+            grid.UpdateLayout();
+
+            Assert.DoesNotContain(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Model warning"));
+            Assert.Contains(
+                DataValidationErrors.GetErrors(warningCell),
+                error => ErrorContainsMessage(error, "Warning value should"));
+            Assert.Equal(DataGridValidationSeverity.Warning, warningCell.ValidationSeverity);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_clear_preserves_identical_setter_warning_after_edit()
+    {
+        var item = new SameMessageValidationItem();
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<SameMessageValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var column = new DataGridTextColumn
+        {
+            Header = "Value",
+            Binding = new Binding(nameof(SameMessageValidationItem.Value))
+        };
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            TextBox textBox = Assert.IsType<TextBox>(cell.Content);
+            textBox.Text = "Rejected";
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Equal(
+                2,
+                DataValidationErrors.GetErrors(cell).Count(
+                    error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage)));
+
+            item.ClearModelError();
+            grid.UpdateLayout();
+
+            Assert.Single(
+                DataValidationErrors.GetErrors(cell),
+                error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage));
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(cell.IsValid);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_clear_preserves_identical_custom_binding_warning_after_edit()
+    {
+        var item = new SameMessageValidationItem();
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<SameMessageValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var column = new SameMessageCustomValidationColumn();
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            Assert.True(grid.CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true));
+            grid.UpdateLayout();
+
+            Assert.Equal(
+                2,
+                DataValidationErrors.GetErrors(cell).Count(
+                    error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage)));
+
+            item.ClearModelError();
+            grid.UpdateLayout();
+
+            Assert.Single(
+                DataValidationErrors.GetErrors(cell),
+                error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage));
+            Assert.Equal(DataGridValidationSeverity.Warning, cell.ValidationSeverity);
+            Assert.True(cell.IsValid);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_error_overrides_custom_binding_warning_during_edit()
+    {
+        var item = new SameMessageValidationItem(DataGridValidationSeverity.Error);
+        var root = new Window
+        {
+            Width = 600,
+            Height = 300
+        };
+        root.SetThemeStyles(DataGridTheme.Simple);
+        var grid = new DataGrid
+        {
+            ItemsSource = new ObservableCollection<SameMessageValidationItem> { item },
+            AutoGenerateColumns = false
+        };
+        var column = new SameMessageCustomValidationColumn();
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.ApplyTemplate();
+        grid.UpdateLayout();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                column.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell cell = FindCell(grid, item, column.Index);
+            DataGridRow row = FindRow(grid, item);
+            Assert.False(grid.CommitEdit());
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.Error, cell.ValidationSeverity);
+            Assert.False(cell.IsValid);
+            Assert.Equal(DataGridValidationSeverity.Error, row.ValidationSeverity);
+            Assert.False(row.IsValid);
+            Assert.False(grid.IsValid);
+            Assert.Equal(
+                2,
+                DataValidationErrors.GetErrors(cell).Count(
+                    error => ErrorContainsMessage(error, SameMessageValidationItem.ErrorMessage)));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void INotifyDataErrorInfo_change_refreshes_non_editing_cell_on_editing_row()
+    {
+        var (grid, root, item, errorColumn, warningColumn) = CreateMixedValidationGrid();
+
+        try
+        {
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                warningColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            grid.UpdateLayout();
+
+            DataGridCell errorCell = FindCell(grid, item, errorColumn.Index);
+            Assert.Equal(DataGridValidationSeverity.Error, errorCell.ValidationSeverity);
+
+            item.ErrorValue = "Valid";
+            grid.UpdateLayout();
+
+            Assert.Equal(DataGridValidationSeverity.None, errorCell.ValidationSeverity);
+            Assert.False(DataValidationErrors.GetHasErrors(errorCell));
+            Assert.Equal(warningColumn.Index, grid.EditingColumnIndex);
         }
         finally
         {
@@ -830,14 +1302,19 @@ public class DataGridValidationTests
 
     private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid()
     {
-        return CreateNotifyValidationGrid(TwoWayBinding(nameof(NotifyValidationItem.Code)));
+        return CreateNotifyValidationGrid(TwoWayBinding(nameof(NotifyValidationItem.Code)), "X");
     }
 
-    private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid(BindingBase binding)
+    private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid(string initialCode)
+    {
+        return CreateNotifyValidationGrid(TwoWayBinding(nameof(NotifyValidationItem.Code)), initialCode);
+    }
+
+    private static (DataGrid grid, Window root, NotifyValidationItem item, DataGridTextColumn column) CreateNotifyValidationGrid(BindingBase binding, string initialCode = "X")
     {
         var item = new NotifyValidationItem
         {
-            Code = "X"
+            Code = initialCode
         };
 
         var items = new ObservableCollection<NotifyValidationItem> { item };
@@ -1809,6 +2286,29 @@ public class DataGridValidationTests
             return Array.Empty<object>();
         }
 
+        public void ClearErrorsAndNotifyAllProperties()
+        {
+            _errors.Clear();
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(null));
+        }
+
+        public void NotifyAllPropertiesChanged()
+        {
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(null));
+        }
+
+        public void SetWarningValueError()
+        {
+            SetError(
+                nameof(WarningValue),
+                new DataGridValidationResult("Model warning.", DataGridValidationSeverity.Warning));
+        }
+
+        public void ClearWarningValueError()
+        {
+            SetError(nameof(WarningValue), null);
+        }
+
         private void SetError(string propertyName, DataGridValidationResult? error)
         {
             if (error == null)
@@ -1843,6 +2343,175 @@ public class DataGridValidationTests
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
             return true;
+        }
+    }
+
+    private sealed class SameMessageValidationItem : INotifyPropertyChanged, INotifyDataErrorInfo
+    {
+        public const string ErrorMessage = "Value is rejected.";
+
+        private readonly DataGridValidationSeverity _modelSeverity;
+        private string _value = "Initial";
+        private bool _hasModelError = true;
+
+        public SameMessageValidationItem(
+            DataGridValidationSeverity modelSeverity = DataGridValidationSeverity.Warning)
+        {
+            _modelSeverity = modelSeverity;
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
+
+        public string Value
+        {
+            get => _value;
+            set
+            {
+                if (string.Equals(value, "Rejected", StringComparison.Ordinal))
+                {
+                    throw new DataValidationException(
+                        new DataGridValidationResult(ErrorMessage, DataGridValidationSeverity.Warning));
+                }
+
+                if (!string.Equals(_value, value, StringComparison.Ordinal))
+                {
+                    _value = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+                }
+            }
+        }
+
+        public bool HasErrors => _hasModelError;
+
+        public IEnumerable GetErrors(string? propertyName)
+        {
+            if (_hasModelError &&
+                (string.IsNullOrEmpty(propertyName) || propertyName == nameof(Value)))
+            {
+                return new[]
+                {
+                    new DataGridValidationResult(ErrorMessage, _modelSeverity)
+                };
+            }
+
+            return Array.Empty<object>();
+        }
+
+        public void ClearModelError()
+        {
+            _hasModelError = false;
+            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(Value)));
+        }
+    }
+
+    private sealed class SameMessageCustomValidationColumn : DataGridComboBoxColumn
+    {
+        public SameMessageCustomValidationColumn()
+        {
+            Header = "Value";
+            SelectedValueBinding = TwoWayBinding(nameof(SameMessageValidationItem.Value));
+        }
+
+        protected override Control GenerateEditingElement(
+            DataGridCell cell,
+            object dataItem,
+            out ICellEditBinding editBinding)
+        {
+            editBinding = new SameMessageCustomEditBinding();
+            return new TextBox();
+        }
+
+        protected override object PrepareCellForEdit(
+            Control editingElement,
+            Avalonia.Interactivity.RoutedEventArgs editingEventArgs)
+        {
+            return null!;
+        }
+    }
+
+    private sealed class SameMessageCustomEditBinding : ICellEditBinding
+    {
+        public bool IsValid => true;
+
+        public IEnumerable<Exception> ValidationErrors => new[]
+        {
+            new DataValidationException(
+                new DataGridValidationResult(
+                    SameMessageValidationItem.ErrorMessage,
+                    DataGridValidationSeverity.Warning))
+        };
+
+        public IObservable<bool> ValidationChanged { get; } = new EmptyValidationObservable();
+
+        public bool HasSourceWriteError => true;
+
+        public bool CommitEdit() => true;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class MixedSourceValidationColumn : DataGridComboBoxColumn
+    {
+        public MixedSourceValidationColumn()
+        {
+            Header = "Warning";
+            SelectedValueBinding = TwoWayBinding(nameof(MixedValidationItem.WarningValue));
+        }
+
+        protected override Control GenerateEditingElement(
+            DataGridCell cell,
+            object dataItem,
+            out ICellEditBinding editBinding)
+        {
+            editBinding = new MixedSourceEditBinding();
+            return new TextBox();
+        }
+
+        protected override object PrepareCellForEdit(
+            Control editingElement,
+            Avalonia.Interactivity.RoutedEventArgs editingEventArgs)
+        {
+            return null!;
+        }
+    }
+
+    private sealed class MixedSourceEditBinding : ICellEditBinding
+    {
+        public bool IsValid => true;
+
+        public IEnumerable<Exception> ValidationErrors => new Exception[]
+        {
+            new DataValidationException(
+                new DataGridValidationResult("Model warning.", DataGridValidationSeverity.Warning)),
+            new DataValidationException(
+                new DataGridValidationResult(
+                    "Warning value should be at least 3 characters.",
+                    DataGridValidationSeverity.Warning))
+        };
+
+        public IObservable<bool> ValidationChanged { get; } = new EmptyValidationObservable();
+
+        public bool CommitEdit() => true;
+
+        public void Dispose()
+        {
+        }
+    }
+
+    private sealed class EmptyValidationObservable : IObservable<bool>
+    {
+        public IDisposable Subscribe(IObserver<bool> observer) => EmptyValidationDisposable.Instance;
+    }
+
+    private sealed class EmptyValidationDisposable : IDisposable
+    {
+        public static EmptyValidationDisposable Instance { get; } = new();
+
+        public void Dispose()
+        {
         }
     }
 

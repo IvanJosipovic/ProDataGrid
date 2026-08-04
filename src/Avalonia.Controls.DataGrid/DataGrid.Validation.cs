@@ -56,8 +56,10 @@ internal
             _validationSubscription = null;
         }
 
-        private static void ClearCellValidation(DataGridCell cell)
+        private void ClearCellValidation(DataGridCell cell)
         {
+            _notifyDataErrorInfoCellErrors.Remove(cell);
+
             if (!cell.IsValid || cell.ValidationSeverity != DataGridValidationSeverity.None)
             {
                 cell.IsValid = true;
@@ -68,7 +70,20 @@ internal
             DataValidationErrors.ClearErrors(cell);
         }
 
-        private void RestoreRowValidationState(DataGridRow row, object item, bool clearIfNoIndei = true)
+        internal void OnCellRemovedForValidation(DataGridCell cell)
+        {
+            if (cell is not null)
+            {
+                _notifyDataErrorInfoCellErrors.Remove(cell);
+            }
+        }
+
+        private void RestoreRowValidationState(
+            DataGridRow row,
+            object item,
+            bool clearIfNoIndei = true,
+            string propertyName = null,
+            int excludedColumnIndex = -1)
         {
             if (row is null)
             {
@@ -97,6 +112,11 @@ internal
                     continue;
                 }
 
+                if (column.Index == excludedColumnIndex)
+                {
+                    continue;
+                }
+
                 var cell = row.Cells[column.Index];
                 var bindingPath = GetColumnBindingPath(column);
 
@@ -105,21 +125,30 @@ internal
                     continue;
                 }
 
+                if (!string.IsNullOrEmpty(propertyName) &&
+                    !string.Equals(bindingPath, propertyName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 var errors = notifyDataErrorInfo.GetErrors(bindingPath);
                 if (errors is null)
                 {
-                    ClearCellValidation(cell);
+                    ClearNotifyDataErrorInfoValidation(cell);
                     continue;
                 }
 
                 var exceptions = CreateValidationExceptions(errors);
                 if (exceptions.Count == 0)
                 {
-                    ClearCellValidation(cell);
+                    ClearNotifyDataErrorInfoValidation(cell);
                     continue;
                 }
 
-                var severity = ValidationUtil.GetValidationSeverity(exceptions);
+                var preservedErrors = GetErrorsWithoutOwnedNotifyDataErrorInfoErrors(cell);
+                var severity = MaxSeverity(
+                    ValidationUtil.GetValidationSeverity(exceptions),
+                    GetDisplayedValidationSeverity(preservedErrors));
                 cell.IsValid = severity != DataGridValidationSeverity.Error;
                 cell.ValidationSeverity = severity;
                 cell.UpdatePseudoClasses();
@@ -127,11 +156,114 @@ internal
                 var errorException = exceptions.Count == 1
                     ? exceptions[0]
                     : new AggregateException(exceptions);
-                DataValidationErrors.SetError(cell, errorException);
+                preservedErrors.Add(errorException);
+                DataValidationErrors.SetErrors(cell, preservedErrors);
+                _notifyDataErrorInfoCellErrors[cell] = new object[] { errorException };
             }
 
             UpdateRowValidationStateFromCells(row);
             UpdateGridValidationState();
+        }
+
+        private void ClearNotifyDataErrorInfoValidation(DataGridCell cell)
+        {
+            if (!_notifyDataErrorInfoCellErrors.Remove(cell, out object[] expectedErrors))
+            {
+                return;
+            }
+
+            List<object> preservedErrors = GetErrorsWithoutOwnedErrors(cell, expectedErrors);
+            if (preservedErrors.Count == 0)
+            {
+                ClearCellValidation(cell);
+                return;
+            }
+
+            DataValidationErrors.SetErrors(cell, preservedErrors);
+            DataGridValidationSeverity severity = GetDisplayedValidationSeverity(preservedErrors);
+            cell.IsValid = severity != DataGridValidationSeverity.Error;
+            cell.ValidationSeverity = severity;
+            cell.UpdatePseudoClasses();
+        }
+
+        private List<object> GetErrorsWithoutOwnedNotifyDataErrorInfoErrors(DataGridCell cell)
+        {
+            return _notifyDataErrorInfoCellErrors.TryGetValue(cell, out object[] ownedErrors)
+                ? GetErrorsWithoutOwnedErrors(cell, ownedErrors)
+                : GetDisplayedErrors(cell);
+        }
+
+        private static List<object> GetErrorsWithoutOwnedErrors(DataGridCell cell, object[] ownedErrors)
+        {
+            List<object> errors = GetDisplayedErrors(cell);
+            foreach (object ownedError in ownedErrors)
+            {
+                for (int index = 0; index < errors.Count; index++)
+                {
+                    if (ReferenceEquals(errors[index], ownedError))
+                    {
+                        errors.RemoveAt(index);
+                        break;
+                    }
+                }
+            }
+
+            return errors;
+        }
+
+        private static List<object> GetDisplayedErrors(DataGridCell cell)
+        {
+            var errors = new List<object>();
+            IEnumerable<object> displayedErrors = DataValidationErrors.GetErrors(cell);
+            if (displayedErrors is null)
+            {
+                return errors;
+            }
+
+            foreach (object error in displayedErrors)
+            {
+                if (error is not null)
+                {
+                    errors.Add(error);
+                }
+            }
+
+            return errors;
+        }
+
+        private static DataGridValidationSeverity GetDisplayedValidationSeverity(List<object> errors)
+        {
+            DataGridValidationSeverity severity = DataGridValidationSeverity.None;
+            foreach (object error in errors)
+            {
+                severity = MaxSeverity(severity, GetDisplayedValidationSeverity(error));
+            }
+
+            return severity;
+        }
+
+        private static DataGridValidationSeverity GetDisplayedValidationSeverity(object error)
+        {
+            if (error is AggregateException aggregateException)
+            {
+                DataGridValidationSeverity severity = DataGridValidationSeverity.None;
+                foreach (Exception innerException in aggregateException.InnerExceptions)
+                {
+                    severity = MaxSeverity(severity, GetDisplayedValidationSeverity(innerException));
+                }
+
+                return severity;
+            }
+
+            return ValidationUtil.GetValidationSeverity(
+                error as Exception ?? new DataValidationException(error));
+        }
+
+        private static DataGridValidationSeverity MaxSeverity(
+            DataGridValidationSeverity first,
+            DataGridValidationSeverity second)
+        {
+            return first >= second ? first : second;
         }
 
         private void ClearRowValidation(DataGridRow row)
@@ -146,6 +278,7 @@ internal
 
             foreach (DataGridCell cell in row.Cells)
             {
+                _notifyDataErrorInfoCellErrors.Remove(cell);
                 ClearCellValidation(cell);
             }
 
@@ -478,7 +611,38 @@ internal
             }
 
             UpdateTrackedCollectionValidationItemState(notifyDataErrorInfo);
+            RefreshRealizedRowValidationState(notifyDataErrorInfo, e.PropertyName);
             UpdateGridValidationState();
+        }
+
+        private void RefreshRealizedRowValidationState(
+            INotifyDataErrorInfo notifyDataErrorInfo,
+            string propertyName)
+        {
+            if (DisplayData == null)
+            {
+                return;
+            }
+
+            for (int slot = DisplayData.FirstScrollingSlot;
+                slot > -1 && slot <= DisplayData.LastScrollingSlot;
+                slot++)
+            {
+                if (DisplayData.GetDisplayedElement(slot) is not DataGridRow row ||
+                    !ReferenceEquals(row.DataContext, notifyDataErrorInfo))
+                {
+                    continue;
+                }
+
+                int excludedColumnIndex = ReferenceEquals(row, EditingRow)
+                    ? _editingColumnIndex
+                    : -1;
+                RestoreRowValidationState(
+                    row,
+                    notifyDataErrorInfo,
+                    propertyName: propertyName,
+                    excludedColumnIndex: excludedColumnIndex);
+            }
         }
 
         private void DetachCollectionValidationTracking()
@@ -543,6 +707,64 @@ internal
             return exceptions;
         }
 
+        private static List<Exception> GetNotifyDataErrorInfoValidationExceptions(
+            object item,
+            DataGridColumn column)
+        {
+            if (item is not INotifyDataErrorInfo notifyDataErrorInfo)
+            {
+                return new List<Exception>();
+            }
+
+            string bindingPath = GetColumnBindingPath(column);
+            if (string.IsNullOrWhiteSpace(bindingPath))
+            {
+                return new List<Exception>();
+            }
+
+            IEnumerable errors = notifyDataErrorInfo.GetErrors(bindingPath);
+            return errors is null
+                ? new List<Exception>()
+                : CreateValidationExceptions(errors);
+        }
+
+        private static void RemoveMatchingValidationErrors(
+            List<Exception> bindingErrors,
+            List<Exception> notifyDataErrorInfoErrors)
+        {
+            foreach (Exception notifyDataErrorInfoError in notifyDataErrorInfoErrors)
+            {
+                for (int index = 0; index < bindingErrors.Count; index++)
+                {
+                    if (ValidationErrorsMatch(bindingErrors[index], notifyDataErrorInfoError))
+                    {
+                        bindingErrors.RemoveAt(index);
+                        break;
+                    }
+                }
+            }
+        }
+
+        private static bool ValidationErrorsMatch(Exception first, Exception second)
+        {
+            object firstData = ValidationUtil.UnpackDataValidationException(first);
+            object secondData = ValidationUtil.UnpackDataValidationException(second);
+            if (ReferenceEquals(firstData, secondData) || Equals(firstData, secondData))
+            {
+                return true;
+            }
+
+            if (firstData is DataGridValidationResult firstResult &&
+                secondData is DataGridValidationResult secondResult)
+            {
+                return firstResult.Severity == secondResult.Severity &&
+                    string.Equals(firstResult.Message, secondResult.Message, StringComparison.Ordinal);
+            }
+
+            return first.GetType() == second.GetType() &&
+                string.Equals(first.Message, second.Message, StringComparison.Ordinal);
+        }
+
         private List<Exception> _bindingValidationErrors;
 
         private IDisposable _validationSubscription;
@@ -550,6 +772,7 @@ internal
         private bool _isValid = true;
         private readonly HashSet<INotifyDataErrorInfo> _collectionValidationTrackedItems = new(ReferenceEqualityComparer.Instance);
         private readonly HashSet<INotifyDataErrorInfo> _collectionValidationItemsWithError = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<DataGridCell, object[]> _notifyDataErrorInfoCellErrors = new();
         private bool _collectionValidationStateInitialized;
         private bool _collectionValidationStateInvalidated = true;
 

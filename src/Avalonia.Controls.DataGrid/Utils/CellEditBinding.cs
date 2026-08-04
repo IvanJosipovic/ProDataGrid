@@ -7,6 +7,7 @@ using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
+using Avalonia.Data.Core;
 using Avalonia.PropertyStore;
 using Avalonia.Reactive;
 
@@ -23,6 +24,17 @@ internal
         bool IsValid { get; }
         IEnumerable<Exception> ValidationErrors { get; }
         IObservable<bool> ValidationChanged { get; }
+
+        /// <summary>
+        /// Gets a value indicating whether the current validation errors were produced by a
+        /// failed write to the binding source.
+        /// </summary>
+        /// <remarks>
+        /// Custom edit bindings should return <see langword="true"/> while exposing source-write
+        /// errors so the grid does not conflate them with equivalent model validation errors.
+        /// </remarks>
+        bool HasSourceWriteError => false;
+
         bool CommitEdit();
     }
 
@@ -32,6 +44,7 @@ internal
         private readonly AvaloniaProperty _property;
         private readonly string _bindingPath;
         private readonly bool _supportsDirectSourceWriteFallback;
+        private readonly bool _supportsSourceWriteResult;
         private readonly LightweightSubject<bool> _changedSubject = new();
         private readonly List<Exception> _validationErrors = new();
         private DataGridValidationSeverity _validationSeverity = DataGridValidationSeverity.None;
@@ -42,6 +55,8 @@ internal
             _target = target ?? throw new ArgumentNullException(nameof(target));
             _property = property ?? throw new ArgumentNullException(nameof(property));
             _supportsDirectSourceWriteFallback = BindingCloneHelper.SupportsDirectDataContextMemberWrite(binding);
+            _supportsSourceWriteResult = BindingCloneHelper.GetMode(binding) is
+                BindingMode.TwoWay or BindingMode.OneWayToSource;
             _bindingPath = _supportsDirectSourceWriteFallback && binding != null
                 ? BindingCloneHelper.GetPath(binding)
                 : null;
@@ -52,9 +67,11 @@ internal
         public bool IsValid => _validationSeverity != DataGridValidationSeverity.Error;
         public IEnumerable<Exception> ValidationErrors => _validationErrors;
         public IObservable<bool> ValidationChanged => _changedSubject;
+        public bool HasSourceWriteError { get; private set; }
 
         public bool CommitEdit()
         {
+            HasSourceWriteError = false;
             Exception commitError = null;
             var expression = BindingOperations.GetBindingExpressionBase(_target, _property);
             var preCommitValidationErrors = CaptureValidationErrors(expression);
@@ -66,11 +83,21 @@ internal
             {
                 try
                 {
-                    expression.UpdateSource();
+                    if (_supportsSourceWriteResult &&
+                        expression is UntypedBindingExpressionBase untypedExpression)
+                    {
+                        HasSourceWriteError = !untypedExpression.WriteValueToSource(
+                            _target.GetValue(_property));
+                    }
+                    else
+                    {
+                        expression.UpdateSource();
+                    }
                 }
                 catch (Exception ex)
                 {
                     commitError = ex;
+                    HasSourceWriteError = true;
                 }
             }
 
@@ -96,6 +123,7 @@ internal
                         usedToggleSwitchFallback = true;
                         if (writeError != null)
                         {
+                            HasSourceWriteError = true;
                             UpdateValidationErrorsFromException(writeError);
                         }
                         else
