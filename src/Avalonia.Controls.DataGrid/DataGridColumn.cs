@@ -915,6 +915,8 @@ internal
         /// <summary>
         /// The binding that will be used to get or set cell content for the clipboard.
         /// </summary>
+        [AssignBinding]
+        [InheritDataTypeFromItems(nameof(DataGrid.ItemsSource), AncestorType = typeof(DataGrid))]
         public virtual BindingBase ClipboardContentBinding
         {
             get
