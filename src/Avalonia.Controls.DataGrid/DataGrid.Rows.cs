@@ -872,7 +872,7 @@ internal
                 {
                     deltaY = -NegVerticalOffset;
                 }
-                deltaY -= GetSlotElementsHeight(slot, firstFullSlot);
+                deltaY -= GetScrollHeightBetweenSlots(slot, firstFullSlot);
                 if (DisplayData.FirstScrollingSlot - slot > 1)
                 {
                     //
@@ -889,7 +889,7 @@ internal
                 // of the grid
                 firstFullSlot = DisplayData.LastScrollingSlot;
                 // Figure out how much of the last row is cut off
-                double rowHeight = GetExactSlotElementHeight(DisplayData.LastScrollingSlot);
+                double rowHeight = GetScrollSlotHeight(DisplayData.LastScrollingSlot);
                 double availableHeight = AvailableSlotElementRoom + rowHeight;
                 if (MathUtilities.AreClose(rowHeight, availableHeight))
                 {
@@ -912,7 +912,7 @@ internal
                 // sum up the height of the rest of the full rows
                 if (slot >= firstFullSlot)
                 {
-                    deltaY += GetSlotElementsHeight(firstFullSlot, slot);
+                    deltaY += GetScrollHeightBetweenSlots(firstFullSlot, slot);
                 }
                 // If the first row we're displaying is no longer adjacent to the rows we have
                 // simply discard the ones we have
@@ -920,7 +920,7 @@ internal
                 {
                     ResetDisplayedRows();
                 }
-                if (MathUtilities.GreaterThanOrClose(GetExactSlotElementHeight(slot), CellsEstimatedHeight))
+                if (MathUtilities.GreaterThanOrClose(GetScrollSlotHeight(slot), CellsEstimatedHeight))
                 {
                     // The entire row won't fit in the DataGrid so we start showing it from the top
                     NegVerticalOffset = 0;
@@ -1046,6 +1046,7 @@ internal
 
             // Update _collapsedSlotsTable in one bulk operation
             _collapsedSlotsTable.AddValues(startSlot, endSlot - startSlot + 1, false);
+            UpdateScrollHeightVisibility(startSlot, endSlot, visible: false);
 
             return totalHeightChange;
         }
@@ -1300,6 +1301,7 @@ internal
 
             // Update _collapsedSlotsTable in one bulk operation
             _collapsedSlotsTable.RemoveValues(startSlot, endSlot - startSlot + 1);
+            UpdateScrollHeightVisibility(startSlot, endSlot, visible: true);
 
             if (isDisplayed)
             {
@@ -1335,6 +1337,14 @@ internal
                 DataGridDiagnostics.RecordRowsScrollExactSlotHeightLookup(!isDisplayed);
             }
 
+            return GetDisplayedSlotElementHeight(slot);
+        }
+
+        private double GetDisplayedSlotElementHeight(int slot)
+        {
+            Debug.Assert((slot >= 0) && slot < SlotCount);
+
+            bool isDisplayed = IsSlotVisible(slot);
             if (isDisplayed)
             {
                 Control element = DisplayData.GetDisplayedElement(slot);
@@ -1349,6 +1359,70 @@ internal
             return slotElement is DataGridRow rowWithDeferredHeight && rowWithDeferredHeight.HasDeferredHeight
                 ? rowWithDeferredHeight.DeferredHeight
                 : slotElement.DesiredSize.Height;
+        }
+
+        private double GetScrollSlotHeight(int slot)
+        {
+            Debug.Assert((slot >= 0) && slot < SlotCount);
+
+            if (IsSlotVisible(slot))
+            {
+                Control element = DisplayData.GetDisplayedElement(slot);
+                return element is DataGridRow row && row.HasDeferredHeight
+                    ? row.DeferredHeight
+                    : element.DesiredSize.Height;
+            }
+
+            if (!CanUseEstimatedScrollFastPath())
+            {
+                return GetExactSlotElementHeight(slot);
+            }
+
+            EnsureScrollHeightIndex();
+            return _scrollHeightIndex.GetHeight(slot);
+        }
+
+        private void EnsureScrollHeightIndex()
+        {
+            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            {
+                return;
+            }
+
+            _scrollHeightIndex.Rebuild(
+                SlotCount,
+                GetScrollHeightEstimate,
+                slot => !_collapsedSlotsTable.Contains(slot));
+            _scrollHeightIndexDirty = false;
+        }
+
+        private double GetScrollHeightEstimate(int slot)
+        {
+            if (IsSlotVisible(slot))
+            {
+                Control element = DisplayData.GetDisplayedElement(slot);
+                return element is DataGridRow row && row.HasDeferredHeight
+                    ? row.DeferredHeight
+                    : element.DesiredSize.Height;
+            }
+
+            return GetSlotElementHeight(slot);
+        }
+
+        private void UpdateScrollHeightEstimate(int slot, double height)
+        {
+            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            {
+                _scrollHeightIndex.SetHeight(slot, height);
+            }
+        }
+
+        private void UpdateScrollHeightVisibility(int startSlot, int endSlot, bool visible)
+        {
+            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            {
+                _scrollHeightIndex.SetVisibleRange(startSlot, endSlot, visible);
+            }
         }
 
         // Returns an estimate for the height of the slots between fromSlot and toSlot
@@ -1431,10 +1505,26 @@ internal
             return height;
         }
 
+        private double GetScrollHeightBetweenSlots(int fromSlot, int toSlot)
+        {
+            Debug.Assert(toSlot >= fromSlot);
+
+            if (!CanUseEstimatedScrollFastPath())
+            {
+                return GetSlotElementsHeight(fromSlot, toSlot);
+            }
+
+            EnsureScrollHeightIndex();
+            double startOffset = _scrollHeightIndex.GetOffsetToSlot(Math.Max(0, fromSlot));
+            double endOffset = _scrollHeightIndex.GetOffsetToSlot(Math.Min(SlotCount, toSlot + 1));
+            return Math.Max(0, endOffset - startOffset);
+        }
+
         private void InvalidateRowHeightEstimate()
         {
             // Start from scratch and assume that we haven't estimated any rows
             _lastEstimatedRow = -1;
+            _scrollHeightIndexDirty = true;
         }
 
         // Makes sure the row shows the proper visuals for selection, currency, details, etc.

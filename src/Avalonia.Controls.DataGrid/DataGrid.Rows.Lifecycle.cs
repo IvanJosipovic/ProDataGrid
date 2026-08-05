@@ -148,6 +148,7 @@ namespace Avalonia.Controls
         bool firstInsertion,
         bool isCollapsed)
         {
+            _scrollHeightIndexDirty = true;
             // Reset the current cell's address if it's after the inserted row.
             if (firstInsertion)
             {
@@ -190,6 +191,7 @@ namespace Avalonia.Controls
 
         private void OnRemovedElement(int slotDeleted, object itemDeleted)
         {
+            _scrollHeightIndexDirty = true;
             SlotCount--;
             bool wasCollapsed = _collapsedSlotsTable.Contains(slotDeleted);
             if (!wasCollapsed)

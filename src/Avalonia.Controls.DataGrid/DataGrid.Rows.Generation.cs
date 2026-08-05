@@ -369,6 +369,8 @@ namespace Avalonia.Controls
                             RowHeightEstimate = element.DesiredSize.Height;
                         }
                     }
+
+                    UpdateScrollHeightEstimate(slot, elementHeight);
                 }
             }
 

@@ -292,6 +292,8 @@ internal
         private bool _areHandlersSuspended;
         private bool _autoSizingColumns;
         private IndexToValueTable<bool> _collapsedSlotsTable;
+        private readonly DataGridScrollHeightIndex _scrollHeightIndex = new();
+        private bool _scrollHeightIndexDirty = true;
         private readonly IDataGridScrollStateManager _scrollStateManager;
 
         // used to store the current column during a Reset
@@ -1654,6 +1656,7 @@ internal
         /// </summary>
         private void OnRowHeightEstimatorChanged(AvaloniaPropertyChangedEventArgs e)
         {
+            _scrollHeightIndexDirty = true;
             var oldEstimator = e.OldValue as IDataGridRowHeightEstimator;
             var newEstimator = e.NewValue as IDataGridRowHeightEstimator;
 

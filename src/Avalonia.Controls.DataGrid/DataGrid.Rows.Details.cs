@@ -110,6 +110,7 @@ namespace Avalonia.Controls
             Debug.Assert(rowIndex >= 0 && rowIndex < SlotCount);
 
             _showDetailsTable.AddValue(rowIndex, isVisible);
+            _scrollHeightIndexDirty = true;
         }
 
 

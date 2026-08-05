@@ -162,6 +162,7 @@ internal
 
                 // Notify the estimator about the data source change
                 RowHeightEstimator?.OnDataSourceChanged(DataConnection.Count);
+                _scrollHeightIndexDirty = true;
 
                 // Set the SlotCount (from the data count and number of row group headers) before we make the default selection
                 PopulateRowGroupHeadersTable();

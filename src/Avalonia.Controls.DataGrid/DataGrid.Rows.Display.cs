@@ -57,7 +57,7 @@ namespace Avalonia.Controls
             int slot = firstDisplayedScrollingSlot;
             while (slot < SlotCount && !MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
             {
-                deltaY += GetExactSlotElementHeight(slot);
+                deltaY += GetDisplayedSlotElementHeight(slot);
                 visibleScrollingRows++;
                 lastDisplayedScrollingSlot = slot;
                 slot = GetNextVisibleSlot(slot);
@@ -68,7 +68,7 @@ namespace Avalonia.Controls
                 slot = GetPreviousVisibleSlot(firstDisplayedScrollingSlot);
                 if (slot >= 0)
                 {
-                    deltaY += GetExactSlotElementHeight(slot);
+                    deltaY += GetDisplayedSlotElementHeight(slot);
                     firstDisplayedScrollingSlot = slot;
                     visibleScrollingRows++;
                 }
@@ -179,7 +179,7 @@ namespace Avalonia.Controls
             int slot = lastDisplayedScrollingRow;
             while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
             {
-                deltaY += GetExactSlotElementHeight(slot);
+                deltaY += GetDisplayedSlotElementHeight(slot);
                 visibleScrollingRows++;
                 firstDisplayedScrollingRow = slot;
                 slot = GetPreviousVisibleSlot(slot);
