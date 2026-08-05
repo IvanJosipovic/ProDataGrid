@@ -27,6 +27,7 @@ internal
         private static readonly Binding _dataContextBinding = new Binding { Mode = BindingMode.OneWay };
 
         private readonly Lazy<IDataTemplate?> _cellTemplate;
+        private bool _refreshingBinding;
 
         public DataGridHierarchicalColumn()
         {
@@ -73,9 +74,32 @@ internal
         public IDataTemplate? CellTemplate { get; set; }
 
         /// <inheritdoc />
+        public override BindingBase Binding
+        {
+            get => base.Binding;
+            set
+            {
+                _refreshingBinding = true;
+                try
+                {
+                    base.Binding = value;
+                }
+                finally
+                {
+                    _refreshingBinding = false;
+                }
+            }
+        }
+
+        /// <inheritdoc />
         protected override Control GenerateElement(DataGridCell cell, object dataItem)
         {
-            var presenter = CreatePresenter();
+            if (cell.Content is DataGridHierarchicalPresenter existingPresenter && !_refreshingBinding)
+            {
+                return existingPresenter;
+            }
+
+            var presenter = cell.Content as DataGridHierarchicalPresenter ?? CreatePresenter();
             BindContent(presenter, dataItem, isEditing: false);
             return presenter;
         }
