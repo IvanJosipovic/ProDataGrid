@@ -128,6 +128,7 @@ namespace Avalonia.Controls
                 int newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
                 double newVerticalOffset = _verticalOffset + height;
                 int lastVisibleSlot = GetPreviousVisibleSlot(SlotCount);
+                bool useIndexedScrollGeometry = false;
                 if (height > 0)
                 {
                     // Scrolling Down
@@ -160,6 +161,7 @@ namespace Avalonia.Controls
                                 // let's estimate the number based on RowHeight.
                                 if (TryGetIndexedScrollTarget(newVerticalOffset, lastVisibleSlot, out int indexedTargetSlot))
                                 {
+                                    useIndexedScrollGeometry = true;
                                     newFirstScrollingSlot = indexedTargetSlot;
                                     if (CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
                                     {
@@ -257,6 +259,7 @@ namespace Avalonia.Controls
                             {
                                 if (TryGetIndexedScrollTarget(newVerticalOffset, lastVisibleSlot, out int indexedTargetSlot))
                                 {
+                                    useIndexedScrollGeometry = true;
                                     newFirstScrollingSlot = indexedTargetSlot;
                                     if (CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
                                     {
@@ -358,7 +361,10 @@ namespace Avalonia.Controls
                 var firstRowEstimator = RowHeightEstimator;
                 if (firstRowEstimator != null && !atVisualTail)
                 {
-                    double baseOffset = EstimateOffsetToVisibleSlot(DisplayData.FirstScrollingSlot, firstRowEstimator);
+                    double baseOffset = EstimateOffsetToVisibleSlot(
+                        DisplayData.FirstScrollingSlot,
+                        firstRowEstimator,
+                        useIndexedScrollGeometry);
                     if (!double.IsNaN(baseOffset) && !double.IsInfinity(baseOffset))
                     {
                         double desiredNeg = Math.Max(0, newVerticalOffset - baseOffset);
@@ -480,7 +486,10 @@ namespace Avalonia.Controls
             }
         }
 
-        private double EstimateOffsetToVisibleSlot(int slot, IDataGridRowHeightEstimator estimator)
+        private double EstimateOffsetToVisibleSlot(
+            int slot,
+            IDataGridRowHeightEstimator estimator,
+            bool useIndexedScrollGeometry = false)
         {
             using var _ = DataGridDiagnostics.BeginRowsScrollEstimateOffset();
 
@@ -489,7 +498,10 @@ namespace Avalonia.Controls
                 return 0;
             }
 
-            if (CanUseEstimatedScrollFastPath() && !_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            if (useIndexedScrollGeometry &&
+                CanUseEstimatedScrollFastPath() &&
+                !_scrollHeightIndexDirty &&
+                _scrollHeightIndex.Count == SlotCount)
             {
                 return Math.Max(0, _scrollHeightIndex.GetOffsetToSlot(slot));
             }
