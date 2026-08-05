@@ -269,7 +269,13 @@ namespace Avalonia.Controls
                 return;
             }
 
-            int elementIndex = _scrollingElements.IndexOf(element);
+            int elementIndex = GetCircularListIndex(slot, wrap: false);
+            if (elementIndex < 0 || elementIndex >= _scrollingElements.Count ||
+                !ReferenceEquals(_scrollingElements[elementIndex], element))
+            {
+                elementIndex = _scrollingElements.IndexOf(element);
+            }
+
             if (elementIndex < 0)
             {
                 UnloadScrollingElement(slot, updateSlotInformation, wasDeleted);
