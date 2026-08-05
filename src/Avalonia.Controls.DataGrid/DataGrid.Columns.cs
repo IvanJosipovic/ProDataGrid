@@ -7,7 +7,6 @@
 
 using Avalonia.Controls.Utils;
 using Avalonia.Data;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Utilities;
 using System;
 using System.Collections.Generic;
@@ -226,7 +225,7 @@ internal
             if (dataGridColumn is DataGridBoundColumn dataGridBoundColumn &&
                 dataGridBoundColumn.Binding is BindingBase binding)
             {
-                var path = (binding as Binding)?.Path ?? (binding as CompiledBindingExtension)?.Path.ToString();
+                var path = BindingCloneHelper.GetPath(binding);
 
                 if (string.IsNullOrWhiteSpace(path))
                 {

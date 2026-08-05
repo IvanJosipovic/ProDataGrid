@@ -209,12 +209,22 @@ public class DataGridColumnsBranchCoverageTests
         var writableColumn = new DataGridTextColumn { Binding = new Binding(nameof(ReadOnlyRow.Name)) };
         Assert.False(grid.GetColumnReadOnlyState(writableColumn, isReadOnly: false));
 
+        var reflectionColumn = new DataGridTextColumn { Binding = new ReflectionBinding(nameof(ReadOnlyRow.Name)) };
+        Assert.False(grid.GetColumnReadOnlyState(reflectionColumn, isReadOnly: false));
+
         var multiBindingColumn = new DataGridTextColumn { Binding = new MultiBinding() };
         Assert.True(grid.GetColumnReadOnlyState(multiBindingColumn, isReadOnly: false));
 
-        var compiled = CreateCompiledBinding(nameof(ReadOnlyRow.Name));
-        var compiledColumn = new DataGridTextColumn { Binding = compiled };
-        Assert.True(grid.GetColumnReadOnlyState(compiledColumn, isReadOnly: false));
+        var compiledBindingExtension = Assert.IsType<CompiledBindingExtension>(
+            DataGridBindingDefinition.Create<ReadOnlyRow, string>(row => row.Name).CreateBinding());
+        var extensionColumn = new DataGridTextColumn { Binding = compiledBindingExtension };
+        Assert.False(grid.GetColumnReadOnlyState(extensionColumn, isReadOnly: false));
+
+        var compiledColumn = new DataGridTextColumn
+        {
+            Binding = new CompiledBinding { Path = compiledBindingExtension.Path }
+        };
+        Assert.False(grid.GetColumnReadOnlyState(compiledColumn, isReadOnly: false));
     }
 
     [AvaloniaFact]
@@ -1214,41 +1224,6 @@ public class DataGridColumnsBranchCoverageTests
         public string ReadOnlyName { get; } = "ReadOnly";
 
         public string Name { get; set; } = "Name";
-    }
-
-    private static BindingBase CreateCompiledBinding(string path)
-    {
-        var compiledBindingType = typeof(CompiledBindingExtension);
-        var instance = Activator.CreateInstance(compiledBindingType);
-        Assert.NotNull(instance);
-        var binding = instance as BindingBase;
-        Assert.NotNull(binding);
-        var pathProperty = compiledBindingType.GetProperty("Path");
-        if (pathProperty != null)
-        {
-            var pathType = pathProperty.PropertyType;
-            object? pathValue = null;
-            var ctor = pathType.GetConstructor(new[] { typeof(string) });
-            if (ctor != null)
-            {
-                pathValue = ctor.Invoke(new object[] { path });
-            }
-            else
-            {
-                var parse = pathType.GetMethod("Parse", new[] { typeof(string) });
-                if (parse != null)
-                {
-                    pathValue = parse.Invoke(null, new object[] { path });
-                }
-                else
-                {
-                    pathValue = Activator.CreateInstance(pathType);
-                }
-            }
-            pathProperty.SetValue(instance, pathValue);
-        }
-
-        return binding!;
     }
 
     private sealed class TestRow
