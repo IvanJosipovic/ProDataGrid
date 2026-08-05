@@ -186,6 +186,7 @@ internal
             DataGridDiagnostics.RecordRowRecycled();
             row.RecycledDataContext ??= row.DataContext;
             row.RecycledIsPlaceholder = row.IsPlaceholder;
+            row.PreserveRecycledRootDataContext();
             OnCleanUpVirtualizedItem(row);
             ClearContainerForItemOverride(row, row.DataContext);
         }

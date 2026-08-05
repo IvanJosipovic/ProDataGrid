@@ -63,6 +63,8 @@ internal
         private bool _isValid = true;
         private DataGridValidationSeverity _validationSeverity = DataGridValidationSeverity.None;
         private bool _isPlaceholder;
+        private bool _hasPreservedRecycledRootDataContext;
+        private bool _recycledRootDataContextChanged;
         private Rectangle _bottomGridLine;
         private RectangleGeometry _bottomGridLineClipGeometry;
         private bool _areHandlersSuspended;
@@ -194,9 +196,38 @@ internal
 
         internal void ClearRecyclingState()
         {
+            _recycledRootDataContextChanged = ClearRecycledRootDataContext();
             RecycledDataContext = null;
             RecycledIsPlaceholder = false;
             IsRecycled = false;
+        }
+
+        internal void PreserveRecycledRootDataContext()
+        {
+            if (RootElement != null)
+            {
+                RootElement.DataContext = DataContext;
+                _hasPreservedRecycledRootDataContext = true;
+            }
+        }
+
+        private bool ClearRecycledRootDataContext()
+        {
+            if (_hasPreservedRecycledRootDataContext && RootElement != null)
+            {
+                _hasPreservedRecycledRootDataContext = false;
+                RootElement.ClearValue(StyledElement.DataContextProperty);
+                return true;
+            }
+
+            return false;
+        }
+
+        internal bool ConsumeRecycledRootDataContextChanged()
+        {
+            var changed = _recycledRootDataContextChanged;
+            _recycledRootDataContextChanged = false;
+            return changed;
         }
 
         static DataGridRow()
