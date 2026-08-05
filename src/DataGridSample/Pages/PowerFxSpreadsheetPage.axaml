@@ -171,7 +171,6 @@
                                 Tag="A"
                                 Width="*"
                                 SortMemberPath="A"
-                                x:DataType="models:PowerFxSheetRow"
                                 ClipboardContentBinding="{Binding A.Input}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="models:PowerFxSheetRow">
@@ -189,7 +188,6 @@
                                 Tag="B"
                                 Width="*"
                                 SortMemberPath="B"
-                                x:DataType="models:PowerFxSheetRow"
                                 ClipboardContentBinding="{Binding B.Input}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="models:PowerFxSheetRow">
@@ -207,7 +205,6 @@
                                 Tag="C"
                                 Width="*"
                                 SortMemberPath="C"
-                                x:DataType="models:PowerFxSheetRow"
                                 ClipboardContentBinding="{Binding C.Input}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="models:PowerFxSheetRow">
@@ -225,7 +222,6 @@
                                 Tag="D"
                                 Width="*"
                                 SortMemberPath="D"
-                                x:DataType="models:PowerFxSheetRow"
                                 ClipboardContentBinding="{Binding D.Input}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="models:PowerFxSheetRow">
@@ -243,7 +239,6 @@
                                 Tag="E"
                                 Width="*"
                                 SortMemberPath="E"
-                                x:DataType="models:PowerFxSheetRow"
                                 ClipboardContentBinding="{Binding E.Input}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="models:PowerFxSheetRow">
@@ -261,7 +256,6 @@
                                 Tag="F"
                                 Width="*"
                                 SortMemberPath="F"
-                                x:DataType="models:PowerFxSheetRow"
                                 ClipboardContentBinding="{Binding F.Input}">
           <DataGridTemplateColumn.CellTemplate>
             <DataTemplate x:DataType="models:PowerFxSheetRow">
