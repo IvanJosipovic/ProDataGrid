@@ -415,7 +415,14 @@ internal
                 InvalidateMeasure();
                 
                 // Schedule pre-fetching for smoother scrolling
-                SchedulePrefetch();
+                if (Math.Abs(deltaY) <= Math.Max(OwningGrid.RowHeightEstimate * PrefetchBufferRows, 1))
+                {
+                    SchedulePrefetch();
+                }
+                else
+                {
+                    CancelPrefetch();
+                }
             }
 
             if (deltaX != 0)
