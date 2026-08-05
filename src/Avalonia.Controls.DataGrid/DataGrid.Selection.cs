@@ -76,7 +76,10 @@ internal
 
                 columnIndex = CoerceColumnIndexToVisible(columnIndex);
 
-                ApplySelectionActionToSelectionModel(slot, action);
+                if (action != DataGridSelectionAction.SelectFromAnchorToCurrent)
+                {
+                    ApplySelectionActionToSelectionModel(slot, action);
+                }
 
                 switch (action)
                 {
@@ -92,12 +95,15 @@ internal
                             int anchorSlot = AnchorSlot;
                             if (slot <= anchorSlot)
                             {
+                                ClearRowSelection(resetAnchorSlot: false);
                                 SetRowsSelection(slot, anchorSlot);
                             }
                             else
                             {
+                                ClearRowSelection(resetAnchorSlot: false);
                                 SetRowsSelection(anchorSlot, slot);
                             }
+                            SyncSelectionModelFromGridSelection();
                         }
                         else
                         {
