@@ -5,6 +5,7 @@ using System;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.Utilities;
 using Avalonia.VisualTree;
 
 namespace Avalonia.Controls.Primitives
@@ -435,16 +436,22 @@ internal
             bool changed = false;
             var oldViewport = _viewport;
 
-            if (_extent != extent)
+            if (!MathUtilities.AreClose(_extent.Width, extent.Width) ||
+                !MathUtilities.AreClose(_extent.Height, extent.Height))
             {
+                var previousExtent = _extent;
                 _extent = extent;
                 changed = true;
+                DataGridDiagnostics.RecordRowsScrollExtentChanged(previousExtent, extent);
             }
 
-            if (_viewport != viewport)
+            if (!AreScrollInfoSizeClose(_viewport.Width, viewport.Width) ||
+                !AreScrollInfoSizeClose(_viewport.Height, viewport.Height))
             {
+                var previousViewport = _viewport;
                 _viewport = viewport;
                 changed = true;
+                DataGridDiagnostics.RecordRowsScrollViewportChanged(previousViewport, viewport);
             }
 
             // Coerce offset to new bounds
@@ -453,11 +460,14 @@ internal
             {
                 _offset = coercedOffset;
                 changed = true;
+                DataGridDiagnostics.RecordRowsScrollOffsetCoerced();
             }
 
             if (changed)
             {
+                DataGridDiagnostics.RecordRowsScrollInfoChanged();
                 _owningGrid?.OnRowsPresenterViewportChanged(oldViewport, _viewport);
+                DataGridDiagnostics.RecordRowsScrollInvalidated();
                 RaiseScrollInvalidated(EventArgs.Empty);
             }
             else if (_owningGrid?.UseLogicalScrollable == true &&

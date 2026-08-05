@@ -660,6 +660,8 @@ internal
                 return;
             }
 
+            DataGridDiagnostics.RecordRowsLogicalOffsetSynchronized(
+                targetVerticalOffset - _rowsPresenter.Offset.Y);
             _rowsPresenter.SyncOffset(HorizontalOffset, targetVerticalOffset);
             _rowsPresenter.RaiseScrollInvalidated(EventArgs.Empty);
         }
@@ -1327,7 +1329,13 @@ internal
         {
             Debug.Assert((slot >= 0) && slot < SlotCount);
 
-            if (IsSlotVisible(slot))
+            bool isDisplayed = IsSlotVisible(slot);
+            if (_scrollingByHeight)
+            {
+                DataGridDiagnostics.RecordRowsScrollExactSlotHeightLookup(!isDisplayed);
+            }
+
+            if (isDisplayed)
             {
                 Debug.Assert(DisplayData.GetDisplayedElement(slot) != null);
                 return DisplayData.GetDisplayedElement(slot).DesiredSize.Height;

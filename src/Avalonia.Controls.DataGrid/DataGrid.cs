@@ -203,6 +203,8 @@ internal
         /// <param name="newViewport">New viewport size.</param>
         protected internal virtual void OnRowsPresenterViewportChanged(Size oldViewport, Size newViewport)
         {
+            using var _ = DataGridDiagnostics.BeginRowsPresenterViewportChanged();
+
             if (!UseLogicalScrollable || _rowsPresenter == null)
             {
                 return;

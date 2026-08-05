@@ -46,6 +46,8 @@ namespace Avalonia.Controls
 
         private void ScrollSlotsByHeight(double height)
         {
+            using var _ = DataGridDiagnostics.BeginRowsScrollSlotsByHeight();
+
             if (SlotCount == 0)
             {
                 return;
@@ -308,7 +310,10 @@ namespace Avalonia.Controls
 
                 Debug.Assert(DisplayData.FirstScrollingSlot >= 0);
                 double safetyFirstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
-                if (double.IsNaN(safetyFirstHeight) || MathUtilities.LessThanOrClose(safetyFirstHeight, 0))
+                bool hasValidSafetyFirstHeight =
+                    !double.IsNaN(safetyFirstHeight) &&
+                    !MathUtilities.LessThanOrClose(safetyFirstHeight, 0);
+                if (!hasValidSafetyFirstHeight)
                 {
                     safetyFirstHeight = Math.Max(1, RowHeightEstimate);
                 }
@@ -319,11 +324,6 @@ namespace Avalonia.Controls
                 else if (MathUtilities.LessThan(NegVerticalOffset, 0))
                 {
                     NegVerticalOffset = 0;
-                }
-                safetyFirstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
-                if (double.IsNaN(safetyFirstHeight) || MathUtilities.LessThanOrClose(safetyFirstHeight, 0))
-                {
-                    safetyFirstHeight = Math.Max(1, RowHeightEstimate);
                 }
                 Debug.Assert(safetyFirstHeight > NegVerticalOffset);
 
@@ -349,10 +349,9 @@ namespace Avalonia.Controls
                     NegVerticalOffset = 0;
                 }
 
-                double displayedFirstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
-                if (double.IsNaN(displayedFirstHeight) || MathUtilities.LessThanOrClose(displayedFirstHeight, 0))
+                double displayedFirstHeight = safetyFirstHeight;
+                if (!hasValidSafetyFirstHeight)
                 {
-                    displayedFirstHeight = Math.Max(1, RowHeightEstimate);
                     NegVerticalOffset = 0;
                 }
 
@@ -394,6 +393,8 @@ namespace Avalonia.Controls
 
         private double EstimateOffsetToVisibleSlot(int slot, IDataGridRowHeightEstimator estimator)
         {
+            using var _ = DataGridDiagnostics.BeginRowsScrollEstimateOffset();
+
             if (slot <= 0 || estimator == null)
             {
                 return 0;

@@ -20,10 +20,31 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
     private const int ScrollSteps = 64;
     private const string DiagnosticsMeterName = "ProDataGrid.Diagnostic.Meter";
     private const string RowsDisplayUpdateTimeName = "prodatagrid.rows.display.update.time";
+    private const string RowsPresenterViewportChangedTimeName = "prodatagrid.rows.presenter.viewport.changed.time";
+    private const string RowsScrollSlotsByHeightTimeName = "prodatagrid.rows.scroll.slots.by.height.time";
+    private const string RowsScrollEstimateOffsetTimeName = "prodatagrid.rows.scroll.estimate.offset.time";
+    private const string RowsMeasureTimeName = "prodatagrid.rows.measure.time";
+    private const string RowsArrangeTimeName = "prodatagrid.rows.arrange.time";
+    private const string RowsScrollViewportDeltaName = "prodatagrid.rows.scroll.viewport.delta";
+    private const string RowsScrollExtentDeltaName = "prodatagrid.rows.scroll.extent.delta";
+    private const string RowsLogicalOffsetSynchronizedDeltaName = "prodatagrid.rows.logical.offset.synchronized.delta";
     private const string RowGenerateTimeName = "prodatagrid.rows.generate.time";
     private const string RowsRealizedCountName = "prodatagrid.rows.realized.count";
     private const string RowsRecycledCountName = "prodatagrid.rows.recycled.count";
     private const string RowsPreparedCountName = "prodatagrid.rows.prepared.count";
+    private const string RowsMeasuredCountName = "prodatagrid.rows.measured.count";
+    private const string RowsMeasureSkippedCountName = "prodatagrid.rows.measure.skipped.count";
+    private const string RowsArrangedCountName = "prodatagrid.rows.arranged.count";
+    private const string RowsArrangeSkippedCountName = "prodatagrid.rows.arrange.skipped.count";
+    private const string RowsArrangeMeasureInvalidatedCountName = "prodatagrid.rows.arrange.measure.invalidated.count";
+    private const string RowsScrollInfoChangedCountName = "prodatagrid.rows.scroll.info.changed.count";
+    private const string RowsScrollExtentChangedCountName = "prodatagrid.rows.scroll.extent.changed.count";
+    private const string RowsScrollViewportChangedCountName = "prodatagrid.rows.scroll.viewport.changed.count";
+    private const string RowsScrollOffsetCoercedCountName = "prodatagrid.rows.scroll.offset.coerced.count";
+    private const string RowsScrollInvalidatedCountName = "prodatagrid.rows.scroll.invalidated.count";
+    private const string RowsLogicalOffsetSynchronizedCountName = "prodatagrid.rows.logical.offset.synchronized.count";
+    private const string RowsScrollExactSlotHeightLookupCountName = "prodatagrid.rows.scroll.exact.slot.height.lookup.count";
+    private const string RowsScrollExactSlotHeightInsertionCountName = "prodatagrid.rows.scroll.exact.slot.height.insertion.count";
 
     private readonly ITestOutputHelper _output;
 
@@ -113,7 +134,7 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
             }));
 
             _output.WriteLine(FormattableString.Invariant(
-                $"Hierarchical Collapse Gaps scroll benchmark: steps={samples.Count}, extent={maximumOffset:F1}; layout median={report.Layout.Median:F3} ms p95={report.Layout.P95:F3} ms; render median={report.Render.Median:F3} ms p95={report.Render.P95:F3} ms; row display median={report.Diagnostics.RowsDisplayUpdate.Median:F3} ms p95={report.Diagnostics.RowsDisplayUpdate.P95:F3} ms; row generation median={report.Diagnostics.RowGeneration.Median:F3} ms p95={report.Diagnostics.RowGeneration.P95:F3} ms; rows realized={report.Diagnostics.RowsRealized} recycled={report.Diagnostics.RowsRecycled} prepared={report.Diagnostics.RowsPrepared}; allocated median={report.Allocated.Median:F0} bytes; resident memory peak={report.ResidentMemory.Maximum:F0} bytes; report={reportPath}; screenshot={screenshotPath ?? "none"}"));
+                $"Hierarchical Collapse Gaps scroll benchmark: steps={samples.Count}, extent={maximumOffset:F1}; layout median={report.Layout.Median:F3} ms p95={report.Layout.P95:F3} ms; render median={report.Render.Median:F3} ms p95={report.Render.P95:F3} ms; row display median={report.Diagnostics.RowsDisplayUpdate.Median:F3} ms p95={report.Diagnostics.RowsDisplayUpdate.P95:F3} ms; row measure median={report.Diagnostics.RowsMeasure.Median:F3} ms p95={report.Diagnostics.RowsMeasure.P95:F3} ms; row arrange median={report.Diagnostics.RowsArrange.Median:F3} ms p95={report.Diagnostics.RowsArrange.P95:F3} ms; row generation median={report.Diagnostics.RowGeneration.Median:F3} ms p95={report.Diagnostics.RowGeneration.P95:F3} ms; measured={report.Diagnostics.RowsMeasured} measure skipped={report.Diagnostics.RowsMeasureSkipped} arranged={report.Diagnostics.RowsArranged} arrange skipped={report.Diagnostics.RowsArrangeSkipped} arrange-triggered measure invalidations={report.Diagnostics.RowsArrangeMeasureInvalidated}; rows realized={report.Diagnostics.RowsRealized} recycled={report.Diagnostics.RowsRecycled} prepared={report.Diagnostics.RowsPrepared}; allocated median={report.Allocated.Median:F0} bytes; resident memory peak={report.ResidentMemory.Maximum:F0} bytes; report={reportPath}; screenshot={screenshotPath ?? "none"}"));
 
             Assert.True(samples.Count == ScrollSteps * 2);
             Assert.True(maximumOffset > 0);
@@ -252,10 +273,34 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
 
     private sealed record DiagnosticReport(
         Stats RowsDisplayUpdate,
+        Stats RowsPresenterViewportChanged,
+        Stats RowsScrollSlotsByHeight,
+        Stats RowsScrollEstimateOffset,
+        Stats RowsMeasure,
+        Stats RowsArrange,
+        Stats RowsScrollViewportDelta,
+        Stats RowsScrollExtentDelta,
+        Stats RowsLogicalOffsetSynchronizedDelta,
         Stats RowGeneration,
         long RowsRealized,
         long RowsRecycled,
-        long RowsPrepared);
+        long RowsPrepared,
+        long RowsMeasured,
+        long RowsMeasureSkipped,
+        long RowsArranged,
+        long RowsArrangeSkipped,
+        long RowsArrangeMeasureInvalidated,
+        long RowsScrollInfoChanged,
+        long RowsScrollExtentChanged,
+        long RowsScrollViewportChanged,
+        long RowsScrollOffsetCoerced,
+        long RowsScrollInvalidated,
+        long RowsLogicalOffsetSynchronized,
+        long RowsScrollExactSlotHeightLookups,
+        long RowsScrollExactSlotHeightInsertions,
+        int RowsDisplayUpdatePasses,
+        int RowsMeasurePasses,
+        int RowsArrangePasses);
 
     private sealed record ScrollSample(
         double Offset,
@@ -318,10 +363,34 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
         {
             return new DiagnosticReport(
                 CalculateStats(GetDoubleMeasurements(RowsDisplayUpdateTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsPresenterViewportChangedTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsScrollSlotsByHeightTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsScrollEstimateOffsetTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsMeasureTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsArrangeTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsScrollViewportDeltaName)),
+                CalculateStats(GetDoubleMeasurements(RowsScrollExtentDeltaName)),
+                CalculateStats(GetDoubleMeasurements(RowsLogicalOffsetSynchronizedDeltaName)),
                 CalculateStats(GetDoubleMeasurements(RowGenerateTimeName)),
                 GetLongMeasurement(RowsRealizedCountName),
                 GetLongMeasurement(RowsRecycledCountName),
-                GetLongMeasurement(RowsPreparedCountName));
+                GetLongMeasurement(RowsPreparedCountName),
+                GetLongMeasurement(RowsMeasuredCountName),
+                GetLongMeasurement(RowsMeasureSkippedCountName),
+                GetLongMeasurement(RowsArrangedCountName),
+                GetLongMeasurement(RowsArrangeSkippedCountName),
+                GetLongMeasurement(RowsArrangeMeasureInvalidatedCountName),
+                GetLongMeasurement(RowsScrollInfoChangedCountName),
+                GetLongMeasurement(RowsScrollExtentChangedCountName),
+                GetLongMeasurement(RowsScrollViewportChangedCountName),
+                GetLongMeasurement(RowsScrollOffsetCoercedCountName),
+                GetLongMeasurement(RowsScrollInvalidatedCountName),
+                GetLongMeasurement(RowsLogicalOffsetSynchronizedCountName),
+                GetLongMeasurement(RowsScrollExactSlotHeightLookupCountName),
+                GetLongMeasurement(RowsScrollExactSlotHeightInsertionCountName),
+                GetDoubleMeasurementCount(RowsDisplayUpdateTimeName),
+                GetDoubleMeasurementCount(RowsMeasureTimeName),
+                GetDoubleMeasurementCount(RowsArrangeTimeName));
         }
 
         public void Dispose()
@@ -339,6 +408,13 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
         private long GetLongMeasurement(string name)
         {
             return _longMeasurements.GetValueOrDefault(name);
+        }
+
+        private int GetDoubleMeasurementCount(string name)
+        {
+            return _doubleMeasurements.TryGetValue(name, out var values)
+                ? values.Count
+                : 0;
         }
     }
 }
