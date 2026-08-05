@@ -49,7 +49,25 @@ namespace Avalonia.Controls
                 InvalidateHorizontalArrange();
             }
 
-            Size size = base.ArrangeOverride(finalSize);
+            bool canReuseArrange = RootElement != null &&
+                                   _hasValidArrange &&
+                                   !_checkDetailsContentHeight &&
+                                   RootElement.IsArrangeValid &&
+                                   MathUtilities.AreClose(_lastArrangeSize.Width, finalSize.Width) &&
+                                   MathUtilities.AreClose(_lastArrangeSize.Height, finalSize.Height);
+
+            Size size;
+            if (canReuseArrange)
+            {
+                size = _lastArrangeResult;
+            }
+            else
+            {
+                size = base.ArrangeOverride(finalSize);
+                _lastArrangeSize = finalSize;
+                _lastArrangeResult = size;
+                _hasValidArrange = RootElement != null;
+            }
 
             if (_checkDetailsContentHeight)
             {
@@ -114,6 +132,8 @@ namespace Avalonia.Controls
             {
                 return base.MeasureOverride(availableSize);
             }
+
+            _hasValidArrange = false;
 
             //Allow the DataGrid specific components to adjust themselves based on new values
             if (_headerElement != null)
@@ -202,6 +222,7 @@ namespace Avalonia.Controls
         //TODO Animation
         internal void DetachFromDataGrid(bool recycle)
         {
+            _hasValidArrange = false;
             UnloadDetailsTemplate(recycle);
 
             if (recycle)
@@ -284,6 +305,7 @@ namespace Avalonia.Controls
 
         internal void InvalidateHorizontalArrange()
         {
+            _hasValidArrange = false;
             if (_cellsElement != null)
             {
                 _cellsElement.InvalidateArrange();
@@ -296,6 +318,7 @@ namespace Avalonia.Controls
 
         internal void InvalidateDesiredHeight()
         {
+            _hasValidArrange = false;
             _cellsElement?.InvalidateDesiredHeight();
         }
 

@@ -55,6 +55,9 @@ internal
         private DataGridCell _fillerCell;
         private DataGridRowHeader _headerElement;
         private double _lastHorizontalOffset;
+        private Size _lastArrangeSize;
+        private Size _lastArrangeResult;
+        private bool _hasValidArrange;
         private int? _mouseOverColumnIndex;
         private DataGrid _owningGrid;
         private bool _isValid = true;
@@ -560,6 +563,7 @@ internal
         /// </summary>
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
         {
+            _hasValidArrange = false;
             RootElement = e.NameScope.Find<Panel>(DATAGRIDROW_elementRoot);
             if (RootElement != null)
             {
