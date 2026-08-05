@@ -1118,6 +1118,30 @@ public class DataGridScrollingTests
     #region Mouse Wheel Scrolling Tests
 
     [AvaloniaFact]
+    public void Legacy_Vertical_ScrollBar_LargeChange_Tracks_Viewport_Height()
+    {
+        var items = Enumerable.Range(0, 200).Select(x => new ScrollTestModel($"Item {x}")).ToList();
+        var target = CreateTarget(items, height: 140);
+        target.VerticalScrollBarVisibility = ScrollBarVisibility.Visible;
+        target.UpdateLayout();
+
+        var verticalBar = target.GetSelfAndVisualDescendants()
+            .OfType<ScrollBar>()
+            .First(sb => sb.Orientation == Orientation.Vertical);
+
+        Assert.True(verticalBar.ViewportSize > 0);
+        Assert.Equal(verticalBar.ViewportSize, verticalBar.LargeChange);
+
+        var initialLargeChange = verticalBar.LargeChange;
+        var root = Assert.IsType<Window>(target.GetVisualRoot());
+        root.Height = 240;
+        root.UpdateLayout();
+
+        Assert.True(verticalBar.LargeChange > initialLargeChange);
+        Assert.Equal(verticalBar.ViewportSize, verticalBar.LargeChange);
+    }
+
+    [AvaloniaFact]
     public void MouseWheel_Scrolls_In_Legacy_Mode()
     {
         // Arrange
