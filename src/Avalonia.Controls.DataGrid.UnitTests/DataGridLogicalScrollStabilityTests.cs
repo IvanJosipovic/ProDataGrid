@@ -10,6 +10,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using Xunit;
 
@@ -59,6 +60,26 @@ public class DataGridLogicalScrollStabilityTests
         Assert.InRange(pendingAdded, 0, expectedMaxDelta + 0.01);
         Assert.True(pendingAfter <= logicalMaximum + 0.01,
             $"Pending delta exceeded logical max. Pending: {pendingAfter}, LogicalMax: {logicalMaximum}");
+    }
+
+    [AvaloniaFact]
+    public void LogicalScrollable_DownwardScroll_WithinLayoutEpsilonOfBottom_IsNotHandled()
+    {
+        var target = CreateStandaloneTarget(itemCount: 400, height: 160, useLogicalScrollable: true);
+        target.UpdateLayout();
+
+        var presenter = GetRowsPresenter(target);
+        var logicalMaximum = Math.Max(0, presenter.Extent.Height - presenter.Viewport.Height);
+        Assert.True(logicalMaximum > LayoutHelper.LayoutEpsilon,
+            $"Expected logical maximum greater than layout epsilon, got {logicalMaximum}.");
+
+        presenter.Offset = new Vector(0, logicalMaximum - (LayoutHelper.LayoutEpsilon / 2));
+        var pendingBefore = target.DisplayData.PendingVerticalScrollHeight;
+
+        var handled = target.UpdateScroll(new Vector(0, -30));
+
+        Assert.False(handled, "A layout-level residual at the bottom should allow scroll chaining.");
+        Assert.Equal(pendingBefore, target.DisplayData.PendingVerticalScrollHeight);
     }
 
     [AvaloniaFact]

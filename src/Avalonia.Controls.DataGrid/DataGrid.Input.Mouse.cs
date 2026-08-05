@@ -9,6 +9,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Utils;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Utilities;
 using Avalonia.VisualTree;
 using System.Diagnostics;
@@ -84,7 +85,7 @@ namespace Avalonia.Controls
                     }
                 }
 
-                if (scrollHeight != 0)
+                if (Math.Abs(scrollHeight) > LayoutHelper.LayoutEpsilon)
                 {
                     // Accumulate scroll height to handle rapid scroll events
                     DisplayData.PendingVerticalScrollHeight += scrollHeight;
