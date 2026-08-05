@@ -39,6 +39,8 @@ internal
         private DataGrid? _owningGrid;
         private double _lastArrangeHeight;
         private bool _lastArrangeMatchesDesired = true;
+        private readonly HashSet<Control> _displayedElementsScratch = new();
+        private readonly RectangleGeometry _clipRectGeometry = new();
 
         internal double LastArrangeHeight => _lastArrangeHeight;
 
@@ -249,7 +251,8 @@ internal
 
             double rowDesiredWidth = OwningGrid.RowHeadersDesiredWidth + OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth + OwningGrid.ColumnsInternal.FillerColumn.FillerWidth;
             double topEdge = -OwningGrid.NegVerticalOffset;
-            var displayedElements = new HashSet<Control>();
+            var displayedElements = _displayedElementsScratch;
+            displayedElements.Clear();
             foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
             {
                 displayedElements.Add(element);
@@ -261,17 +264,29 @@ internal
                     // Visibility for all filler cells needs to be set in one place.  Setting it individually in
                     // each CellsPresenter causes an NxN layout cycle (see DevDiv Bugs 211557)
                     row.EnsureFillerVisibility();
-                    row.Arrange(new Rect(-OwningGrid.HorizontalOffset, topEdge, rowDesiredWidth, element.DesiredSize.Height));
+                    var targetRect = new Rect(-OwningGrid.HorizontalOffset, topEdge, rowDesiredWidth, element.DesiredSize.Height);
+                    if (ShouldArrangeElement(row, targetRect))
+                    {
+                        row.Arrange(targetRect);
+                    }
                 }
                 else if (element is DataGridRowGroupHeader groupHeader)
                 {
                     double leftEdge = (OwningGrid.AreRowGroupHeadersFrozen) ? 0 : -OwningGrid.HorizontalOffset;
-                    groupHeader.Arrange(new Rect(leftEdge, topEdge, rowDesiredWidth - leftEdge, element.DesiredSize.Height));
+                    var targetRect = new Rect(leftEdge, topEdge, rowDesiredWidth - leftEdge, element.DesiredSize.Height);
+                    if (ShouldArrangeElement(groupHeader, targetRect))
+                    {
+                        groupHeader.Arrange(targetRect);
+                    }
                 }
                 else if (element is DataGridRowGroupFooter groupFooter)
                 {
                     double leftEdge = (OwningGrid.AreRowGroupHeadersFrozen) ? 0 : -OwningGrid.HorizontalOffset;
-                    groupFooter.Arrange(new Rect(leftEdge, topEdge, rowDesiredWidth - leftEdge, element.DesiredSize.Height));
+                    var targetRect = new Rect(leftEdge, topEdge, rowDesiredWidth - leftEdge, element.DesiredSize.Height);
+                    if (ShouldArrangeElement(groupFooter, targetRect))
+                    {
+                        groupFooter.Arrange(targetRect);
+                    }
                 }
 
                 topEdge += element.DesiredSize.Height;
@@ -280,11 +295,15 @@ internal
             double finalHeight = Math.Max(topEdge + OwningGrid.NegVerticalOffset, finalSize.Height);
 
             // Clip the RowsPresenter so rows cannot overlap other elements in certain styling scenarios
-            var rg = new RectangleGeometry
+            var clipRect = new Rect(0, 0, finalSize.Width, finalHeight);
+            if (!AreClose(_clipRectGeometry.Rect, clipRect))
             {
-                Rect = new Rect(0, 0, finalSize.Width, finalHeight)
-            };
-            Clip = rg;
+                _clipRectGeometry.Rect = clipRect;
+            }
+            if (!ReferenceEquals(Clip, _clipRectGeometry))
+            {
+                Clip = _clipRectGeometry;
+            }
 
             // Arrange any hidden/recycled children off-screen to prevent ghost rows
             // This is necessary because Avalonia keeps elements at their last arranged position
@@ -299,9 +318,12 @@ internal
                     {
                         OwningGrid.HideRecycledElement(child);
                     }
-                    child.Arrange(offScreenRect);
+                    if (ShouldArrangeElement(child, offScreenRect))
+                    {
+                        child.Arrange(offScreenRect);
+                    }
                 }
-                else if (!child.IsVisible)
+                else if (!child.IsVisible && ShouldArrangeElement(child, offScreenRect))
                 {
                     child.Arrange(offScreenRect);
                 }
@@ -473,6 +495,16 @@ internal
 
             double totalHeight = -OwningGrid.NegVerticalOffset;
             double totalCellsWidth = OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth;
+            double measureWidth = availableSize.Width;
+            if (double.IsInfinity(measureWidth) || double.IsNaN(measureWidth))
+            {
+                // Fall back to the space the grid will actually use (headers + columns + filler)
+                measureWidth = OwningGrid.RowHeadersDesiredWidth
+                               + OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth
+                               + OwningGrid.ColumnsInternal.FillerColumn.FillerWidth;
+            }
+
+            var measureConstraint = new Size(measureWidth, double.PositiveInfinity);
 
             double headerWidth = 0;
             foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
@@ -486,16 +518,10 @@ internal
                     }
                 }
 
-                double measureWidth = availableSize.Width;
-                if (double.IsInfinity(measureWidth) || double.IsNaN(measureWidth))
+                if (invalidateRows || !element.IsMeasureValid)
                 {
-                    // Fall back to the space the grid will actually use (headers + columns + filler)
-                    measureWidth = OwningGrid.RowHeadersDesiredWidth
-                                   + OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth
-                                   + OwningGrid.ColumnsInternal.FillerColumn.FillerWidth;
+                    element.Measure(measureConstraint);
                 }
-
-                element.Measure(new Size(measureWidth, double.PositiveInfinity));
 
                 if (row != null && row.HeaderCell != null)
                 {
@@ -547,6 +573,28 @@ internal
 
             var threshold = Math.Max(OwningGrid?.RowHeightEstimate ?? 1, 1);
             return Math.Abs(arrangedHeight - desiredHeight) <= threshold;
+        }
+
+        private static bool ShouldArrangeElement(Control element, Rect targetRect)
+        {
+            if (!element.IsArrangeValid)
+            {
+                return true;
+            }
+
+            var bounds = element.Bounds;
+            return !MathUtilities.AreClose(bounds.X, targetRect.X) ||
+                   !MathUtilities.AreClose(bounds.Y, targetRect.Y) ||
+                   !MathUtilities.AreClose(bounds.Width, targetRect.Width) ||
+                   !MathUtilities.AreClose(bounds.Height, targetRect.Height);
+        }
+
+        private static bool AreClose(Rect first, Rect second)
+        {
+            return MathUtilities.AreClose(first.X, second.X) &&
+                   MathUtilities.AreClose(first.Y, second.Y) &&
+                   MathUtilities.AreClose(first.Width, second.Width) &&
+                   MathUtilities.AreClose(first.Height, second.Height);
         }
 
         private void OnScrollGesture(object? sender, ScrollGestureEventArgs e)
