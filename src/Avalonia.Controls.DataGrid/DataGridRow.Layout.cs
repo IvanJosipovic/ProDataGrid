@@ -25,6 +25,24 @@ namespace Avalonia.Controls
 {
     partial class DataGridRow
     {
+        private bool _hasDeferredHeight;
+        private double _deferredHeight;
+
+        internal bool HasDeferredHeight => _hasDeferredHeight;
+
+        internal double DeferredHeight => _deferredHeight;
+
+        internal void SetDeferredHeight(double height)
+        {
+            _deferredHeight = height;
+            _hasDeferredHeight = true;
+        }
+
+        internal void ClearDeferredHeight()
+        {
+            _hasDeferredHeight = false;
+        }
+
         /// <summary>
         /// Arranges the content of the <see cref="T:Avalonia.Controls.DataGridRow" />.
         /// </summary>
@@ -40,6 +58,8 @@ namespace Avalonia.Controls
             {
                 return base.ArrangeOverride(finalSize);
             }
+
+            using var arrangeScope = DataGridDiagnostics.BeginRowArrange();
 
             // If the DataGrid was scrolled horizontally after our last Arrange, we need to make sure
             // the Cells and Details are Arranged again
@@ -134,20 +154,26 @@ namespace Avalonia.Controls
                 return base.MeasureOverride(availableSize);
             }
 
+            using var measureScope = DataGridDiagnostics.BeginRowMeasure();
+
+            ClearDeferredHeight();
             _hasValidArrange = false;
 
             //Allow the DataGrid specific components to adjust themselves based on new values
-            if (_headerElement != null)
+            if (!ConsumeRecycledRootDataContextChanged())
             {
-                _headerElement.InvalidateMeasure();
-            }
-            if (_cellsElement != null)
-            {
-                _cellsElement.InvalidateMeasure();
-            }
-            if (_detailsElement != null)
-            {
-                _detailsElement.InvalidateMeasure();
+                if (_headerElement != null)
+                {
+                    _headerElement.InvalidateMeasure();
+                }
+                if (_cellsElement != null)
+                {
+                    _cellsElement.InvalidateMeasure();
+                }
+                if (_detailsElement != null)
+                {
+                    _detailsElement.InvalidateMeasure();
+                }
             }
 
             Size desiredSize = base.MeasureOverride(availableSize);
@@ -223,6 +249,7 @@ namespace Avalonia.Controls
         //TODO Animation
         internal void DetachFromDataGrid(bool recycle)
         {
+            ClearDeferredHeight();
             _hasValidArrange = false;
             UnloadDetailsTemplate(recycle);
 

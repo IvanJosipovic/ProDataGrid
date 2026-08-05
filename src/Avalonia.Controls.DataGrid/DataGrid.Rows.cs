@@ -1339,12 +1339,16 @@ internal
             {
                 Control element = DisplayData.GetDisplayedElement(slot);
                 Debug.Assert(element != null);
-                return element.DesiredSize.Height;
+                return element is DataGridRow row && row.HasDeferredHeight
+                    ? row.DeferredHeight
+                    : element.DesiredSize.Height;
             }
 
             Control slotElement = InsertDisplayedElement(slot, true /*updateSlotInformation*/);
             Debug.Assert(slotElement != null);
-            return slotElement.DesiredSize.Height;
+            return slotElement is DataGridRow rowWithDeferredHeight && rowWithDeferredHeight.HasDeferredHeight
+                ? rowWithDeferredHeight.DeferredHeight
+                : slotElement.DesiredSize.Height;
         }
 
         // Returns an estimate for the height of the slots between fromSlot and toSlot

@@ -3,6 +3,7 @@
 // Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 // All other rights reserved.
 
+using System;
 using Avalonia.Collections;
 using Avalonia.Data;
 using Avalonia.Styling;
@@ -239,116 +240,167 @@ namespace Avalonia.Controls
 
         private void InsertDisplayedElement(int slot, Control element, bool wasNewlyAdded, bool updateSlotInformation)
         {
+            using var insertTimer = DataGridDiagnostics.BeginRowsDisplayElementInsert();
+
             // We can only support creating new rows that are adjacent to the currently visible rows
             // since they need to be added to the visual tree for us to Measure them.
             Debug.Assert(DisplayData.FirstScrollingSlot == -1 || slot >= GetPreviousVisibleSlot(DisplayData.FirstScrollingSlot) && slot <= GetNextVisibleSlot(DisplayData.LastScrollingSlot));
             Debug.Assert(element != null);
 
+            DataGridRow row = null;
+            DataGridRowGroupHeader groupHeader = null;
+            DataGridRowGroupFooter groupFooter = null;
+            double elementHeight = 0;
+            bool measureDeferred = false;
+
             if (_rowsPresenter != null)
             {
-                DataGridRowGroupHeader groupHeader = null;
-                DataGridRowGroupFooter groupFooter = null;
-                DataGridRow row = element as DataGridRow;
-                if (row != null)
+                row = element as DataGridRow;
+                using (DataGridDiagnostics.BeginRowsDisplayElementAttach())
                 {
-                    LoadRowVisualsForDisplay(row);
+                    if (row != null)
+                    {
+                        LoadRowVisualsForDisplay(row);
 
-                    if (!ReferenceEquals(row.Parent, _rowsPresenter))
-                    {
-                        _rowsPresenter.Children.Add(row);
-                    }
-
-                    if (!IsRowRecyclable(row))
-                    {
-                        element.Clip = null;
-                        Debug.Assert(row.Index == RowIndexFromSlot(slot));
-                    }
-                }
-                else
-                {
-                    groupHeader = element as DataGridRowGroupHeader;
-                    if (groupHeader == null)
-                    {
-                        groupFooter = element as DataGridRowGroupFooter;
-                    }
-                    Debug.Assert(groupHeader != null || groupFooter != null);  // Rows, RowGroupHeaders, or RowGroupFooters
-                    if (groupHeader != null)
-                    {
-                        groupHeader.TotalIndent = (groupHeader.Level == 0) ? 0 : RowGroupSublevelIndents[groupHeader.Level - 1];
-                        if (!ReferenceEquals(groupHeader.Parent, _rowsPresenter))
+                        if (!ReferenceEquals(row.Parent, _rowsPresenter))
                         {
-                            _rowsPresenter.Children.Add(element);
+                            _rowsPresenter.Children.Add(row);
                         }
-                        groupHeader.IsRecycled = false;
-                        groupHeader.LoadVisualsForDisplay();
+
+                        if (!IsRowRecyclable(row))
+                        {
+                            element.Clip = null;
+                            Debug.Assert(row.Index == RowIndexFromSlot(slot));
+                        }
+                    }
+                    else
+                    {
+                        groupHeader = element as DataGridRowGroupHeader;
+                        if (groupHeader == null)
+                        {
+                            groupFooter = element as DataGridRowGroupFooter;
+                        }
+                        Debug.Assert(groupHeader != null || groupFooter != null);  // Rows, RowGroupHeaders, or RowGroupFooters
+                        if (groupHeader != null)
+                        {
+                            groupHeader.TotalIndent = (groupHeader.Level == 0) ? 0 : RowGroupSublevelIndents[groupHeader.Level - 1];
+                            if (!ReferenceEquals(groupHeader.Parent, _rowsPresenter))
+                            {
+                                _rowsPresenter.Children.Add(element);
+                            }
+                            groupHeader.IsRecycled = false;
+                            groupHeader.LoadVisualsForDisplay();
+                        }
+                        else if (groupFooter != null)
+                        {
+                            if (!ReferenceEquals(groupFooter.Parent, _rowsPresenter))
+                            {
+                                _rowsPresenter.Children.Add(element);
+                            }
+                            groupFooter.IsRecycled = false;
+                            groupFooter.ApplySummaryRowTheme();
+                            groupFooter.UpdateSummaryRowOffset();
+                            groupFooter.UpdateSummaryRowState();
+                        }
+                    }
+
+                    if (row != null)
+                    {
+                        _rowsPresenter.RegisterAnchorCandidate(row);
+                    }
+                    else if (groupHeader != null)
+                    {
+                        _rowsPresenter.RegisterAnchorCandidate(groupHeader);
                     }
                     else if (groupFooter != null)
                     {
-                        if (!ReferenceEquals(groupFooter.Parent, _rowsPresenter))
-                        {
-                            _rowsPresenter.Children.Add(element);
-                        }
-                        groupFooter.IsRecycled = false;
-                        groupFooter.ApplySummaryRowTheme();
-                        groupFooter.UpdateSummaryRowOffset();
-                        groupFooter.UpdateSummaryRowState();
+                        _rowsPresenter.RegisterAnchorCandidate(groupFooter);
                     }
                 }
 
-                if (row != null)
+                measureDeferred = row != null && TryGetDeferredRowHeight(slot, row, out elementHeight);
+                if (measureDeferred)
                 {
-                    _rowsPresenter.RegisterAnchorCandidate(row);
-                }
-                else if (groupHeader != null)
-                {
-                    _rowsPresenter.RegisterAnchorCandidate(groupHeader);
-                }
-                else if (groupFooter != null)
-                {
-                    _rowsPresenter.RegisterAnchorCandidate(groupFooter);
+                    row.SetDeferredHeight(elementHeight);
                 }
 
-                // Measure the element and update AvailableRowRoom
-                element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                AvailableSlotElementRoom -= element.DesiredSize.Height;
-
-                var estimator = RowHeightEstimator;
-                
-                if (groupHeader != null)
+                using (DataGridDiagnostics.BeginRowsDisplayElementMeasure())
                 {
-                    _rowGroupHeightsByLevel[groupHeader.Level] = groupHeader.DesiredSize.Height;
-                    // Record the measured group header height with the estimator
-                    estimator?.RecordRowGroupHeaderHeight(slot, groupHeader.Level, element.DesiredSize.Height);
-                }
-                else if (groupFooter != null)
-                {
-                    _rowGroupHeightsByLevel[groupFooter.Level] = groupFooter.DesiredSize.Height;
-                    estimator?.RecordRowGroupHeaderHeight(slot, groupFooter.Level, element.DesiredSize.Height);
-                }
-
-                if (row != null)
-                {
-                    // Record the measured row height with the estimator
-                    bool hasDetails = GetRowDetailsVisibility(slot);
-                    // Details height is already included in element.DesiredSize.Height
-                    estimator?.RecordMeasuredHeight(slot, element.DesiredSize.Height, hasDetails, 0);
-                    
-                    // Update the legacy estimate for backward compatibility
-                    if (RowHeightEstimate == DataGrid.DATAGRID_defaultRowHeight && double.IsNaN(row.Height))
+                    if (measureDeferred)
                     {
-                        RowHeightEstimate = element.DesiredSize.Height;
+                        AvailableSlotElementRoom -= elementHeight;
+                    }
+                    else
+                    {
+                        element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        elementHeight = element.DesiredSize.Height;
+                        AvailableSlotElementRoom -= elementHeight;
+                    }
+                }
+
+                using (DataGridDiagnostics.BeginRowsDisplayElementHeightRecord())
+                {
+                    var estimator = RowHeightEstimator;
+
+                    if (groupHeader != null)
+                    {
+                        elementHeight = groupHeader.DesiredSize.Height;
+                        _rowGroupHeightsByLevel[groupHeader.Level] = elementHeight;
+                        // Record the measured group header height with the estimator
+                        estimator?.RecordRowGroupHeaderHeight(slot, groupHeader.Level, elementHeight);
+                    }
+                    else if (groupFooter != null)
+                    {
+                        elementHeight = groupFooter.DesiredSize.Height;
+                        _rowGroupHeightsByLevel[groupFooter.Level] = elementHeight;
+                        estimator?.RecordRowGroupHeaderHeight(slot, groupFooter.Level, elementHeight);
+                    }
+
+                    if (row != null)
+                    {
+                        // Record the measured row height with the estimator
+                        bool hasDetails = GetRowDetailsVisibility(slot);
+                        // Details height is already included in element.DesiredSize.Height
+                        estimator?.RecordMeasuredHeight(slot, elementHeight, hasDetails, 0);
+
+                        // Update the legacy estimate for backward compatibility
+                        if (RowHeightEstimate == DataGrid.DATAGRID_defaultRowHeight && double.IsNaN(row.Height))
+                        {
+                            RowHeightEstimate = element.DesiredSize.Height;
+                        }
                     }
                 }
             }
 
-            if (wasNewlyAdded)
+            using (DataGridDiagnostics.BeginRowsDisplayElementLoad())
             {
-                DisplayData.CorrectSlotsAfterInsertion(slot, element, isCollapsed: false);
+                if (wasNewlyAdded)
+                {
+                    DisplayData.CorrectSlotsAfterInsertion(slot, element, isCollapsed: false);
+                }
+                else
+                {
+                    DisplayData.LoadScrollingSlot(slot, element, updateSlotInformation);
+                }
             }
-            else
+        }
+
+        private bool TryGetDeferredRowHeight(int slot, DataGridRow row, out double height)
+        {
+            height = 0;
+            if (!_scrollingByHeight || row.IsMeasureValid || GetRowDetailsVisibility(slot))
             {
-                DisplayData.LoadScrollingSlot(slot, element, updateSlotInformation);
+                return false;
             }
+
+            var rowHeight = row.Height;
+            if (double.IsNaN(rowHeight) || double.IsInfinity(rowHeight))
+            {
+                return false;
+            }
+
+            height = Math.Max(row.MinHeight, Math.Min(row.MaxHeight, rowHeight));
+            return !double.IsNaN(height) && !double.IsInfinity(height) && height >= 0;
         }
 
 
