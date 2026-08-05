@@ -17,7 +17,6 @@ using Avalonia.Controls;
 using Avalonia.Controls.Utils;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Utilities;
 using Avalonia.Threading;
@@ -337,18 +336,9 @@ namespace Avalonia.Controls.DataGridSearching
 
             if (column is DataGridBoundColumn boundColumn)
             {
-                if (boundColumn.Binding is Binding binding)
-                {
-                    stringFormat = binding.StringFormat;
-                    converter = binding.Converter;
-                    converterParameter = binding.ConverterParameter;
-                }
-                else if (boundColumn.Binding is CompiledBindingExtension compiledBinding)
-                {
-                    stringFormat = compiledBinding.StringFormat;
-                    converter = compiledBinding.Converter;
-                    converterParameter = compiledBinding.ConverterParameter;
-                }
+                stringFormat = BindingCloneHelper.GetStringFormat(boundColumn.Binding);
+                converter = BindingCloneHelper.GetConverter(boundColumn.Binding);
+                converterParameter = BindingCloneHelper.GetConverterParameter(boundColumn.Binding);
             }
 
             Func<object, object> valueGetter = null;
