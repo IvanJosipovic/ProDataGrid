@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridSearching;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Headless.XUnit;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Xunit;
 
@@ -72,6 +76,33 @@ public class DataGridSearchAdapterTests
     }
 
     [AvaloniaFact]
+    public void Runtime_CompiledBinding_Uses_Display_Metadata()
+    {
+        var items = new[] { new Person("Alpha") };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+        var compiledBindingExtension = Assert.IsType<CompiledBindingExtension>(
+            DataGridBindingDefinition.Create<Person, string>(person => person.Name).CreateBinding());
+        var column = new DataGridTextColumn
+        {
+            Binding = new CompiledBinding
+            {
+                Path = compiledBindingExtension.Path,
+                Converter = new PrefixConverter(),
+                ConverterParameter = "display",
+                StringFormat = "[{0}]"
+            }
+        };
+        var adapter = new DataGridSearchAdapter(model, () => new[] { column });
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor("[display:Alpha]", comparison: StringComparison.Ordinal));
+
+        var result = Assert.Single(model.Results);
+        Assert.Same(items[0], result.Item);
+    }
+
+    [AvaloniaFact]
     public void Collection_Changes_Are_Coalesced_To_Single_Refresh()
     {
         var items = new ObservableCollection<Person>
@@ -131,5 +162,18 @@ public class DataGridSearchAdapterTests
         }
 
         public string Name { get; }
+    }
+
+    private sealed class PrefixConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            return $"{parameter}:{value}";
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

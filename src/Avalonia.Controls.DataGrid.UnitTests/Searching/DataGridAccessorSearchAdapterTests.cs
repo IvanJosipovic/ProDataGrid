@@ -6,7 +6,10 @@ using System.Linq;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridSearching;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Headless.XUnit;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 using Xunit;
 
@@ -36,6 +39,36 @@ public class DataGridAccessorSearchAdapterTests
         var result = Assert.Single(model.Results);
         Assert.Same(items[1], result.Item);
         Assert.Same(column, result.ColumnId);
+    }
+
+    [Fact]
+    public void AccessorAdapter_Runtime_CompiledBinding_Uses_Display_Metadata()
+    {
+        var items = new[] { new Person("Alpha") };
+        var view = new DataGridCollectionView(items);
+        var model = new SearchModel();
+        var compiledBindingExtension = Assert.IsType<CompiledBindingExtension>(
+            DataGridBindingDefinition.Create<Person, string>(person => person.Name).CreateBinding());
+        var column = new DataGridTextColumn
+        {
+            Binding = new CompiledBinding
+            {
+                Path = compiledBindingExtension.Path,
+                Converter = new PrefixConverter(),
+                ConverterParameter = "display",
+                StringFormat = "[{0}]"
+            }
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<Person, string>(person => person.Name));
+        var adapter = new DataGridAccessorSearchAdapter(model, () => new[] { column });
+        adapter.AttachView(view);
+
+        model.SetOrUpdate(new SearchDescriptor("display:Alpha", comparison: StringComparison.Ordinal));
+
+        var result = Assert.Single(model.Results);
+        Assert.Same(items[0], result.Item);
     }
 
     [Fact]
@@ -407,6 +440,19 @@ public class DataGridAccessorSearchAdapterTests
         }
 
         public event PropertyChangedEventHandler PropertyChanged;
+    }
+
+    private sealed class PrefixConverter : IValueConverter
+    {
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            return $"{parameter}:{value}";
+        }
+
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class TextAccessor : IDataGridColumnValueAccessor, IDataGridColumnTextAccessor
