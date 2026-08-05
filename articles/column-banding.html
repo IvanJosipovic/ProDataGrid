@@ -87,7 +87,10 @@
 <h2 id="basic-setup">Basic setup</h2>
 <pre><code class="lang-csharp">using Avalonia.Controls.DataGridBanding;
 
-var model = new ColumnBandModel();
+var model = new ColumnBandModel
+{
+    HeaderLayout = ColumnBandHeaderLayout.Grouped
+};
 
 var salesColumn = new DataGridNumericColumnDefinition
 {
@@ -105,13 +108,20 @@ model.Bands.Add(new ColumnBand
 });
 </code></pre>
 <p>Bind the generated definitions to the grid:</p>
-<pre><code class="lang-xml">&lt;DataGrid ItemsSource=&quot;{Binding Items}&quot;
-          ColumnDefinitionsSource=&quot;{Binding Bands.ColumnDefinitions}&quot;
+<pre><code class="lang-xml">&lt;DataGrid ItemsSource=&quot;{CompiledBinding Items}&quot;
+          ColumnDefinitionsSource=&quot;{CompiledBinding Bands.ColumnDefinitions}&quot;
           AutoGenerateColumns=&quot;False&quot; /&gt;
 </code></pre>
+<h2 id="header-layouts">Header layouts</h2>
+<p><code>HeaderLayout = ColumnBandHeaderLayout.Grouped</code> renders common ancestors once as non-interactive header cells spanning adjacent leaf columns. Leaves at a shallower depth automatically span the unused rows, producing a conventional grouped-header outline:</p>
+<pre><code class="lang-text">|         Order         |      Merchandise      |          Financials          |
+| Date | Region | Segment | Category | Product |      Revenue      |  Volume  |
+|      |        |         |          |         | Sales | Profit    |  Units   |
+</code></pre>
+<p>Use <code>HeaderLayout = ColumnBandHeaderLayout.Stacked</code> (the default) when every leaf header should display its complete band path independently. Grouped headers split automatically at frozen-column boundaries so frozen and scrolling regions remain aligned.</p>
 <h2 id="notes">Notes</h2>
 <ul>
-<li><code>ColumnBand.Header</code> becomes a stacked header segment.</li>
+<li><code>ColumnBand.Header</code> becomes a stacked segment or grouped spanning cell, depending on <code>HeaderLayout</code>.</li>
 <li>Leaf nodes supply the <code>DataGridColumnDefinition</code> used by the grid.</li>
 <li>The model applies the <code>DataGridColumnBandHeaderTemplate</code> by default; override <code>HeaderTemplateKey</code> to customize.</li>
 </ul>

@@ -476,7 +476,21 @@
       "Uid": null,
       "IsMRef": true,
       "Title": "Avalonia.Controls.DataGridBanding.ColumnBandHeader",
-      "Summary": null
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridBanding.ColumnBandHeader.yml\" sourcestartlinenumber=\"1\">Describes the root-to-leaf path presented for a materialized banded column.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridBanding.ColumnBandHeaderLayout.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridBanding.ColumnBandHeaderLayout.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridBanding.ColumnBandHeaderLayout",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridBanding.ColumnBandHeaderLayout.yml\" sourcestartlinenumber=\"1\">Specifies how a column-band path is presented in the grid header area.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -505,6 +519,20 @@
       "IsMRef": true,
       "Title": "Avalonia.Controls.DataGridBanding.ColumnBandObservableCollection<T>",
       "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridBanding.DataGridColumnBandHeaderCell.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridBanding.DataGridColumnBandHeaderCell.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridBanding.DataGridColumnBandHeaderCell",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridBanding.DataGridColumnBandHeaderCell.yml\" sourcestartlinenumber=\"1\">Presents a non-interactive grouped column-band header spanning one or more leaf columns.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -1894,6 +1922,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridEnterKeyNavigationMode.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridEnterKeyNavigationMode.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridEnterKeyNavigationMode",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridEnterKeyNavigationMode.yml\" sourcestartlinenumber=\"1\">Specifies how the ENTER key moves the current cell while a cell is being edited.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/Avalonia.Controls.DataGridFastPathFeature.yml",
       "output": {
         ".html": {
@@ -2090,6 +2132,48 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterContext.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterContext.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterContext",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterContext.yml\" sourcestartlinenumber=\"1\">Maintains the values, counts, search state, and selection for an Excel-style column filter.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterFlyout.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterFlyout.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterFlyout",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterFlyout.yml\" sourcestartlinenumber=\"1\">A column filter flyout that lists distinct values, row counts, and a substring search box.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterOption.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterOption.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterOption",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridFiltering.DataGridDistinctValueFilterOption.yml\" sourcestartlinenumber=\"1\">Represents one distinct source value and its count.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/Avalonia.Controls.DataGridFiltering.DataGridFilteringAdapter.yml",
       "output": {
         ".html": {
@@ -2241,6 +2325,34 @@
       "IsMRef": true,
       "Title": "Avalonia.Controls.DataGridFiltering.IFilterDateContext",
       "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridFiltering.IFilterDateContext.yml\" sourcestartlinenumber=\"1\">Minimal contract for date range filter contexts.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridFiltering.IFilterDistinctValueOption.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridFiltering.IFilterDistinctValueOption.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridFiltering.IFilterDistinctValueOption",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridFiltering.IFilterDistinctValueOption.yml\" sourcestartlinenumber=\"1\">Represents one value in a distinct-value filter.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridFiltering.IFilterDistinctValuesContext.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridFiltering.IFilterDistinctValuesContext.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridFiltering.IFilterDistinctValuesContext",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridFiltering.IFilterDistinctValuesContext.yml\" sourcestartlinenumber=\"1\">Contract consumed by the built-in distinct-value filter template.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -5054,6 +5166,48 @@
       "Uid": null,
       "IsMRef": true,
       "Title": "Avalonia.Controls.DataGridSelectionUnit",
+      "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharing.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharing.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharing",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharing.yml\" sourcestartlinenumber=\"1\">Provides the attached column group used by <xref href=\"Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharingScope\" data-throw-if-not-resolved=\"false\"></xref>.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharingScope.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharingScope.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharingScope",
+      "Summary": "<p sourcefile=\"api/Avalonia.Controls.DataGridSizing.DataGridColumnWidthSharingScope.yml\" sourcestartlinenumber=\"1\">Synchronizes the display widths of columns that share the same group name across DataGrid controls.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/Avalonia.Controls.DataGridSizing.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/Avalonia.Controls.DataGridSizing.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "Avalonia.Controls.DataGridSizing",
       "Summary": null
     },
     {
@@ -9215,6 +9369,16 @@
       "output": {
         ".html": {
           "relative_path": "articles/diagnostics-and-tooling.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "articles/distinct-value-column-filtering.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/distinct-value-column-filtering.html"
         }
       },
       "version": ""

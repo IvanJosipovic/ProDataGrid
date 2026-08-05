@@ -138,6 +138,53 @@
           CanUserResizeColumns=&quot;True&quot;
           CanUserReorderColumns=&quot;True&quot; /&gt;
 </code></pre>
+<h3 id="sharing-widths-across-grids">Sharing widths across grids</h3>
+<p>Use one <code>DataGridColumnWidthSharingScope</code> resource for every grid that should participate, then assign the same <code>WidthSharingGroup</code> to corresponding column definitions. The scope starts a group at its largest registered width and propagates later programmatic, automatic, and user-initiated width changes in either direction.</p>
+<pre><code class="lang-xml">&lt;UserControl xmlns=&quot;https://github.com/avaloniaui&quot;
+             xmlns:x=&quot;http://schemas.microsoft.com/winfx/2006/xaml&quot;
+             xmlns:sizing=&quot;using:Avalonia.Controls.DataGridSizing&quot;
+             xmlns:vm=&quot;using:MyApp.ViewModels&quot;
+             x:DataType=&quot;vm:ComparisonViewModel&quot;&gt;
+  &lt;UserControl.Resources&gt;
+    &lt;sizing:DataGridColumnWidthSharingScope x:Key=&quot;ComparisonColumnWidths&quot; /&gt;
+  &lt;/UserControl.Resources&gt;
+
+  &lt;Grid RowDefinitions=&quot;*,*&quot;&gt;
+    &lt;DataGrid ItemsSource=&quot;{CompiledBinding CurrentItems}&quot;
+              ColumnDefinitionsSource=&quot;{CompiledBinding CurrentColumns}&quot;
+              ColumnWidthSharingScope=&quot;{StaticResource ComparisonColumnWidths}&quot;
+              AutoGenerateColumns=&quot;False&quot; /&gt;
+    &lt;DataGrid Grid.Row=&quot;1&quot;
+              ItemsSource=&quot;{CompiledBinding BaselineItems}&quot;
+              ColumnDefinitionsSource=&quot;{CompiledBinding BaselineColumns}&quot;
+              ColumnWidthSharingScope=&quot;{StaticResource ComparisonColumnWidths}&quot;
+              AutoGenerateColumns=&quot;False&quot; /&gt;
+  &lt;/Grid&gt;
+&lt;/UserControl&gt;
+</code></pre>
+<pre><code class="lang-csharp">public sealed class ComparisonViewModel : ReactiveObject
+{
+    public DataGridColumnDefinitionList CurrentColumns { get; } = CreateColumns();
+    public DataGridColumnDefinitionList BaselineColumns { get; } = CreateColumns();
+
+    private static DataGridColumnDefinitionList CreateColumns() =&gt; new()
+    {
+        new DataGridTextColumnDefinition
+        {
+            Header = &quot;Name&quot;,
+            Width = DataGridLength.Auto,
+            WidthSharingGroup = &quot;name&quot;
+        },
+        new DataGridNumericColumnDefinition
+        {
+            Header = &quot;Amount&quot;,
+            Width = new DataGridLength(120),
+            WidthSharingGroup = &quot;amount&quot;
+        }
+    };
+}
+</code></pre>
+<p>For columns declared directly in XAML, set <code>sizing:DataGridColumnWidthSharing.Group=&quot;name&quot;</code> instead. Group names are case-sensitive. Pixel columns remain pixel-sized, intrinsic sizing modes such as <code>Auto</code> are preserved, and star columns become pixel columns when synchronized because an exact width must be shared across grids with potentially different available space. The scope respects the common <code>MinWidth</code>/<code>MaxWidth</code> range; if constraints do not overlap, each column is clamped to its own range. Remove the group or scope to stop synchronization. Call <code>Synchronize()</code> when you need to recompute a group from the largest current width explicitly.</p>
 <h2 id="headers-sorting-and-filters">Headers, Sorting, and Filters</h2>
 <p>Columns expose header content and sorting metadata:</p>
 <ul>
@@ -168,7 +215,7 @@
           HeadersVisibility=&quot;All&quot; /&gt;
 </code></pre>
 <h2 id="mvvm-column-definitions">MVVM Column Definitions</h2>
-<p><code>ColumnDefinitionsSource</code> lets you define columns in view-models without creating Avalonia controls. Bind an <code>IList&lt;DataGridColumnDefinition&gt;</code> and the grid materializes the corresponding built-in columns. Use <code>DataGridColumnDefinitionList</code> when you want <code>AddRange</code> and <code>SuspendNotifications()</code> for batch updates.</p>
+<p><code>ColumnDefinitionsSource</code> lets you define columns in view-models without creating Avalonia controls. Bind an <code>IList&lt;DataGridColumnDefinition&gt;</code> and the grid materializes the corresponding built-in columns. Unlike <code>DataGridColumn</code> controls, one definition list can be shared by multiple grids because each grid materializes its own column instances. Use <code>DataGridColumnDefinitionList</code> when you want <code>AddRange</code> and <code>SuspendNotifications()</code> for batch updates.</p>
 <p>For a full walkthrough, see <a href="column-definitions.html">Column Definitions</a> and <a href="column-definitions-aot.html">Column Definitions: AOT-Friendly Bindings</a>.</p>
 <ul>
 <li>Use <code>DataGridTextColumnDefinition</code>, <code>DataGridCheckBoxColumnDefinition</code>, and the other <code>*ColumnDefinition</code> types.</li>
@@ -258,6 +305,7 @@ var aotColumns = new ObservableCollection&lt;DataGridColumnDefinition&gt;
 </code></pre>
 <h2 id="datatable-binding">DataTable Binding</h2>
 <p>When binding to <code>DataTable.DefaultView</code>, ProDataGrid binds cells via <code>TypeDescriptor</code> so you do not need manual indexers.</p>
+<p>With <code>CanUserAddRows=&quot;True&quot;</code> and <code>EditTriggers=&quot;TextInput&quot;</code>, typing in a new-row placeholder cell starts editing in that same column and applies the initial text there. Existing auto-generated columns are preserved while the new <code>DataRowView</code> is materialized.</p>
 <h2 id="custom-columns">Custom Columns</h2>
 <p>Derive from a built-in column to customize element creation while still reusing the grid's theme resources:</p>
 <pre><code class="lang-csharp">using Avalonia.Controls;
