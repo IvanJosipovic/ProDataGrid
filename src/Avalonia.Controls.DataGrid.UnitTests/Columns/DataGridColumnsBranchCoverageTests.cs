@@ -761,6 +761,37 @@ public class DataGridColumnsBranchCoverageTests
     }
 
     [AvaloniaFact]
+    public void ComputeDisplayedColumns_Clamps_Stale_Offset_At_First_Scrolling_Column()
+    {
+        var grid = new DataGrid();
+        grid.ColumnsInternal.Add(new DataGridTextColumn { Width = new DataGridLength(40) });
+        grid.RowsPresenterAvailableSize = new Size(100, 100);
+        grid.ColumnsInternal.EnsureVisibleEdgedColumnsWidth();
+        grid.DisplayData.FirstDisplayedScrollingCol = 0;
+        SetPrivateField(grid, "_horizontalOffset", 1.0);
+        SetPrivateField(grid, "_negHorizontalOffset", 0.0);
+        SetPrivateProperty(grid, "HorizontalAdjustment", 1.0);
+
+        var invalidated = InvokePrivate<bool>(grid, "ComputeDisplayedColumns");
+
+        Assert.True(invalidated);
+        Assert.Equal(0, grid.HorizontalOffset);
+        Assert.Equal(0, grid.FirstDisplayedScrollingColumnHiddenWidth);
+        Assert.Equal(0, grid.HorizontalAdjustment);
+        Assert.Equal(0, grid.DisplayData.FirstDisplayedScrollingCol);
+    }
+
+    [AvaloniaFact]
+    public void HorizontalSmallScroll_Ignores_Stale_Column_Index()
+    {
+        var grid = new DataGrid();
+        grid.DisplayData.FirstDisplayedScrollingCol = 0;
+
+        Assert.Equal(0, InvokePrivate<double>(grid, "GetHorizontalSmallScrollDecrease"));
+        Assert.Equal(0, InvokePrivate<double>(grid, "GetHorizontalSmallScrollIncrease"));
+    }
+
+    [AvaloniaFact]
     public void ComputeFirstVisibleScrollingColumn_Covers_Null_And_Offsets()
     {
         var grid = new DataGrid();
