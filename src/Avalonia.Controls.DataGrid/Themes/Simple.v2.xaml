@@ -41,7 +41,7 @@
                               HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"
                               VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
                               IsScrollInertiaEnabled="{TemplateBinding IsScrollInertiaEnabled}"
-                              AllowAutoHide="True">
+                              AllowAutoHide="{Binding Path=(ScrollViewer.AllowAutoHide), RelativeSource={RelativeSource TemplatedParent}}">
                   <DataGridRowsPresenter Name="PART_RowsPresenter" />
                 </ScrollViewer>
                 <controls:DataGridSelectionOverlay Name="PART_SelectionOverlay"
