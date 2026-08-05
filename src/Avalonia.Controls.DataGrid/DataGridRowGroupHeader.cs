@@ -635,7 +635,11 @@ internal
         {
             base.OnDetachedFromLogicalTree(e);
             DetachExpanderButtonSubscription();
-            OwningGrid.RemoveReferenceFromCollectionViewGroup(RowGroupInfo.CollectionViewGroup);
+            if (OwningGrid != null && RowGroupInfo?.CollectionViewGroup is { } collectionViewGroup)
+            {
+                OwningGrid.RemoveReferenceFromCollectionViewGroup(collectionViewGroup);
+            }
+
             OwningGrid = null;
         }
     }

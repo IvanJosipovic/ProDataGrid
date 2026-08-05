@@ -20,6 +20,28 @@ namespace Avalonia.Controls.DataGridTests;
 public class DataGridRowGroupHeaderLifecycleTests
 {
     [AvaloniaFact]
+    public void Standalone_RowGroupHeader_Detaches_Without_Group_State()
+    {
+        var root = new Window
+        {
+            Content = new DataGridRowGroupHeader()
+        };
+
+        try
+        {
+            root.Show();
+
+            var exception = Record.Exception(() => root.Content = null);
+
+            Assert.Null(exception);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void UpdatePseudoClasses_Does_Not_Throw_After_Detach()
     {
         var (grid, root) = CreateGroupedGrid();
