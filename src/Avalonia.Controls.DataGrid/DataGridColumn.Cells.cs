@@ -13,7 +13,6 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using System;
@@ -413,19 +412,9 @@ namespace Avalonia.Controls
         {
             string result = SortMemberPath;
 
-            if (String.IsNullOrEmpty(result))
+            if (string.IsNullOrEmpty(result) && this is DataGridBoundColumn boundColumn)
             {
-                if (this is DataGridBoundColumn boundColumn)
-                {
-                    if (boundColumn.Binding is Binding binding)
-                    {
-                        result = binding.Path;
-                    }
-                    else if (boundColumn.Binding is CompiledBindingExtension compiledBinding)
-                    {
-                        result = compiledBinding.Path.ToString();
-                    }
-                }
+                result = BindingCloneHelper.GetPath(boundColumn.Binding);
             }
 
             return result;

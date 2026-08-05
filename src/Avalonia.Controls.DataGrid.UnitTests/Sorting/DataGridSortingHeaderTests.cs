@@ -14,6 +14,7 @@ using Avalonia.Controls.DataGridSorting;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.VisualTree;
 using Xunit;
@@ -55,6 +56,47 @@ public class DataGridSortingHeaderTests
         ClickHeader(grid, "Name", KeyModifiers.Control);
         grid.UpdateLayout();
         AssertHeaderSort(grid, "Name", asc: false, desc: false);
+    }
+
+    [AvaloniaFact]
+    public void Header_Click_Sorts_Runtime_CompiledBinding_Without_SortMemberPath()
+    {
+        var items = new ObservableCollection<Item>
+        {
+            new("B"),
+            new("A"),
+        };
+        var compiledBindingExtension = Assert.IsType<CompiledBindingExtension>(
+            DataGridBindingDefinition.Create<Item, string>(item => item.Name).CreateBinding());
+        var column = new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new CompiledBinding { Path = compiledBindingExtension.Path }
+        };
+        var root = new Window
+        {
+            Width = 400,
+            Height = 300
+        };
+        root.SetThemeStyles();
+
+        var grid = new DataGrid
+        {
+            ItemsSource = new DataGridCollectionView(items),
+            SelectionMode = DataGridSelectionMode.Extended
+        };
+        grid.ColumnsInternal.Add(column);
+        root.Content = grid;
+        root.Show();
+        grid.UpdateLayout();
+
+        ClickHeader(grid, "Name");
+        grid.UpdateLayout();
+
+        Assert.True(column.CanUserSort);
+        Assert.Equal(nameof(Item.Name), column.GetSortPropertyName());
+        Assert.Equal(new[] { "A", "B" }, GetRowOrder(grid));
+        AssertHeaderSort(grid, "Name", asc: true, desc: false);
     }
 
     [AvaloniaFact]
