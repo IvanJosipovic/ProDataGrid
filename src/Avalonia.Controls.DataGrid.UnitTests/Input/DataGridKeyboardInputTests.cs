@@ -66,6 +66,86 @@ public class DataGridKeyboardInputTests
     }
 
     [AvaloniaFact]
+    public void Shift_Up_Shrinks_Downward_Selection()
+    {
+        var (grid, items) = CreateGrid(rowCount: 6);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+
+        for (var i = 0; i < 4; i++)
+        {
+            PressKey(grid, Key.Down, KeyModifiers.Shift);
+        }
+
+        PressKey(grid, Key.Up, KeyModifiers.Shift);
+
+        var selected = grid.SelectedItems.Cast<RowItem>().ToList();
+        Assert.Equal(4, selected.Count);
+        Assert.Equal(items.Take(4), selected);
+    }
+
+    [AvaloniaFact]
+    public void Shift_Down_Shrinks_Upward_Selection()
+    {
+        var (grid, items) = CreateGrid(rowCount: 6);
+        SetCurrentCell(grid, rowIndex: 4, columnIndex: 0);
+
+        for (var i = 0; i < 4; i++)
+        {
+            PressKey(grid, Key.Up, KeyModifiers.Shift);
+        }
+
+        PressKey(grid, Key.Down, KeyModifiers.Shift);
+
+        var selected = grid.SelectedItems.Cast<RowItem>().ToList();
+        Assert.Equal(4, selected.Count);
+        Assert.Equal(items.Skip(1).Take(4), selected);
+    }
+
+    [AvaloniaFact]
+    public void Shift_Up_Shrinks_Downward_Selection_From_Ten_To_One()
+    {
+        var (grid, items) = CreateGrid(rowCount: 10);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+
+        for (var i = 0; i < 9; i++)
+        {
+            PressKey(grid, Key.Down, KeyModifiers.Shift);
+        }
+
+        Assert.Equal(10, grid.SelectedItems.Count);
+
+        for (var i = 0; i < 9; i++)
+        {
+            PressKey(grid, Key.Up, KeyModifiers.Shift);
+        }
+
+        Assert.Equal(new[] { items[0] }, grid.SelectedItems.Cast<RowItem>());
+    }
+
+    [AvaloniaFact]
+    public void Shift_Down_Shrinks_Upward_Selection_From_Ten_To_One()
+    {
+        var (grid, items) = CreateGrid(rowCount: 10);
+        SetCurrentCell(grid, rowIndex: 9, columnIndex: 0);
+
+        for (var i = 0; i < 9; i++)
+        {
+            PressKey(grid, Key.Up, KeyModifiers.Shift);
+        }
+
+        Assert.Equal(10, grid.SelectedItems.Count);
+
+        for (var i = 0; i < 9; i++)
+        {
+            PressKey(grid, Key.Down, KeyModifiers.Shift);
+            Assert.Equal(grid.SlotFromRowIndex(i + 1), grid.CurrentSlot);
+            Assert.Equal(9 - i, grid.SelectedItems.Count);
+        }
+
+        Assert.Equal(new[] { items[9] }, grid.SelectedItems.Cast<RowItem>());
+    }
+
+    [AvaloniaFact]
     public void Home_End_Move_Between_Columns()
     {
         var (grid, _) = CreateGrid();
