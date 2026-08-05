@@ -33,6 +33,8 @@ internal
 #endif
     sealed partial class DataGridRowsPresenter : Panel, IChildIndexProvider
     {
+        private const double ScrollInfoSizeEpsilon = 0.5;
+
         private EventHandler<ChildIndexChangedEventArgs>? _childIndexChanged;
         private TopLevel? _observedTopLevel;
         private int _virtualizationGuardDepth;
@@ -154,7 +156,7 @@ internal
                 }
 
                 var collapsedViewport = new Size(finalSize.Width, viewportHeight);
-                if (_viewport != collapsedViewport)
+                if (!AreClose(_viewport, collapsedViewport))
                 {
                     UpdateScrollInfo(_extent, collapsedViewport);
                 }
@@ -211,13 +213,14 @@ internal
                     OwningGrid.RowsPresenterAvailableSize = measuredSize.WithHeight(effectiveRowsHeight);
                     if (measuredHeight - effectiveRowsHeight > threshold)
                     {
+                        DataGridDiagnostics.RecordRowsArrangeMeasureInvalidated();
                         InvalidateMeasure();
                     }
                 }
             }
 
             var viewport = new Size(finalSize.Width, effectiveRowsHeight);
-            if (_viewport != viewport)
+            if (!AreClose(_viewport, viewport))
             {
                 UpdateScrollInfo(_extent, viewport);
             }
@@ -253,6 +256,9 @@ internal
             double topEdge = -OwningGrid.NegVerticalOffset;
             var displayedElements = _displayedElementsScratch;
             displayedElements.Clear();
+            int arrangedElements = 0;
+            int skippedArrangeElements = 0;
+            using var arrangeScope = DataGridDiagnostics.BeginRowsArrange();
             foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
             {
                 displayedElements.Add(element);
@@ -268,6 +274,11 @@ internal
                     if (ShouldArrangeElement(row, targetRect))
                     {
                         row.Arrange(targetRect);
+                        arrangedElements++;
+                    }
+                    else
+                    {
+                        skippedArrangeElements++;
                     }
                 }
                 else if (element is DataGridRowGroupHeader groupHeader)
@@ -277,6 +288,11 @@ internal
                     if (ShouldArrangeElement(groupHeader, targetRect))
                     {
                         groupHeader.Arrange(targetRect);
+                        arrangedElements++;
+                    }
+                    else
+                    {
+                        skippedArrangeElements++;
                     }
                 }
                 else if (element is DataGridRowGroupFooter groupFooter)
@@ -286,6 +302,11 @@ internal
                     if (ShouldArrangeElement(groupFooter, targetRect))
                     {
                         groupFooter.Arrange(targetRect);
+                        arrangedElements++;
+                    }
+                    else
+                    {
+                        skippedArrangeElements++;
                     }
                 }
 
@@ -321,13 +342,29 @@ internal
                     if (ShouldArrangeElement(child, offScreenRect))
                     {
                         child.Arrange(offScreenRect);
+                        arrangedElements++;
+                    }
+                    else
+                    {
+                        skippedArrangeElements++;
                     }
                 }
-                else if (!child.IsVisible && ShouldArrangeElement(child, offScreenRect))
+                else if (!child.IsVisible)
                 {
-                    child.Arrange(offScreenRect);
+                    if (ShouldArrangeElement(child, offScreenRect))
+                    {
+                        child.Arrange(offScreenRect);
+                        arrangedElements++;
+                    }
+                    else
+                    {
+                        skippedArrangeElements++;
+                    }
                 }
             }
+
+            DataGridDiagnostics.RecordRowsArranged(arrangedElements);
+            DataGridDiagnostics.RecordRowsArrangeSkipped(skippedArrangeElements);
 
             return new Size(finalSize.Width, finalHeight);
         }
@@ -507,6 +544,9 @@ internal
             var measureConstraint = new Size(measureWidth, double.PositiveInfinity);
 
             double headerWidth = 0;
+            int measuredElements = 0;
+            int skippedMeasureElements = 0;
+            using var measureScope = DataGridDiagnostics.BeginRowsMeasure();
             foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
             {
                 DataGridRow? row = element as DataGridRow;
@@ -521,6 +561,11 @@ internal
                 if (invalidateRows || !element.IsMeasureValid)
                 {
                     element.Measure(measureConstraint);
+                    measuredElements++;
+                }
+                else
+                {
+                    skippedMeasureElements++;
                 }
 
                 if (row != null && row.HeaderCell != null)
@@ -534,6 +579,9 @@ internal
 
                 totalHeight += element.DesiredSize.Height;
             }
+
+            DataGridDiagnostics.RecordRowsMeasured(measuredElements);
+            DataGridDiagnostics.RecordRowsMeasureSkipped(skippedMeasureElements);
 
             OwningGrid.RowHeadersDesiredWidth = headerWidth;
             // Could be positive infinity depending on the DataGrid's bounds
@@ -595,6 +643,18 @@ internal
                    MathUtilities.AreClose(first.Y, second.Y) &&
                    MathUtilities.AreClose(first.Width, second.Width) &&
                    MathUtilities.AreClose(first.Height, second.Height);
+        }
+
+        private static bool AreClose(Size first, Size second)
+        {
+             return AreScrollInfoSizeClose(first.Width, second.Width) &&
+                 AreScrollInfoSizeClose(first.Height, second.Height);
+         }
+
+         private static bool AreScrollInfoSizeClose(double first, double second)
+         {
+             return MathUtilities.AreClose(first, second) ||
+                 Math.Abs(first - second) <= ScrollInfoSizeEpsilon;
         }
 
         private void OnScrollGesture(object? sender, ScrollGestureEventArgs e)

@@ -63,26 +63,36 @@ namespace Avalonia.Controls
                 {
                     if (DataGridFrozenGrid.GetIsFrozen(child))
                     {
-                        TranslateTransform transform = new TranslateTransform();
+                        TranslateTransform transform = child.RenderTransform as TranslateTransform;
+                        if (transform == null)
+                        {
+                            transform = new TranslateTransform();
+                            child.RenderTransform = transform;
+                        }
+
                         // Automatic layout rounding doesn't apply to transforms so we need to Round this
                         transform.X = Math.Round(OwningGrid.HorizontalOffset);
-                        child.RenderTransform = transform;
+                        transform.Y = 0;
                     }
                 }
             }
 
             if (_bottomGridLine != null)
             {
-                RectangleGeometry gridlineClipGeometry = new RectangleGeometry();
+                if (_bottomGridLineClipGeometry == null)
+                {
+                    _bottomGridLineClipGeometry = new RectangleGeometry();
+                    _bottomGridLine.Clip = _bottomGridLineClipGeometry;
+                }
+
                 // Use the arranged width (which accounts for total columns/header width) so the
                 // horizontal grid line spans the full row, not just the measured viewport width.
                 double arrangedWidth = Math.Max(finalSize.Width, DesiredSize.Width);
-                gridlineClipGeometry.Rect = new Rect(
+                _bottomGridLineClipGeometry.Rect = new Rect(
                     OwningGrid.HorizontalOffset,
                     0,
                     Math.Max(0, arrangedWidth - OwningGrid.HorizontalOffset),
                     _bottomGridLine.DesiredSize.Height);
-                _bottomGridLine.Clip = gridlineClipGeometry;
             }
 
             return size;

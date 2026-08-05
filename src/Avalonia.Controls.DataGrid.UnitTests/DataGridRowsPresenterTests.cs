@@ -215,6 +215,26 @@ namespace Avalonia.Controls.DataGridTests
         }
 
         [AvaloniaFact]
+        public void UpdateScrollInfo_Does_Not_Raise_For_Subpixel_Viewport_Jitter()
+        {
+            // Arrange
+            var presenter = new DataGridRowsPresenter();
+            var extent = new Size(500, 2000);
+            var viewport = new Size(300, 400);
+            presenter.UpdateScrollInfo(extent, viewport);
+
+            bool eventRaised = false;
+            presenter.ScrollInvalidated += (s, e) => eventRaised = true;
+
+            // Act
+            presenter.UpdateScrollInfo(extent, new Size(300, 400.3333333333333));
+
+            // Assert
+            Assert.False(eventRaised);
+            Assert.Equal(viewport, presenter.Viewport);
+        }
+
+        [AvaloniaFact]
         public void SyncOffset_Updates_Offset_Without_Side_Effects()
         {
             // Arrange

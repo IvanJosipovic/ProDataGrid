@@ -61,6 +61,7 @@ internal
         private DataGridValidationSeverity _validationSeverity = DataGridValidationSeverity.None;
         private bool _isPlaceholder;
         private Rectangle _bottomGridLine;
+        private RectangleGeometry _bottomGridLineClipGeometry;
         private bool _areHandlersSuspended;
 
         // In the case where Details scales vertically when it's arranged at a different width, we
@@ -601,6 +602,7 @@ internal
             }
 
             _bottomGridLine = e.NameScope.Find<Rectangle>(DATAGRIDROW_elementBottomGridLine);
+            _bottomGridLineClipGeometry = null;
             EnsureGridLines();
 
             _headerElement = e.NameScope.Find<DataGridRowHeader>(DATAGRIDROW_elementRowHeader);

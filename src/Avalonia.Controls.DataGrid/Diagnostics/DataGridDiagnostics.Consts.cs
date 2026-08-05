@@ -22,6 +22,21 @@ internal static partial class DataGridDiagnostics
         public const string RowsDisplayUpdateTimeName = "prodatagrid.rows.display.update.time";
         public const string RowsDisplayUpdateTimeDescription = "Duration of updating displayed rows during scrolling/virtualization.";
 
+        public const string RowsPresenterViewportChangedTimeName = "prodatagrid.rows.presenter.viewport.changed.time";
+        public const string RowsPresenterViewportChangedTimeDescription = "Duration of handling a rows presenter viewport change notification.";
+
+        public const string RowsScrollSlotsByHeightTimeName = "prodatagrid.rows.scroll.slots.by.height.time";
+        public const string RowsScrollSlotsByHeightTimeDescription = "Duration of updating displayed rows for a logical scroll offset change.";
+
+        public const string RowsScrollEstimateOffsetTimeName = "prodatagrid.rows.scroll.estimate.offset.time";
+        public const string RowsScrollEstimateOffsetTimeDescription = "Duration of estimating the offset to a visible slot during logical scrolling.";
+
+        public const string RowsMeasureTimeName = "prodatagrid.rows.measure.time";
+        public const string RowsMeasureTimeDescription = "Duration of measuring displayed row elements.";
+
+        public const string RowsArrangeTimeName = "prodatagrid.rows.arrange.time";
+        public const string RowsArrangeTimeDescription = "Duration of arranging displayed and recycled row elements.";
+
         public const string RowGenerateTimeName = "prodatagrid.rows.generate.time";
         public const string RowGenerateTimeDescription = "Duration of row generation and preparation.";
 
@@ -57,6 +72,54 @@ internal static partial class DataGridDiagnostics
 
         public const string RowsPreparedCountName = "prodatagrid.rows.prepared.count";
         public const string RowsPreparedCountDescription = "Number of row containers prepared by the DataGrid.";
+
+        public const string RowsMeasuredCountName = "prodatagrid.rows.measured.count";
+        public const string RowsMeasuredCountDescription = "Number of row elements measured by the rows presenter.";
+
+        public const string RowsMeasureSkippedCountName = "prodatagrid.rows.measure.skipped.count";
+        public const string RowsMeasureSkippedCountDescription = "Number of row elements whose valid measure state skipped measurement.";
+
+        public const string RowsArrangedCountName = "prodatagrid.rows.arranged.count";
+        public const string RowsArrangedCountDescription = "Number of row elements arranged by the rows presenter.";
+
+        public const string RowsArrangeSkippedCountName = "prodatagrid.rows.arrange.skipped.count";
+        public const string RowsArrangeSkippedCountDescription = "Number of row elements whose valid bounds skipped arrangement.";
+
+        public const string RowsArrangeMeasureInvalidatedCountName = "prodatagrid.rows.arrange.measure.invalidated.count";
+        public const string RowsArrangeMeasureInvalidatedCountDescription = "Number of presenter arrange passes that requested another measure pass.";
+
+        public const string RowsScrollInfoChangedCountName = "prodatagrid.rows.scroll.info.changed.count";
+        public const string RowsScrollInfoChangedCountDescription = "Number of rows presenter scroll info updates that changed extent, viewport, or offset.";
+
+        public const string RowsScrollExtentChangedCountName = "prodatagrid.rows.scroll.extent.changed.count";
+        public const string RowsScrollExtentChangedCountDescription = "Number of rows presenter scroll info updates that changed the scroll extent.";
+
+        public const string RowsScrollExtentDeltaName = "prodatagrid.rows.scroll.extent.delta";
+        public const string RowsScrollExtentDeltaDescription = "Absolute pixel delta of rows presenter extent updates.";
+
+        public const string RowsScrollViewportChangedCountName = "prodatagrid.rows.scroll.viewport.changed.count";
+        public const string RowsScrollViewportChangedCountDescription = "Number of rows presenter scroll info updates that changed the scroll viewport.";
+
+        public const string RowsScrollViewportDeltaName = "prodatagrid.rows.scroll.viewport.delta";
+        public const string RowsScrollViewportDeltaDescription = "Absolute pixel delta of rows presenter viewport updates.";
+
+        public const string RowsScrollOffsetCoercedCountName = "prodatagrid.rows.scroll.offset.coerced.count";
+        public const string RowsScrollOffsetCoercedCountDescription = "Number of rows presenter scroll info updates that coerced the scroll offset.";
+
+        public const string RowsScrollInvalidatedCountName = "prodatagrid.rows.scroll.invalidated.count";
+        public const string RowsScrollInvalidatedCountDescription = "Number of rows presenter scroll invalidation notifications raised.";
+
+        public const string RowsScrollExactSlotHeightLookupCountName = "prodatagrid.rows.scroll.exact.slot.height.lookup.count";
+        public const string RowsScrollExactSlotHeightLookupCountDescription = "Number of exact slot-height lookups during logical scrolling.";
+
+        public const string RowsScrollExactSlotHeightInsertionCountName = "prodatagrid.rows.scroll.exact.slot.height.insertion.count";
+        public const string RowsScrollExactSlotHeightInsertionCountDescription = "Number of exact slot-height lookups that inserted a displayed element during logical scrolling.";
+
+        public const string RowsLogicalOffsetSynchronizedCountName = "prodatagrid.rows.logical.offset.synchronized.count";
+        public const string RowsLogicalOffsetSynchronizedCountDescription = "Number of logical scroll offsets synchronized from the DataGrid to the rows presenter.";
+
+        public const string RowsLogicalOffsetSynchronizedDeltaName = "prodatagrid.rows.logical.offset.synchronized.delta";
+        public const string RowsLogicalOffsetSynchronizedDeltaDescription = "Absolute vertical offset delta corrected during logical scroll synchronization.";
 
         public const string ColumnsAutoGeneratedCountName = "prodatagrid.columns.autogen.count";
         public const string ColumnsAutoGeneratedCountDescription = "Number of columns auto-generated by the DataGrid.";
