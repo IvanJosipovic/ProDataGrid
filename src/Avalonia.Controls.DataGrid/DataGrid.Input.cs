@@ -158,7 +158,7 @@ internal
 
         private KeyModifiers GetCommandModifiers()
         {
-            return this.GetPlatformSettings()?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
+            return KeyboardHelper.GetPlatformCtrlOrCmdKeyModifier(this);
         }
 
         private static KeyGesture ResolveGesture(KeyGesture overrideGesture, KeyGesture defaultGesture)

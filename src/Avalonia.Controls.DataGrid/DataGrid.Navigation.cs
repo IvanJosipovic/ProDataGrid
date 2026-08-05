@@ -184,6 +184,11 @@ internal
             }
             else
             {
+                if (IsColumnOutOfBounds(DisplayData.FirstDisplayedScrollingCol))
+                {
+                    return 0;
+                }
+
                 // The entire first column is displayed, show the entire previous column when the user clicks
                 // the left button
                 DataGridColumn previousColumn = ColumnsInternal.GetPreviousVisibleScrollingColumn(
@@ -205,7 +210,7 @@ internal
         // This is a method rather than a property to emphasize a calculation
         private double GetHorizontalSmallScrollIncrease()
         {
-            if (DisplayData.FirstDisplayedScrollingCol >= 0)
+            if (!IsColumnOutOfBounds(DisplayData.FirstDisplayedScrollingCol))
             {
                 return GetEdgedColumnWidth(ColumnsItemsInternal[DisplayData.FirstDisplayedScrollingCol]) - _negHorizontalOffset;
             }

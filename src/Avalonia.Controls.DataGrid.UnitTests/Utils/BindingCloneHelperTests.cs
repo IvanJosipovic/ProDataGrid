@@ -65,6 +65,30 @@ public class BindingCloneHelperTests
     }
 
     [Fact]
+    public void DataGridBoundColumn_Accepts_Pathless_Bindings()
+    {
+        var converter = new PassThroughConverter();
+        BindingBase[] bindings =
+        {
+            new Binding { Converter = converter },
+            new ReflectionBinding { Converter = converter },
+            new CompiledBindingExtension { Converter = converter },
+            new CompiledBinding { Converter = converter }
+        };
+
+        foreach (BindingBase binding in bindings)
+        {
+            var column = new DataGridTextColumn();
+
+            var exception = Record.Exception(() => column.Binding = binding);
+
+            Assert.Null(exception);
+            Assert.True(string.IsNullOrEmpty(BindingCloneHelper.GetPath(column.Binding)));
+            Assert.Equal(BindingMode.Default, BindingCloneHelper.GetMode(column.Binding));
+        }
+    }
+
+    [Fact]
     public void SupportsDirectDataContextMemberWrite_Rejects_Unsafe_Bindings()
     {
         var safeBinding = new Binding(nameof(TestItem.Enabled))
