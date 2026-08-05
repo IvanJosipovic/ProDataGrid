@@ -516,7 +516,12 @@ internal
             _noSelectionChangeCount++;
             try
             {
-                if (!UpdateSelectionAndCurrency(-1, slot, DataGridSelectionAction.SelectFromAnchorToCurrent, scrollIntoView: false))
+                KeyboardHelper.GetMetaKeyState(this, modifiers, out bool ctrl, out _);
+                var selectionAction = ctrl
+                    ? DataGridSelectionAction.None
+                    : DataGridSelectionAction.SelectFromAnchorToCurrent;
+
+                if (!UpdateSelectionAndCurrency(-1, slot, selectionAction, scrollIntoView: false))
                 {
                     return false;
                 }
@@ -530,9 +535,9 @@ internal
                 var rangeEnd = Math.Max(anchorSlot, slot);
                 if (SelectionMode == DataGridSelectionMode.Extended)
                 {
-                    KeyboardHelper.GetMetaKeyState(this, modifiers, out bool ctrl, out _);
                     if (ctrl)
                     {
+                        SetRowsSelection(rangeStart, rangeEnd);
                         DeselectRowsForCtrlDrag(previousSlot, rangeStart, rangeEnd);
                     }
                     else
