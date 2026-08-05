@@ -254,6 +254,7 @@ internal
 
                         // total height of the display area
                         _vScrollBar.ViewportSize = cellsHeight;
+                        _vScrollBar.LargeChange = cellsHeight;
                         _vScrollBar.IsEnabled = true;
                     }
                     else
