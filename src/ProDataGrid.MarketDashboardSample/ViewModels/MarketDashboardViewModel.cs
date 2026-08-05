@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Reactive;
 using System.Threading.Tasks;
 using ProCharts;
 using ProCharts.Skia;
@@ -10,7 +9,9 @@ using ProDataGrid.MarketDashboardSample.Charting;
 using ProDataGrid.MarketDashboardSample.Models;
 using ProDataGrid.MarketDashboardSample.Services;
 using ReactiveUI;
+using ReactiveUI.Primitives.Concurrency;
 using SkiaSharp;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 
 namespace ProDataGrid.MarketDashboardSample.ViewModels;
 
@@ -219,25 +220,25 @@ public sealed partial class MarketDashboardViewModel : ReactiveObject
 
     public Func<SkiaChartHitTestResult, string> FlowToolTipFormatter => FormatFlowToolTip;
 
-    public ReactiveCommand<Unit, Unit> ToggleOrderTicketCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleOrderTicketCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> HideOrderTicketCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> HideOrderTicketCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ConnectWalletCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ConnectWalletCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> PrimaryOrderActionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> PrimaryOrderActionCommand { get; }
 
-    public ReactiveCommand<string, Unit> QuickOrderAmountCommand { get; }
+    public ReactiveCommand<string, RxVoid> QuickOrderAmountCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ShowAllTradesCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ShowAllTradesCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ShowMyTradesCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ShowMyTradesCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ShowLatestWindowCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ShowLatestWindowCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ResetChartWindowCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ResetChartWindowCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ToggleFollowLatestCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleFollowLatestCommand { get; }
 
     public MarketChartMode ChartMode
     {
@@ -982,11 +983,7 @@ public sealed partial class MarketDashboardViewModel : ReactiveObject
     {
         ReactiveUI.RxSchedulers.MainThreadScheduler.Schedule(
             snapshot,
-            (_, state) =>
-            {
-                ApplySnapshot(state, resetWindow: false);
-                return System.Reactive.Disposables.Disposable.Empty;
-            });
+            state => ApplySnapshot(state, resetWindow: false));
     }
 
     private void OnPriceChartInteractionChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

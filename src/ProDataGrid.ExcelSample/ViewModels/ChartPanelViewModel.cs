@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -15,6 +14,7 @@ using ProDataGrid.ExcelSample.Helpers;
 using ProDataGrid.ExcelSample.Models;
 using ReactiveUI;
 using SkiaSharp;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 
 namespace ProDataGrid.ExcelSample.ViewModels;
 
@@ -151,9 +151,9 @@ public sealed class ChartPanelViewModel : ReactiveObject, IDisposable
         private set => this.RaiseAndSetIfChanged(ref _showPlaceholder, value);
     }
 
-    public ReactiveCommand<Unit, Unit> ApplySelectionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ApplySelectionCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ClearChartCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ClearChartCommand { get; }
 
     public void SetSheet(SheetViewModel sheet)
     {

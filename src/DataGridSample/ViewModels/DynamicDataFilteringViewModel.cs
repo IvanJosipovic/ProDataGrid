@@ -79,9 +79,9 @@ namespace DataGridSample.ViewModels
                 status.Changed += OnStatusChanged;
             }
 
-            var serviceFilterSubscription = _serviceFilterSubject
-                .Throttle(TimeSpan.FromMilliseconds(250))
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
+            var serviceFilterSubscription = ReactiveUI.Primitives.Extensions.ReactiveExtensions.ObserveOnSafe(
+                    _serviceFilterSubject.Throttle(TimeSpan.FromMilliseconds(250)),
+                    RxSchedulers.MainThreadScheduler)
                 .Subscribe(ApplyServiceFilter);
             _cleanup.Add(serviceFilterSubscription);
         }

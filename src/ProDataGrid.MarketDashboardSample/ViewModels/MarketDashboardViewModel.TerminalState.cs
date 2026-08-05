@@ -2,12 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Reactive;
 using System.Threading.Tasks;
 using ProCharts;
 using ProDataGrid.MarketDashboardSample.Models;
 using ProDataGrid.MarketDashboardSample.Services;
 using ReactiveUI;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 
 namespace ProDataGrid.MarketDashboardSample.ViewModels;
 
@@ -35,35 +35,35 @@ public sealed partial class MarketDashboardViewModel
 
     public IReadOnlyList<string> WatchlistScopes { get; }
 
-    public ReactiveCommand<Unit, Unit> ToggleDexModeCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleDexModeCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ToggleIndicatorsCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleIndicatorsCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ToggleLabelGuideCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleLabelGuideCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> UndoChartWindowCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> UndoChartWindowCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> RedoChartWindowCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RedoChartWindowCommand { get; }
 
-    public ReactiveCommand<ChartPointerTool, Unit> SelectPointerToolCommand { get; }
+    public ReactiveCommand<ChartPointerTool, RxVoid> SelectPointerToolCommand { get; }
 
-    public ReactiveCommand<MarketTerminalSection, Unit> SelectTerminalSectionCommand { get; }
+    public ReactiveCommand<MarketTerminalSection, RxVoid> SelectTerminalSectionCommand { get; }
 
-    public ReactiveCommand<MarketWatchlistViewMode, Unit> SelectWatchlistModeCommand { get; }
+    public ReactiveCommand<MarketWatchlistViewMode, RxVoid> SelectWatchlistModeCommand { get; }
 
-    public ReactiveCommand<MarketWatchlistRange, Unit> SelectWatchlistRangeCommand { get; }
+    public ReactiveCommand<MarketWatchlistRange, RxVoid> SelectWatchlistRangeCommand { get; }
 
-    public ReactiveCommand<WatchlistItem, Unit> ToggleFavoriteWatchlistItemCommand { get; }
+    public ReactiveCommand<WatchlistItem, RxVoid> ToggleFavoriteWatchlistItemCommand { get; }
 
-    public ReactiveCommand<MarketTradePanel, Unit> SelectTradePanelCommand { get; }
+    public ReactiveCommand<MarketTradePanel, RxVoid> SelectTradePanelCommand { get; }
 
-    public ReactiveCommand<MarketFlowLens, Unit> SelectFlowLensCommand { get; }
+    public ReactiveCommand<MarketFlowLens, RxVoid> SelectFlowLensCommand { get; }
 
-    public ReactiveCommand<string, Unit> SelectChartIntervalCommand { get; }
+    public ReactiveCommand<string, RxVoid> SelectChartIntervalCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ToggleChartIntervalMenuCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ToggleChartIntervalMenuCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> ApplyCurrentSelectionCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ApplyCurrentSelectionCommand { get; }
 
     public bool IsDexScanTokensSectionSelected => _terminalSection == MarketTerminalSection.DexScanTokens;
 

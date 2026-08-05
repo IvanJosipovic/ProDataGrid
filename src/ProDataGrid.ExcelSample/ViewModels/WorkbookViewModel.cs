@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -13,6 +12,7 @@ using Avalonia.Controls.DataGridSorting;
 using ProDataGrid.ExcelSample.Helpers;
 using ProDataGrid.ExcelSample.Models;
 using ReactiveUI;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 
 namespace ProDataGrid.ExcelSample.ViewModels;
 
@@ -38,7 +38,10 @@ public sealed class WorkbookViewModel : ReactiveObject, IDisposable
     private readonly SpreadsheetClipboardState _clipboardState;
 
     public WorkbookViewModel()
-        : this(ReactiveUI.RxSchedulers.MainThreadScheduler, ReactiveUI.RxSchedulers.TaskpoolScheduler, startLiveUpdates: false)
+        : this(
+            ReactiveUI.Primitives.Reactive.Concurrency.AvaloniaScheduler.Instance,
+            TaskPoolScheduler.Default,
+            startLiveUpdates: false)
     {
     }
 
@@ -175,13 +178,13 @@ public sealed class WorkbookViewModel : ReactiveObject, IDisposable
 
     public ChartPanelViewModel ChartPanel => _chartPanel;
 
-    public ReactiveCommand<Unit, Unit> CommitFormulaCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CommitFormulaCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> CancelFormulaCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CancelFormulaCommand { get; }
 
-    public ReactiveCommand<Unit, Unit> CommitNameCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> CommitNameCommand { get; }
 
-    public ReactiveCommand<SheetTabReorderRequest, Unit> ReorderSheetCommand { get; }
+    public ReactiveCommand<SheetTabReorderRequest, RxVoid> ReorderSheetCommand { get; }
 
     public string? SearchText
     {
