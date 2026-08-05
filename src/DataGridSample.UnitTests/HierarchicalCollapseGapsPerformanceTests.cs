@@ -25,6 +25,17 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
     private const string RowsScrollEstimateOffsetTimeName = "prodatagrid.rows.scroll.estimate.offset.time";
     private const string RowsMeasureTimeName = "prodatagrid.rows.measure.time";
     private const string RowsArrangeTimeName = "prodatagrid.rows.arrange.time";
+    private const string DataGridMeasureTimeName = "prodatagrid.datagrid.measure.time";
+    private const string DataGridArrangeTimeName = "prodatagrid.datagrid.arrange.time";
+    private const string CellsMeasureTimeName = "prodatagrid.cells.measure.time";
+    private const string CellsArrangeTimeName = "prodatagrid.cells.arrange.time";
+    private const string RowMeasureTimeName = "prodatagrid.row.measure.time";
+    private const string RowArrangeTimeName = "prodatagrid.row.arrange.time";
+    private const string RowsDisplayElementInsertTimeName = "prodatagrid.rows.display.element.insert.time";
+    private const string RowsDisplayElementAttachTimeName = "prodatagrid.rows.display.element.attach.time";
+    private const string RowsDisplayElementMeasureTimeName = "prodatagrid.rows.display.element.measure.time";
+    private const string RowsDisplayElementHeightRecordTimeName = "prodatagrid.rows.display.element.height.record.time";
+    private const string RowsDisplayElementLoadTimeName = "prodatagrid.rows.display.element.load.time";
     private const string RowsScrollViewportDeltaName = "prodatagrid.rows.scroll.viewport.delta";
     private const string RowsScrollExtentDeltaName = "prodatagrid.rows.scroll.extent.delta";
     private const string RowsLogicalOffsetSynchronizedDeltaName = "prodatagrid.rows.logical.offset.synchronized.delta";
@@ -106,7 +117,7 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
                     }
 
                     var offset = maximumOffset * progress;
-                    samples.Add(MeasureScroll(window, grid, scrollViewer, offset, captureFrame: true));
+                    samples.Add(MeasureScroll(window, grid, scrollViewer, offset, captureFrame: true, diagnostics));
                 }
             }
 
@@ -156,16 +167,46 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
         DataGrid grid,
         ScrollViewer scrollViewer,
         double offset,
-        bool captureFrame)
+        bool captureFrame,
+        DataGridDiagnosticsListener? diagnostics = null)
     {
+        var diagnosticsBefore = diagnostics?.CreateSnapshot();
         var allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
         var residentBefore = Process.GetCurrentProcess().WorkingSet64;
         var layoutTimer = Stopwatch.StartNew();
 
+        var offsetTimer = Stopwatch.StartNew();
         scrollViewer.Offset = new Vector(0, offset);
-        PumpLayout(window);
+        offsetTimer.Stop();
+
+        var preLayoutJobsTimer = Stopwatch.StartNew();
+        Dispatcher.UIThread.RunJobs();
+        preLayoutJobsTimer.Stop();
+
+        var updateLayoutTimer = Stopwatch.StartNew();
+        window.UpdateLayout();
+        updateLayoutTimer.Stop();
+
+        var postLayoutJobsTimer = Stopwatch.StartNew();
+        Dispatcher.UIThread.RunJobs();
+        postLayoutJobsTimer.Stop();
 
         layoutTimer.Stop();
+
+        DiagnosticDelta? diagnosticDelta = null;
+        if (diagnosticsBefore is not null)
+        {
+            diagnosticDelta = diagnostics!.CreateSnapshot().Subtract(diagnosticsBefore);
+        }
+
+        var splitPath = Environment.GetEnvironmentVariable("DATAGRID_LAYOUT_SPLIT_PATH");
+        if (!string.IsNullOrWhiteSpace(splitPath))
+        {
+            File.AppendAllText(
+                splitPath,
+                FormattableString.Invariant(
+                    $"{offset:F3}\toffset={offsetTimer.Elapsed.TotalMilliseconds:F6}\tpreJobs={preLayoutJobsTimer.Elapsed.TotalMilliseconds:F6}\tupdateLayout={updateLayoutTimer.Elapsed.TotalMilliseconds:F6}\tpostJobs={postLayoutJobsTimer.Elapsed.TotalMilliseconds:F6}{Environment.NewLine}"));
+        }
 
         var renderTimer = Stopwatch.StartNew();
         if (captureFrame)
@@ -189,7 +230,8 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
             Math.Max(residentBefore, Process.GetCurrentProcess().WorkingSet64),
             rows.Length,
             firstRow,
-            lastRow);
+            lastRow,
+            diagnosticDelta);
     }
 
     private static string? SaveFinalFrame(Window window)
@@ -278,6 +320,17 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
         Stats RowsScrollEstimateOffset,
         Stats RowsMeasure,
         Stats RowsArrange,
+        Stats DataGridMeasure,
+        Stats DataGridArrange,
+        Stats CellsMeasure,
+        Stats CellsArrange,
+        Stats RowMeasure,
+        Stats RowArrange,
+        Stats RowsDisplayElementInsert,
+        Stats RowsDisplayElementAttach,
+        Stats RowsDisplayElementMeasure,
+        Stats RowsDisplayElementHeightRecord,
+        Stats RowsDisplayElementLoad,
         Stats RowsScrollViewportDelta,
         Stats RowsScrollExtentDelta,
         Stats RowsLogicalOffsetSynchronizedDelta,
@@ -310,7 +363,72 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
         long ResidentBytes,
         int RealizedRows,
         int FirstRow,
-        int LastRow);
+        int LastRow,
+        DiagnosticDelta? Diagnostics);
+
+    private sealed record DiagnosticDelta(
+        int RowsDisplayUpdatePasses,
+        int RowsPresenterViewportChangedPasses,
+        int RowsScrollSlotsByHeightPasses,
+        int RowsMeasurePasses,
+        int RowsArrangePasses,
+        int RowGenerationPasses,
+        long RowsRealized,
+        long RowsRecycled,
+        long RowsPrepared,
+        long RowsMeasured,
+        long RowsMeasureSkipped,
+        long RowsArranged,
+        long RowsArrangeSkipped,
+        long RowsScrollInfoChanged,
+        long RowsScrollExtentChanged,
+        long RowsScrollInvalidated,
+        long RowsScrollExactSlotHeightLookups,
+        long RowsScrollExactSlotHeightInsertions);
+
+    private sealed record DiagnosticSnapshot(
+        int RowsDisplayUpdatePasses,
+        int RowsPresenterViewportChangedPasses,
+        int RowsScrollSlotsByHeightPasses,
+        int RowsMeasurePasses,
+        int RowsArrangePasses,
+        int RowGenerationPasses,
+        long RowsRealized,
+        long RowsRecycled,
+        long RowsPrepared,
+        long RowsMeasured,
+        long RowsMeasureSkipped,
+        long RowsArranged,
+        long RowsArrangeSkipped,
+        long RowsScrollInfoChanged,
+        long RowsScrollExtentChanged,
+        long RowsScrollInvalidated,
+        long RowsScrollExactSlotHeightLookups,
+        long RowsScrollExactSlotHeightInsertions)
+    {
+        public DiagnosticDelta Subtract(DiagnosticSnapshot previous)
+        {
+            return new DiagnosticDelta(
+                RowsDisplayUpdatePasses - previous.RowsDisplayUpdatePasses,
+                RowsPresenterViewportChangedPasses - previous.RowsPresenterViewportChangedPasses,
+                RowsScrollSlotsByHeightPasses - previous.RowsScrollSlotsByHeightPasses,
+                RowsMeasurePasses - previous.RowsMeasurePasses,
+                RowsArrangePasses - previous.RowsArrangePasses,
+                RowGenerationPasses - previous.RowGenerationPasses,
+                RowsRealized - previous.RowsRealized,
+                RowsRecycled - previous.RowsRecycled,
+                RowsPrepared - previous.RowsPrepared,
+                RowsMeasured - previous.RowsMeasured,
+                RowsMeasureSkipped - previous.RowsMeasureSkipped,
+                RowsArranged - previous.RowsArranged,
+                RowsArrangeSkipped - previous.RowsArrangeSkipped,
+                RowsScrollInfoChanged - previous.RowsScrollInfoChanged,
+                RowsScrollExtentChanged - previous.RowsScrollExtentChanged,
+                RowsScrollInvalidated - previous.RowsScrollInvalidated,
+                RowsScrollExactSlotHeightLookups - previous.RowsScrollExactSlotHeightLookups,
+                RowsScrollExactSlotHeightInsertions - previous.RowsScrollExactSlotHeightInsertions);
+        }
+    }
 
     private sealed record Stats(double Median, double P95, double Minimum, double Maximum);
 
@@ -359,6 +477,29 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
             _longMeasurements.Clear();
         }
 
+        public DiagnosticSnapshot CreateSnapshot()
+        {
+            return new DiagnosticSnapshot(
+                GetDoubleMeasurementCount(RowsDisplayUpdateTimeName),
+                GetDoubleMeasurementCount(RowsPresenterViewportChangedTimeName),
+                GetDoubleMeasurementCount(RowsScrollSlotsByHeightTimeName),
+                GetDoubleMeasurementCount(RowsMeasureTimeName),
+                GetDoubleMeasurementCount(RowsArrangeTimeName),
+                GetDoubleMeasurementCount(RowGenerateTimeName),
+                GetLongMeasurement(RowsRealizedCountName),
+                GetLongMeasurement(RowsRecycledCountName),
+                GetLongMeasurement(RowsPreparedCountName),
+                GetLongMeasurement(RowsMeasuredCountName),
+                GetLongMeasurement(RowsMeasureSkippedCountName),
+                GetLongMeasurement(RowsArrangedCountName),
+                GetLongMeasurement(RowsArrangeSkippedCountName),
+                GetLongMeasurement(RowsScrollInfoChangedCountName),
+                GetLongMeasurement(RowsScrollExtentChangedCountName),
+                GetLongMeasurement(RowsScrollInvalidatedCountName),
+                GetLongMeasurement(RowsScrollExactSlotHeightLookupCountName),
+                GetLongMeasurement(RowsScrollExactSlotHeightInsertionCountName));
+        }
+
         public DiagnosticReport CreateReport()
         {
             return new DiagnosticReport(
@@ -368,6 +509,17 @@ public sealed class HierarchicalCollapseGapsPerformanceTests
                 CalculateStats(GetDoubleMeasurements(RowsScrollEstimateOffsetTimeName)),
                 CalculateStats(GetDoubleMeasurements(RowsMeasureTimeName)),
                 CalculateStats(GetDoubleMeasurements(RowsArrangeTimeName)),
+                CalculateStats(GetDoubleMeasurements(DataGridMeasureTimeName)),
+                CalculateStats(GetDoubleMeasurements(DataGridArrangeTimeName)),
+                CalculateStats(GetDoubleMeasurements(CellsMeasureTimeName)),
+                CalculateStats(GetDoubleMeasurements(CellsArrangeTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowMeasureTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowArrangeTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsDisplayElementInsertTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsDisplayElementAttachTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsDisplayElementMeasureTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsDisplayElementHeightRecordTimeName)),
+                CalculateStats(GetDoubleMeasurements(RowsDisplayElementLoadTimeName)),
                 CalculateStats(GetDoubleMeasurements(RowsScrollViewportDeltaName)),
                 CalculateStats(GetDoubleMeasurements(RowsScrollExtentDeltaName)),
                 CalculateStats(GetDoubleMeasurements(RowsLogicalOffsetSynchronizedDeltaName)),

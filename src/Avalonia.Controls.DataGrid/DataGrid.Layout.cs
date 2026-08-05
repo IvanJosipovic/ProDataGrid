@@ -36,6 +36,8 @@ internal
         /// </returns>
         protected override Size ArrangeOverride(Size finalSize)
         {
+            using var arrangeScope = DataGridDiagnostics.BeginDataGridArrange();
+
             if (_makeFirstDisplayedCellCurrentCellPending)
             {
                 MakeFirstDisplayedCellCurrentCell();
@@ -66,6 +68,8 @@ internal
         /// </param>
         protected override Size MeasureOverride(Size availableSize)
         {
+            using var measureScope = DataGridDiagnostics.BeginDataGridMeasure();
+
             // Delay layout until after the initial measure to avoid invalid calculations when the
             // DataGrid is not part of the visual tree
             if (!_measured)

@@ -97,6 +97,8 @@ internal
                 return base.ArrangeOverride(finalSize);
             }
 
+            using var arrangeScope = DataGridDiagnostics.BeginCellsArrange();
+
             if (OwningGrid.AutoSizingColumns)
             {
                 // When we initially load an auto-column, we have to wait for all the rows to be measured
@@ -254,6 +256,8 @@ internal
             {
                 return base.MeasureOverride(availableSize);
             }
+
+            using var measureScope = DataGridDiagnostics.BeginCellsMeasure();
 
             bool autoSizeHeight;
             double measureHeight;

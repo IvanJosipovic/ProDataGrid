@@ -14,6 +14,17 @@ internal static partial class DataGridDiagnostics
     private static Histogram<double>? s_rowsScrollEstimateOffset;
     private static Histogram<double>? s_rowsMeasure;
     private static Histogram<double>? s_rowsArrange;
+    private static Histogram<double>? s_dataGridMeasure;
+    private static Histogram<double>? s_dataGridArrange;
+    private static Histogram<double>? s_cellsMeasure;
+    private static Histogram<double>? s_cellsArrange;
+    private static Histogram<double>? s_rowMeasure;
+    private static Histogram<double>? s_rowArrange;
+    private static Histogram<double>? s_rowsDisplayElementInsert;
+    private static Histogram<double>? s_rowsDisplayElementAttach;
+    private static Histogram<double>? s_rowsDisplayElementMeasure;
+    private static Histogram<double>? s_rowsDisplayElementHeightRecord;
+    private static Histogram<double>? s_rowsDisplayElementLoad;
     private static Histogram<double>? s_rowsScrollViewportDelta;
     private static Histogram<double>? s_rowsScrollExtentDelta;
     private static Histogram<double>? s_rowsLogicalOffsetSynchronizedDelta;
@@ -82,6 +93,50 @@ internal static partial class DataGridDiagnostics
             Meters.RowsArrangeTimeName,
             Meters.MillisecondsUnit,
             Meters.RowsArrangeTimeDescription);
+        s_dataGridMeasure = meter.CreateHistogram<double>(
+            Meters.DataGridMeasureTimeName,
+            Meters.MillisecondsUnit,
+            Meters.DataGridMeasureTimeDescription);
+        s_dataGridArrange = meter.CreateHistogram<double>(
+            Meters.DataGridArrangeTimeName,
+            Meters.MillisecondsUnit,
+            Meters.DataGridArrangeTimeDescription);
+        s_cellsMeasure = meter.CreateHistogram<double>(
+            Meters.CellsMeasureTimeName,
+            Meters.MillisecondsUnit,
+            Meters.CellsMeasureTimeDescription);
+        s_cellsArrange = meter.CreateHistogram<double>(
+            Meters.CellsArrangeTimeName,
+            Meters.MillisecondsUnit,
+            Meters.CellsArrangeTimeDescription);
+        s_rowMeasure = meter.CreateHistogram<double>(
+            Meters.RowMeasureTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowMeasureTimeDescription);
+        s_rowArrange = meter.CreateHistogram<double>(
+            Meters.RowArrangeTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowArrangeTimeDescription);
+        s_rowsDisplayElementInsert = meter.CreateHistogram<double>(
+            Meters.RowsDisplayElementInsertTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsDisplayElementInsertTimeDescription);
+        s_rowsDisplayElementAttach = meter.CreateHistogram<double>(
+            Meters.RowsDisplayElementAttachTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsDisplayElementAttachTimeDescription);
+        s_rowsDisplayElementMeasure = meter.CreateHistogram<double>(
+            Meters.RowsDisplayElementMeasureTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsDisplayElementMeasureTimeDescription);
+        s_rowsDisplayElementHeightRecord = meter.CreateHistogram<double>(
+            Meters.RowsDisplayElementHeightRecordTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsDisplayElementHeightRecordTimeDescription);
+        s_rowsDisplayElementLoad = meter.CreateHistogram<double>(
+            Meters.RowsDisplayElementLoadTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsDisplayElementLoadTimeDescription);
         s_rowsScrollViewportDelta = meter.CreateHistogram<double>(
             Meters.RowsScrollViewportDeltaName,
             "px",
@@ -213,6 +268,17 @@ internal static partial class DataGridDiagnostics
     public static HistogramReportDisposable BeginRowsScrollEstimateOffset() => Begin(s_rowsScrollEstimateOffset);
     public static HistogramReportDisposable BeginRowsMeasure() => Begin(s_rowsMeasure);
     public static HistogramReportDisposable BeginRowsArrange() => Begin(s_rowsArrange);
+    public static HistogramReportDisposable BeginDataGridMeasure() => Begin(s_dataGridMeasure);
+    public static HistogramReportDisposable BeginDataGridArrange() => Begin(s_dataGridArrange);
+    public static HistogramReportDisposable BeginCellsMeasure() => Begin(s_cellsMeasure);
+    public static HistogramReportDisposable BeginCellsArrange() => Begin(s_cellsArrange);
+    public static HistogramReportDisposable BeginRowMeasure() => Begin(s_rowMeasure);
+    public static HistogramReportDisposable BeginRowArrange() => Begin(s_rowArrange);
+    public static HistogramReportDisposable BeginRowsDisplayElementInsert() => Begin(s_rowsDisplayElementInsert);
+    public static HistogramReportDisposable BeginRowsDisplayElementAttach() => Begin(s_rowsDisplayElementAttach);
+    public static HistogramReportDisposable BeginRowsDisplayElementMeasure() => Begin(s_rowsDisplayElementMeasure);
+    public static HistogramReportDisposable BeginRowsDisplayElementHeightRecord() => Begin(s_rowsDisplayElementHeightRecord);
+    public static HistogramReportDisposable BeginRowsDisplayElementLoad() => Begin(s_rowsDisplayElementLoad);
     public static HistogramReportDisposable BeginRowGenerate() => Begin(s_rowGenerate);
     public static HistogramReportDisposable BeginColumnsAutoGenerate() => Begin(s_columnsAutoGenerate);
     public static HistogramReportDisposable BeginSelectionChanged() => Begin(s_selectionChanged);

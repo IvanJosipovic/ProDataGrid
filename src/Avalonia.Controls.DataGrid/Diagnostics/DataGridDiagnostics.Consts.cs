@@ -37,8 +37,41 @@ internal static partial class DataGridDiagnostics
         public const string RowsArrangeTimeName = "prodatagrid.rows.arrange.time";
         public const string RowsArrangeTimeDescription = "Duration of arranging displayed and recycled row elements.";
 
+        public const string DataGridMeasureTimeName = "prodatagrid.datagrid.measure.time";
+        public const string DataGridMeasureTimeDescription = "Duration of measuring the DataGrid control.";
+
+        public const string DataGridArrangeTimeName = "prodatagrid.datagrid.arrange.time";
+        public const string DataGridArrangeTimeDescription = "Duration of arranging the DataGrid control.";
+
+        public const string CellsMeasureTimeName = "prodatagrid.cells.measure.time";
+        public const string CellsMeasureTimeDescription = "Duration of measuring a DataGrid cells presenter.";
+
+        public const string CellsArrangeTimeName = "prodatagrid.cells.arrange.time";
+        public const string CellsArrangeTimeDescription = "Duration of arranging a DataGrid cells presenter.";
+
+        public const string RowMeasureTimeName = "prodatagrid.row.measure.time";
+        public const string RowMeasureTimeDescription = "Duration of measuring a DataGrid row.";
+
+        public const string RowArrangeTimeName = "prodatagrid.row.arrange.time";
+        public const string RowArrangeTimeDescription = "Duration of arranging a DataGrid row.";
+
         public const string RowGenerateTimeName = "prodatagrid.rows.generate.time";
         public const string RowGenerateTimeDescription = "Duration of row generation and preparation.";
+
+        public const string RowsDisplayElementInsertTimeName = "prodatagrid.rows.display.element.insert.time";
+        public const string RowsDisplayElementInsertTimeDescription = "Duration of inserting one element into the displayed-row window.";
+
+        public const string RowsDisplayElementAttachTimeName = "prodatagrid.rows.display.element.attach.time";
+        public const string RowsDisplayElementAttachTimeDescription = "Duration of attaching one generated element to the rows presenter and registering it as an anchor.";
+
+        public const string RowsDisplayElementMeasureTimeName = "prodatagrid.rows.display.element.measure.time";
+        public const string RowsDisplayElementMeasureTimeDescription = "Duration of measuring one generated element during displayed-row insertion.";
+
+        public const string RowsDisplayElementHeightRecordTimeName = "prodatagrid.rows.display.element.height.record.time";
+        public const string RowsDisplayElementHeightRecordTimeDescription = "Duration of recording one generated element height during displayed-row insertion.";
+
+        public const string RowsDisplayElementLoadTimeName = "prodatagrid.rows.display.element.load.time";
+        public const string RowsDisplayElementLoadTimeDescription = "Duration of loading one element into the displayed-row list.";
 
         public const string ColumnsAutoGenerateTimeName = "prodatagrid.columns.autogen.time";
         public const string ColumnsAutoGenerateTimeDescription = "Duration of auto-generating columns.";
