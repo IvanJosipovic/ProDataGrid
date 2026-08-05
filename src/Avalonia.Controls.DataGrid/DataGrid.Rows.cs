@@ -1337,8 +1337,9 @@ internal
 
             if (isDisplayed)
             {
-                Debug.Assert(DisplayData.GetDisplayedElement(slot) != null);
-                return DisplayData.GetDisplayedElement(slot).DesiredSize.Height;
+                Control element = DisplayData.GetDisplayedElement(slot);
+                Debug.Assert(element != null);
+                return element.DesiredSize.Height;
             }
 
             Control slotElement = InsertDisplayedElement(slot, true /*updateSlotInformation*/);
