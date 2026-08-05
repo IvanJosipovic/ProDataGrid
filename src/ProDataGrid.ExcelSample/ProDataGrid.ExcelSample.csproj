@@ -17,6 +17,8 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="ReactiveUI" />
     <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="ReactiveUI.Primitives.Avalonia.Reactive" />
+    <PackageReference Include="System.Reactive" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,11 +1,11 @@
 using System;
-using System.Reactive;
 using System.Reactive.Concurrency;
 using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Headless.XUnit;
 using ProDataGrid.ExcelSample.Models;
 using ProDataGrid.ExcelSample.ViewModels;
 using Xunit;
+using RxVoid = ReactiveUI.Primitives.RxVoid;
 
 namespace ProDataGrid.ExcelSample.Tests;
 
@@ -87,7 +87,7 @@ public sealed class WorkbookViewModelTests
         Assert.False(viewModel.IsFormulaBarVisible);
     }
 
-    private sealed class NoopObserver : IObserver<Unit>
+    private sealed class NoopObserver : IObserver<RxVoid>
     {
         public void OnCompleted()
         {
@@ -97,7 +97,7 @@ public sealed class WorkbookViewModelTests
         {
         }
 
-        public void OnNext(Unit value)
+        public void OnNext(RxVoid value)
         {
         }
     }
