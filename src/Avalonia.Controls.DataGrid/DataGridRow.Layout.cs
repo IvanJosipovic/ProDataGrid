@@ -43,7 +43,8 @@ namespace Avalonia.Controls
 
             // If the DataGrid was scrolled horizontally after our last Arrange, we need to make sure
             // the Cells and Details are Arranged again
-            if (_lastHorizontalOffset != OwningGrid.HorizontalOffset)
+            bool horizontalOffsetChanged = _lastHorizontalOffset != OwningGrid.HorizontalOffset;
+            if (horizontalOffsetChanged)
             {
                 _lastHorizontalOffset = OwningGrid.HorizontalOffset;
                 InvalidateHorizontalArrange();
@@ -75,7 +76,7 @@ namespace Avalonia.Controls
                 EnsureDetailsContentHeight();
             }
 
-            if (RootElement != null)
+            if (!canReuseArrange && RootElement != null)
             {
                 foreach (Control child in RootElement.Children)
                 {
@@ -95,7 +96,7 @@ namespace Avalonia.Controls
                 }
             }
 
-            if (_bottomGridLine != null)
+            if (!canReuseArrange && _bottomGridLine != null)
             {
                 if (_bottomGridLineClipGeometry == null)
                 {
