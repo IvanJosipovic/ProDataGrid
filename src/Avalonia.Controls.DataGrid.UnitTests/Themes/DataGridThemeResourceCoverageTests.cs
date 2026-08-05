@@ -764,6 +764,14 @@ public class DataGridThemeResourceCoverageTests
 
 public class DataGridThemeTemplateCoverageTests
 {
+    public static IEnumerable<object[]> AllThemes()
+    {
+        yield return new object[] { DataGridTheme.Simple };
+        yield return new object[] { DataGridTheme.SimpleV2 };
+        yield return new object[] { DataGridTheme.Fluent };
+        yield return new object[] { DataGridTheme.FluentV2 };
+    }
+
     public static IEnumerable<object[]> V2Themes()
     {
         yield return new object[] { DataGridTheme.SimpleV2 };
@@ -841,6 +849,82 @@ public class DataGridThemeTemplateCoverageTests
         finally
         {
             window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(AllThemes))]
+    public void DataGrid_template_tracks_allow_auto_hide_changes(DataGridTheme theme)
+    {
+        var window = new Window
+        {
+            Width = 400,
+            Height = 300
+        };
+
+        window.SetThemeStyles(theme);
+
+        var grid = CreateSampleGrid();
+        ScrollViewer.SetAllowAutoHide(grid, true);
+        window.Content = grid;
+        window.Show();
+
+        try
+        {
+            grid.ApplyTemplate();
+            grid.UpdateLayout();
+
+            var targets = GetAllowAutoHideTargets(grid, theme);
+            int expectedTargetCount = theme is DataGridTheme.SimpleV2 or DataGridTheme.FluentV2 ? 1 : 2;
+            Assert.Equal(expectedTargetCount, targets.Count);
+            AssertAllowAutoHide(targets, true);
+
+            ScrollViewer.SetAllowAutoHide(grid, false);
+            grid.UpdateLayout();
+            AssertAllowAutoHide(targets, false);
+
+            ScrollViewer.SetAllowAutoHide(grid, true);
+            grid.UpdateLayout();
+            AssertAllowAutoHide(targets, true);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private static IReadOnlyList<Control> GetAllowAutoHideTargets(DataGrid grid, DataGridTheme theme)
+    {
+        if (theme is DataGridTheme.SimpleV2 or DataGridTheme.FluentV2)
+        {
+            return grid
+                .GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .Where(viewer => viewer.Name == "PART_ScrollViewer")
+                .Cast<Control>()
+                .ToList();
+        }
+
+        return grid
+            .GetVisualDescendants()
+            .OfType<ScrollBar>()
+            .Where(scrollBar => scrollBar.Name is "PART_VerticalScrollbar" or "PART_HorizontalScrollbar")
+            .Cast<Control>()
+            .ToList();
+    }
+
+    private static void AssertAllowAutoHide(IEnumerable<Control> targets, bool expected)
+    {
+        foreach (Control target in targets)
+        {
+            bool actual = target switch
+            {
+                ScrollBar scrollBar => scrollBar.AllowAutoHide,
+                ScrollViewer scrollViewer => ScrollViewer.GetAllowAutoHide(scrollViewer),
+                _ => throw new InvalidOperationException($"Unexpected control type: {target.GetType()}.")
+            };
+
+            Assert.Equal(expected, actual);
         }
     }
 

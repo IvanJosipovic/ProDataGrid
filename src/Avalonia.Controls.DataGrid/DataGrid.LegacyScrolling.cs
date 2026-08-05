@@ -90,7 +90,6 @@ internal
                 _hScrollBar.Orientation = Layout.Orientation.Horizontal;
                 _hScrollBar.IsVisible = false;
                 _hScrollBar.Scroll += HorizontalScrollBar_Scroll;
-                _hScrollBar.AllowAutoHide = this.GetValue(ScrollViewer.AllowAutoHideProperty);
             }
 
             if (_vScrollBar != null)
@@ -107,7 +106,6 @@ internal
                 _vScrollBar.Orientation = Layout.Orientation.Vertical;
                 _vScrollBar.IsVisible = false;
                 _vScrollBar.Scroll += VerticalScrollBar_Scroll;
-                _vScrollBar.AllowAutoHide = this.GetValue(ScrollViewer.AllowAutoHideProperty);
             }
         }
 
