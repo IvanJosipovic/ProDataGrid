@@ -101,21 +101,24 @@ namespace Avalonia.Controls
                 // Normal recycle: non-template cells keep prior Content; indexer bindings on
                 // Fields[i] often do not refresh until the row is fully re-realized. Template
                 // columns already refresh on DataContext change via OnPropertyChanged.
+                // Recycled descendants can retain valid measure state after their DataContext changes.
+                // Height-based scrolling may consume the row's DesiredSize before the next layout pass.
                 if (hasPlaceholderTransition)
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
                     {
                         cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
+                        cell.InvalidateMeasureForContentChange();
                     }
                 }
                 else if (recycledRow != null)
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
                     {
-                        if (cell.OwningColumn != null &&
-                            cell.OwningColumn is not DataGridTemplateColumn)
+                        if (cell.OwningColumn != null)
                         {
                             cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
+                            cell.InvalidateMeasureForContentChange();
                         }
                     }
                 }
@@ -326,6 +329,7 @@ namespace Avalonia.Controls
 
                 using (DataGridDiagnostics.BeginRowsDisplayElementMeasure())
                 {
+                    row?.InvalidateMeasure();
                     if (measureDeferred)
                     {
                         AvailableSlotElementRoom -= elementHeight;

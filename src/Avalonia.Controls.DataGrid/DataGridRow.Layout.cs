@@ -160,20 +160,26 @@ namespace Avalonia.Controls
             _hasValidArrange = false;
 
             //Allow the DataGrid specific components to adjust themselves based on new values
-            if (!ConsumeRecycledRootDataContextChanged())
+            bool recycledRootDataContextChanged = ConsumeRecycledRootDataContextChanged();
+            if (recycledRootDataContextChanged && RootElement != null)
             {
-                if (_headerElement != null)
-                {
-                    _headerElement.InvalidateMeasure();
-                }
-                if (_cellsElement != null)
-                {
-                    _cellsElement.InvalidateMeasure();
-                }
-                if (_detailsElement != null)
-                {
-                    _detailsElement.InvalidateMeasure();
-                }
+                RootElement.InvalidateMeasure();
+            }
+            if (_headerElement != null)
+            {
+                _headerElement.InvalidateMeasure();
+            }
+            if (_cellsElement != null)
+            {
+                _cellsElement.InvalidateMeasure();
+            }
+            if (_detailsElement != null)
+            {
+                _detailsElement.InvalidateMeasure();
+            }
+            if (recycledRootDataContextChanged && RootElement != null)
+            {
+                RootElement.Measure(availableSize);
             }
 
             Size desiredSize = base.MeasureOverride(availableSize);
