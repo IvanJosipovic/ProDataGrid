@@ -233,6 +233,45 @@ public sealed class LargeVariableHeightScrollingTests
         }
     }
 
+    [AvaloniaFact]
+    public void LargeVariableHeight_ScrollbarEndReachesLastRow()
+    {
+        var page = new global::DataGridSample.LargeVariableHeightPage();
+        var window = new Window
+        {
+            Width = 1280,
+            Height = 720,
+            Content = page
+        };
+        window.ApplySampleTheme();
+
+        try
+        {
+            window.Show();
+            PumpLayout(window);
+
+            var grid = page.GetVisualDescendants().OfType<DataGrid>().Single();
+            grid.CanUserAddRows = false;
+            var scrollViewer = grid.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            var presenter = grid.GetVisualDescendants().OfType<DataGridRowsPresenter>().Single();
+            var maximumOffset = Math.Max(0, scrollViewer.Extent.Height - scrollViewer.Viewport.Height);
+
+            scrollViewer.Offset = new Vector(0, maximumOffset);
+            PumpLayout(window);
+
+            var lastVisibleRow = GetLastVisibleRowIndex(grid);
+            Assert.True(
+                lastVisibleRow == 9_999,
+                $"Scrollbar end did not reach the last row. Last visible row: {lastVisibleRow}; " +
+                $"extent: {scrollViewer.Extent.Height:F1}; viewport: {scrollViewer.Viewport.Height:F1}; " +
+                $"scroll offset: {scrollViewer.Offset.Y:F1}; presenter offset: {presenter.Offset.Y:F1}");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static int GetLastVisibleRowIndex(DataGrid grid)
     {
         return GetViewportRows(grid)
