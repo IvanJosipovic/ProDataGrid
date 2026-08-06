@@ -399,6 +399,10 @@ namespace Avalonia.Controls
                     // We could be smarter about this, but it's not common so we wouldn't gain much from optimizing here
                     if (firstElementSlot != DisplayData.FirstScrollingSlot)
                     {
+                        if (!CanRetainDisplayedRowsForScrollTarget(firstElementSlot))
+                        {
+                            ResetDisplayedRows();
+                        }
                         UpdateDisplayedRows(firstElementSlot, CellsEstimatedHeight);
                     }
                 }
