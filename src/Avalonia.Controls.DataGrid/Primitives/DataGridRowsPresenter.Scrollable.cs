@@ -442,6 +442,10 @@ internal
         {
             bool changed = false;
             var oldViewport = _viewport;
+            var previousMaximumY = Math.Max(0, _extent.Height - _viewport.Height);
+            var wasAtBottom = IsLogicalScrollEnabled &&
+                              previousMaximumY > 0 &&
+                              MathUtilities.GreaterThanOrClose(_offset.Y, previousMaximumY);
 
             if (!MathUtilities.AreClose(_extent.Width, extent.Width) ||
                 !MathUtilities.AreClose(_extent.Height, extent.Height))
@@ -468,6 +472,13 @@ internal
                 _offset = coercedOffset;
                 changed = true;
                 DataGridDiagnostics.RecordRowsScrollOffsetCoerced();
+            }
+
+            var maximumY = Math.Max(0, _extent.Height - _viewport.Height);
+            if (wasAtBottom && MathUtilities.GreaterThan(maximumY, previousMaximumY))
+            {
+                Offset = new Vector(_offset.X, maximumY);
+                changed = true;
             }
 
             if (changed)
