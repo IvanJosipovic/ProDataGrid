@@ -872,13 +872,12 @@ internal
                 {
                     deltaY = -NegVerticalOffset;
                 }
-                deltaY -= GetScrollHeightBetweenSlots(slot, firstFullSlot);
-                if (DisplayData.FirstScrollingSlot - slot > 1)
+                var canRetainDisplayedRows = CanRetainDisplayedRowsForScrollTarget(slot);
+                if (!canRetainDisplayedRows)
                 {
-                    //
-
                     ResetDisplayedRows();
                 }
+                deltaY -= GetScrollHeightBetweenSlots(slot, firstFullSlot);
                 NegVerticalOffset = 0;
                 UpdateDisplayedRows(slot, CellsEstimatedHeight);
             }
@@ -890,6 +889,7 @@ internal
                 firstFullSlot = DisplayData.LastScrollingSlot;
                 // Figure out how much of the last row is cut off
                 double rowHeight = GetScrollSlotHeight(DisplayData.LastScrollingSlot);
+                var canRetainDisplayedRows = CanRetainDisplayedRowsForScrollTarget(slot);
                 double availableHeight = AvailableSlotElementRoom + rowHeight;
                 if (MathUtilities.AreClose(rowHeight, availableHeight))
                 {
@@ -909,16 +909,14 @@ internal
                     firstFullSlot++;
                     deltaY += rowHeight - availableHeight;
                 }
-                // sum up the height of the rest of the full rows
+                // Sum up the height of the rest of the full rows.
                 if (slot >= firstFullSlot)
                 {
+                    if (!canRetainDisplayedRows)
+                    {
+                        ResetDisplayedRows();
+                    }
                     deltaY += GetScrollHeightBetweenSlots(firstFullSlot, slot);
-                }
-                // If the first row we're displaying is no longer adjacent to the rows we have
-                // simply discard the ones we have
-                if (slot - DisplayData.LastScrollingSlot > 1)
-                {
-                    ResetDisplayedRows();
                 }
                 if (MathUtilities.GreaterThanOrClose(GetScrollSlotHeight(slot), CellsEstimatedHeight))
                 {
