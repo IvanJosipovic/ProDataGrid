@@ -326,39 +326,35 @@ internal
                 Clip = _clipRectGeometry;
             }
 
-            // Arrange any hidden/recycled children off-screen to prevent ghost rows
-            // This is necessary because Avalonia keeps elements at their last arranged position
-            // even when they're hidden, and during fast scrolling the visibility change may not
-            // take effect before the next render
-            var offScreenRect = new Rect(-10000, -10000, 0, 0);
-            foreach (Control child in Children)
+            for (var childIndex = Children.Count - 1; childIndex >= 0; childIndex--)
             {
+                Control child = Children[childIndex];
+                if (!child.IsVisible)
+                {
+                    if (!displayedElements.Contains(child) &&
+                        child is DataGridRow row &&
+                        !row.IsRecycled &&
+                        row.IsRecyclable &&
+                        OwningGrid.RecycleOrphanedElement(child) &&
+                        !OwningGrid.KeepRecycledContainersInVisualTree &&
+                        ReferenceEquals(child.Parent, this))
+                    {
+                        Children.RemoveAt(childIndex);
+                    }
+
+                    skippedArrangeElements++;
+                    continue;
+                }
+
                 if (!displayedElements.Contains(child))
                 {
-                    if (child.IsVisible)
+                    if (OwningGrid.RecycleOrphanedElement(child))
                     {
-                        OwningGrid.HideRecycledElement(child);
-                    }
-                    if (ShouldArrangeElement(child, offScreenRect))
-                    {
-                        child.Arrange(offScreenRect);
-                        arrangedElements++;
-                    }
-                    else
-                    {
-                        skippedArrangeElements++;
-                    }
-                }
-                else if (!child.IsVisible)
-                {
-                    if (ShouldArrangeElement(child, offScreenRect))
-                    {
-                        child.Arrange(offScreenRect);
-                        arrangedElements++;
-                    }
-                    else
-                    {
-                        skippedArrangeElements++;
+                        if (!OwningGrid.KeepRecycledContainersInVisualTree &&
+                            ReferenceEquals(child.Parent, this))
+                        {
+                            Children.RemoveAt(childIndex);
+                        }
                     }
                 }
             }

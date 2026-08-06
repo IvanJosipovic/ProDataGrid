@@ -460,5 +460,38 @@ namespace Avalonia.Controls
             }
         }
 
+        internal bool RecycleOrphanedElement(Control element)
+        {
+            if (element is DataGridRow row)
+            {
+                if (IsRowRecyclable(row) && !_loadedRows.Contains(row))
+                {
+                    UnloadRow(row);
+                    return true;
+                }
+
+                HideRecycledElement(row);
+                return false;
+            }
+
+            if (element is DataGridRowGroupHeader groupHeader)
+            {
+                OnUnloadingRowGroup(new DataGridRowGroupHeaderEventArgs(groupHeader));
+                HideRecycledElement(groupHeader);
+                DisplayData.RecycleGroupHeader(groupHeader);
+                return true;
+            }
+
+            if (element is DataGridRowGroupFooter groupFooter)
+            {
+                HideRecycledElement(groupFooter);
+                DisplayData.RecycleGroupFooter(groupFooter);
+                return true;
+            }
+
+            HideRecycledElement(element);
+            return false;
+        }
+
     }
 }
