@@ -48,14 +48,17 @@
 
     <TabControl x:Name="SampleTabs"
                 Margin="8"
-                TabStripPlacement="Left">
+                TabStripPlacement="Left"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch">
     <TabControl.ItemsPanel>
       <ItemsPanelTemplate>
         <StackPanel Orientation="Vertical" />
       </ItemsPanelTemplate>
     </TabControl.ItemsPanel>
     <TabControl.Styles>
-      <Style Selector="TabControl">
+      <Style Selector="TabControl#SampleTabs">
         <Setter Property="Template">
           <ControlTemplate>
             <Border BorderBrush="{TemplateBinding BorderBrush}"
@@ -64,22 +67,38 @@
                     Background="{TemplateBinding Background}"
                     HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
                     VerticalAlignment="{TemplateBinding VerticalAlignment}">
-              <DockPanel>
-                <ScrollViewer DockPanel.Dock="{TemplateBinding TabStripPlacement}"
+              <Grid ColumnDefinitions="300,Auto,*">
+                <ScrollViewer Grid.Column="0"
                               VerticalScrollBarVisibility="Auto"
                               HorizontalScrollBarVisibility="Disabled">
                   <ItemsPresenter Name="PART_ItemsPresenter"
                                   ItemsPanel="{TemplateBinding ItemsPanel}" />
                 </ScrollViewer>
+                <GridSplitter Grid.Column="1"
+                              Width="6"
+                              Background="Transparent"
+                              HorizontalAlignment="Stretch"
+                              ResizeDirection="Columns"
+                              ResizeBehavior="PreviousAndNext" />
                 <ContentPresenter Name="PART_SelectedContentHost"
+                                  Grid.Column="2"
                                   Margin="{TemplateBinding Padding}"
                                   HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                                   VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
                                   Content="{TemplateBinding SelectedContent}"
                                   ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-              </DockPanel>
+              </Grid>
             </Border>
           </ControlTemplate>
+        </Setter>
+      </Style>
+      <Style Selector="TabControl#SampleTabs > TabItem">
+        <Setter Property="HeaderTemplate">
+          <DataTemplate>
+            <TextBlock Text="{Binding}"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip.Tip="{Binding}" />
+          </DataTemplate>
         </Setter>
       </Style>
     </TabControl.Styles>
