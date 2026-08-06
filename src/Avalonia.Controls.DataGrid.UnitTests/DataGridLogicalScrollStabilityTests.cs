@@ -114,6 +114,68 @@ public class DataGridLogicalScrollStabilityTests
         Assert.InRange(afterAlternating, Math.Max(0, baseline - 2), baseline + 2);
     }
 
+    [AvaloniaFact]
+    public void LogicalScrollable_Wheel_RemainsResponsive_AfterTabSwitch()
+    {
+        var (root, target) = CreateDeepHostedTarget(itemCount: 400);
+        root.UpdateLayout();
+        target.UpdateLayout();
+
+        var topLevel = (TopLevel)target.GetVisualRoot()!;
+        var wheelPoint = target.TranslatePoint(
+            new Point(target.Bounds.Width / 2, target.Bounds.Height / 2),
+            topLevel)!.Value;
+
+        topLevel.MouseWheel(wheelPoint, new Vector(0, -3));
+        root.UpdateLayout();
+        target.UpdateLayout();
+        var initialTopRow = GetFirstVisibleRowIndex(target);
+        Assert.True(initialTopRow > 0, $"Expected the initial wheel to scroll away from the first row, got {initialTopRow}.");
+
+        var tabControls = root.GetVisualDescendants()
+            .OfType<TabControl>()
+            .Reverse()
+            .ToArray();
+
+        Assert.NotEmpty(tabControls);
+
+        foreach (var tabControl in tabControls)
+        {
+            if (tabControl.ItemCount < 2)
+            {
+                continue;
+            }
+
+            var originalIndex = tabControl.SelectedIndex;
+            Assert.InRange(originalIndex, 0, tabControl.ItemCount - 1);
+
+            var alternateIndex = originalIndex == 0 ? 1 : 0;
+            tabControl.SelectedIndex = alternateIndex;
+            root.UpdateLayout();
+            target.UpdateLayout();
+
+            tabControl.SelectedIndex = originalIndex;
+            root.UpdateLayout();
+
+            var presenter = GetRowsPresenter(target);
+            var before = presenter.Offset.Y;
+            var firstRowBefore = GetFirstVisibleRowIndex(target);
+            topLevel.MouseWheel(wheelPoint, new Vector(0, -3));
+            root.UpdateLayout();
+            target.UpdateLayout();
+            presenter = GetRowsPresenter(target);
+            var after = presenter.Offset.Y;
+            var firstRowAfter = GetFirstVisibleRowIndex(target);
+
+            Assert.True(
+                after > before,
+                $"Expected wheel scrolling to advance after returning to tab '{tabControl.SelectedIndex}'. Before: {before}, After: {after}.");
+            Assert.True(
+                firstRowAfter > firstRowBefore,
+                $"Expected the realized row viewport to advance after returning to tab '{tabControl.SelectedIndex}'. Before: {firstRowBefore}, After: {firstRowAfter}.");
+        }
+    }
+
     private static DataGrid CreateStandaloneTarget(int itemCount, int height, bool useLogicalScrollable)
     {
         var root = new Window
@@ -293,9 +355,15 @@ public class DataGridLogicalScrollStabilityTests
 
     private static int GetFirstVisibleRowIndex(DataGrid target)
     {
-        return target.GetSelfAndVisualDescendants()
+        var presenter = GetRowsPresenter(target);
+        return presenter.Children
             .OfType<DataGridRow>()
-            .Min(row => row.Index);
+            .Where(row => row.DataContext != null &&
+                          row.Bounds.Bottom > 0 &&
+                          row.Bounds.Y < presenter.Bounds.Height)
+            .OrderBy(row => row.Bounds.Y)
+            .Select(row => row.Index)
+            .First();
     }
 
     private sealed class ScrollStabilityRow
