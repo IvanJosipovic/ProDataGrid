@@ -409,7 +409,7 @@ internal
             var deltaY = newOffset.Y - oldOffset.Y;
             var deltaX = newOffset.X - oldOffset.X;
 
-            if (OwningGrid.IsScrollStateRestoreActive)
+            if (OwningGrid.IsScrollStateRestorePending)
             {
                 if (deltaY != 0)
                 {

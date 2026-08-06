@@ -37,8 +37,9 @@ namespace Avalonia.Controls
         private int _scrollRestoreGuard;
         private int? _restoredScrollSlot;
         private DataGridGroupingState _pendingGroupingState;
-        internal bool IsScrollStateRestoreActive =>
-            _forceScrollStateRestore || _pendingScrollState != null || _pendingScrollLayoutRestore || _scrollRestoreGuard > 0 || _scrollStateManager?.PendingRestore == true;
+        internal bool IsScrollStateRestorePending =>
+            _forceScrollStateRestore || _pendingScrollState != null || _pendingScrollLayoutRestore || _scrollStateManager?.PendingRestore == true;
+        internal bool IsScrollStateRestoreActive => IsScrollStateRestorePending || _scrollRestoreGuard > 0;
 
         private void MarkScrollStateRestored(int? slot)
         {

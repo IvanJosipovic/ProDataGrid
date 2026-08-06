@@ -625,7 +625,7 @@ internal
 
         internal void OnRowsMeasure()
         {
-            if (IsScrollStateRestoreActive)
+            if (IsScrollStateRestorePending)
             {
                 DisplayData.PendingVerticalScrollHeight = 0;
             }
