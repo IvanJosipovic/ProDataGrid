@@ -1867,6 +1867,10 @@ namespace Avalonia.Controls
             }
 
             NegVerticalOffset = Math.Max(0, state.NegVerticalOffset);
+            if (!CanRetainDisplayedRowsForScrollTarget(targetSlot))
+            {
+                ResetDisplayedRows();
+            }
             UpdateDisplayedRows(targetSlot, estimatedHeight);
 
             double firstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
