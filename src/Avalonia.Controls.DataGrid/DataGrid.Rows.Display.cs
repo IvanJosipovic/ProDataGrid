@@ -54,6 +54,11 @@ namespace Avalonia.Controls
                 return;
             }
 
+            if (!CanRetainDisplayedRowsForScrollTarget(firstDisplayedScrollingSlot))
+            {
+                ResetDisplayedRows();
+            }
+
             int slot = firstDisplayedScrollingSlot;
             while (slot < SlotCount && !MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
             {
@@ -174,6 +179,11 @@ namespace Avalonia.Controls
             if (lastDisplayedScrollingRow == -1)
             {
                 lastDisplayedScrollingRow = 0;
+            }
+
+            if (!CanRetainDisplayedRowsForScrollTarget(lastDisplayedScrollingRow))
+            {
+                ResetDisplayedRows();
             }
 
             int slot = lastDisplayedScrollingRow;
