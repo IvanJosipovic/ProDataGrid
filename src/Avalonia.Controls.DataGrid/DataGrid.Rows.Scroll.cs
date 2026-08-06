@@ -359,7 +359,7 @@ namespace Avalonia.Controls
                 bool atVisualTail = DisplayData.LastScrollingSlot >= 0 &&
                                     DisplayData.LastScrollingSlot >= LastVisibleSlot;
                 var firstRowEstimator = RowHeightEstimator;
-                if (firstRowEstimator != null && !atVisualTail)
+                if (firstRowEstimator != null && !atVisualTail && useIndexedScrollGeometry)
                 {
                     double baseOffset = EstimateOffsetToVisibleSlot(
                         DisplayData.FirstScrollingSlot,
