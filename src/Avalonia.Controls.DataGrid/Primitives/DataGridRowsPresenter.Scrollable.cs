@@ -30,6 +30,7 @@ internal
         private Vector _offset;
         private bool _canHorizontallyScroll;
         private bool _canVerticallyScroll = true;
+        private bool _bottomAnchorRequested;
         
         // Pre-fetching state
         private bool _prefetchScheduled;
@@ -105,6 +106,16 @@ internal
             get => _offset;
             set
             {
+                var maximumY = Math.Max(0, _extent.Height - _viewport.Height);
+                var bottomAnchorRequested = IsLogicalScrollEnabled &&
+                                             this.FindAncestorOfType<Avalonia.Controls.ScrollViewer>() != null &&
+                                             MathUtilities.GreaterThanOrClose(value.Y, maximumY);
+                if (!bottomAnchorRequested && _bottomAnchorRequested)
+                {
+                    OwningGrid?.DisplayData.PendingVerticalScrollHeight = 0;
+                }
+                _bottomAnchorRequested = bottomAnchorRequested;
+
                 if (_offset != value)
                 {
                     var oldOffset = _offset;
@@ -435,6 +446,15 @@ internal
             }
         }
 
+        internal void ClearBottomAnchorRequest()
+        {
+            if (_bottomAnchorRequested && OwningGrid != null)
+            {
+                OwningGrid.DisplayData.PendingVerticalScrollHeight = 0;
+            }
+            _bottomAnchorRequested = false;
+        }
+
         /// <summary>
         /// Updates the scroll extent and viewport, raising ScrollInvalidated if changed.
         /// </summary>
@@ -442,6 +462,11 @@ internal
         {
             bool changed = false;
             var oldViewport = _viewport;
+            var previousMaximumY = Math.Max(0, _extent.Height - _viewport.Height);
+            var wasAtBottom = IsLogicalScrollEnabled &&
+                              _bottomAnchorRequested &&
+                              previousMaximumY > 0 &&
+                              MathUtilities.GreaterThanOrClose(_offset.Y, previousMaximumY);
 
             if (!MathUtilities.AreClose(_extent.Width, extent.Width) ||
                 !MathUtilities.AreClose(_extent.Height, extent.Height))
@@ -468,6 +493,13 @@ internal
                 _offset = coercedOffset;
                 changed = true;
                 DataGridDiagnostics.RecordRowsScrollOffsetCoerced();
+            }
+
+            var maximumY = Math.Max(0, _extent.Height - _viewport.Height);
+            if (wasAtBottom && MathUtilities.GreaterThan(maximumY, previousMaximumY))
+            {
+                Offset = new Vector(_offset.X, maximumY);
+                changed = true;
             }
 
             if (changed)

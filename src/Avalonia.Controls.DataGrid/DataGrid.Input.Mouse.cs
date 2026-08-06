@@ -58,6 +58,11 @@ namespace Avalonia.Controls
 
         internal bool UpdateScroll(Vector delta)
         {
+            if (UseLogicalScrollable && delta.Y != 0)
+            {
+                _rowsPresenter?.ClearBottomAnchorRequest();
+            }
+
             if (IsEnabled && DisplayData.NumDisplayedScrollingElements > 0)
             {
                 var handled = false;
