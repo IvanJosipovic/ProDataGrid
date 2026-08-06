@@ -272,6 +272,151 @@ public sealed class LargeVariableHeightScrollingTests
         }
     }
 
+    [AvaloniaFact]
+    public void VariableHeight_50K_LargeScrollsKeepDisplayListAdjacent()
+    {
+        var viewModel = new global::DataGridSample.ViewModels.VariableHeightViewModel();
+
+        var page = new global::DataGridSample.VariableHeightPage
+        {
+            DataContext = viewModel
+        };
+        var window = new Window
+        {
+            Width = 3184,
+            Height = 1668,
+            Content = page
+        };
+        window.ApplySampleTheme();
+        var configuredGrid = page.FindControl<DataGrid>("VariableHeightDataGrid");
+        configuredGrid!.KeepRecycledContainersInVisualTree = false;
+
+        try
+        {
+            window.Show();
+            PumpLayout(window);
+
+            var grid = page.GetVisualDescendants().OfType<DataGrid>().Single();
+            grid.CanUserAddRows = false;
+            viewModel.ItemCount = 50_000;
+            viewModel.GenerateItems();
+            PumpLayout(window);
+
+            var verticalScrollBar = grid.GetVisualDescendants()
+                .OfType<ScrollBar>()
+                .Single(scrollBar => scrollBar.Orientation == Avalonia.Layout.Orientation.Vertical);
+            var topLevel = (TopLevel)window;
+            var wheelPoint = page.TranslatePoint(
+                new Point(page.Bounds.Width / 2, page.Bounds.Height / 2),
+                window)!.Value;
+            for (var i = 0; i < 24; i++)
+            {
+                var scrollDelta = Math.Max(1_000, verticalScrollBar.Maximum * 0.05);
+                topLevel.MouseWheel(wheelPoint, new Vector(0, -scrollDelta / 50));
+                PumpLayout(window);
+            }
+
+            var offsetFractions = new[] { 0.2, 0.4, 0.6, 0.8, 0.95 };
+
+            foreach (var fraction in offsetFractions)
+            {
+                verticalScrollBar.Value = verticalScrollBar.Maximum * fraction;
+                PumpLayout(window);
+            }
+
+            verticalScrollBar.Value = verticalScrollBar.Maximum;
+            PumpLayout(window);
+            verticalScrollBar.Value = verticalScrollBar.Maximum;
+            PumpLayout(window);
+
+            var lastVisibleRow = GetLastVisibleRowIndex(grid);
+            var scrollViewer = grid.GetVisualDescendants().OfType<ScrollViewer>().Single();
+            var presenter = grid.GetVisualDescendants().OfType<DataGridRowsPresenter>().Single();
+            var tailRows = string.Join(
+                "; ",
+                grid.GetVisualDescendants()
+                    .OfType<DataGridRow>()
+                    .Where(row => row.Index >= viewModel.Items.Count - 5)
+                    .Select(row =>
+                    {
+                        var position = row.TranslatePoint(new Point(0, 0), presenter);
+                        return $"{row.Index}@{position?.Y:F1}+{row.Bounds.Height:F1} visible={row.IsVisible}";
+                    }));
+            Assert.True(
+                lastVisibleRow == viewModel.Items.Count - 1,
+                $"Scrollbar end did not reach the last row. Last visible row: {lastVisibleRow}; " +
+                $"scrollbar value/max: {verticalScrollBar.Value:F1}/{verticalScrollBar.Maximum:F1}; " +
+                $"scroll viewer offset/extent/viewport: {scrollViewer.Offset.Y:F1}/{scrollViewer.Extent.Height:F1}/{scrollViewer.Viewport.Height:F1}; " +
+                $"presenter offset: {presenter.Offset.Y:F1}; " +
+                $"tail: {tailRows}");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void VariableHeight_50K_SustainedWheelScrollBoundsRetainedRows()
+    {
+        var viewModel = new global::DataGridSample.ViewModels.VariableHeightViewModel
+        {
+            ItemCount = 50_000
+        };
+        viewModel.GenerateItems();
+
+        var page = new global::DataGridSample.VariableHeightPage
+        {
+            DataContext = viewModel
+        };
+        var window = new Window
+        {
+            Width = 1280,
+            Height = 720,
+            Content = page
+        };
+        window.ApplySampleTheme();
+
+        try
+        {
+            window.Show();
+            PumpLayout(window);
+
+            var grid = page.GetVisualDescendants().OfType<DataGrid>().Single();
+            grid.CanUserAddRows = false;
+            var presenter = grid.GetVisualDescendants().OfType<DataGridRowsPresenter>().Single();
+            var wheelPoint = page.TranslatePoint(
+                new Point(page.Bounds.Width / 2, page.Bounds.Height / 2),
+                window)!.Value;
+            var topLevel = (TopLevel)window;
+
+            for (var i = 0; i < 256; i++)
+            {
+                topLevel.MouseWheel(wheelPoint, new Vector(0, -3));
+                PumpLayout(window);
+            }
+
+            var visibleChildren = presenter.Children
+                .OfType<DataGridRow>()
+                .Where(row => row.IsVisible)
+                .ToList();
+            var hiddenChildren = presenter.Children
+                .OfType<DataGridRow>()
+                .Where(row => !row.IsVisible)
+                .ToList();
+            Assert.NotEmpty(visibleChildren);
+            Assert.All(hiddenChildren, row => Assert.False(row.IsVisible));
+            Assert.True(
+                presenter.Children.Count <= 16,
+                $"Expected a bounded retained row tree, but found {presenter.Children.Count} " +
+                $"children for {visibleChildren.Count} visible rows.");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private static int GetLastVisibleRowIndex(DataGrid grid)
     {
         return GetViewportRows(grid)
