@@ -294,9 +294,8 @@ internal
         private IndexToValueTable<bool> _collapsedSlotsTable;
         private readonly DataGridScrollHeightIndex _scrollHeightIndex = new();
         private bool _scrollHeightIndexDirty = true;
+        private bool _scrollHeightIndexEstimatorDirty;
         private readonly IDataGridScrollStateManager _scrollStateManager;
-
-        internal int ScrollHeightIndexCount => _scrollHeightIndex.Count;
 
         // used to store the current column during a Reset
 

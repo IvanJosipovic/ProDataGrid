@@ -5,6 +5,25 @@ namespace Avalonia.Controls.DataGridTests;
 
 public class DataGridScrollHeightIndexTests
 {
+    [Theory]
+    [InlineData(true, 1_000_000, 0, true)]
+    [InlineData(false, 99_999, 0, true)]
+    [InlineData(false, 100_000, 1_024, false)]
+    [InlineData(false, 100_000, 1_025, true)]
+    public void IndexBuildDecisionAvoidsLargeDirtyIndexesForModerateScrolls(
+        bool hasCurrentIndex,
+        int slotCount,
+        double estimatedRows,
+        bool expected)
+    {
+        bool actual = Avalonia.Controls.DataGrid.ShouldBuildScrollHeightIndex(
+            hasCurrentIndex,
+            slotCount,
+            estimatedRows);
+
+        Assert.Equal(expected, actual);
+    }
+
     [Fact]
     public void PrefixAndOffsetQueriesRespectVariableHeights()
     {

@@ -130,6 +130,8 @@ internal
         /// </summary>
         public Size Viewport => _viewport;
 
+        internal bool IsBottomAnchorRequested => _bottomAnchorRequested;
+
         /// <summary>
         /// Event raised when scroll properties have changed and the ScrollViewer should update.
         /// </summary>

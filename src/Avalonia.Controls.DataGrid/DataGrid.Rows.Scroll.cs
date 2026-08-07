@@ -86,20 +86,21 @@ namespace Avalonia.Controls
 
         private bool ShouldBuildScrollHeightIndex(double verticalOffset)
         {
-            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
-            {
-                return true;
-            }
-
-            if (SlotCount < IndexedScrollMinimumSlotCount)
-            {
-                return true;
-            }
-
             double singleRowHeightEstimate = GetCurrentSingleRowHeightEstimate();
             singleRowHeightEstimate = Math.Max(singleRowHeightEstimate, 1);
             double estimatedRows = Math.Abs(verticalOffset - _verticalOffset) / singleRowHeightEstimate;
-            return estimatedRows > IndexedScrollMinimumEstimatedRows;
+            bool hasCurrentIndex = !_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount;
+            return ShouldBuildScrollHeightIndex(hasCurrentIndex, SlotCount, estimatedRows);
+        }
+
+        internal static bool ShouldBuildScrollHeightIndex(
+            bool hasCurrentIndex,
+            int slotCount,
+            double estimatedRows)
+        {
+            return hasCurrentIndex ||
+                slotCount < IndexedScrollMinimumSlotCount ||
+                estimatedRows > IndexedScrollMinimumEstimatedRows;
         }
 
         private double GetCurrentSingleRowHeightEstimate()
@@ -168,7 +169,20 @@ namespace Avalonia.Controls
                 if (height > 0)
                 {
                     // Scrolling Down
-                    if (HasLegacyVerticalScrollBar && MathUtilities.LessThanOrClose(GetLegacyVerticalScrollMaximum(), newVerticalOffset))
+                    if (!HasLegacyVerticalScrollBar &&
+                        UseLogicalScrollable &&
+                        _rowsPresenter?.IsBottomAnchorRequested == true)
+                    {
+                        EnsureScrollHeightIndex();
+                        ResetDisplayedRows();
+                        UpdateDisplayedRowsFromBottom(lastVisibleSlot);
+                        newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
+                        newVerticalOffset = Math.Max(
+                            0,
+                            _scrollHeightIndex.TotalHeight - CellsEstimatedHeight);
+                        useIndexedScrollGeometry = true;
+                    }
+                    else if (HasLegacyVerticalScrollBar && MathUtilities.LessThanOrClose(GetLegacyVerticalScrollMaximum(), newVerticalOffset))
                     {
                         // We've scrolled to the bottom of the ScrollBar, automatically place the user at the very bottom
                         // of the DataGrid.  If this produces very odd behavior, evaluate the coping strategy used by
@@ -198,14 +212,29 @@ namespace Avalonia.Controls
                                 if (TryGetIndexedScrollTarget(newVerticalOffset, lastVisibleSlot, out int indexedTargetSlot))
                                 {
                                     useIndexedScrollGeometry = true;
-                                    newFirstScrollingSlot = indexedTargetSlot;
-                                    if (CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
+                                    if (indexedTargetSlot == lastVisibleSlot)
                                     {
-                                        TrimDisplayedRowsBefore(newFirstScrollingSlot);
+                                        // An estimated extent can grow while a bottom-anchor request realizes
+                                        // variable-height rows. Anchor the visual tail explicitly so the extent
+                                        // cannot keep feeding the same delta back into logical scrolling.
+                                        ResetDisplayedRows();
+                                        UpdateDisplayedRowsFromBottom(lastVisibleSlot);
+                                        newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
+                                        newVerticalOffset = Math.Max(
+                                            0,
+                                            _scrollHeightIndex.TotalHeight - CellsEstimatedHeight);
                                     }
                                     else
                                     {
-                                        ResetDisplayedRows();
+                                        newFirstScrollingSlot = indexedTargetSlot;
+                                        if (CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
+                                        {
+                                            TrimDisplayedRowsBefore(newFirstScrollingSlot);
+                                        }
+                                        else
+                                        {
+                                            ResetDisplayedRows();
+                                        }
                                     }
                                 }
                                 else

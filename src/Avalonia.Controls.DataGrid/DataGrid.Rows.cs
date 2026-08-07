@@ -246,6 +246,8 @@ internal
                 Debug.Assert(NegVerticalOffset >= 0);
 
                 var estimator = RowHeightEstimator;
+                double previousRowEstimate = estimator?.RowHeightEstimate ?? 0;
+                double previousDetailsEstimate = estimator?.RowDetailsHeightEstimate ?? 0;
 
                 // Collect displayed row heights and record them with the estimator
                 var displayedHeights = new List<double>();
@@ -260,7 +262,7 @@ internal
                         // Record with estimator - details height is already included in TargetHeight
                         if (estimator != null)
                         {
-                            RecordMeasuredRowHeight(estimator, displayedSlot, height, hasDetails);
+                            estimator.RecordMeasuredHeight(displayedSlot, height, hasDetails, detailsHeight: 0);
                         }
                     }
                     else if (element is DataGridRowGroupHeader groupHeader)
@@ -285,8 +287,6 @@ internal
                 int detailsCount = GetDetailsCountInclusive(0, DisplayData.LastScrollingSlot);
                 if (estimator != null)
                 {
-                    double previousRowEstimate = estimator.RowHeightEstimate;
-                    double previousDetailsEstimate = estimator.RowDetailsHeightEstimate;
                     estimator.UpdateFromDisplayedRows(
                         DisplayData.FirstScrollingSlot,
                         DisplayData.LastScrollingSlot,
@@ -298,7 +298,7 @@ internal
                     if (!MathUtilities.AreClose(previousRowEstimate, estimator.RowHeightEstimate) ||
                         !MathUtilities.AreClose(previousDetailsEstimate, estimator.RowDetailsHeightEstimate))
                     {
-                        _scrollHeightIndexDirty = true;
+                        _scrollHeightIndexEstimatorDirty = true;
                     }
                 }
 
@@ -1398,16 +1398,18 @@ internal
 
             if (allowIndexBuild)
             {
-                EnsureScrollHeightIndex();
+                EnsureScrollHeightIndex(refreshEstimatorChanges: false);
                 return _scrollHeightIndex.GetHeight(slot);
             }
 
             return GetScrollHeightEstimate(slot);
         }
 
-        private void EnsureScrollHeightIndex()
+        private void EnsureScrollHeightIndex(bool refreshEstimatorChanges = true)
         {
-            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            if (!_scrollHeightIndexDirty &&
+                (!refreshEstimatorChanges || !_scrollHeightIndexEstimatorDirty) &&
+                _scrollHeightIndex.Count == SlotCount)
             {
                 return;
             }
@@ -1417,6 +1419,7 @@ internal
                 GetScrollHeightEstimate,
                 slot => !_collapsedSlotsTable.Contains(slot));
             _scrollHeightIndexDirty = false;
+            _scrollHeightIndexEstimatorDirty = false;
         }
 
         private void RecordMeasuredRowHeight(
@@ -1433,7 +1436,7 @@ internal
             if (!MathUtilities.AreClose(previousRowEstimate, estimator.RowHeightEstimate) ||
                 !MathUtilities.AreClose(previousDetailsEstimate, estimator.RowDetailsHeightEstimate))
             {
-                _scrollHeightIndexDirty = true;
+                _scrollHeightIndexEstimatorDirty = true;
             }
         }
 
@@ -1447,7 +1450,7 @@ internal
             estimator.RecordRowGroupHeaderHeight(slot, level, measuredHeight);
             if (!MathUtilities.AreClose(previousEstimate, estimator.GetRowGroupHeaderHeightEstimate(level)))
             {
-                _scrollHeightIndexDirty = true;
+                _scrollHeightIndexEstimatorDirty = true;
             }
         }
 
@@ -1577,7 +1580,7 @@ internal
                 return GetHeightEstimate(fromSlot, toSlot);
             }
 
-            EnsureScrollHeightIndex();
+            EnsureScrollHeightIndex(refreshEstimatorChanges: false);
             double startOffset = _scrollHeightIndex.GetOffsetToSlot(Math.Max(0, fromSlot));
             double endOffset = _scrollHeightIndex.GetOffsetToSlot(Math.Min(SlotCount, toSlot + 1));
             return Math.Max(0, endOffset - startOffset);
