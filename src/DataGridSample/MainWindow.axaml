@@ -94,10 +94,10 @@
       </Style>
       <Style Selector="TabControl#SampleTabs > TabItem">
         <Setter Property="HeaderTemplate">
-          <DataTemplate>
-            <TextBlock Text="{Binding}"
+          <DataTemplate x:DataType="x:String">
+            <TextBlock Text="{CompiledBinding .}"
                        TextTrimming="CharacterEllipsis"
-                       ToolTip.Tip="{Binding}" />
+                       ToolTip.Tip="{CompiledBinding .}" />
           </DataTemplate>
         </Setter>
       </Style>
