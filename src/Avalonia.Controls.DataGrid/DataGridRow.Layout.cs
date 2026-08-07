@@ -25,6 +25,24 @@ namespace Avalonia.Controls
 {
     partial class DataGridRow
     {
+        private bool _hasDeferredHeight;
+        private double _deferredHeight;
+
+        internal bool HasDeferredHeight => _hasDeferredHeight;
+
+        internal double DeferredHeight => _deferredHeight;
+
+        internal void SetDeferredHeight(double height)
+        {
+            _deferredHeight = height;
+            _hasDeferredHeight = true;
+        }
+
+        internal void ClearDeferredHeight()
+        {
+            _hasDeferredHeight = false;
+        }
+
         /// <summary>
         /// Arranges the content of the <see cref="T:Avalonia.Controls.DataGridRow" />.
         /// </summary>
@@ -41,15 +59,36 @@ namespace Avalonia.Controls
                 return base.ArrangeOverride(finalSize);
             }
 
+            using var arrangeScope = DataGridDiagnostics.BeginRowArrange();
+
             // If the DataGrid was scrolled horizontally after our last Arrange, we need to make sure
             // the Cells and Details are Arranged again
-            if (_lastHorizontalOffset != OwningGrid.HorizontalOffset)
+            bool horizontalOffsetChanged = _lastHorizontalOffset != OwningGrid.HorizontalOffset;
+            if (horizontalOffsetChanged)
             {
                 _lastHorizontalOffset = OwningGrid.HorizontalOffset;
                 InvalidateHorizontalArrange();
             }
 
-            Size size = base.ArrangeOverride(finalSize);
+            bool canReuseArrange = RootElement != null &&
+                                   _hasValidArrange &&
+                                   !_checkDetailsContentHeight &&
+                                   RootElement.IsArrangeValid &&
+                                   MathUtilities.AreClose(_lastArrangeSize.Width, finalSize.Width) &&
+                                   MathUtilities.AreClose(_lastArrangeSize.Height, finalSize.Height);
+
+            Size size;
+            if (canReuseArrange)
+            {
+                size = _lastArrangeResult;
+            }
+            else
+            {
+                size = base.ArrangeOverride(finalSize);
+                _lastArrangeSize = finalSize;
+                _lastArrangeResult = size;
+                _hasValidArrange = RootElement != null;
+            }
 
             if (_checkDetailsContentHeight)
             {
@@ -57,32 +96,42 @@ namespace Avalonia.Controls
                 EnsureDetailsContentHeight();
             }
 
-            if (RootElement != null)
+            if (!canReuseArrange && RootElement != null)
             {
                 foreach (Control child in RootElement.Children)
                 {
                     if (DataGridFrozenGrid.GetIsFrozen(child))
                     {
-                        TranslateTransform transform = new TranslateTransform();
+                        TranslateTransform transform = child.RenderTransform as TranslateTransform;
+                        if (transform == null)
+                        {
+                            transform = new TranslateTransform();
+                            child.RenderTransform = transform;
+                        }
+
                         // Automatic layout rounding doesn't apply to transforms so we need to Round this
                         transform.X = Math.Round(OwningGrid.HorizontalOffset);
-                        child.RenderTransform = transform;
+                        transform.Y = 0;
                     }
                 }
             }
 
-            if (_bottomGridLine != null)
+            if (!canReuseArrange && _bottomGridLine != null)
             {
-                RectangleGeometry gridlineClipGeometry = new RectangleGeometry();
+                if (_bottomGridLineClipGeometry == null)
+                {
+                    _bottomGridLineClipGeometry = new RectangleGeometry();
+                    _bottomGridLine.Clip = _bottomGridLineClipGeometry;
+                }
+
                 // Use the arranged width (which accounts for total columns/header width) so the
                 // horizontal grid line spans the full row, not just the measured viewport width.
                 double arrangedWidth = Math.Max(finalSize.Width, DesiredSize.Width);
-                gridlineClipGeometry.Rect = new Rect(
+                _bottomGridLineClipGeometry.Rect = new Rect(
                     OwningGrid.HorizontalOffset,
                     0,
                     Math.Max(0, arrangedWidth - OwningGrid.HorizontalOffset),
                     _bottomGridLine.DesiredSize.Height);
-                _bottomGridLine.Clip = gridlineClipGeometry;
             }
 
             return size;
@@ -105,7 +154,17 @@ namespace Avalonia.Controls
                 return base.MeasureOverride(availableSize);
             }
 
+            using var measureScope = DataGridDiagnostics.BeginRowMeasure();
+
+            ClearDeferredHeight();
+            _hasValidArrange = false;
+
             //Allow the DataGrid specific components to adjust themselves based on new values
+            bool recycledRootDataContextChanged = ConsumeRecycledRootDataContextChanged();
+            if (recycledRootDataContextChanged && RootElement != null)
+            {
+                RootElement.InvalidateMeasure();
+            }
             if (_headerElement != null)
             {
                 _headerElement.InvalidateMeasure();
@@ -117,6 +176,10 @@ namespace Avalonia.Controls
             if (_detailsElement != null)
             {
                 _detailsElement.InvalidateMeasure();
+            }
+            if (recycledRootDataContextChanged && RootElement != null)
+            {
+                RootElement.Measure(availableSize);
             }
 
             Size desiredSize = base.MeasureOverride(availableSize);
@@ -192,6 +255,8 @@ namespace Avalonia.Controls
         //TODO Animation
         internal void DetachFromDataGrid(bool recycle)
         {
+            ClearDeferredHeight();
+            _hasValidArrange = false;
             UnloadDetailsTemplate(recycle);
 
             if (recycle)
@@ -274,6 +339,7 @@ namespace Avalonia.Controls
 
         internal void InvalidateHorizontalArrange()
         {
+            _hasValidArrange = false;
             if (_cellsElement != null)
             {
                 _cellsElement.InvalidateArrange();
@@ -286,6 +352,7 @@ namespace Avalonia.Controls
 
         internal void InvalidateDesiredHeight()
         {
+            _hasValidArrange = false;
             _cellsElement?.InvalidateDesiredHeight();
         }
 

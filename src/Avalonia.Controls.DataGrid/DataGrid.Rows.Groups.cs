@@ -205,6 +205,7 @@ namespace Avalonia.Controls
             // Unfortunately PagedCollectionView does not allow us to preserve expanded or collapsed states for RowGroups since
             // the CollectionViewGroups are recreated when a Reset happens.  This is true in both SL and WPF
             _collapsedSlotsTable.Clear();
+            _scrollHeightIndexDirty = true;
 
             _rowGroupHeightsByLevel = null;
             RowGroupSublevelIndents = null;
@@ -1197,6 +1198,27 @@ namespace Avalonia.Controls
                 adjustedOffset = 0;
                 negVerticalOffset = 0;
                 return -1;
+            }
+
+            if (CanUseEstimatedScrollFastPath() && ShouldBuildScrollHeightIndex(requestedOffset))
+            {
+                EnsureScrollHeightIndex();
+                double indexedMaximumOffset = Math.Max(0, _scrollHeightIndex.TotalHeight - Math.Max(0, CellsEstimatedHeight));
+                adjustedOffset = Math.Clamp(requestedOffset, 0, indexedMaximumOffset);
+                int indexedCurrentSlot = _scrollHeightIndex.FindSlotAtOffset(adjustedOffset);
+                if (indexedCurrentSlot < 0)
+                {
+                    negVerticalOffset = 0;
+                    return firstVisibleSlot;
+                }
+
+                double slotOffset = _scrollHeightIndex.GetOffsetToSlot(indexedCurrentSlot);
+                double currentHeight = _scrollHeightIndex.GetHeight(indexedCurrentSlot);
+                negVerticalOffset = Math.Clamp(
+                    adjustedOffset - slotOffset,
+                    0,
+                    Math.Max(0, currentHeight - MathUtilities.DoubleEpsilon));
+                return indexedCurrentSlot;
             }
 
             double visibleContentHeight = 0;

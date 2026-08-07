@@ -2916,6 +2916,34 @@ public class DataGridScrollingTests
     }
 
     [AvaloniaFact]
+    public void LogicalScrollable_VariableHeight_SmallScrollsRemainStableAfterDistantJump()
+    {
+        var items = CreateSampleVariableHeightItems(500, seed: 42).ToList();
+        var target = CreateVariableHeightSampleTarget(items, width: 320, height: 220);
+        target.CanUserAddRows = false;
+        target.RowHeightEstimator = new AdvancedRowHeightEstimator();
+        target.UpdateLayout();
+
+        target.ScrollIntoView(items[250], target.ColumnDefinitions[0]);
+        target.UpdateLayout();
+
+        var presenter = GetRowsPresenter(target);
+        var offsets = new List<double> { presenter.Offset.Y };
+        for (int i = 0; i < 32; i++)
+        {
+            target.UpdateScroll(new Vector(0, -30));
+            target.UpdateLayout();
+            offsets.Add(presenter.Offset.Y);
+        }
+
+        var deltas = offsets.Zip(offsets.Skip(1), (previous, current) => current - previous).ToList();
+
+        Assert.All(deltas, delta => Assert.InRange(delta, -1, 31));
+        Assert.True(deltas.Any(delta => delta > 1),
+            $"Small variable-height scrolls did not advance after the distant jump. Offsets: {string.Join(", ", offsets.Select(o => o.ToString("F1")))}");
+    }
+
+    [AvaloniaFact]
     public void LogicalScrollable_VariableHeightSample_Bottom_ExtraWheel_DoesNotJumpBackward()
     {
         var items = CreateSampleVariableHeightItems(500, seed: 42).ToList();

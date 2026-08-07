@@ -55,12 +55,18 @@ internal
         private DataGridCell _fillerCell;
         private DataGridRowHeader _headerElement;
         private double _lastHorizontalOffset;
+        private Size _lastArrangeSize;
+        private Size _lastArrangeResult;
+        private bool _hasValidArrange;
         private int? _mouseOverColumnIndex;
         private DataGrid _owningGrid;
         private bool _isValid = true;
         private DataGridValidationSeverity _validationSeverity = DataGridValidationSeverity.None;
         private bool _isPlaceholder;
+        private bool _hasPreservedRecycledRootDataContext;
+        private bool _recycledRootDataContextChanged;
         private Rectangle _bottomGridLine;
+        private RectangleGeometry _bottomGridLineClipGeometry;
         private bool _areHandlersSuspended;
 
         // In the case where Details scales vertically when it's arranged at a different width, we
@@ -190,9 +196,38 @@ internal
 
         internal void ClearRecyclingState()
         {
+            _recycledRootDataContextChanged = ClearRecycledRootDataContext();
             RecycledDataContext = null;
             RecycledIsPlaceholder = false;
             IsRecycled = false;
+        }
+
+        internal void PreserveRecycledRootDataContext()
+        {
+            if (RootElement != null && !RootElement.IsSet(StyledElement.DataContextProperty))
+            {
+                RootElement.DataContext = DataContext;
+                _hasPreservedRecycledRootDataContext = true;
+            }
+        }
+
+        private bool ClearRecycledRootDataContext()
+        {
+            if (_hasPreservedRecycledRootDataContext && RootElement != null)
+            {
+                _hasPreservedRecycledRootDataContext = false;
+                RootElement.ClearValue(StyledElement.DataContextProperty);
+                return true;
+            }
+
+            return false;
+        }
+
+        internal bool ConsumeRecycledRootDataContextChanged()
+        {
+            var changed = _recycledRootDataContextChanged;
+            _recycledRootDataContextChanged = false;
+            return changed;
         }
 
         static DataGridRow()
@@ -559,6 +594,7 @@ internal
         /// </summary>
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
         {
+            _hasValidArrange = false;
             RootElement = e.NameScope.Find<Panel>(DATAGRIDROW_elementRoot);
             if (RootElement != null)
             {
@@ -601,6 +637,7 @@ internal
             }
 
             _bottomGridLine = e.NameScope.Find<Rectangle>(DATAGRIDROW_elementBottomGridLine);
+            _bottomGridLineClipGeometry = null;
             EnsureGridLines();
 
             _headerElement = e.NameScope.Find<DataGridRowHeader>(DATAGRIDROW_elementRowHeader);

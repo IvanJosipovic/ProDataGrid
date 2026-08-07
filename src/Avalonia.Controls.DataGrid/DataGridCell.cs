@@ -13,6 +13,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Utils;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.VisualTree;
 using System;
 using System.Linq;
@@ -140,6 +141,18 @@ internal
         internal DataGrid OwningGrid
         {
             get { return OwningRow?.OwningGrid ?? OwningColumn?.OwningGrid; }
+        }
+
+        internal void InvalidateMeasureForContentChange()
+        {
+            InvalidateMeasure();
+            foreach (Visual descendant in this.GetVisualDescendants())
+            {
+                if (descendant is Layoutable layoutable)
+                {
+                    layoutable.InvalidateMeasure();
+                }
+            }
         }
 
         internal double ActualRightGridLineWidth

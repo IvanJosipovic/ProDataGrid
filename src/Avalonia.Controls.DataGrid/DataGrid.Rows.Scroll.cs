@@ -16,6 +16,9 @@ namespace Avalonia.Controls
     #endif
     partial class DataGrid
     {
+        private const int IndexedScrollMinimumSlotCount = 100_000;
+        private const int IndexedScrollMinimumEstimatedRows = 1_024;
+
         private bool CanUseEstimatedScrollFastPath()
         {
             return RowDetailsVisibilityMode != DataGridRowDetailsVisibilityMode.VisibleWhenSelected || RowDetailsTemplate == null;
@@ -28,15 +31,15 @@ namespace Avalonia.Controls
                 return false;
             }
 
-            if (MathUtilities.GreaterThan(remainingHeight, 2 * CellsEstimatedHeight))
-            {
-                return true;
-            }
-
-            double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
+            double singleRowHeightEstimate = GetCurrentSingleRowHeightEstimate();
             if (MathUtilities.LessThanOrClose(singleRowHeightEstimate, 0))
             {
                 singleRowHeightEstimate = Math.Max(RowHeightEstimate, 1);
+            }
+
+            if (MathUtilities.GreaterThan(remainingHeight, 2 * CellsEstimatedHeight))
+            {
+                return true;
             }
 
             // For multi-row jumps, estimator-based repositioning is faster than per-slot recycle loops.
@@ -44,8 +47,100 @@ namespace Avalonia.Controls
             return MathUtilities.GreaterThan(estimatedRowsToSkip, 64);
         }
 
+        private bool TryGetIndexedScrollTarget(double verticalOffset, int lastVisibleSlot, out int targetSlot)
+        {
+            targetSlot = -1;
+
+            if (_rowsPresenter == null || !CanUseEstimatedScrollFastPath())
+            {
+                return false;
+            }
+
+            if (!ShouldBuildScrollHeightIndex(verticalOffset))
+            {
+                return false;
+            }
+
+            EnsureScrollHeightIndex();
+            double totalHeight = _scrollHeightIndex.TotalHeight;
+            if (totalHeight <= 0)
+            {
+                return false;
+            }
+
+            double boundedOffset = Math.Max(0, Math.Min(verticalOffset, totalHeight));
+            targetSlot = _scrollHeightIndex.FindSlotAtOffset(boundedOffset);
+            if (targetSlot < 0)
+            {
+                return false;
+            }
+
+            targetSlot = Math.Min(targetSlot, lastVisibleSlot);
+            if (targetSlot < 0)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        private bool ShouldBuildScrollHeightIndex(double verticalOffset)
+        {
+            double singleRowHeightEstimate = GetCurrentSingleRowHeightEstimate();
+            singleRowHeightEstimate = Math.Max(singleRowHeightEstimate, 1);
+            double estimatedRows = Math.Abs(verticalOffset - _verticalOffset) / singleRowHeightEstimate;
+            bool hasCurrentIndex = !_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount;
+            return ShouldBuildScrollHeightIndex(hasCurrentIndex, SlotCount, estimatedRows);
+        }
+
+        internal static bool ShouldBuildScrollHeightIndex(
+            bool hasCurrentIndex,
+            int slotCount,
+            double estimatedRows)
+        {
+            return hasCurrentIndex ||
+                slotCount < IndexedScrollMinimumSlotCount ||
+                estimatedRows > IndexedScrollMinimumEstimatedRows;
+        }
+
+        private double GetCurrentSingleRowHeightEstimate()
+        {
+            var estimator = RowHeightEstimator;
+            double rowHeight = estimator?.RowHeightEstimate ?? RowHeightEstimate;
+            double detailsHeight = RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible
+                ? estimator?.RowDetailsHeightEstimate ?? RowDetailsHeightEstimate
+                : 0;
+            return rowHeight + detailsHeight;
+        }
+
+        private bool CanRetainDisplayedRowsForScrollTarget(int targetSlot)
+        {
+            if (DisplayData.FirstScrollingSlot < 0 || DisplayData.LastScrollingSlot < 0)
+            {
+                return false;
+            }
+
+            int previousSlot = GetPreviousVisibleSlot(DisplayData.FirstScrollingSlot);
+            int nextSlot = GetNextVisibleSlot(DisplayData.LastScrollingSlot);
+            return targetSlot >= previousSlot && (nextSlot < 0 || targetSlot <= nextSlot);
+        }
+
+        private void TrimDisplayedRowsBefore(int targetSlot)
+        {
+            while (DisplayData.FirstScrollingSlot >= 0 &&
+                   DisplayData.FirstScrollingSlot < targetSlot)
+            {
+                RemoveDisplayedElement(
+                    DisplayData.FirstScrollingSlot,
+                    wasDeleted: false,
+                    updateSlotInformation: true);
+            }
+        }
+
         private void ScrollSlotsByHeight(double height)
         {
+            using var _ = DataGridDiagnostics.BeginRowsScrollSlotsByHeight();
+
             if (SlotCount == 0)
             {
                 return;
@@ -69,11 +164,25 @@ namespace Avalonia.Controls
                 double deltaY = 0;
                 int newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
                 double newVerticalOffset = _verticalOffset + height;
+                int lastVisibleSlot = GetPreviousVisibleSlot(SlotCount);
+                bool useIndexedScrollGeometry = false;
                 if (height > 0)
                 {
                     // Scrolling Down
-                    int lastVisibleSlot = GetPreviousVisibleSlot(SlotCount);
-                    if (HasLegacyVerticalScrollBar && MathUtilities.LessThanOrClose(GetLegacyVerticalScrollMaximum(), newVerticalOffset))
+                    if (!HasLegacyVerticalScrollBar &&
+                        UseLogicalScrollable &&
+                        _rowsPresenter?.IsBottomAnchorRequested == true)
+                    {
+                        EnsureScrollHeightIndex();
+                        ResetDisplayedRows();
+                        UpdateDisplayedRowsFromBottom(lastVisibleSlot);
+                        newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
+                        newVerticalOffset = Math.Max(
+                            0,
+                            _scrollHeightIndex.TotalHeight - CellsEstimatedHeight);
+                        useIndexedScrollGeometry = true;
+                    }
+                    else if (HasLegacyVerticalScrollBar && MathUtilities.LessThanOrClose(GetLegacyVerticalScrollMaximum(), newVerticalOffset))
                     {
                         // We've scrolled to the bottom of the ScrollBar, automatically place the user at the very bottom
                         // of the DataGrid.  If this produces very odd behavior, evaluate the coping strategy used by
@@ -100,21 +209,51 @@ namespace Avalonia.Controls
                             {
                                 // Very large scroll occurred. Instead of determining the exact number of scrolled off rows,
                                 // let's estimate the number based on RowHeight.
-                                ResetDisplayedRows();
-
-                                var estimator = RowHeightEstimator;
-                                if (estimator != null)
+                                if (TryGetIndexedScrollTarget(newVerticalOffset, lastVisibleSlot, out int indexedTargetSlot))
                                 {
-                                    // Use the estimator's slot-at-offset calculation for better accuracy
-                                    int estimatedSlot = estimator.EstimateSlotAtOffset(_verticalOffset + height, SlotCount);
-                                    newFirstScrollingSlot = Math.Min(GetNextVisibleSlot(estimatedSlot - 1), lastVisibleSlot);
+                                    useIndexedScrollGeometry = true;
+                                    if (indexedTargetSlot == lastVisibleSlot)
+                                    {
+                                        // An estimated extent can grow while a bottom-anchor request realizes
+                                        // variable-height rows. Anchor the visual tail explicitly so the extent
+                                        // cannot keep feeding the same delta back into logical scrolling.
+                                        ResetDisplayedRows();
+                                        UpdateDisplayedRowsFromBottom(lastVisibleSlot);
+                                        newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
+                                        newVerticalOffset = Math.Max(
+                                            0,
+                                            _scrollHeightIndex.TotalHeight - CellsEstimatedHeight);
+                                    }
+                                    else
+                                    {
+                                        newFirstScrollingSlot = indexedTargetSlot;
+                                        if (CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
+                                        {
+                                            TrimDisplayedRowsBefore(newFirstScrollingSlot);
+                                        }
+                                        else
+                                        {
+                                            ResetDisplayedRows();
+                                        }
+                                    }
                                 }
                                 else
                                 {
-                                    double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
-                                    int scrolledToSlot = newFirstScrollingSlot + (int)(height / singleRowHeightEstimate);
-                                    scrolledToSlot += _collapsedSlotsTable.GetIndexCount(newFirstScrollingSlot, newFirstScrollingSlot + scrolledToSlot);
-                                    newFirstScrollingSlot = Math.Min(GetNextVisibleSlot(scrolledToSlot), lastVisibleSlot);
+                                    ResetDisplayedRows();
+                                    var estimator = RowHeightEstimator;
+                                    if (estimator != null)
+                                    {
+                                        // Use the estimator's slot-at-offset calculation for better accuracy
+                                        int estimatedSlot = estimator.EstimateSlotAtOffset(_verticalOffset + height, SlotCount);
+                                        newFirstScrollingSlot = Math.Min(GetNextVisibleSlot(estimatedSlot - 1), lastVisibleSlot);
+                                    }
+                                    else
+                                    {
+                                        double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
+                                        int scrolledToSlot = newFirstScrollingSlot + (int)(height / singleRowHeightEstimate);
+                                        scrolledToSlot += _collapsedSlotsTable.GetIndexCount(newFirstScrollingSlot, newFirstScrollingSlot + scrolledToSlot);
+                                        newFirstScrollingSlot = Math.Min(GetNextVisibleSlot(scrolledToSlot), lastVisibleSlot);
+                                    }
                                 }
                             }
                             else
@@ -137,7 +276,7 @@ namespace Avalonia.Controls
                                         break;
                                     }
 
-                                    double rowHeight = GetExactSlotElementHeight(newFirstScrollingSlot);
+                                    double rowHeight = GetDisplayedSlotElementHeight(newFirstScrollingSlot);
                                     double remainingHeight = height - deltaY;
                                     if (MathUtilities.LessThanOrClose(rowHeight, remainingHeight))
                                     {
@@ -176,26 +315,46 @@ namespace Avalonia.Controls
                             if (newVerticalOffset == 0)
                             {
                                 newFirstScrollingSlot = 0;
+                                if (!CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
+                                {
+                                    ResetDisplayedRows();
+                                }
                             }
                             else
                             {
-                                var estimator = RowHeightEstimator;
-                                if (estimator != null)
+                                if (TryGetIndexedScrollTarget(newVerticalOffset, lastVisibleSlot, out int indexedTargetSlot))
                                 {
-                                    // Use the estimator's slot-at-offset calculation for better accuracy
-                                    int estimatedSlot = estimator.EstimateSlotAtOffset(newVerticalOffset, SlotCount);
-                                    newFirstScrollingSlot = Math.Max(0, GetNextVisibleSlot(estimatedSlot - 1));
+                                    useIndexedScrollGeometry = true;
+                                    newFirstScrollingSlot = indexedTargetSlot;
+                                    if (CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
+                                    {
+                                        TrimDisplayedRowsBefore(newFirstScrollingSlot);
+                                    }
+                                    else
+                                    {
+                                        ResetDisplayedRows();
+                                    }
                                 }
                                 else
                                 {
-                                    double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
-                                    int scrolledToSlot = newFirstScrollingSlot + (int)(height / singleRowHeightEstimate);
-                                    scrolledToSlot -= _collapsedSlotsTable.GetIndexCount(scrolledToSlot, newFirstScrollingSlot);
+                                    ResetDisplayedRows();
+                                    var estimator = RowHeightEstimator;
+                                    if (estimator != null)
+                                    {
+                                        // Use the estimator's slot-at-offset calculation for better accuracy
+                                        int estimatedSlot = estimator.EstimateSlotAtOffset(newVerticalOffset, SlotCount);
+                                        newFirstScrollingSlot = Math.Max(0, GetNextVisibleSlot(estimatedSlot - 1));
+                                    }
+                                    else
+                                    {
+                                        double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
+                                        int scrolledToSlot = newFirstScrollingSlot + (int)(height / singleRowHeightEstimate);
+                                        scrolledToSlot -= _collapsedSlotsTable.GetIndexCount(scrolledToSlot, newFirstScrollingSlot);
 
-                                    newFirstScrollingSlot = Math.Max(0, GetPreviousVisibleSlot(scrolledToSlot + 1));
+                                        newFirstScrollingSlot = Math.Max(0, GetPreviousVisibleSlot(scrolledToSlot + 1));
+                                    }
                                 }
                             }
-                            ResetDisplayedRows();
                         }
                         else
                         {
@@ -218,7 +377,7 @@ namespace Avalonia.Controls
                                     break;
                                 }
                                 
-                                double rowHeight = GetExactSlotElementHeight(newFirstScrollingSlot);
+                                double rowHeight = GetDisplayedSlotElementHeight(newFirstScrollingSlot);
                                 double remainingHeight = height - deltaY;
                                 if (MathUtilities.LessThanOrClose(rowHeight + remainingHeight, 0))
                                 {
@@ -244,7 +403,9 @@ namespace Avalonia.Controls
                     }
                 }
 
-                double firstRowHeight = GetExactSlotElementHeight(newFirstScrollingSlot);
+                double firstRowHeight = GetScrollSlotHeight(
+                    newFirstScrollingSlot,
+                    allowIndexBuild: useIndexedScrollGeometry);
 
                 if (MathUtilities.LessThan(firstRowHeight, NegVerticalOffset))
                 {
@@ -261,13 +422,16 @@ namespace Avalonia.Controls
 
                 UpdateDisplayedRows(newFirstScrollingSlot, CellsEstimatedHeight);
 
-                double firstElementHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
+                double firstElementHeight = GetScrollSlotHeight(DisplayData.FirstScrollingSlot);
                 bool atVisualTail = DisplayData.LastScrollingSlot >= 0 &&
                                     DisplayData.LastScrollingSlot >= LastVisibleSlot;
                 var firstRowEstimator = RowHeightEstimator;
-                if (firstRowEstimator != null && !atVisualTail)
+                if (firstRowEstimator != null && !atVisualTail && useIndexedScrollGeometry)
                 {
-                    double baseOffset = EstimateOffsetToVisibleSlot(DisplayData.FirstScrollingSlot, firstRowEstimator);
+                    double baseOffset = EstimateOffsetToVisibleSlot(
+                        DisplayData.FirstScrollingSlot,
+                        firstRowEstimator,
+                        useIndexedScrollGeometry);
                     if (!double.IsNaN(baseOffset) && !double.IsInfinity(baseOffset))
                     {
                         double desiredNeg = Math.Max(0, newVerticalOffset - baseOffset);
@@ -296,19 +460,26 @@ namespace Avalonia.Controls
                             NegVerticalOffset -= firstElementHeight;
                             _verticalOffset = Math.Max(0, _verticalOffset - firstElementHeight);
                             firstElementSlot = previousSlot;
-                            firstElementHeight = GetExactSlotElementHeight(firstElementSlot);
+                            firstElementHeight = GetScrollSlotHeight(firstElementSlot);
                         }
                     }
                     // We could be smarter about this, but it's not common so we wouldn't gain much from optimizing here
                     if (firstElementSlot != DisplayData.FirstScrollingSlot)
                     {
+                        if (!CanRetainDisplayedRowsForScrollTarget(firstElementSlot))
+                        {
+                            ResetDisplayedRows();
+                        }
                         UpdateDisplayedRows(firstElementSlot, CellsEstimatedHeight);
                     }
                 }
 
                 Debug.Assert(DisplayData.FirstScrollingSlot >= 0);
-                double safetyFirstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
-                if (double.IsNaN(safetyFirstHeight) || MathUtilities.LessThanOrClose(safetyFirstHeight, 0))
+                double safetyFirstHeight = GetScrollSlotHeight(DisplayData.FirstScrollingSlot);
+                bool hasValidSafetyFirstHeight =
+                    !double.IsNaN(safetyFirstHeight) &&
+                    !MathUtilities.LessThanOrClose(safetyFirstHeight, 0);
+                if (!hasValidSafetyFirstHeight)
                 {
                     safetyFirstHeight = Math.Max(1, RowHeightEstimate);
                 }
@@ -319,11 +490,6 @@ namespace Avalonia.Controls
                 else if (MathUtilities.LessThan(NegVerticalOffset, 0))
                 {
                     NegVerticalOffset = 0;
-                }
-                safetyFirstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
-                if (double.IsNaN(safetyFirstHeight) || MathUtilities.LessThanOrClose(safetyFirstHeight, 0))
-                {
-                    safetyFirstHeight = Math.Max(1, RowHeightEstimate);
                 }
                 Debug.Assert(safetyFirstHeight > NegVerticalOffset);
 
@@ -349,10 +515,9 @@ namespace Avalonia.Controls
                     NegVerticalOffset = 0;
                 }
 
-                double displayedFirstHeight = GetExactSlotElementHeight(DisplayData.FirstScrollingSlot);
-                if (double.IsNaN(displayedFirstHeight) || MathUtilities.LessThanOrClose(displayedFirstHeight, 0))
+                double displayedFirstHeight = safetyFirstHeight;
+                if (!hasValidSafetyFirstHeight)
                 {
-                    displayedFirstHeight = Math.Max(1, RowHeightEstimate);
                     NegVerticalOffset = 0;
                 }
 
@@ -392,11 +557,24 @@ namespace Avalonia.Controls
             }
         }
 
-        private double EstimateOffsetToVisibleSlot(int slot, IDataGridRowHeightEstimator estimator)
+        private double EstimateOffsetToVisibleSlot(
+            int slot,
+            IDataGridRowHeightEstimator estimator,
+            bool useIndexedScrollGeometry = false)
         {
+            using var _ = DataGridDiagnostics.BeginRowsScrollEstimateOffset();
+
             if (slot <= 0 || estimator == null)
             {
                 return 0;
+            }
+
+            if (useIndexedScrollGeometry &&
+                CanUseEstimatedScrollFastPath() &&
+                !_scrollHeightIndexDirty &&
+                _scrollHeightIndex.Count == SlotCount)
+            {
+                return Math.Max(0, _scrollHeightIndex.GetOffsetToSlot(slot));
             }
 
             double offset = estimator.EstimateOffsetToSlot(slot);
@@ -406,7 +584,7 @@ namespace Avalonia.Controls
             {
                 var rowGroupInfo = GetGroupInfoForSlot(collapsedSlot);
                 bool isGroupSlot = rowGroupInfo != null;
-                int level = isGroupSlot ? rowGroupInfo.Level : 0;
+                int level = rowGroupInfo?.Level ?? 0;
 
                 offset -= estimator.GetEstimatedHeight(collapsedSlot, isGroupSlot, level);
                 collapsedSlot = _collapsedSlotsTable.GetNextIndex(collapsedSlot);

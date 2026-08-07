@@ -13,12 +13,22 @@ internal static class UnitTestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
     {
+        AppContext.SetSwitch("ProDataGrid.Diagnostics.IsEnabled", true);
+
+        bool captureScreenshots = !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR"));
         var options = new AvaloniaHeadlessPlatformOptions
         {
-            UseHeadlessDrawing = true
+            UseHeadlessDrawing = !captureScreenshots
         };
 
-        return AppBuilder.Configure<UnitTestApp>()
+        AppBuilder builder = AppBuilder.Configure<UnitTestApp>();
+        if (captureScreenshots)
+        {
+            builder = builder.UseSkia();
+        }
+
+        return builder
             .UseHeadless(options)
             .UseReactiveUI(static _ => { });
     }

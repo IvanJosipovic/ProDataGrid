@@ -54,10 +54,15 @@ namespace Avalonia.Controls
                 return;
             }
 
+            if (!CanRetainDisplayedRowsForScrollTarget(firstDisplayedScrollingSlot))
+            {
+                ResetDisplayedRows();
+            }
+
             int slot = firstDisplayedScrollingSlot;
             while (slot < SlotCount && !MathUtilities.GreaterThanOrClose(deltaY, displayHeight))
             {
-                deltaY += GetExactSlotElementHeight(slot);
+                deltaY += GetDisplayedSlotElementHeight(slot);
                 visibleScrollingRows++;
                 lastDisplayedScrollingSlot = slot;
                 slot = GetNextVisibleSlot(slot);
@@ -68,7 +73,7 @@ namespace Avalonia.Controls
                 slot = GetPreviousVisibleSlot(firstDisplayedScrollingSlot);
                 if (slot >= 0)
                 {
-                    deltaY += GetExactSlotElementHeight(slot);
+                    deltaY += GetDisplayedSlotElementHeight(slot);
                     firstDisplayedScrollingSlot = slot;
                     visibleScrollingRows++;
                 }
@@ -176,10 +181,15 @@ namespace Avalonia.Controls
                 lastDisplayedScrollingRow = 0;
             }
 
+            if (!CanRetainDisplayedRowsForScrollTarget(lastDisplayedScrollingRow))
+            {
+                ResetDisplayedRows();
+            }
+
             int slot = lastDisplayedScrollingRow;
             while (MathUtilities.LessThan(deltaY, displayHeight) && slot >= 0)
             {
-                deltaY += GetExactSlotElementHeight(slot);
+                deltaY += GetDisplayedSlotElementHeight(slot);
                 visibleScrollingRows++;
                 firstDisplayedScrollingRow = slot;
                 slot = GetPreviousVisibleSlot(slot);
@@ -399,7 +409,7 @@ namespace Avalonia.Controls
             }
             else if (_rowsPresenter != null)
             {
-                _rowsPresenter.Children.Remove(element);
+                _rowsPresenter.RemoveTrackedChild(element);
             }
 
             DisplayData.UnloadScrollingElement(element, slot, updateSlotInformation, wasDeleted);
@@ -458,6 +468,39 @@ namespace Avalonia.Controls
             {
                 row.ClearPointerOverState();
             }
+        }
+
+        internal bool RecycleOrphanedElement(Control element)
+        {
+            if (element is DataGridRow row)
+            {
+                if (IsRowRecyclable(row) && !_loadedRows.Contains(row))
+                {
+                    UnloadRow(row);
+                    return true;
+                }
+
+                HideRecycledElement(row);
+                return false;
+            }
+
+            if (element is DataGridRowGroupHeader groupHeader)
+            {
+                OnUnloadingRowGroup(new DataGridRowGroupHeaderEventArgs(groupHeader));
+                HideRecycledElement(groupHeader);
+                DisplayData.RecycleGroupHeader(groupHeader);
+                return true;
+            }
+
+            if (element is DataGridRowGroupFooter groupFooter)
+            {
+                HideRecycledElement(groupFooter);
+                DisplayData.RecycleGroupFooter(groupFooter);
+                return true;
+            }
+
+            HideRecycledElement(element);
+            return false;
         }
 
     }

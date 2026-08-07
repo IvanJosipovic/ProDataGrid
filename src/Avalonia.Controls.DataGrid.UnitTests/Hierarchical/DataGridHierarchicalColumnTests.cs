@@ -85,4 +85,32 @@ public class DataGridHierarchicalColumnTests
 
         Assert.True(raised);
     }
+
+    [AvaloniaFact]
+    public void ReusedPresenterRebindsContent()
+    {
+        var column = new TestHierarchicalColumn
+        {
+            Binding = new Binding(nameof(HierarchicalNode.Item))
+        };
+        var firstNode = new HierarchicalNode("First", level: 0);
+        var secondNode = new HierarchicalNode("Second", level: 0);
+        var cell = new DataGridCell { DataContext = firstNode };
+        var presenter = Assert.IsType<DataGridHierarchicalPresenter>(column.Generate(cell, firstNode));
+        cell.Content = presenter;
+        presenter.DataContext = firstNode;
+        Assert.Equal("First", presenter.Content);
+
+        presenter.Content = "stale";
+        presenter.DataContext = secondNode;
+        var reused = column.Generate(cell, secondNode);
+
+        Assert.Same(presenter, reused);
+        Assert.Equal("Second", presenter.Content);
+    }
+
+    private sealed class TestHierarchicalColumn : DataGridHierarchicalColumn
+    {
+        public Control Generate(DataGridCell cell, object item) => GenerateElement(cell, item);
+    }
 }

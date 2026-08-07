@@ -103,6 +103,7 @@ internal
 
         private void UpdateRowDetailsVisibilityMode(DataGridRowDetailsVisibilityMode newDetailsMode)
         {
+            _scrollHeightIndexDirty = true;
             int itemCount = DataConnection.Count;
             if (_rowsPresenter != null && itemCount > 0)
             {
@@ -151,6 +152,7 @@ internal
 
         private void OnRowDetailsTemplateChanged(AvaloniaPropertyChangedEventArgs e)
         {
+            _scrollHeightIndexDirty = true;
 
             // Update the RowDetails templates if necessary
             if (_rowsPresenter != null)

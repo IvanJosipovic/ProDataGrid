@@ -215,6 +215,26 @@ namespace Avalonia.Controls.DataGridTests
         }
 
         [AvaloniaFact]
+        public void UpdateScrollInfo_Does_Not_Raise_For_Subpixel_Viewport_Jitter()
+        {
+            // Arrange
+            var presenter = new DataGridRowsPresenter();
+            var extent = new Size(500, 2000);
+            var viewport = new Size(300, 400);
+            presenter.UpdateScrollInfo(extent, viewport);
+
+            bool eventRaised = false;
+            presenter.ScrollInvalidated += (s, e) => eventRaised = true;
+
+            // Act
+            presenter.UpdateScrollInfo(extent, new Size(300, 400.3333333333333));
+
+            // Assert
+            Assert.False(eventRaised);
+            Assert.Equal(viewport, presenter.Viewport);
+        }
+
+        [AvaloniaFact]
         public void SyncOffset_Updates_Offset_Without_Side_Effects()
         {
             // Arrange
@@ -284,6 +304,47 @@ namespace Avalonia.Controls.DataGridTests
 
             // Assert
             Assert.False(result);
+        }
+
+        [AvaloniaFact]
+        public void ClearingRowsClearsMeasureConstraintCache()
+        {
+            var root = new Window
+            {
+                Width = 320,
+                Height = 240,
+            };
+            root.SetThemeStyles(DataGridTheme.FluentV2);
+            var grid = new DataGrid
+            {
+                ItemsSource = Enumerable.Range(0, 20).Select(index => $"Item {index}").ToArray(),
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                UseLogicalScrollable = true,
+            };
+            grid.ColumnsInternal.Add(new DataGridTextColumn
+            {
+                Header = "Value",
+                Binding = new Binding("."),
+            });
+            root.Content = grid;
+
+            try
+            {
+                root.Show();
+                root.UpdateLayout();
+                var presenter = grid.GetVisualDescendants()
+                    .OfType<DataGridRowsPresenter>()
+                    .Single();
+                Assert.True(presenter.MeasureConstraintCacheCount > 0);
+
+                grid.ColumnsInternal.Clear();
+
+                Assert.Equal(0, presenter.MeasureConstraintCacheCount);
+            }
+            finally
+            {
+                root.Close();
+            }
         }
 
         [AvaloniaFact]

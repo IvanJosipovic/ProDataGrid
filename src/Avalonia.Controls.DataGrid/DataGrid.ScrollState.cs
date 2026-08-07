@@ -157,9 +157,7 @@ namespace Avalonia.Controls
 
                 if (_owner.DisplayData.FirstScrollingSlot != -1)
                 {
-                    int previousSlot = _owner.GetPreviousVisibleSlot(_owner.DisplayData.FirstScrollingSlot);
-                    int nextSlot = _owner.GetNextVisibleSlot(_owner.DisplayData.LastScrollingSlot);
-                    if (targetSlot < previousSlot || targetSlot > nextSlot)
+                    if (!_owner.CanRetainDisplayedRowsForScrollTarget(targetSlot))
                     {
                         _owner.ResetDisplayedRows();
                     }

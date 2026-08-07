@@ -186,6 +186,7 @@ internal
             DataGridDiagnostics.RecordRowRecycled();
             row.RecycledDataContext ??= row.DataContext;
             row.RecycledIsPlaceholder = row.IsPlaceholder;
+            row.PreserveRecycledRootDataContext();
             OnCleanUpVirtualizedItem(row);
             ClearContainerForItemOverride(row, row.DataContext);
         }
@@ -203,6 +204,8 @@ internal
         /// <param name="newViewport">New viewport size.</param>
         protected internal virtual void OnRowsPresenterViewportChanged(Size oldViewport, Size newViewport)
         {
+            using var _ = DataGridDiagnostics.BeginRowsPresenterViewportChanged();
+
             if (!UseLogicalScrollable || _rowsPresenter == null)
             {
                 return;
@@ -289,6 +292,9 @@ internal
         private bool _areHandlersSuspended;
         private bool _autoSizingColumns;
         private IndexToValueTable<bool> _collapsedSlotsTable;
+        private readonly DataGridScrollHeightIndex _scrollHeightIndex = new();
+        private bool _scrollHeightIndexDirty = true;
+        private bool _scrollHeightIndexEstimatorDirty;
         private readonly IDataGridScrollStateManager _scrollStateManager;
 
         // used to store the current column during a Reset
@@ -1651,6 +1657,7 @@ internal
         /// </summary>
         private void OnRowHeightEstimatorChanged(AvaloniaPropertyChangedEventArgs e)
         {
+            _scrollHeightIndexDirty = true;
             var oldEstimator = e.OldValue as IDataGridRowHeightEstimator;
             var newEstimator = e.NewValue as IDataGridRowHeightEstimator;
 

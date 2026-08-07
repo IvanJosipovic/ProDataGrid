@@ -408,6 +408,7 @@ internal
                     _verticalOffset = 0;
                     NegVerticalOffset = 0;
                     RowHeightEstimator?.Reset();
+                    _scrollHeightIndexDirty = true;
                 }
 
                 // We want to persist selection throughout a reset, so store away the selected items

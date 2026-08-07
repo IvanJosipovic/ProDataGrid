@@ -3,7 +3,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -77,6 +80,100 @@ public sealed class SamplePagesHeadlessTests
         }
 
         Assert.Null(exception);
+    }
+
+    [AvaloniaFact]
+    public void MainWindow_LogicalScrollGrid_WheelSurvivesSampleTabSwitch()
+    {
+        var window = new MainWindow();
+        window.ApplySampleTheme();
+
+        try
+        {
+            window.Show();
+            PumpLayout(window);
+
+            var tabs = window.FindControl<TabControl>("SampleTabs");
+            Assert.NotNull(tabs);
+
+            var logicalScrollTabIndex = FindTabIndexByHeader(tabs, "Logical Scroll Stability");
+            Assert.InRange(logicalScrollTabIndex, 0, tabs.ItemCount - 1);
+
+            tabs.SelectedIndex = logicalScrollTabIndex;
+            PumpLayout(window);
+
+            var dataGrid = FindFirstDataGridInSelectedTab(tabs);
+            Assert.NotNull(dataGrid);
+            var presenter = dataGrid.GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .Single();
+            var topLevel = (TopLevel)window;
+            var wheelPoint = dataGrid.TranslatePoint(
+                new Point(dataGrid.Bounds.Width / 2, dataGrid.Bounds.Height / 2),
+                topLevel)!.Value;
+
+            topLevel.MouseWheel(wheelPoint, new Vector(0, -3));
+            PumpLayout(window);
+
+            presenter = dataGrid.GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .Single();
+            var beforeSwitch = presenter.Offset.Y;
+            Assert.True(
+                beforeSwitch > 0,
+                "Expected the initial wheel to scroll the grid.");
+
+            tabs.SelectedIndex = logicalScrollTabIndex == 0 ? 1 : 0;
+            PumpLayout(window);
+            tabs.SelectedIndex = logicalScrollTabIndex;
+            PumpLayout(window);
+
+            dataGrid = FindFirstDataGridInSelectedTab(tabs);
+            Assert.NotNull(dataGrid);
+            presenter = dataGrid.GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .Single();
+            var before = presenter.Offset.Y;
+            wheelPoint = dataGrid.TranslatePoint(
+                new Point(dataGrid.Bounds.Width / 2, dataGrid.Bounds.Height / 2),
+                topLevel)!.Value;
+
+            Assert.True(
+                before > 0,
+                "Expected the grid to retain its logical scroll offset after returning to the sample tab.");
+            var topItemBefore = GetFirstVisibleRow(presenter).DataContext;
+
+            topLevel.MouseWheel(wheelPoint, new Vector(0, -3));
+            PumpLayout(window);
+
+            presenter = dataGrid.GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .Single();
+            var afterDown = presenter.Offset.Y;
+            var topItemAfterDown = GetFirstVisibleRow(presenter).DataContext;
+
+            topLevel.MouseWheel(wheelPoint, new Vector(0, 3));
+            PumpLayout(window);
+
+            presenter = dataGrid.GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .Single();
+            var afterUp = presenter.Offset.Y;
+
+            Assert.True(
+                afterDown > before,
+                $"Expected downward wheel scrolling to advance after returning to the sample tab. Before: {before}, After: {afterDown}.");
+            Assert.True(
+                !ReferenceEquals(topItemBefore, topItemAfterDown),
+                "Expected the displayed row viewport to advance after returning to the sample tab.");
+            Assert.True(
+                afterUp < afterDown,
+                $"Expected upward wheel scrolling to reverse after returning to the sample tab. Down: {afterDown}, Up: {afterUp}.");
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaFact]
@@ -373,6 +470,17 @@ public sealed class SamplePagesHeadlessTests
         Dispatcher.UIThread.RunJobs();
         control.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
+    }
+
+    private static DataGridRow GetFirstVisibleRow(DataGridRowsPresenter presenter)
+    {
+        return presenter.Children
+            .OfType<DataGridRow>()
+            .Where(row => row.DataContext != null &&
+                          row.Bounds.Bottom > 0 &&
+                          row.Bounds.Y < presenter.Bounds.Height)
+            .OrderBy(row => row.Bounds.Y)
+            .First();
     }
 
     private readonly struct BrushSignature : IEquatable<BrushSignature>

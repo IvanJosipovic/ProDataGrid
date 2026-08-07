@@ -5,6 +5,7 @@ using System;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Threading;
+using Avalonia.Utilities;
 using Avalonia.VisualTree;
 
 namespace Avalonia.Controls.Primitives
@@ -29,6 +30,7 @@ internal
         private Vector _offset;
         private bool _canHorizontallyScroll;
         private bool _canVerticallyScroll = true;
+        private bool _bottomAnchorRequested;
         
         // Pre-fetching state
         private bool _prefetchScheduled;
@@ -104,6 +106,12 @@ internal
             get => _offset;
             set
             {
+                var maximumY = Math.Max(0, _extent.Height - _viewport.Height);
+                var bottomAnchorRequested = IsLogicalScrollEnabled &&
+                                             this.FindAncestorOfType<Avalonia.Controls.ScrollViewer>() != null &&
+                                             MathUtilities.GreaterThanOrClose(value.Y, maximumY);
+                _bottomAnchorRequested = bottomAnchorRequested;
+
                 if (_offset != value)
                 {
                     var oldOffset = _offset;
@@ -121,6 +129,8 @@ internal
         /// Gets the size of the visible viewport.
         /// </summary>
         public Size Viewport => _viewport;
+
+        internal bool IsBottomAnchorRequested => _bottomAnchorRequested;
 
         /// <summary>
         /// Event raised when scroll properties have changed and the ScrollViewer should update.
@@ -240,6 +250,7 @@ internal
         /// </summary>
         public void RaiseScrollInvalidated(EventArgs e)
         {
+            DataGridDiagnostics.RecordRowsScrollInvalidated();
             _scrollInvalidated?.Invoke(this, e);
         }
 
@@ -397,7 +408,7 @@ internal
             var deltaY = newOffset.Y - oldOffset.Y;
             var deltaX = newOffset.X - oldOffset.X;
 
-            if (OwningGrid.IsScrollStateRestoreActive)
+            if (OwningGrid.IsScrollStateRestorePending)
             {
                 if (deltaY != 0)
                 {
@@ -414,7 +425,14 @@ internal
                 InvalidateMeasure();
                 
                 // Schedule pre-fetching for smoother scrolling
-                SchedulePrefetch();
+                if (Math.Abs(deltaY) <= Math.Max(OwningGrid.RowHeightEstimate * PrefetchBufferRows, 1))
+                {
+                    SchedulePrefetch();
+                }
+                else
+                {
+                    CancelPrefetch();
+                }
             }
 
             if (deltaX != 0)
@@ -427,6 +445,11 @@ internal
             }
         }
 
+        internal void ClearBottomAnchorRequest()
+        {
+            _bottomAnchorRequested = false;
+        }
+
         /// <summary>
         /// Updates the scroll extent and viewport, raising ScrollInvalidated if changed.
         /// </summary>
@@ -434,17 +457,28 @@ internal
         {
             bool changed = false;
             var oldViewport = _viewport;
+            var previousMaximumY = Math.Max(0, _extent.Height - _viewport.Height);
+            var wasAtBottom = IsLogicalScrollEnabled &&
+                              _bottomAnchorRequested &&
+                              previousMaximumY > 0 &&
+                              MathUtilities.GreaterThanOrClose(_offset.Y, previousMaximumY);
 
-            if (_extent != extent)
+            if (!MathUtilities.AreClose(_extent.Width, extent.Width) ||
+                !MathUtilities.AreClose(_extent.Height, extent.Height))
             {
+                var previousExtent = _extent;
                 _extent = extent;
                 changed = true;
+                DataGridDiagnostics.RecordRowsScrollExtentChanged(previousExtent, extent);
             }
 
-            if (_viewport != viewport)
+            if (!AreScrollInfoSizeClose(_viewport.Width, viewport.Width) ||
+                !AreScrollInfoSizeClose(_viewport.Height, viewport.Height))
             {
+                var previousViewport = _viewport;
                 _viewport = viewport;
                 changed = true;
+                DataGridDiagnostics.RecordRowsScrollViewportChanged(previousViewport, viewport);
             }
 
             // Coerce offset to new bounds
@@ -453,10 +487,19 @@ internal
             {
                 _offset = coercedOffset;
                 changed = true;
+                DataGridDiagnostics.RecordRowsScrollOffsetCoerced();
+            }
+
+            var maximumY = Math.Max(0, _extent.Height - _viewport.Height);
+            if (wasAtBottom && MathUtilities.GreaterThan(maximumY, previousMaximumY))
+            {
+                Offset = new Vector(_offset.X, maximumY);
+                changed = true;
             }
 
             if (changed)
             {
+                DataGridDiagnostics.RecordRowsScrollInfoChanged();
                 _owningGrid?.OnRowsPresenterViewportChanged(oldViewport, _viewport);
                 RaiseScrollInvalidated(EventArgs.Empty);
             }
