@@ -1200,7 +1200,7 @@ namespace Avalonia.Controls
                 return -1;
             }
 
-            if (CanUseEstimatedScrollFastPath())
+            if (CanUseEstimatedScrollFastPath() && ShouldBuildScrollHeightIndex(requestedOffset))
             {
                 EnsureScrollHeightIndex();
                 double indexedMaximumOffset = Math.Max(0, _scrollHeightIndex.TotalHeight - Math.Max(0, CellsEstimatedHeight));

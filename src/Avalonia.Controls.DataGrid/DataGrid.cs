@@ -296,6 +296,8 @@ internal
         private bool _scrollHeightIndexDirty = true;
         private readonly IDataGridScrollStateManager _scrollStateManager;
 
+        internal int ScrollHeightIndexCount => _scrollHeightIndex.Count;
+
         // used to store the current column during a Reset
 
         // this is a workaround only for the scenarios where we need it, it is not all encompassing nor always updated

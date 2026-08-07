@@ -110,10 +110,6 @@ internal
                 var bottomAnchorRequested = IsLogicalScrollEnabled &&
                                              this.FindAncestorOfType<Avalonia.Controls.ScrollViewer>() != null &&
                                              MathUtilities.GreaterThanOrClose(value.Y, maximumY);
-                if (!bottomAnchorRequested && _bottomAnchorRequested)
-                {
-                    OwningGrid?.DisplayData.PendingVerticalScrollHeight = 0;
-                }
                 _bottomAnchorRequested = bottomAnchorRequested;
 
                 if (_offset != value)

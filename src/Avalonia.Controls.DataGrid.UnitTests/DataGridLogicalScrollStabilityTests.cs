@@ -83,6 +83,43 @@ public class DataGridLogicalScrollStabilityTests
     }
 
     [AvaloniaFact]
+    public void LogicalScrollable_LeavingBottomAnchorPreservesQueuedThumbDelta()
+    {
+        var root = new Window
+        {
+            Width = 700,
+            Height = 320,
+        };
+        root.SetThemeStyles();
+        var target = CreateGrid(itemCount: 400, useLogicalScrollable: true);
+        target.Height = 160;
+        root.Content = new ScrollViewer { Content = target };
+
+        try
+        {
+            root.Show();
+            root.UpdateLayout();
+            var presenter = GetRowsPresenter(target);
+            Assert.NotNull(presenter.FindAncestorOfType<ScrollViewer>());
+            double logicalMaximum = Math.Max(0, presenter.Extent.Height - presenter.Viewport.Height);
+            Assert.True(logicalMaximum > 0);
+            double requestedOffset = logicalMaximum / 2;
+
+            presenter.Offset = new Vector(0, logicalMaximum);
+            presenter.Offset = new Vector(0, requestedOffset);
+
+            Assert.InRange(
+                Math.Abs(target.DisplayData.PendingVerticalScrollHeight - requestedOffset),
+                0,
+                0.01);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void LogicalScrollable_Wheel_RemainsResponsive_InDeepTabbedHost()
     {
         var (root, target) = CreateDeepHostedTarget(itemCount: 400);

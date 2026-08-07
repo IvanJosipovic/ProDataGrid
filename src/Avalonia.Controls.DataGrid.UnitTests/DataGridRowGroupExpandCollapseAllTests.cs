@@ -141,6 +141,29 @@ public class DataGridRowGroupExpandCollapseAllTests
     }
 
     [AvaloniaFact]
+    public void CollapseAllGroups_DoesNotBuildLargeDirtyScrollHeightIndex()
+    {
+        var item = new Item("Dominant", "Segment", "Item");
+        var items = Enumerable.Repeat(item, 100_000).ToArray();
+        var (grid, _, root) = CreateNestedGroupedGrid(items, height: 320);
+
+        try
+        {
+            Assert.Equal(0, grid.ScrollHeightIndexCount);
+
+            grid.CollapseAllGroups();
+
+            Assert.Equal(0, grid.ScrollHeightIndexCount);
+            Assert.IsType<DataGridRowGroupHeader>(
+                grid.DisplayData.GetDisplayedElement(grid.DisplayData.FirstScrollingSlot));
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void ExpandAllGroups_Expands_All_Groups_After_Collapse()
     {
         var (grid, view, root) = CreateNestedGroupedGrid();
