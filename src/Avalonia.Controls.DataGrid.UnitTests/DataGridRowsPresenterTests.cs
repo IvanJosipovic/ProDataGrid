@@ -307,6 +307,47 @@ namespace Avalonia.Controls.DataGridTests
         }
 
         [AvaloniaFact]
+        public void ClearingRowsClearsMeasureConstraintCache()
+        {
+            var root = new Window
+            {
+                Width = 320,
+                Height = 240,
+            };
+            root.SetThemeStyles(DataGridTheme.FluentV2);
+            var grid = new DataGrid
+            {
+                ItemsSource = Enumerable.Range(0, 20).Select(index => $"Item {index}").ToArray(),
+                HeadersVisibility = DataGridHeadersVisibility.Column,
+                UseLogicalScrollable = true,
+            };
+            grid.ColumnsInternal.Add(new DataGridTextColumn
+            {
+                Header = "Value",
+                Binding = new Binding("."),
+            });
+            root.Content = grid;
+
+            try
+            {
+                root.Show();
+                root.UpdateLayout();
+                var presenter = grid.GetVisualDescendants()
+                    .OfType<DataGridRowsPresenter>()
+                    .Single();
+                Assert.True(presenter.MeasureConstraintCacheCount > 0);
+
+                grid.ColumnsInternal.Clear();
+
+                Assert.Equal(0, presenter.MeasureConstraintCacheCount);
+            }
+            finally
+            {
+                root.Close();
+            }
+        }
+
+        [AvaloniaFact]
         public void GetControlInDirection_Returns_Null_Without_OwningGrid()
         {
             // Arrange

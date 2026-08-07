@@ -153,6 +153,36 @@ public sealed class DataGridScrollHeightIndexIntegrationTests
     }
 
     [AvaloniaFact]
+    public void BringNextOffscreenRowIntoViewDoesNotBuildEveryIndexedSlot()
+    {
+        var item = new ScrollTestItem("Item");
+        var items = Enumerable.Repeat(item, 100_000).ToArray();
+        var estimator = new CountingRowHeightEstimator();
+        var root = CreateRoot();
+        var grid = CreateGrid(items, estimator);
+        root.Content = grid;
+
+        try
+        {
+            root.Show();
+            root.UpdateLayout();
+            int targetSlot = grid.DisplayData.LastScrollingSlot + 1;
+            estimator.ResetCount();
+
+            Assert.True(grid.ScrollSlotIntoView(targetSlot, scrolledHorizontally: false));
+            root.UpdateLayout();
+
+            Assert.InRange(estimator.EstimatedHeightCalls, 0, 128);
+            Assert.True(grid.DisplayData.FirstScrollingSlot <= targetSlot);
+            Assert.True(grid.DisplayData.LastScrollingSlot >= targetSlot);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void EstimatorWideHeightChangeInvalidatesIndexedGeometry()
     {
         var item = new ScrollTestItem("Item");

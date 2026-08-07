@@ -75,21 +75,21 @@ namespace Avalonia.Controls
             {
                 var row = _recycledRows.Pop();
                 owner.UnregisterAnchorCandidate(row);
-                owner.Children.Remove(row);
+                owner.RemoveTrackedChild(row);
             }
 
             while (_recycledGroupHeaders.Count > maxRecycledGroupHeaders)
             {
                 var header = _recycledGroupHeaders.Pop();
                 owner.UnregisterAnchorCandidate(header);
-                owner.Children.Remove(header);
+                owner.RemoveTrackedChild(header);
             }
 
             while (_recycledGroupFooters.Count > maxRecycledGroupFooters)
             {
                 var footer = _recycledGroupFooters.Pop();
                 owner.UnregisterAnchorCandidate(footer);
-                owner.Children.Remove(footer);
+                owner.RemoveTrackedChild(footer);
             }
         }
 

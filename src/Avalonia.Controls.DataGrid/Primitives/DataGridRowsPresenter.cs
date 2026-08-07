@@ -47,6 +47,8 @@ internal
 
         internal double LastArrangeHeight => _lastArrangeHeight;
 
+        internal int MeasureConstraintCacheCount => _measureConstraints.Count;
+
         public DataGridRowsPresenter()
         {
             ScrollGesture += OnScrollGesture;
@@ -93,7 +95,26 @@ internal
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnhookTopLevel();
+            _measureConstraints.Clear();
             base.OnDetachedFromVisualTree(e);
+        }
+
+        internal void ClearTrackedChildren()
+        {
+            _measureConstraints.Clear();
+            Children.Clear();
+        }
+
+        internal void RemoveTrackedChild(Control child)
+        {
+            _measureConstraints.Remove(child);
+            Children.Remove(child);
+        }
+
+        private void RemoveTrackedChildAt(int index)
+        {
+            _measureConstraints.Remove(Children[index]);
+            Children.RemoveAt(index);
         }
 
         #region IChildIndexProvider Implementation
@@ -345,7 +366,7 @@ internal
                         !OwningGrid.KeepRecycledContainersInVisualTree &&
                         ReferenceEquals(child.Parent, this))
                     {
-                        Children.RemoveAt(childIndex);
+                        RemoveTrackedChildAt(childIndex);
                     }
 
                     skippedArrangeElements++;
@@ -359,7 +380,7 @@ internal
                         if (!OwningGrid.KeepRecycledContainersInVisualTree &&
                             ReferenceEquals(child.Parent, this))
                         {
-                            Children.RemoveAt(childIndex);
+                            RemoveTrackedChildAt(childIndex);
                         }
                     }
                 }

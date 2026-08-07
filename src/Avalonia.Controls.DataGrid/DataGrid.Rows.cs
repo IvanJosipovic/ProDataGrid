@@ -903,6 +903,7 @@ internal
                 // is greater than the height of the DataGrid, then show the top of the row at the top
                 // of the grid
                 firstFullSlot = DisplayData.LastScrollingSlot;
+                bool allowIndexBuild = ShouldBuildScrollHeightIndexForSlotRange(firstFullSlot, slot);
                 // Figure out how much of the last row is cut off
                 double rowHeight = GetScrollSlotHeight(DisplayData.LastScrollingSlot);
                 var canRetainDisplayedRows = CanRetainDisplayedRowsForScrollTarget(slot);
@@ -932,9 +933,11 @@ internal
                     {
                         ResetDisplayedRows();
                     }
-                    deltaY += GetScrollHeightBetweenSlots(firstFullSlot, slot);
+                    deltaY += GetScrollHeightBetweenSlots(firstFullSlot, slot, allowIndexBuild);
                 }
-                if (MathUtilities.GreaterThanOrClose(GetScrollSlotHeight(slot), CellsEstimatedHeight))
+                if (MathUtilities.GreaterThanOrClose(
+                        GetScrollSlotHeight(slot, allowIndexBuild),
+                        CellsEstimatedHeight))
                 {
                     // The entire row won't fit in the DataGrid so we start showing it from the top
                     NegVerticalOffset = 0;
@@ -1556,7 +1559,10 @@ internal
             return height;
         }
 
-        private double GetScrollHeightBetweenSlots(int fromSlot, int toSlot)
+        private double GetScrollHeightBetweenSlots(
+            int fromSlot,
+            int toSlot,
+            bool? allowIndexBuild = null)
         {
             Debug.Assert(toSlot >= fromSlot);
 
@@ -1565,10 +1571,30 @@ internal
                 return GetSlotElementsHeight(fromSlot, toSlot);
             }
 
+            if (!(allowIndexBuild ?? ShouldBuildScrollHeightIndexForSlotRange(fromSlot, toSlot)))
+            {
+                return GetHeightEstimate(fromSlot, toSlot);
+            }
+
             EnsureScrollHeightIndex();
             double startOffset = _scrollHeightIndex.GetOffsetToSlot(Math.Max(0, fromSlot));
             double endOffset = _scrollHeightIndex.GetOffsetToSlot(Math.Min(SlotCount, toSlot + 1));
             return Math.Max(0, endOffset - startOffset);
+        }
+
+        private bool ShouldBuildScrollHeightIndexForSlotRange(int fromSlot, int toSlot)
+        {
+            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            {
+                return true;
+            }
+
+            if (SlotCount < IndexedScrollMinimumSlotCount)
+            {
+                return true;
+            }
+
+            return toSlot - fromSlot + 1 > IndexedScrollMinimumEstimatedRows;
         }
 
         private void InvalidateRowHeightEstimate()

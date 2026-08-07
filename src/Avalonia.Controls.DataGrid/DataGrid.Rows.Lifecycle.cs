@@ -391,7 +391,7 @@ namespace Avalonia.Controls
 
                 if (!recycle)
                 {
-                    _rowsPresenter.Children.Clear();
+                    _rowsPresenter.ClearTrackedChildren();
                 }
             }
             DisplayData.ClearElements(recycle);
@@ -467,13 +467,13 @@ namespace Avalonia.Controls
                 DisplayData.RecycleRow(dataGridRow);
                 if (_rowsPresenter != null && !KeepRecycledContainersInVisualTree)
                 {
-                    _rowsPresenter.Children.Remove(dataGridRow);
+                    _rowsPresenter.RemoveTrackedChild(dataGridRow);
                 }
             }
             else
             {
                 ClearContainerForItemOverride(dataGridRow, dataGridRow.DataContext);
-                _rowsPresenter.Children.Remove(dataGridRow);
+                _rowsPresenter.RemoveTrackedChild(dataGridRow);
                 dataGridRow.DetachFromDataGrid(false);
             }
         }
@@ -502,7 +502,7 @@ namespace Avalonia.Controls
                     or DataGridRowGroupHeader
                     or DataGridRowGroupFooter)
                 {
-                    _rowsPresenter.Children.RemoveAt(i);
+                    _rowsPresenter.RemoveTrackedChild(_rowsPresenter.Children[i]);
                 }
             }
         }

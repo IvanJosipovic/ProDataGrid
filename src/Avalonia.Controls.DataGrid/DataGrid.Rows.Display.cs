@@ -409,7 +409,7 @@ namespace Avalonia.Controls
             }
             else if (_rowsPresenter != null)
             {
-                _rowsPresenter.Children.Remove(element);
+                _rowsPresenter.RemoveTrackedChild(element);
             }
 
             DisplayData.UnloadScrollingElement(element, slot, updateSlotInformation, wasDeleted);

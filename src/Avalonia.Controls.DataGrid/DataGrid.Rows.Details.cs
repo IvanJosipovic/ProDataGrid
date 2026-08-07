@@ -86,7 +86,7 @@ namespace Avalonia.Controls
                     _rowsPresenter.Children.Add(detailsContent);
                     detailsContent.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                     RowDetailsHeightEstimate = detailsContent.DesiredSize.Height;
-                    _rowsPresenter.Children.Remove(detailsContent);
+                    _rowsPresenter.RemoveTrackedChild(detailsContent);
                 }
             }
         }
