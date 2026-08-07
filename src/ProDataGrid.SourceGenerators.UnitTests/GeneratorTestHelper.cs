@@ -18,11 +18,7 @@ internal static class GeneratorTestHelper
     {
         var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
         SyntaxTree syntaxTree = CSharpSyntaxTree.ParseText(source, parseOptions);
-        CSharpCompilation compilation = CSharpCompilation.Create(
-            "GeneratorTests",
-            new[] { syntaxTree },
-            GetReferences(),
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+        CSharpCompilation compilation = CreateCompilation(syntaxTree);
 
         ISourceGenerator generator = new ProDataGridGenerator().AsSourceGenerator();
         GeneratorDriver driver = CSharpGeneratorDriver.Create(
@@ -44,6 +40,70 @@ internal static class GeneratorTestHelper
             compilationDiagnostics);
     }
 
+    public static IncrementalRunResult RunIncremental(
+        string firstSource,
+        string secondSource,
+        string trackingName = "GeneratedSources") =>
+        RunIncremental(new[] { firstSource }, new[] { secondSource }, trackingName);
+
+    public static IncrementalRunResult RunIncremental(
+        IReadOnlyList<string> firstSources,
+        IReadOnlyList<string> secondSources,
+        string trackingName)
+    {
+        if (firstSources.Count != secondSources.Count)
+        {
+            throw new ArgumentException("Incremental source collections must have the same number of entries.");
+        }
+
+        var parseOptions = CSharpParseOptions.Default.WithLanguageVersion(LanguageVersion.Preview);
+        SyntaxTree[] firstTrees = firstSources
+            .Select((source, index) => CSharpSyntaxTree.ParseText(source, parseOptions, $"Source{index}.cs"))
+            .ToArray();
+        CSharpCompilation firstCompilation = CreateCompilation(firstTrees);
+        var driverOptions = new GeneratorDriverOptions(
+            IncrementalGeneratorOutputKind.None,
+            trackIncrementalGeneratorSteps: true,
+            baseDirectory: AppContext.BaseDirectory);
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            generators: new[] { new ProDataGridGenerator().AsSourceGenerator() },
+            parseOptions: parseOptions,
+            driverOptions: driverOptions);
+        driver = driver.RunGenerators(firstCompilation);
+
+        CSharpCompilation secondCompilation = firstCompilation;
+        for (int index = 0; index < firstTrees.Length; index++)
+        {
+            if (string.Equals(firstSources[index], secondSources[index], StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            SyntaxTree secondTree = CSharpSyntaxTree.ParseText(secondSources[index], parseOptions, $"Source{index}.cs");
+            secondCompilation = secondCompilation.ReplaceSyntaxTree(firstTrees[index], secondTree);
+        }
+
+        driver = driver.RunGenerators(secondCompilation);
+
+        GeneratorRunResult result = driver.GetRunResult().Results.Single();
+        ImmutableArray<IncrementalGeneratorRunStep> steps = result.TrackedSteps[trackingName];
+        IncrementalStepRunReason[] reasons = steps
+            .SelectMany(static step => step.Outputs)
+            .Select(static output => output.Reason)
+            .ToArray();
+        string[] sources = result.GeneratedSources
+            .Select(static generated => generated.SourceText.ToString())
+            .ToArray();
+        return new IncrementalRunResult(reasons, sources);
+    }
+
+    private static CSharpCompilation CreateCompilation(params SyntaxTree[] syntaxTrees) =>
+        CSharpCompilation.Create(
+            "GeneratorTests",
+            syntaxTrees,
+            GetReferences(),
+            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
+
     private static ImmutableArray<MetadataReference> GetReferences()
     {
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -59,8 +119,25 @@ internal static class GeneratorTestHelper
         paths.Add(typeof(DataGrid).Assembly.Location);
         paths.Add(typeof(Avalonia.AvaloniaObject).Assembly.Location);
         paths.Add(typeof(Avalonia.Data.Core.ClrPropertyInfo).Assembly.Location);
+        paths.Add(typeof(DynamicData.SourceCache<,>).Assembly.Location);
+        paths.Add(typeof(System.Reactive.Subjects.BehaviorSubject<>).Assembly.Location);
         return paths.Select(static path => (MetadataReference)MetadataReference.CreateFromFile(path)).ToImmutableArray();
     }
+}
+
+internal sealed class IncrementalRunResult
+{
+    public IncrementalRunResult(
+        IReadOnlyList<IncrementalStepRunReason> reasons,
+        IReadOnlyList<string> sources)
+    {
+        Reasons = reasons;
+        Sources = sources;
+    }
+
+    public IReadOnlyList<IncrementalStepRunReason> Reasons { get; }
+
+    public IReadOnlyList<string> Sources { get; }
 }
 
 internal sealed class GeneratorTestResult

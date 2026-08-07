@@ -16,3 +16,11 @@ PDGSG011 | ProDataGrid.SourceGeneration | Warning | Cannot infer view-model item
 PDGSG012 | ProDataGrid.SourceGeneration | Error | Missing generated-view binding member
 PDGSG013 | ProDataGrid.SourceGeneration | Error | Invalid generated-view base type
 PDGSG014 | ProDataGrid.SourceGeneration | Error | Generated-view framework is unavailable
+PDGSG100 | ProDataGrid.SourceGeneration | Error | Duplicate or empty stable key
+PDGSG101 | ProDataGrid.SourceGeneration | Error | Invalid item key
+PDGSG103 | ProDataGrid.SourceGeneration | Error | Invalid generated controller source
+PDGSG104 | ProDataGrid.SourceGeneration | Error | Conflicting generated operation ownership
+PDGSG109 | ProDataGrid.SourceGeneration | Error | Invalid generated hierarchy
+PDGSG117 | ProDataGrid.SourceGeneration | Error | Duplicate generated controller
+PDGSG118 | ProDataGrid.SourceGeneration | Error | Invalid generated state metadata
+PDGSG121 | ProDataGrid.SourceGeneration | Error | Invalid generated formula metadata

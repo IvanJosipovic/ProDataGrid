@@ -12,7 +12,9 @@ namespace DataGridSample.ViewModels;
     ViewName = "GeneratedColumnsCodeView",
     ViewNamespace = "DataGridSample.Pages",
     BaseType = typeof(GeneratedGridViewBase),
-    Title = "Generated C# view with custom base")]
+    Title = "Generated C# view with custom base",
+    Recipe = DataGridViewRecipe.Explorer,
+    AutomationId = "generated-columns-code-grid")]
 public sealed partial class GeneratedColumnsAttributesViewModel : ReactiveObject
 {
     public GeneratedColumnsAttributesViewModel()

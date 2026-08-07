@@ -554,6 +554,13 @@
         </pages:GeneratedReactiveDataGridView.DataContext>
       </pages:GeneratedReactiveDataGridView>
     </TabItem>
+    <TabItem Header="Generated Features - Complex App">
+      <pages:GeneratedSourceFeaturesPage>
+        <pages:GeneratedSourceFeaturesPage.DataContext>
+          <viewModels:GeneratedSourceFeaturesViewModel />
+        </pages:GeneratedSourceFeaturesPage.DataContext>
+      </pages:GeneratedSourceFeaturesPage>
+    </TabItem>
     <TabItem Header="Column Banding">
       <pages:ColumnBandingPage />
     </TabItem>

@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using Avalonia.Controls;
 using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.DataGridSorting;
@@ -18,6 +17,21 @@ using RxVoid = ReactiveUI.Primitives.RxVoid;
 namespace DataGridSample.ViewModels;
 
 [GenerateDataGridViewModel(typeof(GeneratedTrade), ProviderName = "GeneratedTradeSchema", Streaming = true)]
+[GenerateDataGridController(
+    typeof(GeneratedTrade),
+    "Trades",
+    ProviderName = "GeneratedTradeSchema",
+    SourceMember = nameof(_source),
+    SourceKind = DataGridGeneratedSourceKind.DynamicDataSourceCache,
+    Features = DataGridGeneratedFeatures.Columns |
+               DataGridGeneratedFeatures.Sorting |
+               DataGridGeneratedFeatures.Filtering |
+               DataGridGeneratedFeatures.Searching |
+               DataGridGeneratedFeatures.Selection |
+               DataGridGeneratedFeatures.State |
+               DataGridGeneratedFeatures.Diagnostics,
+    OperationExecution = DataGridOperationExecution.ExternalPipeline,
+    Streaming = true)]
 [GenerateDataGridView(
     typeof(GeneratedTrade),
     ViewName = "GeneratedReactiveDataGridView",
@@ -33,9 +47,6 @@ public sealed partial class GeneratedColumnsDynamicDataViewModel : ReactiveObjec
     private static readonly string[] s_symbols = ["AVLN", "RXUI", "DDYN", "GRID", "AOT"];
     private static readonly string[] s_desks = ["Warsaw", "London", "New York"];
     private readonly SourceCache<GeneratedTrade, int> _source = new(static trade => trade.Id);
-    private readonly BehaviorSubject<IComparer<GeneratedTrade>> _sort;
-    private readonly BehaviorSubject<Func<GeneratedTrade, bool>> _filter;
-    private readonly BehaviorSubject<Func<GeneratedTrade, bool>> _search;
     private readonly CompositeDisposable _subscriptions = new();
     private readonly Random _random = new(2408);
     private readonly ReadOnlyObservableCollection<GeneratedTrade> _items;
@@ -52,41 +63,33 @@ public sealed partial class GeneratedColumnsDynamicDataViewModel : ReactiveObjec
 
     public GeneratedColumnsDynamicDataViewModel()
     {
-        SortingModel = new SortingModel
-        {
-            MultiSort = true,
-            CycleMode = SortCycleMode.AscendingDescendingNone,
-            OwnsViewSorts = false
-        };
-        FilteringModel = new FilteringModel { OwnsViewFilter = false };
-        SearchModel = new SearchModel
-        {
-            HighlightMode = SearchHighlightMode.TextAndCell,
-            HighlightCurrent = true,
-            WrapNavigation = true
-        };
+        InitializeTrades(CreateTradesController());
+        SortingModel = Trades.SortingModel;
+        SortingModel.MultiSort = true;
+        SortingModel.CycleMode = SortCycleMode.AscendingDescendingNone;
+        FilteringModel = Trades.FilteringModel;
+        SearchModel = Trades.SearchModel;
+        SearchModel.HighlightMode = SearchHighlightMode.TextAndCell;
+        SearchModel.HighlightCurrent = true;
+        SearchModel.WrapNavigation = true;
 
-        _sort = new BehaviorSubject<IComparer<GeneratedTrade>>(DataGridSchema.CreateSortComparer(Array.Empty<SortingDescriptor>()));
-        _filter = new BehaviorSubject<Func<GeneratedTrade, bool>>(DataGridSchema.CreateFilterPredicate(Array.Empty<FilteringDescriptor>()));
-        _search = new BehaviorSubject<Func<GeneratedTrade, bool>>(DataGridSchema.CreateSearchPredicate(Array.Empty<SearchDescriptor>()));
         AddStreamingBatchCommand = ReactiveCommand.Create(AddStreamingBatch);
         SortPriceDescendingCommand = ReactiveCommand.Create(SortPriceDescending);
         ClearSortsCommand = ReactiveCommand.Create(ClearSorts);
         ClearFiltersCommand = ReactiveCommand.Create(ClearFilters);
 
-        _subscriptions.Add(_source.Connect()
-            .Filter(_filter)
-            .Filter(_search)
-            .SortAndBind(out _items, _sort, new() { UseReplaceForUpdates = true })
-            .Subscribe());
+        // Commands and source edits in this sample already run on the Avalonia UI thread.
+        // Keeping the generated pipeline synchronous makes the initial snapshot and command
+        // results immediately observable while callers with background sources can still pass
+        // an explicit scheduler to ConnectTradesPipeline.
+        _items = ConnectTradesPipeline();
 
-        SortingModel.SortingChanged += OnSortingChanged;
-        FilteringModel.FilteringChanged += OnFilteringChanged;
-        SearchModel.SearchChanged += OnSearchChanged;
-
-        _subscriptions.Add(this.WhenAnyValue(static viewModel => viewModel.Query)
+        _subscriptions.Add(Changed
+            .Where(static change => change.PropertyName == nameof(Query))
+            .Select(_ => Query)
             .Subscribe(ApplySearch));
-        _subscriptions.Add(this.WhenAnyValue(static viewModel => viewModel.DeskFilter, static viewModel => viewModel.MinimumPrice)
+        _subscriptions.Add(Changed
+            .Where(static change => change.PropertyName is nameof(DeskFilter) or nameof(MinimumPrice))
             .Subscribe(_ => ApplyFilters()));
 
         AddTrades(500);
@@ -112,10 +115,7 @@ public sealed partial class GeneratedColumnsDynamicDataViewModel : ReactiveObjec
 
     private void SortPriceDescending()
     {
-        SortingModel.SetOrUpdate(new SortingDescriptor(
-            "trade-price",
-            ListSortDirection.Descending,
-            nameof(GeneratedTrade.Price)));
+        SortingModel.SetOrUpdate(GeneratedTradeSchema.Price.Descending());
     }
 
     private void ClearSorts() => SortingModel.Clear();
@@ -128,13 +128,8 @@ public sealed partial class GeneratedColumnsDynamicDataViewModel : ReactiveObjec
 
     public void Dispose()
     {
-        SortingModel.SortingChanged -= OnSortingChanged;
-        FilteringModel.FilteringChanged -= OnFilteringChanged;
-        SearchModel.SearchChanged -= OnSearchChanged;
+        DisposeTrades();
         _subscriptions.Dispose();
-        _sort.Dispose();
-        _filter.Dispose();
-        _search.Dispose();
         _source.Dispose();
     }
 
@@ -175,30 +170,14 @@ public sealed partial class GeneratedColumnsDynamicDataViewModel : ReactiveObjec
         FilteringModel.Clear();
         if (!string.IsNullOrWhiteSpace(DeskFilter))
         {
-            FilteringModel.SetOrUpdate(new FilteringDescriptor(
-                "trade-desk",
-                FilteringOperator.Contains,
-                nameof(GeneratedTrade.Desk),
-                DeskFilter,
-                stringComparison: StringComparison.OrdinalIgnoreCase));
+            FilteringModel.SetOrUpdate(
+                GeneratedTradeSchema.Desk.Contains(DeskFilter, StringComparison.OrdinalIgnoreCase));
         }
 
         if (MinimumPrice > 0)
         {
-            FilteringModel.SetOrUpdate(new FilteringDescriptor(
-                "trade-price",
-                FilteringOperator.GreaterThanOrEqual,
-                nameof(GeneratedTrade.Price),
-                MinimumPrice));
+            FilteringModel.SetOrUpdate(GeneratedTradeSchema.Price.GreaterThanOrEqual(MinimumPrice));
         }
     }
 
-    private void OnSortingChanged(object? sender, SortingChangedEventArgs args) =>
-        _sort.OnNext(DataGridSchema.CreateSortComparer(args.NewDescriptors));
-
-    private void OnFilteringChanged(object? sender, FilteringChangedEventArgs args) =>
-        _filter.OnNext(DataGridSchema.CreateFilterPredicate(args.NewDescriptors));
-
-    private void OnSearchChanged(object? sender, SearchChangedEventArgs args) =>
-        _search.OnNext(DataGridSchema.CreateSearchPredicate(args.NewDescriptors));
 }

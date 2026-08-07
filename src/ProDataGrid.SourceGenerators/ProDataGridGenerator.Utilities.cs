@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -167,6 +168,18 @@ internal static class GeneratorUtilities
         return FindAttribute(symbol, metadataName) != null;
     }
 
+    public static IEnumerable<AttributeData> FindAttributes(ISymbol symbol, string metadataName)
+    {
+        foreach (AttributeData attribute in symbol.GetAttributes())
+        {
+            if (attribute.AttributeClass != null &&
+                string.Equals(GetMetadataName(attribute.AttributeClass), metadataName, StringComparison.Ordinal))
+            {
+                yield return attribute;
+            }
+        }
+    }
+
     public static Dictionary<string, TypedConstant> GetNamedArguments(AttributeData? attribute)
     {
         var result = new Dictionary<string, TypedConstant>(StringComparer.Ordinal);
@@ -191,6 +204,24 @@ internal static class GeneratorUtilities
     public static string? GetString(Dictionary<string, TypedConstant> arguments, string name)
     {
         return arguments.TryGetValue(name, out TypedConstant value) ? value.Value as string : null;
+    }
+
+    public static ImmutableArray<string> GetStringArray(Dictionary<string, TypedConstant> arguments, string name)
+    {
+        if (!arguments.TryGetValue(name, out TypedConstant value) || value.Kind != TypedConstantKind.Array)
+        {
+            return ImmutableArray<string>.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<string>(value.Values.Length);
+        foreach (TypedConstant element in value.Values)
+        {
+            if (element.Value is string text)
+            {
+                builder.Add(text);
+            }
+        }
+        return builder.ToImmutable();
     }
 
     public static INamedTypeSymbol? GetType(Dictionary<string, TypedConstant> arguments, string name)

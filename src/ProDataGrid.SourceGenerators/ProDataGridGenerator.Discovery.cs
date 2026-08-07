@@ -4,7 +4,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -24,22 +26,28 @@ internal static partial class Discovery
 
         var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
         var viewModels = new Dictionary<INamedTypeSymbol, PendingViewModel>(SymbolEqualityComparer.Default);
+        var controllers = new List<ControllerModel>();
         ImmutableArray<AttributeData> assemblyAttributes = compilation.Assembly.GetAttributes();
+        bool hasGlobalSchemaPolicies = HasGlobalSchemaPolicies(assemblyAttributes);
 
         DiscoverNamespaceSchemas(sourceTypes, assemblyAttributes, schemas, diagnostics, cancellationToken);
         DiscoverAssemblySchemas(assemblyAttributes, schemas, diagnostics);
-        DiscoverTypeAndPropertySchemas(sourceTypes, schemas, diagnostics, cancellationToken);
+        DiscoverTypeAndPropertySchemas(sourceTypes, schemas, diagnostics, cancellationToken, !hasGlobalSchemaPolicies);
 
         DiscoverNamespaceViewModels(sourceTypes, assemblyAttributes, schemas, viewModels, diagnostics, cancellationToken);
         DiscoverAssemblyViewModels(assemblyAttributes, schemas, viewModels, diagnostics);
         DiscoverTypeViewModels(sourceTypes, schemas, viewModels, diagnostics, cancellationToken);
+        DiscoverTypeControllers(sourceTypes, schemas, controllers, diagnostics, cancellationToken);
 
         ResolveProviderCollisions(schemas.Values);
 
         foreach (SchemaModel schema in schemas.Values)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ValidateSchemaTarget(schema, diagnostics))
+            ImmutableArray<Diagnostic>.Builder schemaDiagnostics = schema.IsDirectIncremental
+                ? ImmutableArray.CreateBuilder<Diagnostic>()
+                : diagnostics;
+            if (!ValidateSchemaTarget(schema, schemaDiagnostics))
             {
                 schema.Columns = ImmutableArray<ColumnModel>.Empty;
                 continue;
@@ -48,7 +56,7 @@ internal static partial class Discovery
             if (schema.ImplementationType != null &&
                 !ValidateImplementation(schema.ItemType, schema.ImplementationType))
             {
-                diagnostics.Add(Diagnostic.Create(
+                schemaDiagnostics.Add(Diagnostic.Create(
                     GeneratorDiagnostics.InvalidImplementation,
                     schema.Location,
                     schema.ImplementationType.ToDisplayString(),
@@ -56,24 +64,55 @@ internal static partial class Discovery
                 schema.ImplementationType = null;
             }
 
-            schema.Columns = DiscoverColumns(schema, diagnostics, cancellationToken);
+            schema.Columns = DiscoverColumns(schema, schemaDiagnostics, cancellationToken);
+            ValidateFormulaMetadata(schema, schemaDiagnostics);
+            schema.KeyMember = DiscoverKeyMember(schema, schemaDiagnostics, cancellationToken);
+            schema.Hierarchy = DiscoverHierarchy(schema, schemaDiagnostics, cancellationToken);
             if (schema.Columns.Length == 0 && schema.ImplementationType == null)
             {
-                diagnostics.Add(Diagnostic.Create(
+                schemaDiagnostics.Add(Diagnostic.Create(
                     GeneratorDiagnostics.NoColumns,
                     schema.Location,
                     schema.ItemType.ToDisplayString()));
             }
 
             if (!string.IsNullOrEmpty(schema.ConfigureMethod) &&
-                !HasGlobalConfigureMethod(compilation, schema.ItemType, schema.ConfigureMethod!))
+                !HasGlobalConfigureMethod(schema.ItemType, schema.ConfigureMethod!))
             {
-                diagnostics.Add(Diagnostic.Create(
+                schemaDiagnostics.Add(Diagnostic.Create(
                     GeneratorDiagnostics.InvalidCustomizationMethod,
                     schema.Location,
                     schema.ConfigureMethod,
                     schema.ItemType.ToDisplayString()));
                 schema.ConfigureMethod = null;
+            }
+        }
+
+        for (int index = controllers.Count - 1; index >= 0; index--)
+        {
+            ControllerModel controller = controllers[index];
+            bool requiresKey = controller.SourceKind == 3 || controller.SourceKind == 4 || controller.SourceKind == 5 || controller.SourceKind == 6 ||
+                (controller.Features & ((1 << 4) | (1 << 5) | (1 << 13))) != 0;
+            if (requiresKey && controller.Schema.KeyMember == null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    controller.Location,
+                    controller.Name,
+                    "the selected source or controller features require a stable [DataGridKey] or KeyMember"));
+                controllers.RemoveAt(index);
+                continue;
+            }
+
+            if (controller.SourceKeyType != null && controller.Schema.KeyMember != null &&
+                !SymbolEqualityComparer.Default.Equals(controller.SourceKeyType, controller.Schema.KeyMember.Type))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    controller.Location,
+                    controller.Name,
+                    "the SourceCache key type does not match the generated schema key type"));
+                controllers.RemoveAt(index);
             }
         }
 
@@ -144,7 +183,223 @@ internal static partial class Discovery
             diagnostics,
             cancellationToken);
 
-        return new GenerationModel(orderedSchemas, resolvedViewModels.ToImmutable(), views, diagnostics.ToImmutable());
+        RegistryModel? registry = DiscoverRegistry(compilation, assemblyAttributes);
+        return new GenerationModel(
+            orderedSchemas,
+            resolvedViewModels.ToImmutable(),
+            controllers.OrderBy(static controller => GeneratorUtilities.GetMetadataName(controller.ViewModelType), StringComparer.Ordinal)
+                .ThenBy(static controller => controller.Name, StringComparer.Ordinal)
+                .ToImmutableArray(),
+            views,
+            registry,
+            diagnostics.ToImmutable());
+    }
+
+    public static DirectSchemaCandidate? CreateDirectSchemaCandidate(GeneratorAttributeSyntaxContext context)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol targetType ||
+            (targetType.TypeKind != TypeKind.Class && targetType.TypeKind != TypeKind.Struct) ||
+            HasGlobalSchemaPolicies(targetType.ContainingAssembly.GetAttributes()))
+        {
+            return null;
+        }
+
+        return new DirectSchemaCandidate
+        {
+            TargetType = targetType,
+            Attributes = context.Attributes,
+            CacheKey = CreateDirectSchemaCacheKey(targetType, context.Attributes)
+        };
+    }
+
+    private static string CreateDirectSchemaCacheKey(
+        INamedTypeSymbol targetType,
+        ImmutableArray<AttributeData> attributes)
+    {
+        var builder = new StringBuilder(2048);
+        var visitedTypes = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        AppendTypeFingerprint(builder, targetType, visitedTypes);
+        foreach (AttributeData attribute in attributes)
+        {
+            AppendAttributeFingerprint(builder, attribute, visitedTypes);
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AppendTypeFingerprint(
+        StringBuilder builder,
+        INamedTypeSymbol type,
+        HashSet<INamedTypeSymbol> visitedTypes)
+    {
+        if (!visitedTypes.Add(type))
+        {
+            return;
+        }
+
+        builder.Append('|').Append(GeneratorUtilities.GetMetadataName(type));
+        foreach (SyntaxReference syntaxReference in type.DeclaringSyntaxReferences)
+        {
+            builder.Append('|').Append(syntaxReference.GetSyntax().ToFullString());
+        }
+
+        if (type.BaseType != null && type.BaseType.SpecialType != SpecialType.System_Object)
+        {
+            AppendTypeFingerprint(builder, type.BaseType, visitedTypes);
+        }
+    }
+
+    private static void AppendAttributeFingerprint(
+        StringBuilder builder,
+        AttributeData attribute,
+        HashSet<INamedTypeSymbol> visitedTypes)
+    {
+        builder.Append("|attribute:")
+            .Append(attribute.AttributeClass == null ? string.Empty : GeneratorUtilities.GetMetadataName(attribute.AttributeClass));
+        foreach (TypedConstant argument in attribute.ConstructorArguments)
+        {
+            AppendTypedConstantFingerprint(builder, argument, visitedTypes);
+        }
+
+        foreach (KeyValuePair<string, TypedConstant> argument in attribute.NamedArguments.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+        {
+            builder.Append('|').Append(argument.Key);
+            AppendTypedConstantFingerprint(builder, argument.Value, visitedTypes);
+        }
+    }
+
+    private static void AppendTypedConstantFingerprint(
+        StringBuilder builder,
+        TypedConstant constant,
+        HashSet<INamedTypeSymbol> visitedTypes)
+    {
+        if (constant.Kind == TypedConstantKind.Array)
+        {
+            foreach (TypedConstant item in constant.Values)
+            {
+                AppendTypedConstantFingerprint(builder, item, visitedTypes);
+            }
+
+            return;
+        }
+
+        if (constant.Value is INamedTypeSymbol type)
+        {
+            AppendTypeFingerprint(builder, type, visitedTypes);
+            return;
+        }
+
+        builder.Append('|').Append(constant.Value?.ToString() ?? "null");
+    }
+
+    public static DirectSchemaGenerationResult BuildDirectSchemas(
+        ImmutableArray<DirectSchemaCandidate> candidates,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+        var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
+        foreach (DirectSchemaCandidate candidate in candidates
+                     .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.TargetType), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (AttributeData attribute in candidate.Attributes)
+            {
+                INamedTypeSymbol itemType = GetConstructorType(attribute, 0) ?? candidate.TargetType;
+                AddOrUpdateSchema(schemas, itemType, attribute, explicitProviderName: null, explicitConfiguration: true);
+            }
+        }
+
+        ResolveProviderCollisions(schemas.Values);
+        var sources = ImmutableArray.CreateBuilder<GeneratedSource>();
+        foreach (SchemaModel schema in schemas.Values
+                     .OrderBy(static schema => schema.ProviderNamespace, StringComparer.Ordinal)
+                     .ThenBy(static schema => schema.ProviderName, StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ValidateSchemaTarget(schema, diagnostics))
+            {
+                continue;
+            }
+
+            if (schema.ImplementationType != null &&
+                !ValidateImplementation(schema.ItemType, schema.ImplementationType))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidImplementation,
+                    schema.Location,
+                    schema.ImplementationType.ToDisplayString(),
+                    schema.ItemType.ToDisplayString()));
+                schema.ImplementationType = null;
+            }
+
+            schema.Columns = DiscoverColumns(schema, diagnostics, cancellationToken);
+            ValidateFormulaMetadata(schema, diagnostics);
+            schema.KeyMember = DiscoverKeyMember(schema, diagnostics, cancellationToken);
+            schema.Hierarchy = DiscoverHierarchy(schema, diagnostics, cancellationToken);
+            if (schema.Columns.Length == 0 && schema.ImplementationType == null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.NoColumns,
+                    schema.Location,
+                    schema.ItemType.ToDisplayString()));
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(schema.ConfigureMethod) &&
+                !HasGlobalConfigureMethod(schema.ItemType, schema.ConfigureMethod!))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidCustomizationMethod,
+                    schema.Location,
+                    schema.ConfigureMethod,
+                    schema.ItemType.ToDisplayString()));
+                schema.ConfigureMethod = null;
+            }
+
+            sources.Add(Emitter.EmitSchemaSource(schema));
+        }
+
+        return new DirectSchemaGenerationResult(sources.ToImmutable(), diagnostics.ToImmutable());
+    }
+
+    private static bool HasGlobalSchemaPolicies(ImmutableArray<AttributeData> assemblyAttributes)
+    {
+        foreach (AttributeData attribute in assemblyAttributes)
+        {
+            if (IsAttribute(attribute, ProDataGridGenerator.GenerateColumnsAttributeName) ||
+                IsAttribute(attribute, ProDataGridGenerator.GenerateColumnsForNamespaceAttributeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static RegistryModel? DiscoverRegistry(
+        Compilation compilation,
+        ImmutableArray<AttributeData> assemblyAttributes)
+    {
+        foreach (AttributeData attribute in assemblyAttributes)
+        {
+            if (!IsAttribute(attribute, ProDataGridGenerator.GenerateRegistryAttributeName))
+            {
+                continue;
+            }
+
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            return new RegistryModel
+            {
+                RegistryName = GeneratorUtilities.SanitizeIdentifier(
+                    GeneratorUtilities.GetString(arguments, "RegistryName") ?? "GeneratedProDataGridRegistration"),
+                RegistryNamespace = GeneratorUtilities.GetString(arguments, "RegistryNamespace") ?? "ProDataGrid.Generated",
+                HasMicrosoftDependencyInjection =
+                    compilation.GetTypeByMetadataName("Microsoft.Extensions.DependencyInjection.IServiceCollection") != null &&
+                    compilation.GetTypeByMetadataName("Microsoft.Extensions.DependencyInjection.ServiceDescriptor") != null
+            };
+        }
+
+        return null;
     }
 
     private static void DiscoverNamespaceSchemas(
@@ -217,7 +472,8 @@ internal static partial class Discovery
         IReadOnlyList<INamedTypeSymbol> sourceTypes,
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
         ImmutableArray<Diagnostic>.Builder diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool enableDirectIncremental)
     {
         foreach (INamedTypeSymbol type in sourceTypes)
         {
@@ -231,6 +487,10 @@ internal static partial class Discovery
 
                 INamedTypeSymbol itemType = GetConstructorType(attribute, 0) ?? type;
                 AddOrUpdateSchema(schemas, itemType, attribute, explicitProviderName: null, explicitConfiguration: true);
+                if (enableDirectIncremental)
+                {
+                    schemas[itemType].IsDirectIncremental = true;
+                }
             }
 
             bool hasColumnAttribute = type.GetMembers()
@@ -367,6 +627,377 @@ internal static partial class Discovery
         }
     }
 
+    private static void DiscoverTypeControllers(
+        IReadOnlyList<INamedTypeSymbol> sourceTypes,
+        Dictionary<INamedTypeSymbol, SchemaModel> schemas,
+        List<ControllerModel> controllers,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        foreach (INamedTypeSymbol viewModelType in sourceTypes)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (AttributeData attribute in viewModelType.GetAttributes())
+            {
+                if (!IsAttribute(attribute, ProDataGridGenerator.GenerateControllerAttributeName))
+                {
+                    continue;
+                }
+
+                INamedTypeSymbol? itemType = GetConstructorType(attribute, 0);
+                string? rawName = GetConstructorString(attribute, 1);
+                if (itemType == null || string.IsNullOrWhiteSpace(rawName))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidTarget,
+                        GetLocation(attribute),
+                        viewModelType.ToDisplayString(),
+                        "controller generation requires an item type and a non-empty name"));
+                    continue;
+                }
+
+                string name = GeneratorUtilities.SanitizeIdentifier(rawName!);
+                if (name.Length > 0 && name[0] == '@')
+                {
+                    name = name.Substring(1);
+                }
+                if (!names.Add(name))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.DuplicateController,
+                        GetLocation(attribute),
+                        viewModelType.ToDisplayString(),
+                        name));
+                    continue;
+                }
+
+                if (!AllContainingTypesArePartial(viewModelType))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.ViewModelMustBePartial,
+                        GetLocation(attribute),
+                        viewModelType.ToDisplayString()));
+                    continue;
+                }
+
+                if (viewModelType.TypeParameters.Length != 0)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidTarget,
+                        GetLocation(attribute),
+                        viewModelType.ToDisplayString(),
+                        "open generic controller view models are not supported"));
+                    continue;
+                }
+
+                Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+                string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");
+                SchemaModel schema = EnsureSchema(schemas, itemType, attribute, providerName);
+                ApplyFastOptions(schema, arguments);
+                string? keyMember = GeneratorUtilities.GetString(arguments, "KeyMember");
+                if (!string.IsNullOrWhiteSpace(keyMember))
+                {
+                    if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) &&
+                        !string.Equals(schema.ExplicitKeyMemberName, keyMember, StringComparison.Ordinal))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            GeneratorDiagnostics.InvalidItemKey,
+                            GetLocation(attribute),
+                            keyMember,
+                            "controllers sharing a schema must use the same key member"));
+                        continue;
+                    }
+
+                    if (schema.IsDirectIncremental)
+                    {
+                        ISymbol? directKeyMember = EnumerateMembers(schema.ItemType, schema.IncludeInherited)
+                            .FirstOrDefault(member => string.Equals(member.Name, keyMember, StringComparison.Ordinal));
+                        if (directKeyMember == null ||
+                            !GeneratorUtilities.HasAttribute(directKeyMember, ProDataGridGenerator.KeyAttributeName))
+                        {
+                            diagnostics.Add(Diagnostic.Create(
+                                GeneratorDiagnostics.InvalidItemKey,
+                                GetLocation(attribute),
+                                keyMember,
+                                "a directly generated schema requires the configured member to also have [DataGridKey]"));
+                            continue;
+                        }
+                    }
+
+                    schema.ExplicitKeyMemberName = keyMember;
+                }
+
+                string? sourceMember = GeneratorUtilities.GetString(arguments, "SourceMember");
+                int sourceKind = GetEnumValue(arguments, "SourceKind", 0);
+                if (sourceKind >= 2 && string.IsNullOrEmpty(sourceMember))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidControllerSource,
+                        GetLocation(attribute),
+                        "(none)",
+                        viewModelType.ToDisplayString(),
+                        GetControllerSourceKindName(sourceKind)));
+                    continue;
+                }
+                ISymbol? sourceSymbol = string.IsNullOrEmpty(sourceMember)
+                    ? null
+                    : viewModelType.GetMembers(sourceMember!).FirstOrDefault(static member => !member.IsStatic);
+                if (!string.IsNullOrEmpty(sourceMember) &&
+                    (sourceSymbol == null || !IsCompatibleControllerSource(sourceSymbol, itemType, sourceKind)))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidControllerSource,
+                        GetLocation(attribute),
+                        sourceMember,
+                        viewModelType.ToDisplayString(),
+                        GetControllerSourceKindName(sourceKind)));
+                    continue;
+                }
+
+                int operationExecution = GetEnumValue(arguments, "OperationExecution", 0);
+                if (!IsCompatibleOperationExecution(sourceKind, operationExecution))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidOperationOwnership,
+                        GetLocation(attribute),
+                        name,
+                        GetControllerSourceKindName(sourceKind),
+                        GetOperationExecutionName(operationExecution)));
+                    continue;
+                }
+                if (sourceKind == 4 || sourceKind == 5)
+                {
+                    schema.Streaming = true;
+                }
+
+                INamedTypeSymbol? implementationType = null;
+                if (arguments.TryGetValue("ImplementationType", out TypedConstant implementation) &&
+                    implementation.Value is INamedTypeSymbol candidateImplementation)
+                {
+                    if (!ValidateControllerImplementation(itemType, candidateImplementation))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            GeneratorDiagnostics.InvalidImplementation,
+                            GetLocation(attribute),
+                            candidateImplementation.ToDisplayString(),
+                            itemType.ToDisplayString()));
+                        continue;
+                    }
+
+                    implementationType = candidateImplementation;
+                }
+
+                string? configureMethod = GeneratorUtilities.GetString(arguments, "ConfigureMethod");
+                if (!string.IsNullOrEmpty(configureMethod) &&
+                    !HasControllerConfigureMethod(viewModelType, itemType, configureMethod!))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidCustomizationMethod,
+                        GetLocation(attribute),
+                        configureMethod,
+                        viewModelType.ToDisplayString()));
+                    continue;
+                }
+
+                bool canGenerate = ValidateGeneratedMember(viewModelType, name, diagnostics, GetLocation(attribute));
+                canGenerate &= ValidateGeneratedMember(viewModelType, "Initialize" + name, diagnostics, GetLocation(attribute));
+                canGenerate &= ValidateGeneratedMember(viewModelType, "Create" + name + "Controller", diagnostics, GetLocation(attribute));
+                canGenerate &= ValidateGeneratedMember(viewModelType, "Dispose" + name, diagnostics, GetLocation(attribute));
+                if (sourceKind == 2 || sourceKind == 3)
+                {
+                    canGenerate &= ValidateGeneratedMember(viewModelType, name + "Errors", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, name + "Completion", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Connect" + name + "Pipeline", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Disconnect" + name + "Pipeline", diagnostics, GetLocation(attribute));
+                }
+                if (sourceKind == 4 || sourceKind == 5)
+                {
+                    canGenerate &= ValidateGeneratedMember(viewModelType, name + "StreamPump", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, name + "StreamMetrics", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Run" + name + "StreamAsync", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Stop" + name + "Stream", diagnostics, GetLocation(attribute));
+                }
+                if (sourceKind == 6)
+                {
+                    canGenerate &= ValidateGeneratedMember(viewModelType, name + "RemoteQuery", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Create" + name + "RemoteQueryController", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Initialize" + name + "RemoteQuery", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Query" + name + "Async", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Dispose" + name + "RemoteQuery", diagnostics, GetLocation(attribute));
+                }
+                if (!canGenerate)
+                {
+                    continue;
+                }
+
+                controllers.Add(new ControllerModel
+                {
+                    ViewModelType = viewModelType,
+                    Schema = schema,
+                    Name = name,
+                    SourceMember = sourceMember,
+                    SourceKeyType = GetSourceCacheKeyType(sourceSymbol, sourceKind),
+                    SourceKind = sourceKind,
+                    Features = GetEnumValue(arguments, "Features", 15),
+                    OperationExecution = operationExecution,
+                    ImplementationType = implementationType,
+                    ConfigureMethod = configureMethod,
+                    Location = GetLocation(attribute)
+                });
+            }
+        }
+    }
+
+    private static bool IsCompatibleControllerSource(ISymbol source, INamedTypeSymbol itemType, int sourceKind)
+    {
+        ITypeSymbol? sourceType = source switch
+        {
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property when property.GetMethod != null => property.Type,
+            _ => null
+        };
+        if (sourceType == null)
+        {
+            return false;
+        }
+
+        return sourceKind switch
+        {
+            0 => IsGenericSourceOf(sourceType, itemType, "System.Collections.Generic.IEnumerable`1"),
+            1 => IsGenericSourceOf(sourceType, itemType, "System.Collections.Generic.IEnumerable`1") &&
+                 ImplementsMetadataName(sourceType, "System.Collections.Specialized.INotifyCollectionChanged"),
+            2 => IsGenericSourceOf(sourceType, itemType, "DynamicData.SourceList`1"),
+            3 => IsGenericSourceOf(sourceType, itemType, "DynamicData.SourceCache`2"),
+            4 => IsGenericSourceOf(sourceType, itemType, "System.Collections.Generic.IAsyncEnumerable`1"),
+            5 => IsGenericSourceOf(sourceType, itemType, "System.Threading.Channels.ChannelReader`1"),
+            6 => IsGenericSourceOf(sourceType, itemType, "Avalonia.Controls.IDataGridQueryProvider`2"),
+            _ => false
+        };
+    }
+
+    private static ITypeSymbol? GetSourceCacheKeyType(ISymbol? source, int sourceKind)
+    {
+        if (sourceKind != 3 && sourceKind != 6)
+        {
+            return null;
+        }
+
+        ITypeSymbol? sourceType = source switch
+        {
+            IFieldSymbol field => field.Type,
+            IPropertySymbol property => property.Type,
+            _ => null
+        };
+        string metadataName = sourceKind == 3
+            ? "DynamicData.SourceCache`2"
+            : "Avalonia.Controls.IDataGridQueryProvider`2";
+        INamedTypeSymbol? constructed = FindConstructedType(sourceType, metadataName);
+        if (constructed != null && constructed.TypeArguments.Length == 2)
+        {
+            return constructed.TypeArguments[1];
+        }
+
+        return null;
+    }
+
+    private static INamedTypeSymbol? FindConstructedType(ITypeSymbol? sourceType, string metadataName)
+    {
+        if (sourceType is not INamedTypeSymbol named)
+        {
+            return null;
+        }
+        if (string.Equals(GeneratorUtilities.GetMetadataName(named.OriginalDefinition), metadataName, StringComparison.Ordinal))
+        {
+            return named;
+        }
+
+        return named.AllInterfaces.FirstOrDefault(implemented => string.Equals(
+            GeneratorUtilities.GetMetadataName(implemented.OriginalDefinition), metadataName, StringComparison.Ordinal));
+    }
+
+    private static bool IsGenericSourceOf(ITypeSymbol sourceType, ITypeSymbol itemType, string metadataName)
+    {
+        if (sourceType is INamedTypeSymbol named &&
+            IsConstructedMetadataType(named, metadataName, itemType))
+        {
+            return true;
+        }
+
+        if (sourceType is INamedTypeSymbol sourceNamed)
+        {
+            foreach (INamedTypeSymbol implemented in sourceNamed.AllInterfaces)
+            {
+                if (IsConstructedMetadataType(implemented, metadataName, itemType))
+                {
+                    return true;
+                }
+            }
+
+            INamedTypeSymbol? current = sourceNamed.BaseType;
+            while (current != null)
+            {
+                if (IsConstructedMetadataType(current, metadataName, itemType))
+                {
+                    return true;
+                }
+
+                current = current.BaseType;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsConstructedMetadataType(INamedTypeSymbol type, string metadataName, ITypeSymbol itemType) =>
+        type.TypeArguments.Length > 0 &&
+        string.Equals(GeneratorUtilities.GetMetadataName(type.OriginalDefinition), metadataName, StringComparison.Ordinal) &&
+        SymbolEqualityComparer.Default.Equals(type.TypeArguments[0], itemType);
+
+    private static bool ImplementsMetadataName(ITypeSymbol sourceType, string metadataName)
+    {
+        if (sourceType is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+
+        if (string.Equals(GeneratorUtilities.GetMetadataName(named.OriginalDefinition), metadataName, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return named.AllInterfaces.Any(implemented =>
+            string.Equals(GeneratorUtilities.GetMetadataName(implemented.OriginalDefinition), metadataName, StringComparison.Ordinal));
+    }
+
+    private static bool IsCompatibleOperationExecution(int sourceKind, int operationExecution) =>
+        sourceKind switch
+        {
+            2 or 3 or 4 or 5 => operationExecution == 1,
+            6 => operationExecution == 2,
+            _ => operationExecution != 2
+        };
+
+    private static string GetControllerSourceKindName(int value) => value switch
+    {
+        0 => "Enumerable",
+        1 => "ObservableCollection",
+        2 => "DynamicDataSourceList",
+        3 => "DynamicDataSourceCache",
+        4 => "AsyncEnumerable",
+        5 => "ChannelReader",
+        6 => "Remote",
+        _ => value.ToString()
+    };
+
+    private static string GetOperationExecutionName(int value) => value switch
+    {
+        0 => "View",
+        1 => "ExternalPipeline",
+        2 => "Remote",
+        _ => value.ToString()
+    };
+
     private static SchemaModel EnsureSchema(
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
         INamedTypeSymbol itemType,
@@ -398,6 +1029,7 @@ internal static partial class Discovery
         Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
         string? providerName = explicitProviderName ?? GeneratorUtilities.GetString(arguments, "ProviderName");
         string? providerNamespace = GeneratorUtilities.GetString(arguments, "ProviderNamespace");
+        string? schemaId = GeneratorUtilities.GetString(arguments, "SchemaId");
         if (!string.IsNullOrWhiteSpace(providerName))
         {
             schema.ProviderName = GeneratorUtilities.SanitizeIdentifier(providerName!);
@@ -407,6 +1039,14 @@ internal static partial class Discovery
         {
             schema.ProviderNamespace = providerNamespace;
         }
+
+        if (!string.IsNullOrWhiteSpace(schemaId))
+        {
+            schema.SchemaId = schemaId!;
+        }
+
+        int stateVersion = GeneratorUtilities.GetInt32(arguments, "StateVersion", schema.StateVersion);
+        schema.StateVersion = stateVersion;
 
         if (explicitConfiguration)
         {
@@ -427,6 +1067,7 @@ internal static partial class Discovery
     {
         schema.Strict = GeneratorUtilities.GetBoolean(arguments, "Strict", schema.Strict);
         schema.Streaming = GeneratorUtilities.GetBoolean(arguments, "Streaming", schema.Streaming);
+        schema.PerformanceProfile = GetEnumValue(arguments, "PerformanceProfile", schema.PerformanceProfile);
     }
 
     private static SchemaModel CreateDefaultSchema(INamedTypeSymbol itemType, Location location, bool attributedOnly)
@@ -438,6 +1079,7 @@ internal static partial class Discovery
             ProviderNamespace = itemType.ContainingNamespace?.IsGlobalNamespace == false
                 ? itemType.ContainingNamespace.ToDisplayString()
                 : string.Empty,
+            SchemaId = GeneratorUtilities.GetMetadataName(itemType) + "/v1",
             AttributedOnly = attributedOnly,
             Location = location
         };
@@ -464,6 +1106,7 @@ internal static partial class Discovery
         }
 
         var columns = ImmutableArray.CreateBuilder<ColumnModel>();
+        var columnKeys = new HashSet<string>(StringComparer.Ordinal);
         foreach (IPropertySymbol property in properties.Values)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -493,8 +1136,54 @@ internal static partial class Discovery
             string kind = GetColumnKind(property.Type, columnAttribute, options);
             string? header = GeneratorUtilities.GetString(options, "Header");
             string columnKey = GeneratorUtilities.GetString(options, "ColumnKey") ?? property.Name;
+            if (string.IsNullOrWhiteSpace(columnKey) || !columnKeys.Add(columnKey))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.DuplicateStableKey,
+                    GeneratorUtilities.GetLocation(property),
+                    schema.ItemType.ToDisplayString(),
+                    columnKey));
+                continue;
+            }
+            ImmutableArray<string> configuredAliases = GeneratorUtilities.GetStringArray(options, "PreviousColumnKeys");
+            var validAliases = ImmutableArray.CreateBuilder<string>(configuredAliases.Length);
+            for (int aliasIndex = 0; aliasIndex < configuredAliases.Length; aliasIndex++)
+            {
+                string alias = configuredAliases[aliasIndex];
+                if (string.IsNullOrWhiteSpace(alias) || !columnKeys.Add(alias))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidStateMetadata,
+                        GeneratorUtilities.GetLocation(property),
+                        schema.ItemType.ToDisplayString(),
+                        string.IsNullOrWhiteSpace(alias) ? "column aliases cannot be empty" : $"column alias '{alias}' is duplicated"));
+                }
+                else
+                {
+                    validAliases.Add(alias);
+                }
+            }
+            ImmutableArray<string> previousColumnKeys = validAliases.ToImmutable();
             string? configureMethod = GeneratorUtilities.GetString(options, "ConfigureMethod");
             string? factoryMethod = GeneratorUtilities.GetString(options, "FactoryMethod");
+            string? parserMethod = ValidateEditMethod(schema.ItemType, property, options, "ParserMethod", EditMethodKind.Parser, diagnostics);
+            string? formatterMethod = ValidateEditMethod(schema.ItemType, property, options, "FormatterMethod", EditMethodKind.Formatter, diagnostics);
+            string? validatorMethod = ValidateEditMethod(schema.ItemType, property, options, "ValidatorMethod", EditMethodKind.Validator, diagnostics);
+            string? asyncValidatorMethod = ValidateEditMethod(schema.ItemType, property, options, "AsyncValidatorMethod", EditMethodKind.AsyncValidator, diagnostics);
+            string? coerceMethod = ValidateEditMethod(schema.ItemType, property, options, "CoerceMethod", EditMethodKind.Coerce, diagnostics);
+            string? canEditMethod = ValidateEditMethod(schema.ItemType, property, options, "CanEditMethod", EditMethodKind.CanEdit, diagnostics);
+            string? templateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "TemplateFactoryMethod", diagnostics);
+            string? editingTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "EditingTemplateFactoryMethod", diagnostics);
+            string? newRowTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "NewRowTemplateFactoryMethod", diagnostics);
+            string? headerProviderMethod = ValidateLocalizationMethod(
+                schema.ItemType, property, options, "HeaderProviderMethod", diagnostics, out bool headerProviderAcceptsFormatProvider);
+            string? descriptionProviderMethod = ValidateLocalizationMethod(
+                schema.ItemType, property, options, "DescriptionProviderMethod", diagnostics, out bool descriptionProviderAcceptsFormatProvider);
+            GroupModel? group = DiscoverGroup(schema.ItemType, property, diagnostics);
+            ImmutableArray<SummaryModel> summaries = DiscoverSummaries(property);
+            ImmutableArray<ConditionalRuleModel> conditionalRules = DiscoverConditionalRules(schema.ItemType, property, columnKey, diagnostics);
+            ImmutableArray<BandModel> bands = DiscoverBands(property, diagnostics);
+            ImmutableArray<AnalyticsRoleModel> analyticsRoles = DiscoverAnalyticsRoles(property, diagnostics);
             bool searchable = GeneratorUtilities.GetBoolean(options, "IsSearchable", true);
 
             if (!string.IsNullOrEmpty(configureMethod) &&
@@ -527,12 +1216,31 @@ internal static partial class Discovery
                 Property = property,
                 Kind = kind,
                 Header = header ?? GeneratorUtilities.ToHeader(property.Name),
+                HeaderProviderMethod = headerProviderMethod,
+                HeaderProviderAcceptsFormatProvider = headerProviderAcceptsFormatProvider,
+                DescriptionProviderMethod = descriptionProviderMethod,
+                DescriptionProviderAcceptsFormatProvider = descriptionProviderAcceptsFormatProvider,
                 Order = GeneratorUtilities.GetInt32(options, "Order", 0),
                 SourceOrder = sourceOrder,
                 Options = options.ToImmutableDictionary(StringComparer.Ordinal),
                 ColumnKey = columnKey,
+                PreviousColumnKeys = previousColumnKeys,
                 ConfigureMethod = configureMethod,
                 FactoryMethod = factoryMethod,
+                ParserMethod = parserMethod,
+                FormatterMethod = formatterMethod,
+                ValidatorMethod = validatorMethod,
+                AsyncValidatorMethod = asyncValidatorMethod,
+                CoerceMethod = coerceMethod,
+                CanEditMethod = canEditMethod,
+                TemplateFactoryMethod = templateFactoryMethod,
+                EditingTemplateFactoryMethod = editingTemplateFactoryMethod,
+                NewRowTemplateFactoryMethod = newRowTemplateFactoryMethod,
+                Group = group,
+                Summaries = summaries,
+                ConditionalRules = conditionalRules,
+                Bands = bands,
+                AnalyticsRoles = analyticsRoles,
                 IsSearchable = searchable
             });
         }
@@ -544,9 +1252,350 @@ internal static partial class Discovery
             .ToImmutableArray();
     }
 
+    private static KeyMemberModel? DiscoverKeyMember(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName))
+        {
+            ISymbol[] explicitMembers = EnumerateMembers(schema.ItemType, schema.IncludeInherited)
+                .Where(member => string.Equals(member.Name, schema.ExplicitKeyMemberName, StringComparison.Ordinal))
+                .ToArray();
+            string? reason = null;
+            KeyMemberModel? explicitKey = null;
+            if (explicitMembers.Length != 1 ||
+                !TryCreateKeyMember(explicitMembers[0], out explicitKey, out reason))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    explicitMembers.Length > 0 ? GeneratorUtilities.GetLocation(explicitMembers[0]) : schema.Location,
+                    schema.ExplicitKeyMemberName,
+                    reason ?? "the configured member was not found unambiguously"));
+                return null;
+            }
+
+            return explicitKey;
+        }
+
+        var candidates = new List<KeyMemberModel>();
+        INamedTypeSymbol? current = schema.ItemType;
+        while (current != null)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!GeneratorUtilities.HasAttribute(member, ProDataGridGenerator.KeyAttributeName))
+                {
+                    continue;
+                }
+
+                if (!TryCreateKeyMember(member, out KeyMemberModel? keyMember, out string? reason))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidItemKey,
+                        GeneratorUtilities.GetLocation(member),
+                        member.ToDisplayString(),
+                        reason ?? "the member type is unavailable"));
+                    continue;
+                }
+
+                candidates.Add(keyMember!);
+            }
+
+            current = schema.IncludeInherited ? current.BaseType : null;
+        }
+
+        if (candidates.Count <= 1)
+        {
+            return candidates.Count == 1 ? candidates[0] : null;
+        }
+
+        for (int index = 1; index < candidates.Count; index++)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidItemKey,
+                GeneratorUtilities.GetLocation(candidates[index].Member),
+                candidates[index].Member.ToDisplayString(),
+                "only one [DataGridKey] member is allowed per schema"));
+        }
+
+        return null;
+    }
+
+    private static bool TryCreateKeyMember(ISymbol? member, out KeyMemberModel? keyMember, out string? reason)
+    {
+        ITypeSymbol? memberType = null;
+        reason = null;
+        if (member is IPropertySymbol property)
+        {
+            memberType = property.Type;
+            reason = GetUnsupportedPropertyReason(property);
+        }
+        else if (member is IFieldSymbol field)
+        {
+            memberType = field.Type;
+            if (field.IsStatic)
+            {
+                reason = "static fields are not supported";
+            }
+            else if (!GeneratorUtilities.IsAccessibleFromGeneratedCode(field))
+            {
+                reason = "the field is not accessible to generated code";
+            }
+        }
+        else
+        {
+            reason = "only fields and properties are supported";
+        }
+
+        if (reason == null && memberType != null && IsNullableKeyType(memberType))
+        {
+            reason = "nullable keys are not stable; use a non-nullable key type";
+        }
+
+        if (reason != null || memberType == null || member == null)
+        {
+            keyMember = null;
+            return false;
+        }
+
+        keyMember = new KeyMemberModel { Member = member, Type = memberType };
+        return true;
+    }
+
+    private static IEnumerable<ISymbol> EnumerateMembers(INamedTypeSymbol type, bool includeInherited)
+    {
+        INamedTypeSymbol? current = type;
+        while (current != null)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                yield return member;
+            }
+
+            current = includeInherited ? current.BaseType : null;
+        }
+    }
+
+    private static bool IsNullableKeyType(ITypeSymbol type)
+    {
+        if (type.NullableAnnotation == NullableAnnotation.Annotated)
+        {
+            return true;
+        }
+
+        return type is INamedTypeSymbol named &&
+               named.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+    }
+
+    private static HierarchyModel? DiscoverHierarchy(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        IPropertySymbol? children = null;
+        IMethodSymbol? childLoader = null;
+        IPropertySymbol? expanded = null;
+        ISymbol? parentKey = null;
+        INamedTypeSymbol? current = schema.ItemType;
+        while (current != null)
+        {
+            foreach (ISymbol member in current.GetMembers())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (GeneratorUtilities.HasAttribute(member, ProDataGridGenerator.ChildrenAttributeName))
+                {
+                    if (children != null || member is not IPropertySymbol property ||
+                        property.IsStatic || property.GetMethod == null ||
+                        !GeneratorUtilities.IsAccessibleFromGeneratedCode(property) ||
+                        !GeneratorUtilities.IsAccessibleFromGeneratedCode(property.GetMethod) ||
+                        !TryGetEnumerableItemType(property.Type, out ITypeSymbol? childType) ||
+                        !SymbolEqualityComparer.Default.Equals(childType, schema.ItemType))
+                    {
+                        ReportInvalidHierarchy(diagnostics, member, schema.ItemType,
+                            children != null
+                                ? "only one [DataGridChildren] property is allowed"
+                                : "the member must be a readable instance IEnumerable<TItem> property");
+                    }
+                    else
+                    {
+                        children = property;
+                        AttributeData? childrenAttribute = GeneratorUtilities.FindAttribute(
+                            property,
+                            ProDataGridGenerator.ChildrenAttributeName);
+                        string? loaderMethodName = GeneratorUtilities.GetString(
+                            GeneratorUtilities.GetNamedArguments(childrenAttribute),
+                            "LoaderMethod");
+                        if (!string.IsNullOrWhiteSpace(loaderMethodName))
+                        {
+                            childLoader = FindChildLoader(schema.ItemType, loaderMethodName!);
+                            if (childLoader == null)
+                            {
+                                ReportInvalidHierarchy(
+                                    diagnostics,
+                                    member,
+                                    schema.ItemType,
+                                    $"loader method '{loaderMethodName}' must be an accessible instance method with signature ValueTask<IReadOnlyList<{schema.ItemType.Name}>> {loaderMethodName}(CancellationToken)");
+                            }
+                        }
+                    }
+                }
+
+                if (GeneratorUtilities.HasAttribute(member, ProDataGridGenerator.ExpandedAttributeName))
+                {
+                    if (expanded != null || member is not IPropertySymbol property ||
+                        property.IsStatic || property.GetMethod == null || property.SetMethod == null ||
+                        property.SetMethod.IsInitOnly ||
+                        property.Type.SpecialType != SpecialType.System_Boolean ||
+                        !GeneratorUtilities.IsAccessibleFromGeneratedCode(property) ||
+                        !GeneratorUtilities.IsAccessibleFromGeneratedCode(property.GetMethod) ||
+                        !GeneratorUtilities.IsAccessibleFromGeneratedCode(property.SetMethod))
+                    {
+                        ReportInvalidHierarchy(diagnostics, member, schema.ItemType,
+                            expanded != null
+                                ? "only one [DataGridExpanded] property is allowed"
+                                : "the member must be a readable and writable instance bool property");
+                    }
+                    else
+                    {
+                        expanded = property;
+                    }
+                }
+
+                if (GeneratorUtilities.HasAttribute(member, ProDataGridGenerator.ParentKeyAttributeName))
+                {
+                    if (parentKey != null || member.IsStatic || !GeneratorUtilities.IsAccessibleFromGeneratedCode(member))
+                    {
+                        ReportInvalidHierarchy(diagnostics, member, schema.ItemType,
+                            parentKey != null
+                                ? "only one [DataGridParentKey] member is allowed"
+                                : "the member must be an accessible instance field or property");
+                    }
+                    else
+                    {
+                        parentKey = member;
+                    }
+                }
+            }
+
+            current = schema.IncludeInherited ? current.BaseType : null;
+        }
+
+        return children == null && expanded == null && parentKey == null
+            ? null
+            : new HierarchyModel
+            {
+                ChildrenProperty = children,
+                ChildLoaderMethod = childLoader,
+                ExpandedProperty = expanded,
+                ParentKeyMember = parentKey
+            };
+    }
+
+    private static IMethodSymbol? FindChildLoader(INamedTypeSymbol itemType, string methodName)
+    {
+        INamedTypeSymbol? current = itemType;
+        while (current != null)
+        {
+            foreach (ISymbol member in current.GetMembers(methodName))
+            {
+                if (member is IMethodSymbol method &&
+                    !method.IsStatic &&
+                    !method.IsGenericMethod &&
+                    method.Parameters.Length == 1 &&
+                    GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+                    IsNamedType(method.Parameters[0].Type, "System.Threading.CancellationToken") &&
+                    IsChildLoaderReturnType(method.ReturnType, itemType))
+                {
+                    return method;
+                }
+            }
+
+            current = current.BaseType;
+        }
+
+        return null;
+    }
+
+    private static bool IsChildLoaderReturnType(ITypeSymbol type, INamedTypeSymbol itemType)
+    {
+        if (type is not INamedTypeSymbol valueTask ||
+            !valueTask.IsGenericType ||
+            valueTask.TypeArguments.Length != 1 ||
+            !IsNamedType(valueTask.OriginalDefinition, "System.Threading.Tasks.ValueTask`1"))
+        {
+            return false;
+        }
+
+        return valueTask.TypeArguments[0] is INamedTypeSymbol list &&
+               list.IsGenericType &&
+               list.TypeArguments.Length == 1 &&
+               IsNamedType(list.OriginalDefinition, "System.Collections.Generic.IReadOnlyList`1") &&
+               SymbolEqualityComparer.Default.Equals(list.TypeArguments[0], itemType);
+    }
+
+    private static bool IsNamedType(ITypeSymbol type, string metadataName) =>
+        type is INamedTypeSymbol named &&
+        string.Equals(GeneratorUtilities.GetMetadataName(named), metadataName, StringComparison.Ordinal);
+
+    private static bool TryGetEnumerableItemType(ITypeSymbol type, out ITypeSymbol? itemType)
+    {
+        if (type is IArrayTypeSymbol array)
+        {
+            itemType = array.ElementType;
+            return true;
+        }
+
+        if (type is INamedTypeSymbol named)
+        {
+            if (named.IsGenericType && named.TypeArguments.Length == 1 && IsEnumerableDefinition(named.OriginalDefinition))
+            {
+                itemType = named.TypeArguments[0];
+                return true;
+            }
+
+            foreach (INamedTypeSymbol implemented in named.AllInterfaces)
+            {
+                if (implemented.IsGenericType && implemented.TypeArguments.Length == 1 && IsEnumerableDefinition(implemented.OriginalDefinition))
+                {
+                    itemType = implemented.TypeArguments[0];
+                    return true;
+                }
+            }
+        }
+
+        itemType = null;
+        return false;
+    }
+
+    private static void ReportInvalidHierarchy(
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        ISymbol member,
+        INamedTypeSymbol itemType,
+        string reason)
+    {
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidHierarchy,
+            GeneratorUtilities.GetLocation(member),
+            member.ToDisplayString(),
+            itemType.ToDisplayString(),
+            reason));
+    }
+
     private static bool ValidateSchemaTarget(SchemaModel schema, ImmutableArray<Diagnostic>.Builder diagnostics)
     {
         INamedTypeSymbol type = schema.ItemType;
+        if (schema.StateVersion <= 0)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidStateMetadata,
+                schema.Location,
+                type.ToDisplayString(),
+                "StateVersion must be greater than zero"));
+            return false;
+        }
+
         string? reason = null;
         if (type.TypeKind != TypeKind.Class && type.TypeKind != TypeKind.Struct)
         {
@@ -691,7 +1740,9 @@ internal static partial class Discovery
         ImmutableArray<Diagnostic>.Builder diagnostics)
     {
         string? required = null;
-        if (kind == "Template" && string.IsNullOrEmpty(GeneratorUtilities.GetString(options, "TemplateKey")))
+        if (kind == "Template" &&
+            string.IsNullOrEmpty(GeneratorUtilities.GetString(options, "TemplateKey")) &&
+            string.IsNullOrEmpty(GeneratorUtilities.GetString(options, "TemplateFactoryMethod")))
         {
             required = "TemplateKey";
         }
@@ -711,15 +1762,19 @@ internal static partial class Discovery
         }
     }
 
-    private static bool HasGlobalConfigureMethod(Compilation compilation, INamedTypeSymbol type, string name)
+    private static bool HasGlobalConfigureMethod(INamedTypeSymbol type, string name)
     {
-        INamedTypeSymbol? listType = compilation.GetTypeByMetadataName("Avalonia.Controls.DataGridColumnDefinitionList");
         return type.GetMembers(name).OfType<IMethodSymbol>().Any(method =>
             method.IsStatic &&
             GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
             method.ReturnsVoid &&
             method.Parameters.Length == 1 &&
-            (listType == null || SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, listType)));
+            string.Equals(
+                method.Parameters[0].Type is INamedTypeSymbol named
+                    ? GeneratorUtilities.GetMetadataName(named)
+                    : method.Parameters[0].Type.ToDisplayString(),
+                "Avalonia.Controls.DataGridColumnDefinitionList",
+                StringComparison.Ordinal));
     }
 
     private static bool HasColumnConfigureMethod(INamedTypeSymbol type, string name, string kind)
@@ -749,6 +1804,420 @@ internal static partial class Discovery
             method.Parameters.Length == 0 &&
             IsOrDerivesFrom(method.ReturnType, "Avalonia.Controls.DataGridColumnDefinition"));
     }
+
+    private enum EditMethodKind
+    {
+        Parser,
+        Formatter,
+        Validator,
+        AsyncValidator,
+        Coerce,
+        CanEdit
+    }
+
+    private static GroupModel? DiscoverGroup(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        AttributeData? attribute = GeneratorUtilities.FindAttribute(property, ProDataGridGenerator.GroupAttributeName);
+        if (attribute == null) return null;
+        Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+        string? formatter = GeneratorUtilities.GetString(arguments, "FormatterMethod");
+        if (!string.IsNullOrWhiteSpace(formatter) &&
+            !itemType.GetMembers(formatter!).OfType<IMethodSymbol>().Any(method =>
+                IsCompatibleEditMethod(method, itemType, property.Type, EditMethodKind.Formatter)))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidCustomizationMethod,
+                GeneratorUtilities.GetLocation(property), formatter, itemType.ToDisplayString()));
+            formatter = null;
+        }
+        return new GroupModel
+        {
+            Order = GeneratorUtilities.GetInt32(arguments, "Order", 0),
+            Direction = GetEnumValue(arguments, "Direction", 0),
+            FormatterMethod = formatter
+        };
+    }
+
+    private static ImmutableArray<SummaryModel> DiscoverSummaries(IPropertySymbol property)
+    {
+        var summaries = ImmutableArray.CreateBuilder<SummaryModel>();
+        foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, ProDataGridGenerator.SummaryAttributeName))
+        {
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            summaries.Add(new SummaryModel
+            {
+                Aggregate = attribute.ConstructorArguments.Length > 0 && attribute.ConstructorArguments[0].Value is int aggregate ? aggregate : 0,
+                Scope = GetEnumValue(arguments, "Scope", 2),
+                Format = GeneratorUtilities.GetString(arguments, "Format")
+            });
+        }
+        return summaries.ToImmutable();
+    }
+
+    private static ImmutableArray<ConditionalRuleModel> DiscoverConditionalRules(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        string columnKey,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        var rules = ImmutableArray.CreateBuilder<ConditionalRuleModel>();
+        int index = 0;
+        foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, ProDataGridGenerator.ConditionalFormatAttributeName))
+        {
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            int condition = attribute.ConstructorArguments.Length > 0 && attribute.ConstructorArguments[0].Value is int value ? value : 0;
+            string? predicate = GeneratorUtilities.GetString(arguments, "PredicateMethod");
+            if (!string.IsNullOrWhiteSpace(predicate) &&
+                !itemType.GetMembers(predicate!).OfType<IMethodSymbol>().Any(method =>
+                    method.IsStatic && GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+                    method.ReturnType.SpecialType == SpecialType.System_Boolean && method.Parameters.Length == 2 &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, itemType) &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, property.Type)))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidCustomizationMethod,
+                    GeneratorUtilities.GetLocation(property), predicate, itemType.ToDisplayString()));
+                predicate = null;
+            }
+            if (condition == 8 && string.IsNullOrEmpty(predicate))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), "ConditionalFormat", "PredicateMethod"));
+            }
+            rules.Add(new ConditionalRuleModel
+            {
+                Condition = condition,
+                RuleId = GeneratorUtilities.GetString(arguments, "RuleId") ?? columnKey + ":rule:" + index.ToString(CultureInfo.InvariantCulture),
+                Operand = GeneratorUtilities.GetString(arguments, "Operand"),
+                ThemeKey = GeneratorUtilities.GetString(arguments, "CellThemeKey"),
+                Priority = GeneratorUtilities.GetInt32(arguments, "Priority", 0),
+                StopIfTrue = GeneratorUtilities.GetBoolean(arguments, "StopIfTrue", true),
+                PredicateMethod = predicate
+            });
+            index++;
+        }
+        return rules.ToImmutable();
+    }
+
+    private static ImmutableArray<BandModel> DiscoverBands(
+        IPropertySymbol property,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        var bands = ImmutableArray.CreateBuilder<BandModel>();
+        foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, ProDataGridGenerator.BandAttributeName))
+        {
+            string? rawPath = attribute.ConstructorArguments.Length > 0 ? attribute.ConstructorArguments[0].Value as string : null;
+            string[] segments = (rawPath ?? string.Empty).Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), "Band", "non-empty path"));
+                continue;
+            }
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            bands.Add(new BandModel
+            {
+                Path = segments.Select(static segment => segment.Trim()).Where(static segment => segment.Length != 0).ToImmutableArray(),
+                Order = GeneratorUtilities.GetInt32(arguments, "Order", 0)
+            });
+        }
+        return bands.ToImmutable();
+    }
+
+    private static ImmutableArray<AnalyticsRoleModel> DiscoverAnalyticsRoles(
+        IPropertySymbol property,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        var roles = ImmutableArray.CreateBuilder<AnalyticsRoleModel>();
+        AddRoleAttributes(property, ProDataGridGenerator.PivotAxisAttributeName, allowedRoles: 1 | 2 | 4, roles, diagnostics);
+        AddRoleAttributes(property, ProDataGridGenerator.ChartFieldAttributeName, allowedRoles: 16 | 32 | 64 | 128 | 256, roles, diagnostics);
+        AddRoleAttributes(property, ProDataGridGenerator.OutlineFieldAttributeName, allowedRoles: 512 | 1024, roles, diagnostics);
+
+        foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, ProDataGridGenerator.PivotValueAttributeName))
+        {
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            roles.Add(new AnalyticsRoleModel
+            {
+                Role = 8,
+                Order = GeneratorUtilities.GetInt32(arguments, "Order", 0),
+                Name = GeneratorUtilities.GetString(arguments, "Name"),
+                Format = GeneratorUtilities.GetString(arguments, "Format"),
+                Aggregate = GetConstructorEnumValue(attribute, 0),
+                PivotDisplayMode = GetEnumValue(arguments, "DisplayMode", 0)
+            });
+        }
+
+        foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, ProDataGridGenerator.FormulaFieldAttributeName))
+        {
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            string? name = attribute.ConstructorArguments.Length == 0 ? null : attribute.ConstructorArguments[0].Value as string;
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), "FormulaField", "non-empty formula name"));
+                continue;
+            }
+            roles.Add(new AnalyticsRoleModel
+            {
+                Role = 2048,
+                Order = GeneratorUtilities.GetInt32(arguments, "Order", 0),
+                Name = name,
+                Format = GeneratorUtilities.GetString(arguments, "Format"),
+                Dependencies = GeneratorUtilities.GetStringArray(arguments, "Dependencies")
+            });
+        }
+        return roles.ToImmutable();
+    }
+
+    private static void ValidateFormulaMetadata(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        for (int columnIndex = 0; columnIndex < schema.Columns.Length; columnIndex++)
+        {
+            ColumnModel column = schema.Columns[columnIndex];
+            keys.Add(column.ColumnKey);
+            for (int aliasIndex = 0; aliasIndex < column.PreviousColumnKeys.Length; aliasIndex++)
+            {
+                keys.Add(column.PreviousColumnKeys[aliasIndex]);
+            }
+        }
+
+        var formulaNames = new HashSet<string>(StringComparer.Ordinal);
+        for (int columnIndex = 0; columnIndex < schema.Columns.Length; columnIndex++)
+        {
+            ColumnModel column = schema.Columns[columnIndex];
+            for (int roleIndex = 0; roleIndex < column.AnalyticsRoles.Length; roleIndex++)
+            {
+                AnalyticsRoleModel role = column.AnalyticsRoles[roleIndex];
+                if ((role.Role & 2048) == 0)
+                {
+                    continue;
+                }
+
+                string name = role.Name ?? string.Empty;
+                if (!formulaNames.Add(name))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidFormulaMetadata,
+                        GeneratorUtilities.GetLocation(column.Property),
+                        name,
+                        "formula names must be unique within a schema"));
+                }
+
+                for (int dependencyIndex = 0; dependencyIndex < role.Dependencies.Length; dependencyIndex++)
+                {
+                    string dependency = role.Dependencies[dependencyIndex];
+                    if (!keys.Contains(dependency))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            GeneratorDiagnostics.InvalidFormulaMetadata,
+                            GeneratorUtilities.GetLocation(column.Property),
+                            name,
+                            $"dependency '{dependency}' does not match a stable column key"));
+                    }
+                }
+            }
+        }
+    }
+
+    private static void AddRoleAttributes(
+        IPropertySymbol property,
+        string attributeName,
+        int allowedRoles,
+        ImmutableArray<AnalyticsRoleModel>.Builder roles,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, attributeName))
+        {
+            int role = GetConstructorEnumValue(attribute, 0);
+            if (role == 0 || (role & ~allowedRoles) != 0)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), "Analytics", "compatible analytics role"));
+                continue;
+            }
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            roles.Add(new AnalyticsRoleModel
+            {
+                Role = role,
+                Order = GeneratorUtilities.GetInt32(arguments, "Order", 0),
+                Name = GeneratorUtilities.GetString(arguments, attributeName == ProDataGridGenerator.ChartFieldAttributeName ? "Series" : "Name"),
+                Format = GeneratorUtilities.GetString(arguments, "Format"),
+                Aggregate = GetEnumValue(arguments, "Aggregate", 0)
+            });
+        }
+    }
+
+    private static int GetConstructorEnumValue(AttributeData attribute, int index) =>
+        attribute.ConstructorArguments.Length > index && attribute.ConstructorArguments[index].Value is int value ? value : 0;
+
+    private static string? ValidateEditMethod(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        Dictionary<string, TypedConstant> options,
+        string optionName,
+        EditMethodKind kind,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        string? name = GeneratorUtilities.GetString(options, optionName);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        bool found = itemType.GetMembers(name!).OfType<IMethodSymbol>().Any(method =>
+            IsCompatibleEditMethod(method, itemType, property.Type, kind));
+        if (found)
+        {
+            return name;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidCustomizationMethod,
+            GeneratorUtilities.GetLocation(property),
+            name,
+            itemType.ToDisplayString()));
+        return null;
+    }
+
+    private static string? ValidateLocalizationMethod(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        Dictionary<string, TypedConstant> options,
+        string optionName,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        out bool acceptsFormatProvider)
+    {
+        acceptsFormatProvider = false;
+        string? name = GeneratorUtilities.GetString(options, optionName);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        IMethodSymbol? method = itemType.GetMembers(name!).OfType<IMethodSymbol>()
+            .FirstOrDefault(static candidate =>
+                candidate.IsStatic &&
+                GeneratorUtilities.IsAccessibleFromGeneratedCode(candidate) &&
+                candidate.ReturnType.SpecialType == SpecialType.System_String &&
+                (candidate.Parameters.Length == 0 ||
+                 candidate.Parameters.Length == 1 &&
+                 candidate.Parameters[0].Type.ToDisplayString() == "System.IFormatProvider"));
+        if (method != null)
+        {
+            acceptsFormatProvider = method.Parameters.Length == 1;
+            return name;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidCustomizationMethod,
+            GeneratorUtilities.GetLocation(property),
+            name,
+            itemType.ToDisplayString()));
+        return null;
+    }
+
+    private static bool IsCompatibleEditMethod(
+        IMethodSymbol method,
+        INamedTypeSymbol itemType,
+        ITypeSymbol valueType,
+        EditMethodKind kind)
+    {
+        if (!method.IsStatic || !GeneratorUtilities.IsAccessibleFromGeneratedCode(method))
+        {
+            return false;
+        }
+
+        ImmutableArray<IParameterSymbol> parameters = method.Parameters;
+        switch (kind)
+        {
+            case EditMethodKind.Parser:
+                return method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                       parameters.Length == 3 &&
+                       IsConstructedType(parameters[0].Type, "System.ReadOnlySpan`1", SpecialType.System_Char) &&
+                       IsMetadataType(parameters[1].Type, "System.IFormatProvider") &&
+                       parameters[2].RefKind == RefKind.Out &&
+                       SymbolEqualityComparer.Default.Equals(parameters[2].Type, valueType);
+            case EditMethodKind.Formatter:
+                return method.ReturnType.SpecialType == SpecialType.System_String &&
+                       parameters.Length == 2 &&
+                       SymbolEqualityComparer.Default.Equals(parameters[0].Type, valueType) &&
+                       IsMetadataType(parameters[1].Type, "System.IFormatProvider");
+            case EditMethodKind.Validator:
+                return method.ReturnType.SpecialType == SpecialType.System_String &&
+                       parameters.Length == 2 &&
+                       SymbolEqualityComparer.Default.Equals(parameters[0].Type, itemType) &&
+                       SymbolEqualityComparer.Default.Equals(parameters[1].Type, valueType);
+            case EditMethodKind.AsyncValidator:
+                return IsConstructedType(method.ReturnType, "System.Threading.Tasks.ValueTask`1", SpecialType.System_String) &&
+                       parameters.Length == 3 &&
+                       SymbolEqualityComparer.Default.Equals(parameters[0].Type, itemType) &&
+                       SymbolEqualityComparer.Default.Equals(parameters[1].Type, valueType) &&
+                       IsMetadataType(parameters[2].Type, "System.Threading.CancellationToken");
+            case EditMethodKind.Coerce:
+                return SymbolEqualityComparer.Default.Equals(method.ReturnType, valueType) &&
+                       parameters.Length == 2 &&
+                       SymbolEqualityComparer.Default.Equals(parameters[0].Type, itemType) &&
+                       SymbolEqualityComparer.Default.Equals(parameters[1].Type, valueType);
+            case EditMethodKind.CanEdit:
+                return method.ReturnType.SpecialType == SpecialType.System_Boolean &&
+                       parameters.Length == 1 &&
+                       SymbolEqualityComparer.Default.Equals(parameters[0].Type, itemType);
+            default:
+                return false;
+        }
+    }
+
+    private static string? ValidateTemplateFactoryMethod(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        Dictionary<string, TypedConstant> options,
+        string optionName,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        string? name = GeneratorUtilities.GetString(options, optionName);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        bool found = itemType.GetMembers(name!).OfType<IMethodSymbol>().Any(method =>
+            method.IsStatic && GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+            method.TypeParameters.Length == 0 && method.Parameters.Length == 2 &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, itemType) &&
+            IsMetadataType(method.Parameters[1].Type, "Avalonia.Controls.Control") &&
+            IsOrDerivesFrom(method.ReturnType, "Avalonia.Controls.Control"));
+        if (found)
+        {
+            return name;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidCustomizationMethod,
+            GeneratorUtilities.GetLocation(property),
+            name,
+            itemType.ToDisplayString()));
+        return null;
+    }
+
+    private static bool IsMetadataType(ITypeSymbol type, string metadataName) =>
+        type is INamedTypeSymbol named &&
+        string.Equals(GeneratorUtilities.GetMetadataName(named), metadataName, StringComparison.Ordinal);
+
+    private static bool IsConstructedType(ITypeSymbol type, string metadataName, SpecialType argumentType) =>
+        type is INamedTypeSymbol named &&
+        named.TypeArguments.Length == 1 &&
+        named.TypeArguments[0].SpecialType == argumentType &&
+        string.Equals(GeneratorUtilities.GetMetadataName(named.OriginalDefinition), metadataName, StringComparison.Ordinal);
 
     private static bool IsOrDerivesFrom(ITypeSymbol? type, string metadataName)
     {
@@ -791,6 +2260,57 @@ internal static partial class Discovery
             {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private static bool ValidateControllerImplementation(
+        INamedTypeSymbol itemType,
+        INamedTypeSymbol implementationType)
+    {
+        if (!GeneratorUtilities.IsAccessibleFromGeneratedCode(implementationType) || implementationType.IsAbstract)
+        {
+            return false;
+        }
+
+        bool hasConstructor = implementationType.InstanceConstructors.Any(static constructor =>
+            constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+        if (!hasConstructor)
+        {
+            return false;
+        }
+
+        return implementationType.AllInterfaces.Any(implemented =>
+            string.Equals(
+                GeneratorUtilities.GetMetadataName(implemented.OriginalDefinition),
+                "Avalonia.Controls.IDataGridGeneratedControllerFactory`1",
+                StringComparison.Ordinal) &&
+            implemented.TypeArguments.Length == 1 &&
+            SymbolEqualityComparer.Default.Equals(implemented.TypeArguments[0], itemType));
+    }
+
+    private static bool HasControllerConfigureMethod(
+        INamedTypeSymbol viewModelType,
+        INamedTypeSymbol itemType,
+        string name)
+    {
+        foreach (IMethodSymbol method in viewModelType.GetMembers(name).OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic || !method.ReturnsVoid || method.Parameters.Length != 1 ||
+                method.Parameters[0].RefKind != RefKind.Ref ||
+                method.Parameters[0].Type is not INamedTypeSymbol parameterType ||
+                !string.Equals(
+                    GeneratorUtilities.GetMetadataName(parameterType.OriginalDefinition),
+                    "Avalonia.Controls.DataGridGeneratedControllerOptions`1",
+                    StringComparison.Ordinal) ||
+                parameterType.TypeArguments.Length != 1 ||
+                !SymbolEqualityComparer.Default.Equals(parameterType.TypeArguments[0], itemType))
+            {
+                continue;
+            }
+
+            return true;
         }
 
         return false;

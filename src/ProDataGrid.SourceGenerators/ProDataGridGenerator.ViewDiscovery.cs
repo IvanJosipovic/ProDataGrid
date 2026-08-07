@@ -165,6 +165,11 @@ internal static partial class Discovery
             FilteringModelPropertyName = GeneratorUtilities.GetString(arguments, "FilteringModelPropertyName"),
             SearchModelPropertyName = GeneratorUtilities.GetString(arguments, "SearchModelPropertyName"),
             SearchTextPropertyName = GeneratorUtilities.GetString(arguments, "SearchTextPropertyName"),
+            SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
+            StateControllerPropertyName = GeneratorUtilities.GetString(arguments, "StateControllerPropertyName"),
+            Recipe = GetEnumValue(arguments, "Recipe", 1),
+            ControllerName = GeneratorUtilities.GetString(arguments, "ControllerName"),
+            AutomationId = GeneratorUtilities.GetString(arguments, "AutomationId") ?? defaultName,
             Location = GetLocation(attribute)
         };
     }
@@ -249,6 +254,9 @@ internal static partial class Discovery
             Framework = request.Framework,
             BaseType = request.BaseType,
             Title = request.Title,
+            Recipe = request.Recipe,
+            ControllerName = request.ControllerName,
+            AutomationId = request.AutomationId,
             Items = items,
             ColumnDefinitions = columns,
             FastPathOptions = fastOptions,
@@ -256,6 +264,8 @@ internal static partial class Discovery
             FilteringModel = ResolveOptionalViewBinding(request, request.FilteringModelPropertyName, diagnostics),
             SearchModel = ResolveOptionalViewBinding(request, request.SearchModelPropertyName, diagnostics),
             SearchText = ResolveOptionalViewBinding(request, request.SearchTextPropertyName, diagnostics, requireSetter: true),
+            SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
+            StateController = ResolveOptionalViewBinding(request, request.StateControllerPropertyName, diagnostics),
             Location = request.Location
         };
     }
@@ -418,6 +428,9 @@ internal static partial class Discovery
         public ViewFrameworkModel Framework { get; set; }
         public INamedTypeSymbol? BaseType { get; set; }
         public string Title { get; set; } = string.Empty;
+        public int Recipe { get; set; }
+        public string? ControllerName { get; set; }
+        public string AutomationId { get; set; } = string.Empty;
         public string ItemsPropertyName { get; set; } = "Items";
         public string ColumnDefinitionsPropertyName { get; set; } = "ColumnDefinitions";
         public string FastPathOptionsPropertyName { get; set; } = "FastPathOptions";
@@ -425,6 +438,8 @@ internal static partial class Discovery
         public string? FilteringModelPropertyName { get; set; }
         public string? SearchModelPropertyName { get; set; }
         public string? SearchTextPropertyName { get; set; }
+        public string? SelectionModelPropertyName { get; set; }
+        public string? StateControllerPropertyName { get; set; }
         public Location Location { get; set; } = Location.None;
     }
 }

@@ -3,9 +3,14 @@ using ProDataGrid.SourceGeneration;
 
 namespace DataGridSample.Models;
 
-[GenerateDataGridColumns(ProviderName = "GeneratedTradeSchema", Strict = true, Streaming = true)]
+[GenerateDataGridColumns(
+    ProviderName = "GeneratedTradeSchema",
+    SchemaId = "sample/generated-trade/v1",
+    Strict = true,
+    Streaming = true)]
 public sealed class GeneratedTrade
 {
+    [DataGridKey]
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "ID", Order = 0, ColumnKey = "trade-id", IsReadOnly = true, Width = "70")]
     public int Id { get; init; }
 

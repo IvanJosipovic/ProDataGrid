@@ -19,6 +19,7 @@
     <PackageReference Include="ReactiveUI" />
     <PackageReference Include="ReactiveUI.Avalonia" />
     <PackageReference Include="ReactiveUI.SourceGenerators" PrivateAssets="all" />
+    <PackageReference Include="ReactiveUI.Primitives.Avalonia.Reactive" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="Microsoft.PowerFx.Interpreter" />

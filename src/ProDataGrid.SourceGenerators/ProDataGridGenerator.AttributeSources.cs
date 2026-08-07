@@ -12,11 +12,27 @@ public sealed partial class ProDataGridGenerator
     internal const string GenerateColumnsAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridColumnsAttribute";
     internal const string GenerateColumnsForNamespaceAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridColumnsForNamespaceAttribute";
     internal const string GenerateViewModelAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridViewModelAttribute";
+    internal const string GenerateControllerAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridControllerAttribute";
     internal const string GenerateViewModelsForNamespaceAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridViewModelsForNamespaceAttribute";
     internal const string ColumnAttributeName = "ProDataGrid.SourceGeneration.DataGridColumnAttribute";
     internal const string IgnoreColumnAttributeName = "ProDataGrid.SourceGeneration.DataGridIgnoreColumnAttribute";
+    internal const string KeyAttributeName = "ProDataGrid.SourceGeneration.DataGridKeyAttribute";
+    internal const string ChildrenAttributeName = "ProDataGrid.SourceGeneration.DataGridChildrenAttribute";
+    internal const string ExpandedAttributeName = "ProDataGrid.SourceGeneration.DataGridExpandedAttribute";
+    internal const string ParentKeyAttributeName = "ProDataGrid.SourceGeneration.DataGridParentKeyAttribute";
+    internal const string GroupAttributeName = "ProDataGrid.SourceGeneration.DataGridGroupAttribute";
+    internal const string SummaryAttributeName = "ProDataGrid.SourceGeneration.DataGridSummaryAttribute";
+    internal const string ConditionalFormatAttributeName = "ProDataGrid.SourceGeneration.DataGridConditionalFormatAttribute";
+    internal const string BandAttributeName = "ProDataGrid.SourceGeneration.DataGridBandAttribute";
+    internal const string PivotAxisAttributeName = "ProDataGrid.SourceGeneration.DataGridPivotAxisAttribute";
+    internal const string PivotValueAttributeName = "ProDataGrid.SourceGeneration.DataGridPivotValueAttribute";
+    internal const string ChartFieldAttributeName = "ProDataGrid.SourceGeneration.DataGridChartFieldAttribute";
+    internal const string OutlineFieldAttributeName = "ProDataGrid.SourceGeneration.DataGridOutlineFieldAttribute";
+    internal const string FormulaFieldAttributeName = "ProDataGrid.SourceGeneration.DataGridFormulaFieldAttribute";
     internal const string GenerateViewAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridViewAttribute";
     internal const string GenerateViewsForNamespaceAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridViewsForNamespaceAttribute";
+    internal const string GenerateRegistryAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridRegistryAttribute";
+    internal const string GenerateIndexedColumnsAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridIndexedColumnsAttribute";
 
     private static void RegisterAttributeSources(IncrementalGeneratorInitializationContext context)
     {
@@ -71,6 +87,46 @@ public sealed partial class ProDataGridGenerator
                 ReactiveUI
             }
 
+            internal enum DataGridViewRecipe
+            {
+                GridOnly,
+                SearchableGrid,
+                OperationsToolbar,
+                Explorer,
+                Spreadsheet,
+                Analytics,
+                MasterDetail
+            }
+
+            internal enum DataGridCondition
+            {
+                Equals,
+                NotEquals,
+                GreaterThan,
+                GreaterThanOrEqual,
+                LessThan,
+                LessThanOrEqual,
+                IsNull,
+                IsNotNull,
+                Custom
+            }
+
+            [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
+            internal sealed class GenerateDataGridRegistryAttribute : Attribute
+            {
+                public string RegistryName { get; set; } = "GeneratedProDataGridRegistration";
+                public string RegistryNamespace { get; set; } = "ProDataGrid.Generated";
+            }
+
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true, Inherited = false)]
+            internal sealed class GenerateDataGridIndexedColumnsAttribute : Attribute
+            {
+                public string Name { get; set; } = "IndexedColumns";
+                public string? GetterMethod { get; set; }
+                public string? SetterMethod { get; set; }
+                public string? NotificationNameMethod { get; set; }
+            }
+
             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
             internal sealed class GenerateDataGridColumnsAttribute : Attribute
             {
@@ -80,10 +136,13 @@ public sealed partial class ProDataGridGenerator
                 public Type? ItemType { get; }
                 public string? ProviderName { get; set; }
                 public string? ProviderNamespace { get; set; }
+                public string? SchemaId { get; set; }
+                public int StateVersion { get; set; } = 1;
                 public DataGridColumnDiscovery Discovery { get; set; } = DataGridColumnDiscovery.PublicProperties;
                 public bool IncludeInherited { get; set; } = true;
                 public bool Strict { get; set; } = true;
                 public bool Streaming { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public Type? ImplementationType { get; set; }
                 public string? ConfigureMethod { get; set; }
             }
@@ -99,6 +158,8 @@ public sealed partial class ProDataGridGenerator
                 public bool IncludeInherited { get; set; } = true;
                 public bool Strict { get; set; } = true;
                 public bool Streaming { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
+                public int StateVersion { get; set; } = 1;
             }
 
             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
@@ -117,6 +178,31 @@ public sealed partial class ProDataGridGenerator
                 public string SchemaPropertyName { get; set; } = "DataGridSchema";
                 public string FastPathOptionsPropertyName { get; set; } = "FastPathOptions";
                 public string? ProviderName { get; set; }
+                public bool Strict { get; set; } = true;
+                public bool Streaming { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+            internal sealed class GenerateDataGridControllerAttribute : Attribute
+            {
+                public GenerateDataGridControllerAttribute(Type itemType, string name)
+                {
+                    ItemType = itemType;
+                    Name = name;
+                }
+
+                public Type ItemType { get; }
+                public string Name { get; }
+                public string? ProviderName { get; set; }
+                public string? SourceMember { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedSourceKind SourceKind { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedFeatures Features { get; set; } =
+                    global::Avalonia.Controls.DataGridGeneratedFeatures.Columns |
+                    global::Avalonia.Controls.DataGridGeneratedFeatures.Operations;
+                public global::Avalonia.Controls.DataGridOperationExecution OperationExecution { get; set; }
+                public string? KeyMember { get; set; }
+                public Type? ImplementationType { get; set; }
+                public string? ConfigureMethod { get; set; }
                 public bool Strict { get; set; } = true;
                 public bool Streaming { get; set; }
             }
@@ -160,6 +246,11 @@ public sealed partial class ProDataGridGenerator
                 public string? FilteringModelPropertyName { get; set; }
                 public string? SearchModelPropertyName { get; set; }
                 public string? SearchTextPropertyName { get; set; }
+                public string? SelectionModelPropertyName { get; set; }
+                public string? StateControllerPropertyName { get; set; }
+                public DataGridViewRecipe Recipe { get; set; } = DataGridViewRecipe.SearchableGrid;
+                public string? ControllerName { get; set; }
+                public string? AutomationId { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
@@ -178,6 +269,11 @@ public sealed partial class ProDataGridGenerator
                 public string? FilteringModelPropertyName { get; set; }
                 public string? SearchModelPropertyName { get; set; }
                 public string? SearchTextPropertyName { get; set; }
+                public string? SelectionModelPropertyName { get; set; }
+                public string? StateControllerPropertyName { get; set; }
+                public DataGridViewRecipe Recipe { get; set; } = DataGridViewRecipe.SearchableGrid;
+                public string? ControllerName { get; set; }
+                public string? AutomationId { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
@@ -188,8 +284,12 @@ public sealed partial class ProDataGridGenerator
 
                 public DataGridColumnKind Kind { get; set; } = DataGridColumnKind.Auto;
                 public string? Header { get; set; }
+                public string? Description { get; set; }
+                public string? HeaderProviderMethod { get; set; }
+                public string? DescriptionProviderMethod { get; set; }
                 public int Order { get; set; }
                 public string? ColumnKey { get; set; }
+                public string[]? PreviousColumnKeys { get; set; }
                 public string? SortMemberPath { get; set; }
                 public string? Width { get; set; }
                 public double MinWidth { get; set; }
@@ -212,6 +312,10 @@ public sealed partial class ProDataGridGenerator
                 public string? Watermark { get; set; }
                 public string? TemplateKey { get; set; }
                 public string? EditingTemplateKey { get; set; }
+                public string? TemplateFactoryMethod { get; set; }
+                public string? EditingTemplateFactoryMethod { get; set; }
+                public string? NewRowTemplateFactoryMethod { get; set; }
+                public bool ReuseCellContent { get; set; }
                 public string? Formula { get; set; }
                 public string? FormulaName { get; set; }
                 public string? Mask { get; set; }
@@ -228,10 +332,140 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchMemberPath { get; set; }
                 public string? ConfigureMethod { get; set; }
                 public string? FactoryMethod { get; set; }
+                public string? ParserMethod { get; set; }
+                public string? FormatterMethod { get; set; }
+                public string? ValidatorMethod { get; set; }
+                public string? AsyncValidatorMethod { get; set; }
+                public string? CoerceMethod { get; set; }
+                public string? CanEditMethod { get; set; }
+                public string? ExportFormat { get; set; }
+                public string? ExportNullText { get; set; }
+                public string? BackendFieldName { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedFilterEditorKind FilterEditor { get; set; }
+                public string? FilterEditorResourceKey { get; set; }
+                public string? HeaderResourceKey { get; set; }
+                public string? DescriptionResourceKey { get; set; }
+                public string? AutomationId { get; set; }
+                public string? AutomationName { get; set; }
+                public string? AutomationHelpText { get; set; }
+                public bool IsSensitive { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
             internal sealed class DataGridIgnoreColumnAttribute : Attribute
+            {
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+            internal sealed class DataGridGroupAttribute : Attribute
+            {
+                public int Order { get; set; }
+                public global::System.ComponentModel.ListSortDirection Direction { get; set; } =
+                    global::System.ComponentModel.ListSortDirection.Ascending;
+                public string? FormatterMethod { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridSummaryAttribute : Attribute
+            {
+                public DataGridSummaryAttribute(global::Avalonia.Controls.DataGridAggregateType aggregate) { Aggregate = aggregate; }
+                public global::Avalonia.Controls.DataGridAggregateType Aggregate { get; }
+                public global::Avalonia.Controls.DataGridSummaryScope Scope { get; set; } =
+                    global::Avalonia.Controls.DataGridSummaryScope.Both;
+                public string? Format { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridConditionalFormatAttribute : Attribute
+            {
+                public DataGridConditionalFormatAttribute(DataGridCondition condition) { Condition = condition; }
+                public DataGridCondition Condition { get; }
+                public string? RuleId { get; set; }
+                public string? Operand { get; set; }
+                public string? CellThemeKey { get; set; }
+                public int Priority { get; set; }
+                public bool StopIfTrue { get; set; } = true;
+                public string? PredicateMethod { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridBandAttribute : Attribute
+            {
+                public DataGridBandAttribute(string path) { Path = path; }
+                public string Path { get; }
+                public int Order { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridPivotAxisAttribute : Attribute
+            {
+                public DataGridPivotAxisAttribute(global::Avalonia.Controls.DataGridGeneratedAnalyticsRole role) { Role = role; }
+                public global::Avalonia.Controls.DataGridGeneratedAnalyticsRole Role { get; }
+                public int Order { get; set; }
+                public string? Name { get; set; }
+                public string? Format { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridPivotValueAttribute : Attribute
+            {
+                public DataGridPivotValueAttribute(global::Avalonia.Controls.DataGridPivoting.PivotAggregateType aggregate) { Aggregate = aggregate; }
+                public global::Avalonia.Controls.DataGridPivoting.PivotAggregateType Aggregate { get; }
+                public int Order { get; set; }
+                public string? Name { get; set; }
+                public string? Format { get; set; }
+                public global::Avalonia.Controls.DataGridPivoting.PivotValueDisplayMode DisplayMode { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridChartFieldAttribute : Attribute
+            {
+                public DataGridChartFieldAttribute(global::Avalonia.Controls.DataGridGeneratedAnalyticsRole role) { Role = role; }
+                public global::Avalonia.Controls.DataGridGeneratedAnalyticsRole Role { get; }
+                public int Order { get; set; }
+                public string? Series { get; set; }
+                public string? Format { get; set; }
+                public global::Avalonia.Controls.DataGridAggregateType Aggregate { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
+            internal sealed class DataGridOutlineFieldAttribute : Attribute
+            {
+                public DataGridOutlineFieldAttribute(global::Avalonia.Controls.DataGridGeneratedAnalyticsRole role) { Role = role; }
+                public global::Avalonia.Controls.DataGridGeneratedAnalyticsRole Role { get; }
+                public int Order { get; set; }
+                public string? Name { get; set; }
+                public string? Format { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+            internal sealed class DataGridFormulaFieldAttribute : Attribute
+            {
+                public DataGridFormulaFieldAttribute(string name) { Name = name; }
+                public string Name { get; }
+                public string[]? Dependencies { get; set; }
+                public int Order { get; set; }
+                public string? Format { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
+            internal sealed class DataGridKeyAttribute : Attribute
+            {
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+            internal sealed class DataGridChildrenAttribute : Attribute
+            {
+                public string? LoaderMethod { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
+            internal sealed class DataGridExpandedAttribute : Attribute
+            {
+            }
+
+            [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field, AllowMultiple = false, Inherited = true)]
+            internal sealed class DataGridParentKeyAttribute : Attribute
             {
             }
         }

@@ -1,5 +1,9 @@
+using System;
+using System.IO;
 using System.Linq;
+using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
@@ -71,6 +75,53 @@ public sealed class GeneratedCodeViewTests
 
         Assert.False(grid.CanUserSortColumns);
         Assert.Equal("customized", grid.Tag);
+    }
+
+    [AvaloniaFact]
+    public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
+    {
+        var viewModel = new GeneratedColumnsAttributesViewModel();
+        var view = new GeneratedColumnsCodeView(viewModel);
+        var window = new Window
+        {
+            Width = 1000,
+            Height = 640,
+            Content = view
+        };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            ContentControl toolbar = view.GetLogicalDescendants().OfType<ContentControl>()
+                .Single(control => control.Name == "GeneratedToolbarSlot");
+            ContentControl explorer = view.GetLogicalDescendants().OfType<ContentControl>()
+                .Single(control => control.Name == "GeneratedExplorerSlot");
+
+            Assert.Equal("generated-columns-code-grid", AutomationProperties.GetAutomationId(grid));
+            Assert.Equal("generated-columns-code-grid-toolbar", AutomationProperties.GetAutomationId(toolbar));
+            Assert.Equal("generated-columns-code-grid-recipe", AutomationProperties.GetAutomationId(explorer));
+            Assert.Equal(3, grid.ItemsSource!.Cast<object>().Count());
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-explorer-recipe.png"));
+                using (FileStream stream = File.Create(path))
+                {
+                    frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                }
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     private sealed class CustomizedGeneratedView : GeneratedColumnsCodeView

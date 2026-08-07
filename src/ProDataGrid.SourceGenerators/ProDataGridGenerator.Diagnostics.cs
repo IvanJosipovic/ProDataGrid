@@ -80,6 +80,46 @@ internal static class GeneratorDiagnostics
         "Generated-view framework is unavailable",
         "Generated view '{0}' requests framework '{1}', but its required UI framework type is not referenced");
 
+    public static readonly DiagnosticDescriptor DuplicateStableKey = Create(
+        "PDGSG100",
+        "Duplicate or empty stable key",
+        "Schema '{0}' contains duplicate or empty stable key '{1}'");
+
+    public static readonly DiagnosticDescriptor InvalidItemKey = Create(
+        "PDGSG101",
+        "Invalid item key",
+        "Member '{0}' cannot be used as the stable item key: {1}");
+
+    public static readonly DiagnosticDescriptor InvalidControllerSource = Create(
+        "PDGSG103",
+        "Invalid generated controller source",
+        "Source member '{0}' on view model '{1}' is missing or incompatible with source kind '{2}'");
+
+    public static readonly DiagnosticDescriptor InvalidHierarchy = Create(
+        "PDGSG109",
+        "Invalid generated hierarchy",
+        "Hierarchy member '{0}' on item type '{1}' is invalid: {2}");
+
+    public static readonly DiagnosticDescriptor InvalidOperationOwnership = Create(
+        "PDGSG104",
+        "Conflicting generated operation ownership",
+        "Controller '{0}' uses source kind '{1}' with operation execution '{2}', which would apply operations in the wrong layer");
+
+    public static readonly DiagnosticDescriptor DuplicateController = Create(
+        "PDGSG117",
+        "Duplicate generated controller",
+        "View model '{0}' contains more than one generated controller named '{1}'");
+
+    public static readonly DiagnosticDescriptor InvalidStateMetadata = Create(
+        "PDGSG118",
+        "Invalid generated state metadata",
+        "Schema '{0}' contains invalid state metadata: {1}");
+
+    public static readonly DiagnosticDescriptor InvalidFormulaMetadata = Create(
+        "PDGSG121",
+        "Invalid generated formula metadata",
+        "Formula field '{0}' contains invalid generated metadata: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,
