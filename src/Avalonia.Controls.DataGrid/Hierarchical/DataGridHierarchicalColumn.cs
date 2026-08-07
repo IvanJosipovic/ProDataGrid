@@ -96,6 +96,7 @@ internal
         {
             if (cell.Content is DataGridHierarchicalPresenter existingPresenter && !_refreshingBinding)
             {
+                BindContent(existingPresenter, dataItem, isEditing: false);
                 return existingPresenter;
             }
 

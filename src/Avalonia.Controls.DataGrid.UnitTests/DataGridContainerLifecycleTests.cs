@@ -254,6 +254,71 @@ public class DataGridContainerLifecycleTests
     }
 
     [AvaloniaFact]
+    public void RecyclingPreservesExplicitRootDataContextBinding()
+    {
+        var items = new ObservableCollection<string> { "Item", "Longer item" };
+        var grid = CreateGrid(items, out var window);
+        PumpLayout(grid);
+        var row = grid.GetSelfAndVisualDescendants().OfType<DataGridRow>().First();
+        var root = Assert.IsAssignableFrom<Panel>(row.RootElement);
+        root.Bind(StyledElement.DataContextProperty, new Binding(nameof(string.Length)));
+        Assert.Equal(Assert.IsType<string>(row.DataContext).Length, root.DataContext);
+
+        row.PreserveRecycledRootDataContext();
+        row.DataContext = "A much longer recycled item";
+        row.ClearRecyclingState();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(Assert.IsType<string>(row.DataContext).Length, root.DataContext);
+        Assert.True(root.IsSet(StyledElement.DataContextProperty));
+        window.Close();
+    }
+
+    [AvaloniaFact]
+    public void TemplateColumnBuildsOnlyOnceForARecycledDataContext()
+    {
+        int builds = 0;
+        var grid = new TrackingDataGrid();
+        var window = new Window
+        {
+            Width = 240,
+            Height = 120,
+            Content = grid
+        };
+        window.SetThemeStyles();
+        var column = new DataGridTemplateColumn
+        {
+            CellTemplate = new FuncDataTemplate<string>((item, _) =>
+            {
+                builds++;
+                var textBlock = new TextBlock();
+                textBlock.Bind(TextBlock.TextProperty, new Binding("."));
+                return textBlock;
+            })
+        };
+        grid.ColumnsInternal.Add(column);
+        window.Show();
+
+        try
+        {
+            var row = grid.InvokeGenerateRow(rowIndex: 0, slot: 0, dataContext: "First");
+            Assert.Equal(1, builds);
+            grid.DisplayData.RecycleRow(row);
+
+            var recycled = grid.InvokeGenerateRow(rowIndex: 1, slot: 1, dataContext: "Second");
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(row, recycled);
+            Assert.Equal(1, builds);
+            Assert.IsType<TextBlock>(recycled.Cells[0].Content);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Placeholder_recycle_regenerates_cells_for_real_item()
     {
         var grid = new TrackingDataGrid();

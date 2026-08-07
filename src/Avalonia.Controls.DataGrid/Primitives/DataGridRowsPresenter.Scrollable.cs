@@ -252,6 +252,7 @@ internal
         /// </summary>
         public void RaiseScrollInvalidated(EventArgs e)
         {
+            DataGridDiagnostics.RecordRowsScrollInvalidated();
             _scrollInvalidated?.Invoke(this, e);
         }
 
@@ -448,10 +449,6 @@ internal
 
         internal void ClearBottomAnchorRequest()
         {
-            if (_bottomAnchorRequested && OwningGrid != null)
-            {
-                OwningGrid.DisplayData.PendingVerticalScrollHeight = 0;
-            }
             _bottomAnchorRequested = false;
         }
 
@@ -506,7 +503,6 @@ internal
             {
                 DataGridDiagnostics.RecordRowsScrollInfoChanged();
                 _owningGrid?.OnRowsPresenterViewportChanged(oldViewport, _viewport);
-                DataGridDiagnostics.RecordRowsScrollInvalidated();
                 RaiseScrollInvalidated(EventArgs.Empty);
             }
             else if (_owningGrid?.UseLogicalScrollable == true &&

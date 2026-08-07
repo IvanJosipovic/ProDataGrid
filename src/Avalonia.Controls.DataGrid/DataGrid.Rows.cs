@@ -258,12 +258,18 @@ internal
                         height = row.TargetHeight;
                         bool hasDetails = GetRowDetailsVisibility(displayedSlot);
                         // Record with estimator - details height is already included in TargetHeight
-                        estimator?.RecordMeasuredHeight(displayedSlot, height, hasDetails, 0);
+                        if (estimator != null)
+                        {
+                            RecordMeasuredRowHeight(estimator, displayedSlot, height, hasDetails);
+                        }
                     }
                     else if (element is DataGridRowGroupHeader groupHeader)
                     {
                         height = element.DesiredSize.Height;
-                        estimator?.RecordRowGroupHeaderHeight(displayedSlot, groupHeader.Level, height);
+                        if (estimator != null)
+                        {
+                            RecordMeasuredGroupHeaderHeight(estimator, displayedSlot, groupHeader.Level, height);
+                        }
                     }
                     else
                     {
@@ -277,14 +283,24 @@ internal
                 // Pass the collapsed slot count and details count so estimators can accurately calculate
                 int collapsedSlotCount = _collapsedSlotsTable.GetIndexCount(0, DisplayData.LastScrollingSlot);
                 int detailsCount = GetDetailsCountInclusive(0, DisplayData.LastScrollingSlot);
-                estimator?.UpdateFromDisplayedRows(
-                    DisplayData.FirstScrollingSlot,
-                    DisplayData.LastScrollingSlot,
-                    displayedHeights.ToArray(),
-                    _verticalOffset,
-                    NegVerticalOffset,
-                    collapsedSlotCount,
-                    detailsCount);
+                if (estimator != null)
+                {
+                    double previousRowEstimate = estimator.RowHeightEstimate;
+                    double previousDetailsEstimate = estimator.RowDetailsHeightEstimate;
+                    estimator.UpdateFromDisplayedRows(
+                        DisplayData.FirstScrollingSlot,
+                        DisplayData.LastScrollingSlot,
+                        displayedHeights.ToArray(),
+                        _verticalOffset,
+                        NegVerticalOffset,
+                        collapsedSlotCount,
+                        detailsCount);
+                    if (!MathUtilities.AreClose(previousRowEstimate, estimator.RowHeightEstimate) ||
+                        !MathUtilities.AreClose(previousDetailsEstimate, estimator.RowDetailsHeightEstimate))
+                    {
+                        _scrollHeightIndexDirty = true;
+                    }
+                }
 
                 // Height represented by realized viewport state:
                 // rows above first displayed row + all currently displayed rows.
@@ -1359,7 +1375,7 @@ internal
                 : slotElement.DesiredSize.Height;
         }
 
-        private double GetScrollSlotHeight(int slot)
+        private double GetScrollSlotHeight(int slot, bool allowIndexBuild = true)
         {
             Debug.Assert((slot >= 0) && slot < SlotCount);
 
@@ -1376,8 +1392,13 @@ internal
                 return GetExactSlotElementHeight(slot);
             }
 
-            EnsureScrollHeightIndex();
-            return _scrollHeightIndex.GetHeight(slot);
+            if (allowIndexBuild)
+            {
+                EnsureScrollHeightIndex();
+                return _scrollHeightIndex.GetHeight(slot);
+            }
+
+            return GetScrollHeightEstimate(slot);
         }
 
         private void EnsureScrollHeightIndex()
@@ -1394,6 +1415,38 @@ internal
             _scrollHeightIndexDirty = false;
         }
 
+        private void RecordMeasuredRowHeight(
+            IDataGridRowHeightEstimator estimator,
+            int slot,
+            double measuredHeight,
+            bool hasDetails)
+        {
+            double previousRowEstimate = estimator.RowHeightEstimate;
+            double previousDetailsEstimate = estimator.RowDetailsHeightEstimate;
+
+            estimator.RecordMeasuredHeight(slot, measuredHeight, hasDetails, detailsHeight: 0);
+
+            if (!MathUtilities.AreClose(previousRowEstimate, estimator.RowHeightEstimate) ||
+                !MathUtilities.AreClose(previousDetailsEstimate, estimator.RowDetailsHeightEstimate))
+            {
+                _scrollHeightIndexDirty = true;
+            }
+        }
+
+        private void RecordMeasuredGroupHeaderHeight(
+            IDataGridRowHeightEstimator estimator,
+            int slot,
+            int level,
+            double measuredHeight)
+        {
+            double previousEstimate = estimator.GetRowGroupHeaderHeightEstimate(level);
+            estimator.RecordRowGroupHeaderHeight(slot, level, measuredHeight);
+            if (!MathUtilities.AreClose(previousEstimate, estimator.GetRowGroupHeaderHeightEstimate(level)))
+            {
+                _scrollHeightIndexDirty = true;
+            }
+        }
+
         private double GetScrollHeightEstimate(int slot)
         {
             if (IsSlotVisible(slot))
@@ -1407,7 +1460,7 @@ internal
             return GetSlotElementHeight(slot);
         }
 
-        private void UpdateScrollHeightEstimate(int slot, double height)
+        internal void UpdateScrollHeightEstimate(int slot, double height)
         {
             if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
             {

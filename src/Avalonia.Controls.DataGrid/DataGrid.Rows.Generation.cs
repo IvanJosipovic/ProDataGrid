@@ -115,9 +115,14 @@ namespace Avalonia.Controls
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
                     {
-                        if (cell.OwningColumn != null)
+                        if (cell.OwningColumn != null &&
+                            cell.OwningColumn is not DataGridTemplateColumn)
                         {
                             cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
+                            cell.InvalidateMeasureForContentChange();
+                        }
+                        else if (cell.OwningColumn is DataGridTemplateColumn)
+                        {
                             cell.InvalidateMeasureForContentChange();
                         }
                     }
@@ -351,13 +356,19 @@ namespace Avalonia.Controls
                         elementHeight = groupHeader.DesiredSize.Height;
                         _rowGroupHeightsByLevel[groupHeader.Level] = elementHeight;
                         // Record the measured group header height with the estimator
-                        estimator?.RecordRowGroupHeaderHeight(slot, groupHeader.Level, elementHeight);
+                        if (estimator != null)
+                        {
+                            RecordMeasuredGroupHeaderHeight(estimator, slot, groupHeader.Level, elementHeight);
+                        }
                     }
                     else if (groupFooter != null)
                     {
                         elementHeight = groupFooter.DesiredSize.Height;
                         _rowGroupHeightsByLevel[groupFooter.Level] = elementHeight;
-                        estimator?.RecordRowGroupHeaderHeight(slot, groupFooter.Level, elementHeight);
+                        if (estimator != null)
+                        {
+                            RecordMeasuredGroupHeaderHeight(estimator, slot, groupFooter.Level, elementHeight);
+                        }
                     }
 
                     if (row != null)
@@ -365,7 +376,10 @@ namespace Avalonia.Controls
                         // Record the measured row height with the estimator
                         bool hasDetails = GetRowDetailsVisibility(slot);
                         // Details height is already included in element.DesiredSize.Height
-                        estimator?.RecordMeasuredHeight(slot, elementHeight, hasDetails, 0);
+                        if (estimator != null)
+                        {
+                            RecordMeasuredRowHeight(estimator, slot, elementHeight, hasDetails);
+                        }
 
                         // Update the legacy estimate for backward compatibility
                         if (RowHeightEstimate == DataGrid.DATAGRID_defaultRowHeight && double.IsNaN(row.Height))
@@ -405,7 +419,8 @@ namespace Avalonia.Controls
                 return false;
             }
 
-            height = Math.Max(row.MinHeight, Math.Min(row.MaxHeight, rowHeight));
+            height = Math.Max(row.MinHeight, Math.Min(row.MaxHeight, rowHeight)) +
+                row.Margin.Top + row.Margin.Bottom;
             return !double.IsNaN(height) && !double.IsInfinity(height) && height >= 0;
         }
 

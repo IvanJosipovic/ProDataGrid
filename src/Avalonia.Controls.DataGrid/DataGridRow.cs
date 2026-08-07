@@ -204,7 +204,7 @@ internal
 
         internal void PreserveRecycledRootDataContext()
         {
-            if (RootElement != null)
+            if (RootElement != null && !RootElement.IsSet(StyledElement.DataContextProperty))
             {
                 RootElement.DataContext = DataContext;
                 _hasPreservedRecycledRootDataContext = true;

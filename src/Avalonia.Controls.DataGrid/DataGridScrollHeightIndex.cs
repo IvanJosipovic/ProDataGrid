@@ -22,11 +22,6 @@ namespace Avalonia.Controls
             Count = Math.Max(0, count);
             if (Count == 0)
             {
-                _heights = Array.Empty<double>();
-                _heightSums = Array.Empty<double>();
-                _visibleSums = Array.Empty<double>();
-                _visibleCounts = Array.Empty<int>();
-                _visibilityLazy = Array.Empty<sbyte>();
                 _treeSize = 0;
                 return;
             }
@@ -37,12 +32,48 @@ namespace Avalonia.Controls
                 _treeSize <<= 1;
             }
 
-            _heights = new double[Count];
-            _heightSums = new double[_treeSize * 2];
-            _visibleSums = new double[_treeSize * 2];
-            _visibleCounts = new int[_treeSize * 2];
-            _visibilityLazy = new sbyte[_treeSize * 2];
-            Array.Fill(_visibilityLazy, (sbyte)-1);
+            int treeLength = _treeSize * 2;
+            if (_heights.Length < Count)
+            {
+                _heights = new double[Count];
+            }
+            else
+            {
+                Array.Clear(_heights, 0, Count);
+            }
+
+            if (_heightSums.Length < treeLength)
+            {
+                _heightSums = new double[treeLength];
+            }
+            else
+            {
+                Array.Clear(_heightSums, 0, treeLength);
+            }
+
+            if (_visibleSums.Length < treeLength)
+            {
+                _visibleSums = new double[treeLength];
+            }
+            else
+            {
+                Array.Clear(_visibleSums, 0, treeLength);
+            }
+
+            if (_visibleCounts.Length < treeLength)
+            {
+                _visibleCounts = new int[treeLength];
+            }
+            else
+            {
+                Array.Clear(_visibleCounts, 0, treeLength);
+            }
+
+            if (_visibilityLazy.Length < treeLength)
+            {
+                _visibilityLazy = new sbyte[treeLength];
+            }
+            Array.Fill(_visibilityLazy, (sbyte)-1, 0, treeLength);
 
             for (int slot = 0; slot < Count; slot++)
             {

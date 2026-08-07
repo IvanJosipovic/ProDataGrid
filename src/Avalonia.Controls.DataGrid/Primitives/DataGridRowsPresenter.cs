@@ -42,6 +42,7 @@ internal
         private double _lastArrangeHeight;
         private bool _lastArrangeMatchesDesired = true;
         private readonly HashSet<Control> _displayedElementsScratch = new();
+        private readonly Dictionary<Control, Size> _measureConstraints = new();
         private readonly RectangleGeometry _clipRectGeometry = new();
 
         internal double LastArrangeHeight => _lastArrangeHeight;
@@ -329,6 +330,11 @@ internal
             for (var childIndex = Children.Count - 1; childIndex >= 0; childIndex--)
             {
                 Control child = Children[childIndex];
+                if (!displayedElements.Contains(child))
+                {
+                    _measureConstraints.Remove(child);
+                }
+
                 if (!child.IsVisible)
                 {
                     if (!displayedElements.Contains(child) &&
@@ -542,10 +548,14 @@ internal
             double headerWidth = 0;
             int measuredElements = 0;
             int skippedMeasureElements = 0;
+            int measuredSlot = OwningGrid.DisplayData.FirstScrollingSlot;
             using var measureScope = DataGridDiagnostics.BeginRowsMeasure();
             foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
             {
                 DataGridRow? row = element as DataGridRow;
+                bool hasMatchingConstraint = _measureConstraints.TryGetValue(element, out var previousConstraint) &&
+                    AreClose(previousConstraint, measureConstraint);
+                double previousDesiredHeight = element.DesiredSize.Height;
                 if (row != null)
                 {
                     if (invalidateRows)
@@ -554,9 +564,10 @@ internal
                     }
                 }
 
-                if (invalidateRows || !element.IsMeasureValid)
+                if (invalidateRows || !element.IsMeasureValid || !hasMatchingConstraint)
                 {
                     element.Measure(measureConstraint);
+                    _measureConstraints[element] = measureConstraint;
                     measuredElements++;
                 }
                 else
@@ -573,7 +584,15 @@ internal
                     headerWidth = Math.Max(headerWidth, groupHeader.HeaderCell.DesiredSize.Width);
                 }
 
+                if (measuredSlot >= 0 &&
+                    (!MathUtilities.AreClose(previousDesiredHeight, element.DesiredSize.Height) ||
+                     !hasMatchingConstraint))
+                {
+                    OwningGrid.UpdateScrollHeightEstimate(measuredSlot, element.DesiredSize.Height);
+                }
+
                 totalHeight += element.DesiredSize.Height;
+                measuredSlot = OwningGrid.GetNextVisibleSlot(measuredSlot);
             }
 
             DataGridDiagnostics.RecordRowsMeasured(measuredElements);

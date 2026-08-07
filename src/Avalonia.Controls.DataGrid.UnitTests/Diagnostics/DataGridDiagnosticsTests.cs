@@ -254,6 +254,27 @@ public class DataGridDiagnosticsTests
     }
 
     [AvaloniaFact]
+    public void RowsScrollInvalidatedMetricCountsDirectNotifications()
+    {
+        using var listener = new DiagnosticsListener();
+        var presenter = new Avalonia.Controls.Primitives.DataGridRowsPresenter();
+        int notifications = 0;
+        presenter.ScrollInvalidated += (_, _) => notifications++;
+        long before = GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.RowsScrollInvalidatedCountName);
+
+        presenter.RaiseScrollInvalidated(EventArgs.Empty);
+        presenter.RaiseScrollInvalidated(EventArgs.Empty);
+
+        long after = GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.RowsScrollInvalidatedCountName);
+        Assert.Equal(2, notifications);
+        Assert.True(after - before >= notifications);
+    }
+
+    [AvaloniaFact]
     public void CollectionView_Metrics_Report_Valid_Durations()
     {
         var items = CreateItems(200);
@@ -365,6 +386,13 @@ public class DataGridDiagnosticsTests
             $"Expected measurements for {instrumentName}.");
         Assert.All(values, value => Assert.True(value >= 0, $"Measurement for {instrumentName} should be non-negative."));
         Assert.Contains(values, value => value > 0);
+    }
+
+    private static long GetLongMeasurementTotal(DiagnosticsListener listener, string instrumentName)
+    {
+        return listener.LongMeasurements.TryGetValue(instrumentName, out var values)
+            ? values.Sum()
+            : 0;
     }
 
     private static void AssertTagBool(IReadOnlyDictionary<string, object?> tags, string key)

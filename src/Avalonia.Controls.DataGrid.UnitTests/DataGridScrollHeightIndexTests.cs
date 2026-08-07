@@ -70,6 +70,26 @@ public class DataGridScrollHeightIndexTests
         Assert.Equal(2, index.FindLastVisibleAtOrBefore(2));
     }
 
+    [Fact]
+    public void RebuildReusesBuffersWhenCapacityIsUnchanged()
+    {
+        const int count = 100_000;
+        var index = new DataGridScrollHeightIndex();
+        Func<int, double> getHeight = static slot => 20 + slot % 3;
+        Func<int, bool> isVisible = static _ => true;
+
+        index.Rebuild(count, getHeight, isVisible);
+        index.Rebuild(count, getHeight, isVisible);
+
+        long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        index.Rebuild(count, getHeight, isVisible);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+
+        Assert.InRange(allocated, 0, 4_096);
+        Assert.Equal(count, index.Count);
+        Assert.True(index.TotalHeight > 0);
+    }
+
     private static DataGridScrollHeightIndex CreateIndex(double[] heights)
     {
         var index = new DataGridScrollHeightIndex();

@@ -16,6 +16,9 @@ namespace Avalonia.Controls
     #endif
     partial class DataGrid
     {
+        private const int IndexedScrollMinimumSlotCount = 100_000;
+        private const int IndexedScrollMinimumEstimatedRows = 1_024;
+
         private bool CanUseEstimatedScrollFastPath()
         {
             return RowDetailsVisibilityMode != DataGridRowDetailsVisibilityMode.VisibleWhenSelected || RowDetailsTemplate == null;
@@ -28,7 +31,7 @@ namespace Avalonia.Controls
                 return false;
             }
 
-            double singleRowHeightEstimate = RowHeightEstimate + (RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible ? RowDetailsHeightEstimate : 0);
+            double singleRowHeightEstimate = GetCurrentSingleRowHeightEstimate();
             if (MathUtilities.LessThanOrClose(singleRowHeightEstimate, 0))
             {
                 singleRowHeightEstimate = Math.Max(RowHeightEstimate, 1);
@@ -49,6 +52,11 @@ namespace Avalonia.Controls
             targetSlot = -1;
 
             if (_rowsPresenter == null || !CanUseEstimatedScrollFastPath())
+            {
+                return false;
+            }
+
+            if (!ShouldBuildScrollHeightIndex(verticalOffset))
             {
                 return false;
             }
@@ -76,6 +84,34 @@ namespace Avalonia.Controls
             return true;
         }
 
+        private bool ShouldBuildScrollHeightIndex(double verticalOffset)
+        {
+            if (!_scrollHeightIndexDirty && _scrollHeightIndex.Count == SlotCount)
+            {
+                return true;
+            }
+
+            if (SlotCount < IndexedScrollMinimumSlotCount)
+            {
+                return true;
+            }
+
+            double singleRowHeightEstimate = GetCurrentSingleRowHeightEstimate();
+            singleRowHeightEstimate = Math.Max(singleRowHeightEstimate, 1);
+            double estimatedRows = Math.Abs(verticalOffset - _verticalOffset) / singleRowHeightEstimate;
+            return estimatedRows > IndexedScrollMinimumEstimatedRows;
+        }
+
+        private double GetCurrentSingleRowHeightEstimate()
+        {
+            var estimator = RowHeightEstimator;
+            double rowHeight = estimator?.RowHeightEstimate ?? RowHeightEstimate;
+            double detailsHeight = RowDetailsVisibilityMode == DataGridRowDetailsVisibilityMode.Visible
+                ? estimator?.RowDetailsHeightEstimate ?? RowDetailsHeightEstimate
+                : 0;
+            return rowHeight + detailsHeight;
+        }
+
         private bool CanRetainDisplayedRowsForScrollTarget(int targetSlot)
         {
             if (DisplayData.FirstScrollingSlot < 0 || DisplayData.LastScrollingSlot < 0)
@@ -85,7 +121,7 @@ namespace Avalonia.Controls
 
             int previousSlot = GetPreviousVisibleSlot(DisplayData.FirstScrollingSlot);
             int nextSlot = GetNextVisibleSlot(DisplayData.LastScrollingSlot);
-            return targetSlot >= previousSlot && targetSlot <= nextSlot;
+            return targetSlot >= previousSlot && (nextSlot < 0 || targetSlot <= nextSlot);
         }
 
         private void TrimDisplayedRowsBefore(int targetSlot)
@@ -338,7 +374,9 @@ namespace Avalonia.Controls
                     }
                 }
 
-                double firstRowHeight = GetScrollSlotHeight(newFirstScrollingSlot);
+                double firstRowHeight = GetScrollSlotHeight(
+                    newFirstScrollingSlot,
+                    allowIndexBuild: useIndexedScrollGeometry);
 
                 if (MathUtilities.LessThan(firstRowHeight, NegVerticalOffset))
                 {
