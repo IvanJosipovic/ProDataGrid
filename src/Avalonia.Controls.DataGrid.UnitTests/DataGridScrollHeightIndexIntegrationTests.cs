@@ -129,6 +129,7 @@ public sealed class DataGridScrollHeightIndexIntegrationTests
         var item = new ScrollTestItem("Item");
         var items = Enumerable.Repeat(item, 100_000).ToArray();
         var estimator = new CountingRowHeightEstimator();
+        using var lookupCounter = new ExactHeightLookupCounter();
         var root = CreateRoot();
         var grid = CreateGrid(items, estimator);
         root.Content = grid;
@@ -175,6 +176,47 @@ public sealed class DataGridScrollHeightIndexIntegrationTests
             Assert.InRange(estimator.EstimatedHeightCalls, 0, 128);
             Assert.True(grid.DisplayData.FirstScrollingSlot <= targetSlot);
             Assert.True(grid.DisplayData.LastScrollingSlot >= targetSlot);
+        }
+        finally
+        {
+            root.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DirectScrollIntoViewAlignsUnrealizedOversizedRowToTop()
+    {
+        const int targetSlot = 100;
+        var item = new ScrollTestItem("Item");
+        var items = Enumerable.Repeat(item, 100_000).ToArray();
+        var estimator = new CountingRowHeightEstimator();
+        var root = CreateRoot();
+        var grid = CreateGrid(items, estimator);
+        grid.LoadingRow += (_, args) =>
+            args.Row.Height = args.Row.Index == targetSlot ? 400 : 22;
+        root.Content = grid;
+
+        try
+        {
+            root.Show();
+            root.UpdateLayout();
+            Assert.True(grid.DisplayData.LastScrollingSlot < targetSlot);
+            estimator.ResetCount();
+            long exactLookupsBeforeScroll = lookupCounter.Lookups;
+
+            Assert.True(grid.ScrollSlotIntoView(targetSlot, scrolledHorizontally: false));
+            DataGridRow targetRow = grid.GetSelfAndVisualDescendants()
+                .OfType<DataGridRow>()
+                .Single(row => row.Index == targetSlot);
+            Assert.True(
+                grid.NegVerticalOffset == 0,
+                $"Expected top alignment, but offset was {grid.NegVerticalOffset}; " +
+                $"target height {targetRow.DesiredSize.Height}; viewport {grid.CellsEstimatedHeight}.");
+            Assert.Equal(1, lookupCounter.Lookups - exactLookupsBeforeScroll);
+            root.UpdateLayout();
+
+            Assert.Equal(targetSlot, grid.DisplayData.FirstScrollingSlot);
+            Assert.InRange(estimator.EstimatedHeightCalls, 0, 128);
         }
         finally
         {

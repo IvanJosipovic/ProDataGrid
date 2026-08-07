@@ -935,9 +935,10 @@ internal
                     }
                     deltaY += GetScrollHeightBetweenSlots(firstFullSlot, slot, allowIndexBuild);
                 }
-                if (MathUtilities.GreaterThanOrClose(
-                        GetScrollSlotHeight(slot, allowIndexBuild),
-                        CellsEstimatedHeight))
+                double targetRowHeight = allowIndexBuild
+                    ? GetScrollSlotHeight(slot)
+                    : GetExactSlotElementHeight(slot);
+                if (MathUtilities.GreaterThanOrClose(targetRowHeight, CellsEstimatedHeight))
                 {
                     // The entire row won't fit in the DataGrid so we start showing it from the top
                     NegVerticalOffset = 0;
