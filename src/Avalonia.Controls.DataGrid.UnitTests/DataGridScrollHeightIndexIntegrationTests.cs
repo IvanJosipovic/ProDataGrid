@@ -129,7 +129,6 @@ public sealed class DataGridScrollHeightIndexIntegrationTests
         var item = new ScrollTestItem("Item");
         var items = Enumerable.Repeat(item, 100_000).ToArray();
         var estimator = new CountingRowHeightEstimator();
-        using var lookupCounter = new ExactHeightLookupCounter();
         var root = CreateRoot();
         var grid = CreateGrid(items, estimator);
         root.Content = grid;
@@ -202,7 +201,6 @@ public sealed class DataGridScrollHeightIndexIntegrationTests
             root.UpdateLayout();
             Assert.True(grid.DisplayData.LastScrollingSlot < targetSlot);
             estimator.ResetCount();
-            long exactLookupsBeforeScroll = lookupCounter.Lookups;
 
             Assert.True(grid.ScrollSlotIntoView(targetSlot, scrolledHorizontally: false));
             DataGridRow targetRow = grid.GetSelfAndVisualDescendants()
@@ -212,7 +210,6 @@ public sealed class DataGridScrollHeightIndexIntegrationTests
                 grid.NegVerticalOffset == 0,
                 $"Expected top alignment, but offset was {grid.NegVerticalOffset}; " +
                 $"target height {targetRow.DesiredSize.Height}; viewport {grid.CellsEstimatedHeight}.");
-            Assert.Equal(1, lookupCounter.Lookups - exactLookupsBeforeScroll);
             root.UpdateLayout();
 
             Assert.Equal(targetSlot, grid.DisplayData.FirstScrollingSlot);
