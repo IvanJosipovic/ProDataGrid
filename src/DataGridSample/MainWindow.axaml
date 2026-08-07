@@ -506,19 +506,39 @@
       <pages:ColumnDefinitionsHierarchicalStreamingPage />
     </TabItem>
     <TabItem Header="Generated Columns - Attributes">
-      <pages:GeneratedColumnsAttributesPage />
+      <pages:GeneratedColumnsAttributesPage>
+        <pages:GeneratedColumnsAttributesPage.DataContext>
+          <viewModels:GeneratedColumnsAttributesViewModel />
+        </pages:GeneratedColumnsAttributesPage.DataContext>
+      </pages:GeneratedColumnsAttributesPage>
     </TabItem>
     <TabItem Header="Generated Columns - Assembly">
-      <pages:GeneratedColumnsAssemblyPage />
+      <pages:GeneratedColumnsAssemblyPage>
+        <pages:GeneratedColumnsAssemblyPage.DataContext>
+          <viewModels:GeneratedColumnsAssemblyViewModel />
+        </pages:GeneratedColumnsAssemblyPage.DataContext>
+      </pages:GeneratedColumnsAssemblyPage>
     </TabItem>
     <TabItem Header="Generated Columns - All Kinds">
-      <pages:GeneratedAllColumnKindsPage />
+      <pages:GeneratedAllColumnKindsPage>
+        <pages:GeneratedAllColumnKindsPage.DataContext>
+          <viewModels:GeneratedAllColumnKindsViewModel />
+        </pages:GeneratedAllColumnKindsPage.DataContext>
+      </pages:GeneratedAllColumnKindsPage>
     </TabItem>
     <TabItem Header="Generated Columns - Custom">
-      <pages:GeneratedColumnsCustomPage />
+      <pages:GeneratedColumnsCustomPage>
+        <pages:GeneratedColumnsCustomPage.DataContext>
+          <viewModels:GeneratedColumnsCustomViewModel />
+        </pages:GeneratedColumnsCustomPage.DataContext>
+      </pages:GeneratedColumnsCustomPage>
     </TabItem>
     <TabItem Header="Generated Columns - Reactive DynamicData">
-      <pages:GeneratedColumnsDynamicDataPage />
+      <pages:GeneratedColumnsDynamicDataPage>
+        <pages:GeneratedColumnsDynamicDataPage.DataContext>
+          <viewModels:GeneratedColumnsDynamicDataViewModel />
+        </pages:GeneratedColumnsDynamicDataPage.DataContext>
+      </pages:GeneratedColumnsDynamicDataPage>
     </TabItem>
     <TabItem Header="Generated C# View - Custom Base">
       <pages:GeneratedColumnsCodeView>

@@ -5,9 +5,6 @@
     xmlns:models="clr-namespace:DataGridSample.Models"
     xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
     x:DataType="viewModels:GeneratedAllColumnKindsViewModel">
-  <UserControl.DataContext>
-    <viewModels:GeneratedAllColumnKindsViewModel />
-  </UserControl.DataContext>
   <UserControl.Resources>
     <DataTemplate x:Key="GeneratedCellTemplate" x:DataType="models:GeneratedAllColumnKindsRow">
       <Border Padding="6,2" CornerRadius="8" Background="#220078D4">
