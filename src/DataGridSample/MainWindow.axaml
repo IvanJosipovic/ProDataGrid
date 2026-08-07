@@ -505,6 +505,35 @@
     <TabItem Header="Column Definitions - Hierarchical Streaming">
       <pages:ColumnDefinitionsHierarchicalStreamingPage />
     </TabItem>
+    <TabItem Header="Generated Columns - Attributes">
+      <pages:GeneratedColumnsAttributesPage />
+    </TabItem>
+    <TabItem Header="Generated Columns - Assembly">
+      <pages:GeneratedColumnsAssemblyPage />
+    </TabItem>
+    <TabItem Header="Generated Columns - All Kinds">
+      <pages:GeneratedAllColumnKindsPage />
+    </TabItem>
+    <TabItem Header="Generated Columns - Custom">
+      <pages:GeneratedColumnsCustomPage />
+    </TabItem>
+    <TabItem Header="Generated Columns - Reactive DynamicData">
+      <pages:GeneratedColumnsDynamicDataPage />
+    </TabItem>
+    <TabItem Header="Generated C# View - Custom Base">
+      <pages:GeneratedColumnsCodeView>
+        <pages:GeneratedColumnsCodeView.DataContext>
+          <viewModels:GeneratedColumnsAttributesViewModel />
+        </pages:GeneratedColumnsCodeView.DataContext>
+      </pages:GeneratedColumnsCodeView>
+    </TabItem>
+    <TabItem Header="Generated C# View - ReactiveUI">
+      <pages:GeneratedReactiveDataGridView>
+        <pages:GeneratedReactiveDataGridView.DataContext>
+          <viewModels:GeneratedColumnsDynamicDataViewModel />
+        </pages:GeneratedReactiveDataGridView.DataContext>
+      </pages:GeneratedReactiveDataGridView>
+    </TabItem>
     <TabItem Header="Column Banding">
       <pages:ColumnBandingPage />
     </TabItem>
