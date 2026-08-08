@@ -1253,6 +1253,53 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public void ExpandAll_RaisesNodeExpandedInPreorder_OnlyOnce()
+    {
+        var root = new Item("root");
+        var first = new Item("first");
+        var second = new Item("second");
+        first.Children.Add(new Item("first-child"));
+        second.Children.Add(new Item("second-child"));
+        root.Children.Add(first);
+        root.Children.Add(second);
+
+        var model = CreateModel();
+        model.SetRoot(root);
+        var expanded = new List<string>();
+        model.NodeExpanded += (_, e) => expanded.Add(((Item)e.Node.Item).Name);
+
+        model.ExpandAll();
+        model.ExpandAll();
+
+        Assert.Equal(
+            new[] { "root", "first", "first-child", "second", "second-child" },
+            expanded);
+        Assert.All(model.Flattened, node => Assert.True(node.IsExpanded));
+    }
+
+    [Fact]
+    public void ExpandAll_VirtualRoot_RaisesEventsForDisplayedNodesOnly()
+    {
+        var first = new Item("first");
+        var second = new Item("second");
+        first.Children.Add(new Item("first-child"));
+        second.Children.Add(new Item("second-child"));
+
+        var model = CreateModel();
+        model.SetRoots(new[] { first, second });
+        var expanded = new List<string>();
+        model.NodeExpanded += (_, e) => expanded.Add(((Item)e.Node.Item).Name);
+
+        model.ExpandAll();
+
+        Assert.Equal(
+            new[] { "first", "first-child", "second", "second-child" },
+            expanded);
+        Assert.True(model.Root!.IsExpanded);
+        Assert.Equal(4, model.Count);
+    }
+
+    [Fact]
     public void ExpandAll_WithDepthLimit_DoesNotExpandBeyondLimit()
     {
         var root = new Item("root");
