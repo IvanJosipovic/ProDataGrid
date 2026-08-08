@@ -34,6 +34,7 @@ public sealed partial class ProDataGridGenerator
     internal const string GenerateRegistryAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridRegistryAttribute";
     internal const string ViewRegistrationAttributeName = "ProDataGrid.SourceGeneration.DataGridViewRegistrationAttribute";
     internal const string GenerateIndexedColumnsAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridIndexedColumnsAttribute";
+    internal const string GenerateCellDrawCacheAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridCellDrawCacheAttribute";
 
     private static void RegisterAttributeSources(IncrementalGeneratorInitializationContext context)
     {
@@ -139,6 +140,14 @@ public sealed partial class ProDataGridGenerator
                 public string? GetterMethod { get; set; }
                 public string? SetterMethod { get; set; }
                 public string? NotificationNameMethod { get; set; }
+            }
+
+            [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+            internal sealed class GenerateDataGridCellDrawCacheAttribute : Attribute
+            {
+                public int InitialCapacity { get; set; }
+                public int MaximumCapacity { get; set; } = 256;
+                public bool GenerateSlotConstants { get; set; } = true;
             }
 
             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
@@ -332,6 +341,13 @@ public sealed partial class ProDataGridGenerator
                 public string? EditingTemplateFactoryMethod { get; set; }
                 public string? NewRowTemplateFactoryMethod { get; set; }
                 public bool ReuseCellContent { get; set; }
+                public Type? DrawOperationFactoryType { get; set; }
+                public string? DrawOperationFactoryMethod { get; set; }
+                public global::Avalonia.Controls.DataGridCustomDrawingMode DrawingMode { get; set; }
+                public global::Avalonia.Controls.DataGridCustomDrawingRenderBackend RenderBackend { get; set; }
+                public global::Avalonia.Controls.DataGridCustomDrawingTextLayoutCacheMode TextLayoutCacheMode { get; set; }
+                public int SharedTextLayoutCacheCapacity { get; set; }
+                public bool DrawOperationLayoutFastPath { get; set; }
                 public string? Formula { get; set; }
                 public string? FormulaName { get; set; }
                 public string? Mask { get; set; }

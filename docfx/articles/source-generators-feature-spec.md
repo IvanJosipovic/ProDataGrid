@@ -6,7 +6,7 @@ Target: reflection-free source generation for complex reactive, streaming, remot
 
 Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling templates, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling templates, custom-drawing factories/options and bounded per-item caches, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
 
 ## 1. Purpose
 
@@ -29,7 +29,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
 | F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. |
 | F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
-| F16 templates/drawing | Partial | Typed recycling cell/edit/new-row templates are available; row-details and custom-drawing cache generation remain. |
+| F16 templates/drawing | Partial | Typed recycling cell/edit/new-row templates, validated custom-drawing factories/options, invalidation-source-compatible wiring, and bounded generated item caches are available; row-details and nested-grid template generation remain. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
 | F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
 | F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, and `[DataGridViewRegistration]` mappings for existing XAML views are available; richer command/event bridges and loading/error/empty projections remain. |
@@ -789,6 +789,34 @@ Requirements:
 - Accessibility metadata for generated template roots.
 
 The generator must not serialize arbitrary control trees into attributes. Common generated-view recipes and user-authored resource templates are the supported composition mechanisms.
+
+Implemented custom-drawing API:
+
+```csharp
+[GenerateDataGridCellDrawCache(InitialCapacity = 4, MaximumCapacity = 4)]
+public sealed partial class QuoteRow : ReactiveObject
+{
+    [DataGridColumn(
+        DataGridColumnKind.CustomDrawing,
+        Order = 0,
+        DrawOperationFactoryMethod = nameof(CreatePriceFactory),
+        DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+        RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
+        TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
+        SharedTextLayoutCacheCapacity = 1024,
+        DrawOperationLayoutFastPath = true)]
+    public decimal Price { get; set; }
+
+    public static IDataGridCellDrawOperationFactory CreatePriceFactory() =>
+        new PriceDrawOperationFactory
+        {
+            UseItemCacheContract = true,
+            ItemCacheSlot = PriceCellDrawCacheSlot
+        };
+}
+```
+
+`DrawOperationFactoryType` supports accessible parameterless factories; `DrawOperationFactoryMethod` supports static parameterless factory methods and is the customization path for configured factories. The generator rejects conflicting or incompatible factories with `PDGSG122`. Generated cache storage implements `IDataGridCellDrawOperationItemCache`, assigns deterministic slots in column order, emits whole-cache and per-slot invalidation methods, uses array-backed O(1) lookup, and refuses slots beyond `MaximumCapacity`. The existing runtime subscription to `IDataGridCellDrawOperationInvalidationSource` remains active because generated definitions assign the factory through the normal `DrawOperationFactory` property.
 
 ### F17. Drag/drop and reorder adapters — P2
 

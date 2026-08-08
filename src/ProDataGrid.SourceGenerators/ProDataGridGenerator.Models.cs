@@ -276,6 +276,38 @@ internal sealed class IndexedColumnsGenerationResult
     public ImmutableArray<Diagnostic> Diagnostics { get; }
 }
 
+internal sealed class CellDrawCacheCandidate
+{
+    public INamedTypeSymbol TargetType { get; set; } = null!;
+    public AttributeData Attribute { get; set; } = null!;
+    public string CacheKey { get; set; } = string.Empty;
+}
+
+internal sealed class CellDrawCacheCandidateComparer : IEqualityComparer<CellDrawCacheCandidate>
+{
+    public static readonly CellDrawCacheCandidateComparer Instance = new();
+
+    public bool Equals(CellDrawCacheCandidate? x, CellDrawCacheCandidate? y) =>
+        ReferenceEquals(x, y) ||
+        (x != null && y != null && string.Equals(x.CacheKey, y.CacheKey, StringComparison.Ordinal));
+
+    public int GetHashCode(CellDrawCacheCandidate candidate) =>
+        StringComparer.Ordinal.GetHashCode(candidate.CacheKey);
+}
+
+internal sealed class CellDrawCacheGenerationResult
+{
+    public CellDrawCacheGenerationResult(GeneratedSource? source, ImmutableArray<Diagnostic> diagnostics)
+    {
+        Source = source;
+        Diagnostics = diagnostics;
+    }
+
+    public GeneratedSource? Source { get; }
+
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
+}
+
 internal sealed class KeyMemberModel
 {
     public ISymbol Member { get; set; } = null!;
@@ -341,6 +373,10 @@ internal sealed class ColumnModel
     public string? EditingTemplateFactoryMethod { get; set; }
 
     public string? NewRowTemplateFactoryMethod { get; set; }
+
+    public INamedTypeSymbol? DrawOperationFactoryType { get; set; }
+
+    public string? DrawOperationFactoryMethod { get; set; }
 
     public GroupModel? Group { get; set; }
 

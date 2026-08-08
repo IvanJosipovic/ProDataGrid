@@ -24,3 +24,4 @@ PDGSG109 | ProDataGrid.SourceGeneration | Error | Invalid generated hierarchy
 PDGSG117 | ProDataGrid.SourceGeneration | Error | Duplicate generated controller
 PDGSG118 | ProDataGrid.SourceGeneration | Error | Invalid generated state metadata
 PDGSG121 | ProDataGrid.SourceGeneration | Error | Invalid generated formula metadata
+PDGSG122 | ProDataGrid.SourceGeneration | Error | Invalid custom drawing factory

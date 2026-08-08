@@ -1769,6 +1769,24 @@ internal static class Emitter
             case "Template":
                 EmitOptionalString(builder, "CellEditingTemplateKey", GetStringOption(column.Options, "EditingTemplateKey"));
                 break;
+            case "CustomDrawing":
+                EmitEnumAssignment(builder, column.Options, "DrawingMode", "global::Avalonia.Controls.DataGridCustomDrawingMode");
+                EmitEnumAssignment(builder, column.Options, "RenderBackend", "global::Avalonia.Controls.DataGridCustomDrawingRenderBackend");
+                EmitEnumAssignment(builder, column.Options, "TextLayoutCacheMode", "global::Avalonia.Controls.DataGridCustomDrawingTextLayoutCacheMode");
+                EmitInt32Assignment(builder, column.Options, "SharedTextLayoutCacheCapacity");
+                EmitBooleanAssignment(builder, column.Options, "DrawOperationLayoutFastPath");
+                if (column.DrawOperationFactoryType != null)
+                {
+                    builder.Append("            column.DrawOperationFactory = new ")
+                        .Append(column.DrawOperationFactoryType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat))
+                        .AppendLine("();");
+                }
+                else if (!string.IsNullOrEmpty(column.DrawOperationFactoryMethod))
+                {
+                    builder.Append("            column.DrawOperationFactory = ").Append(itemType).Append('.')
+                        .Append(GeneratorUtilities.EscapeIdentifier(column.DrawOperationFactoryMethod!)).AppendLine("();");
+                }
+                break;
             case "Formula":
                 break;
             case "Button":
@@ -2678,6 +2696,28 @@ internal static class Emitter
         {
             builder.Append("            column.").Append(propertyName).Append(" = ")
                 .Append(boolean ? "true" : "false").AppendLine(";");
+        }
+    }
+
+    private static void EmitInt32Assignment(StringBuilder builder, ImmutableDictionary<string, TypedConstant> options, string propertyName)
+    {
+        if (options.TryGetValue(propertyName, out TypedConstant value) && value.Value is int number)
+        {
+            builder.Append("            column.").Append(propertyName).Append(" = ")
+                .Append(number.ToString(CultureInfo.InvariantCulture)).AppendLine(";");
+        }
+    }
+
+    private static void EmitEnumAssignment(
+        StringBuilder builder,
+        ImmutableDictionary<string, TypedConstant> options,
+        string propertyName,
+        string enumType)
+    {
+        if (options.TryGetValue(propertyName, out TypedConstant value) && value.Value is int number)
+        {
+            builder.Append("            column.").Append(propertyName).Append(" = (").Append(enumType).Append(')')
+                .Append(number.ToString(CultureInfo.InvariantCulture)).AppendLine(";");
         }
     }
 

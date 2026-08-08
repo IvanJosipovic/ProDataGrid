@@ -120,6 +120,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated formula metadata",
         "Formula field '{0}' contains invalid generated metadata: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidDrawOperationFactory = Create(
+        "PDGSG122",
+        "Invalid custom drawing factory",
+        "Custom drawing factory '{0}' for property '{1}' is invalid: {2}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

@@ -17,6 +17,25 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
     {
         RegisterAttributeSources(context);
 
+        IncrementalValuesProvider<CellDrawCacheCandidate> cellDrawCacheCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                GenerateCellDrawCacheAttributeName,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateCellDrawCacheCandidate(attributeContext))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(CellDrawCacheCandidateComparer.Instance)
+            .WithTrackingName("CellDrawCacheCandidates");
+        IncrementalValuesProvider<CellDrawCacheGenerationResult> cellDrawCacheResults = cellDrawCacheCandidates
+            .Select(static (candidate, cancellationToken) => Discovery.BuildCellDrawCache(candidate, cancellationToken))
+            .WithTrackingName("CellDrawCacheGeneration");
+        context.RegisterSourceOutput(
+            cellDrawCacheResults.SelectMany(static (result, _) => result.Diagnostics),
+            static (productionContext, diagnostic) => productionContext.ReportDiagnostic(diagnostic));
+        context.RegisterSourceOutput(
+            cellDrawCacheResults.Where(static result => result.Source != null).Select(static (result, _) => result.Source!.Value),
+            static (productionContext, source) => productionContext.AddSource(source.HintName, source.Source));
+
         IncrementalValuesProvider<IndexedColumnsCandidate> indexedCandidates = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 GenerateIndexedColumnsAttributeName,

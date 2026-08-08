@@ -1518,6 +1518,14 @@ internal static partial class Discovery
             string? templateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "TemplateFactoryMethod", diagnostics);
             string? editingTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "EditingTemplateFactoryMethod", diagnostics);
             string? newRowTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "NewRowTemplateFactoryMethod", diagnostics);
+            ValidateDrawOperationFactory(
+                schema.ItemType,
+                property,
+                kind,
+                options,
+                diagnostics,
+                out INamedTypeSymbol? drawOperationFactoryType,
+                out string? drawOperationFactoryMethod);
             string? headerProviderMethod = ValidateLocalizationMethod(
                 schema.ItemType, property, options, "HeaderProviderMethod", diagnostics, out bool headerProviderAcceptsFormatProvider);
             string? descriptionProviderMethod = ValidateLocalizationMethod(
@@ -1579,6 +1587,8 @@ internal static partial class Discovery
                 TemplateFactoryMethod = templateFactoryMethod,
                 EditingTemplateFactoryMethod = editingTemplateFactoryMethod,
                 NewRowTemplateFactoryMethod = newRowTemplateFactoryMethod,
+                DrawOperationFactoryType = drawOperationFactoryType,
+                DrawOperationFactoryMethod = drawOperationFactoryMethod,
                 Group = group,
                 Summaries = summaries,
                 ConditionalRules = conditionalRules,
@@ -2550,6 +2560,88 @@ internal static partial class Discovery
             name,
             itemType.ToDisplayString()));
         return null;
+    }
+
+    private static void ValidateDrawOperationFactory(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        string kind,
+        Dictionary<string, TypedConstant> options,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        out INamedTypeSymbol? factoryType,
+        out string? factoryMethod)
+    {
+        factoryType = GeneratorUtilities.GetType(options, "DrawOperationFactoryType");
+        factoryMethod = GeneratorUtilities.GetString(options, "DrawOperationFactoryMethod");
+        if (factoryType == null && string.IsNullOrWhiteSpace(factoryMethod))
+        {
+            factoryMethod = null;
+            return;
+        }
+
+        Location location = GeneratorUtilities.GetLocation(property);
+        if (!string.Equals(kind, "CustomDrawing", StringComparison.Ordinal))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidDrawOperationFactory,
+                location,
+                factoryType?.ToDisplayString() ?? factoryMethod ?? string.Empty,
+                property.Name,
+                "factory options are only valid for CustomDrawing columns"));
+            factoryType = null;
+            factoryMethod = null;
+            return;
+        }
+
+        if (factoryType != null && !string.IsNullOrWhiteSpace(factoryMethod))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidDrawOperationFactory,
+                location,
+                factoryType.ToDisplayString() + " / " + factoryMethod,
+                property.Name,
+                "specify either DrawOperationFactoryType or DrawOperationFactoryMethod, not both"));
+            factoryType = null;
+            factoryMethod = null;
+            return;
+        }
+
+        if (factoryType != null)
+        {
+            bool validType = !factoryType.IsAbstract &&
+                GeneratorUtilities.IsAccessibleFromGeneratedCode(factoryType) &&
+                ImplementsMetadataName(factoryType, "Avalonia.Controls.IDataGridCellDrawOperationFactory") &&
+                factoryType.InstanceConstructors.Any(static constructor =>
+                    constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+            if (!validType)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidDrawOperationFactory,
+                    location,
+                    factoryType.ToDisplayString(),
+                    property.Name,
+                    "the type must be accessible, non-abstract, implement IDataGridCellDrawOperationFactory, and expose an accessible parameterless constructor"));
+                factoryType = null;
+            }
+            return;
+        }
+
+        IMethodSymbol? method = itemType.GetMembers(factoryMethod!).OfType<IMethodSymbol>().FirstOrDefault(static methodCandidate =>
+            methodCandidate.IsStatic &&
+            methodCandidate.TypeParameters.Length == 0 &&
+            methodCandidate.Parameters.Length == 0 &&
+            GeneratorUtilities.IsAccessibleFromGeneratedCode(methodCandidate) &&
+            ImplementsMetadataName(methodCandidate.ReturnType, "Avalonia.Controls.IDataGridCellDrawOperationFactory"));
+        if (method == null)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidDrawOperationFactory,
+                location,
+                factoryMethod ?? string.Empty,
+                property.Name,
+                "the method must be accessible, static, parameterless, and return IDataGridCellDrawOperationFactory"));
+            factoryMethod = null;
+        }
     }
 
     private static bool IsMetadataType(ITypeSymbol type, string metadataName) =>

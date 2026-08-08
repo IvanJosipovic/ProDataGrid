@@ -272,6 +272,35 @@ The generated metadata exposes `ResolveHeader` and `ResolveDescription`; generat
 
 Typed template columns may name static `(TItem, Control?) -> Control` factories for display, edit, and new-row cells. The generator validates every signature and creates recycling templates without runtime XAML loading or reflection.
 
+Custom-drawing columns can create a validated factory by accessible parameterless type or static method and configure the hot-path options directly:
+
+```csharp
+[GenerateDataGridCellDrawCache(InitialCapacity = 4, MaximumCapacity = 16)]
+public sealed partial class Quote
+{
+    [DataGridColumn(
+        DataGridColumnKind.CustomDrawing,
+        DrawOperationFactoryMethod = nameof(CreatePriceFactory),
+        DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+        RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
+        TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
+        SharedTextLayoutCacheCapacity = 1024,
+        DrawOperationLayoutFastPath = true)]
+    public decimal Price { get; set; }
+
+    public static IDataGridCellDrawOperationFactory CreatePriceFactory() =>
+        new PriceDrawOperationFactory
+        {
+            UseItemCacheContract = true,
+            ItemCacheSlot = PriceCellDrawCacheSlot
+        };
+}
+```
+
+`DrawOperationFactoryType` is useful for a stateless factory with a public parameterless constructor. `DrawOperationFactoryMethod` supports configured instances and must be static, parameterless, accessible, and return `IDataGridCellDrawOperationFactory`. Assigning the factory through the generated definition preserves automatic `IDataGridCellDrawOperationInvalidationSource` subscription.
+
+`GenerateDataGridCellDrawCache` is an independent incremental pipeline for partial row classes. It emits `IDataGridCellDrawOperationItemCache`, deterministic `{Property}CellDrawCacheSlot` constants for attributed custom-drawing columns, array-backed O(1) storage, and whole-cache/per-slot clear methods. `InitialCapacity` avoids first-use growth; `MaximumCapacity` bounds retained entries and rejects out-of-range slots without allocation. Set `GenerateSlotConstants = false` when slot ownership is entirely external.
+
 ## DynamicData, async streams, and snapshot reconciliation
 
 The low-level schema compilers remain available for custom pipelines, but named controllers generate the standard `SourceList<T>` and `SourceCache<T,TKey>` pipeline, descriptor subjects, operation propagation, final scheduler boundary, errors, completion, and disposal automatically. `SourceCache` generation requires its key type to match `[DataGridKey]` or `KeyMember`, and generated external pipelines reject view-owned operation execution at compile time.
@@ -326,6 +355,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG117` | A named controller collides with another generated controller. |
 | `PDGSG118` | Persisted schema/state metadata is invalid. |
 | `PDGSG121` | Formula names or stable-key dependencies are invalid. |
+| `PDGSG122` | A custom-drawing factory type/method is conflicting or incompatible. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable.
 

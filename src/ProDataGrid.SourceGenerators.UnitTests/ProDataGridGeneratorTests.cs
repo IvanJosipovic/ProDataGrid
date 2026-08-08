@@ -1288,6 +1288,216 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Custom_drawing_factory_type_and_fast_options_are_generated()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            using Avalonia.Controls;
+            using Avalonia.Rendering.SceneGraph;
+            namespace Demo;
+
+            public sealed class DrawFactory : IDataGridCellDrawOperationFactory
+            {
+                public ICustomDrawOperation CreateDrawOperation(DataGridCellDrawOperationContext context) => null!;
+            }
+
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(
+                    DataGridColumnKind.CustomDrawing,
+                    DrawOperationFactoryType = typeof(DrawFactory),
+                    DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+                    RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
+                    TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
+                    SharedTextLayoutCacheCapacity = 2048,
+                    DrawOperationLayoutFastPath = true)]
+                public string Name { get; set; } = "";
+            }
+            """);
+
+        Assert.Empty(result.GeneratorDiagnostics);
+        Assert.Contains("column.DrawOperationFactory = new global::Demo.DrawFactory();", result.CombinedSource);
+        Assert.Contains("column.DrawingMode = (global::Avalonia.Controls.DataGridCustomDrawingMode)1;", result.CombinedSource);
+        Assert.Contains("column.RenderBackend = (global::Avalonia.Controls.DataGridCustomDrawingRenderBackend)1;", result.CombinedSource);
+        Assert.Contains("column.TextLayoutCacheMode = (global::Avalonia.Controls.DataGridCustomDrawingTextLayoutCacheMode)1;", result.CombinedSource);
+        Assert.Contains("column.SharedTextLayoutCacheCapacity = 2048;", result.CombinedSource);
+        Assert.Contains("column.DrawOperationLayoutFastPath = true;", result.CombinedSource);
+        Assert.Empty(result.Errors);
+    }
+
+    [Fact]
+    public void Custom_drawing_factory_method_is_generated_and_validated()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            using Avalonia.Controls;
+            using Avalonia.Rendering.SceneGraph;
+            namespace Demo;
+
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(DataGridColumnKind.CustomDrawing, DrawOperationFactoryMethod = nameof(CreateFactory))]
+                public string Name { get; set; } = "";
+
+                public static IDataGridCellDrawOperationFactory CreateFactory() => new DrawFactory();
+            }
+
+            public sealed class DrawFactory : IDataGridCellDrawOperationFactory
+            {
+                public ICustomDrawOperation CreateDrawOperation(DataGridCellDrawOperationContext context) => null!;
+            }
+            """);
+
+        Assert.Empty(result.GeneratorDiagnostics);
+        Assert.Contains("column.DrawOperationFactory = global::Demo.Row.CreateFactory();", result.CombinedSource);
+        Assert.Empty(result.Errors);
+    }
+
+    [Fact]
+    public void Conflicting_custom_drawing_factories_report_diagnostic()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            using Avalonia.Controls;
+            using Avalonia.Rendering.SceneGraph;
+            namespace Demo;
+
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(
+                    DataGridColumnKind.CustomDrawing,
+                    DrawOperationFactoryType = typeof(DrawFactory),
+                    DrawOperationFactoryMethod = nameof(CreateFactory))]
+                public string Name { get; set; } = "";
+
+                public static IDataGridCellDrawOperationFactory CreateFactory() => new DrawFactory();
+            }
+
+            public sealed class DrawFactory : IDataGridCellDrawOperationFactory
+            {
+                public ICustomDrawOperation CreateDrawOperation(DataGridCellDrawOperationContext context) => null!;
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG122");
+        Assert.DoesNotContain("column.DrawOperationFactory =", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Cell_draw_cache_generates_contract_storage_and_stable_slots()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            using Avalonia.Controls;
+            namespace Demo;
+
+            [GenerateDataGridColumns]
+            [GenerateDataGridCellDrawCache(InitialCapacity = 8, MaximumCapacity = 16)]
+            public sealed partial class Row
+            {
+                [DataGridColumn(DataGridColumnKind.CustomDrawing, Order = 20)]
+                public string Notes { get; set; } = "";
+
+                [DataGridColumn(DataGridColumnKind.CustomDrawing, Order = 10)]
+                public string Title { get; set; } = "";
+
+                [DataGridColumn]
+                public int Id { get; set; }
+
+                public static bool VerifyGeneratedContract()
+                {
+                    var row = new Row();
+                    IDataGridCellDrawOperationItemCache cache = row;
+                    cache.SetCellDrawCacheEntry(TitleCellDrawCacheSlot, 42, "cached");
+                    return cache.TryGetCellDrawCacheEntry(TitleCellDrawCacheSlot, 42, out object value) &&
+                        (string)value == "cached";
+                }
+            }
+            """);
+
+        Assert.Empty(result.GeneratorDiagnostics);
+        Assert.Contains("partial class Row : global::Avalonia.Controls.IDataGridCellDrawOperationItemCache", result.CombinedSource);
+        Assert.Contains("public const int TitleCellDrawCacheSlot = 0;", result.CombinedSource);
+        Assert.Contains("public const int NotesCellDrawCacheSlot = 1;", result.CombinedSource);
+        Assert.Contains("Math.Max(cacheSlot + 1, 8)", result.CombinedSource);
+        Assert.Contains("if ((uint)cacheSlot >= 16u)", result.CombinedSource);
+        Assert.Contains("Math.Min(16, global::System.Math.Max", result.CombinedSource);
+        Assert.Contains("public void ClearGeneratedCellDrawCache(int cacheSlot)", result.CombinedSource);
+        Assert.Empty(result.Errors);
+    }
+
+    [Fact]
+    public void Cell_draw_cache_requires_partial_class()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridCellDrawCache]
+            public sealed class Row
+            {
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG001");
+        Assert.DoesNotContain("IDataGridCellDrawOperationItemCache", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Cell_draw_cache_rejects_capacity_smaller_than_generated_slots()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridCellDrawCache(MaximumCapacity = 1)]
+            public sealed partial class Row
+            {
+                [DataGridColumn(DataGridColumnKind.CustomDrawing)] public string First { get; set; } = "";
+                [DataGridColumn(DataGridColumnKind.CustomDrawing)] public string Second { get; set; } = "";
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG118");
+        Assert.DoesNotContain("partial class Row : global::Avalonia.Controls.IDataGridCellDrawOperationItemCache", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Unrelated_type_edit_does_not_invalidate_cell_draw_cache_generation()
+    {
+        const string cacheSource = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridCellDrawCache]
+            public sealed partial class Row
+            {
+                [DataGridColumn(DataGridColumnKind.CustomDrawing)] public string Value { get; set; } = "";
+            }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { public int Value { get; set; } }
+            """;
+        const string unrelatedAfter = """
+            namespace Demo;
+            public sealed class Unrelated { public string Value { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { cacheSource, unrelatedBefore },
+            new[] { cacheSource, unrelatedAfter },
+            "CellDrawCacheGeneration");
+
+        Assert.DoesNotContain(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(IncrementalStepRunReason.New, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
     public void Analytics_attributes_generate_typed_pivot_chart_outline_and_formula_roles()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
