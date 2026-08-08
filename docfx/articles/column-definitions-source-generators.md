@@ -227,6 +227,8 @@ Use `[assembly: GenerateDataGridColumnsForNamespace("MyApp.Models")]` to cover e
 
 Assembly and namespace requests are merged deterministically with type and property configuration. Provider-name collisions receive stable suffixes.
 
+Namespace requests establish defaults. Later assembly/type requests for a matched item, and type-level ViewModel or view requests for a matched ViewModel, replace the settings they explicitly own. `DataGridSample.Pages.GeneratedAssemblyNamespacePolicyPage` demonstrates the complete precedence chain: a non-recursive model namespace policy emits a strict streaming schema; ViewModel and ReactiveUI view namespace policies emit augmentation and a grid-only view; a second item and ViewModel use explicit attributes to select attributed-only discovery, a custom provider namespace/schema ID, permissive fast-path settings, and the spreadsheet recipe. An intentionally nested item remains absent from the generated registry.
+
 Add `[assembly: GenerateDataGridRegistry]` when another assembly needs reflection-free schema discovery. The generated `ProDataGrid.Generated.GeneratedProDataGridRegistration` exposes all manifest providers and `TryGetSchema` overloads for item `Type` and stable schema ID. `RegistryNamespace` and `RegistryName` are configurable. When `Microsoft.Extensions.DependencyInjection` is referenced, the registry also emits `AddGeneratedProDataGrids(IServiceCollection)`; Microsoft DI remains optional.
 
 Existing XAML views can participate in the same reflection-free registry:
@@ -241,6 +243,8 @@ if (GeneratedProDataGridRegistration.TryCreateView(viewModel, out Control? view)
 ```
 
 The generator validates that each registered view derives from `Control`, has an accessible parameterless constructor, and that each ViewModel has at most one mapping. The generated type switch constructs the view and assigns its `DataContext`; it does not use naming conventions, `Type.GetType`, or `Activator.CreateInstance`.
+
+The assembly/namespace-policy sample also registers its existing XAML shell. Its public sample facade forwards type lookup, schema-ID lookup, and view construction to the generated internal registry so another assembly can validate the registration without widening generator-owned implementation details.
 
 ## Runtime indexed columns and formulas
 

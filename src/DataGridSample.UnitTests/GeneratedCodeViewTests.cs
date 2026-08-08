@@ -19,8 +19,10 @@ using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
+using DataGridSample.Generated;
 using DataGridSample.Models;
 using DataGridSample.Pages;
+using DataGridSample.SourceGenerationPolicy.Views;
 using DataGridSample.ViewModels;
 using ProCharts.Avalonia;
 using ReactiveUI.Avalonia;
@@ -1160,6 +1162,62 @@ public sealed class GeneratedCodeViewTests
                 Assert.NotNull(frame);
                 Directory.CreateDirectory(screenshotDirectory);
                 string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-custom-implementations.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_assembly_namespace_policy_page_renders_policy_and_explicit_override_views()
+    {
+        var viewModel = new GeneratedAssemblyNamespacePolicyPageViewModel();
+        Assert.True(GeneratedSampleRegistryFacade.TryCreateView(viewModel, out Control? registeredView));
+        GeneratedAssemblyNamespacePolicyPage view = Assert.IsType<GeneratedAssemblyNamespacePolicyPage>(registeredView);
+        Assert.Same(viewModel, view.DataContext);
+        var window = new Window { Width = 1180, Height = 720, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            NamespacePolicyRowsView namespaceView = Assert.Single(
+                view.GetVisualDescendants().OfType<NamespacePolicyRowsView>());
+            ExplicitPolicyRowsView explicitView = Assert.Single(
+                view.GetVisualDescendants().OfType<ExplicitPolicyRowsView>());
+            Assert.Same(viewModel.NamespacePolicy, namespaceView.DataContext);
+            Assert.Same(viewModel.ExplicitPolicy, explicitView.DataContext);
+
+            DataGrid namespaceGrid = Assert.Single(namespaceView.GetVisualDescendants().OfType<DataGrid>());
+            DataGrid explicitGrid = Assert.Single(explicitView.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal(4, namespaceGrid.Columns.Count);
+            Assert.Equal(3, explicitGrid.Columns.Count);
+            Assert.True(namespaceGrid.FastPathOptions.StrictMode);
+            Assert.False(explicitGrid.FastPathOptions.StrictMode);
+            Assert.True(namespaceGrid.IsReadOnly);
+            Assert.False(explicitGrid.IsReadOnly);
+            Assert.Equal(26d, namespaceGrid.RowHeight);
+            Assert.Equal(24d, explicitGrid.RowHeight);
+            Assert.Equal("NamespacePolicyRowsView", AutomationProperties.GetAutomationId(namespaceGrid));
+            Assert.Equal("generated-explicit-policy-rows", AutomationProperties.GetAutomationId(explicitGrid));
+
+            Assert.Contains("registered", viewModel.NamespaceRegistryStatus, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("registered", viewModel.ExplicitRegistryStatus, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("exclusion is active", viewModel.ExclusionStatus, StringComparison.OrdinalIgnoreCase);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-assembly-namespace-policy.png"));
                 using FileStream stream = File.Create(path);
                 frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 Assert.True(new FileInfo(path).Length > 0);

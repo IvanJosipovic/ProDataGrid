@@ -10,8 +10,12 @@ using Avalonia.Controls.DataGridConditionalFormatting;
 using Avalonia.Controls.DataGridPivoting;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using DataGridSample.Generated;
 using DataGridSample.Models;
+using DataGridSample.Models.SourceGenerationPolicy;
 using DataGridSample.Pages;
+using DataGridSample.SourceGenerationPolicy.ViewModels;
+using DataGridSample.SourceGenerationPolicy.Views;
 using DataGridSample.ViewModels;
 using ProCharts;
 using ProDataGrid.Charting;
@@ -41,6 +45,41 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(4, assemblyViewModel.ColumnDefinitions.Count);
         Assert.Equal(3, customViewModel.ColumnDefinitions.Count);
         Assert.Equal("custom-label", customViewModel.ColumnDefinitions[1].ColumnKey);
+    }
+
+    [Fact]
+    public void Assembly_namespace_policy_applies_defaults_explicit_overrides_exclusions_and_registry_mappings()
+    {
+        var viewModel = new GeneratedAssemblyNamespacePolicyPageViewModel();
+
+        Assert.Equal(4, viewModel.NamespacePolicy.ColumnDefinitions.Count);
+        Assert.True(viewModel.NamespacePolicy.FastPathOptions.StrictMode);
+        Assert.False(viewModel.NamespacePolicy.FastPathOptions.HighPerformanceSearchTrackItemChanges);
+        Assert.Equal(
+            DataGridGeneratedPerformanceProfile.HighFrequencyStreaming,
+            NamespacePolicyRowDataGridSchema.CreatePerformanceOptions().Profile);
+
+        Assert.Equal(3, viewModel.ExplicitPolicy.ColumnDefinitions.Count);
+        Assert.False(viewModel.ExplicitPolicy.FastPathOptions.StrictMode);
+        Assert.True(viewModel.ExplicitPolicy.FastPathOptions.HighPerformanceSearchTrackItemChanges);
+        Assert.Equal(2, ExplicitPolicyRowSchema.StateVersion);
+        Assert.Equal("sample/explicit-policy-row/v2", ExplicitPolicyRowSchema.SchemaId);
+        Assert.Equal(
+            DataGridGeneratedPerformanceProfile.Spreadsheet,
+            ExplicitPolicyRowSchema.CreatePerformanceOptions().Profile);
+        Assert.DoesNotContain(
+            viewModel.ExplicitPolicy.ColumnDefinitions,
+            static column => Equals(column.ColumnKey, nameof(ExplicitPolicyRow.ExcludedByAttributedOnlyDiscovery)));
+
+        Assert.NotNull(viewModel.NamespaceRegistrySchema);
+        Assert.Equal(NamespacePolicyRowDataGridSchema.SchemaId, viewModel.NamespaceRegistrySchema.Manifest.SchemaId);
+        Assert.Same(ExplicitPolicyRowSchema.Instance, viewModel.ExplicitRegistrySchema);
+        Assert.True(viewModel.IsNestedNamespaceExcluded);
+
+        Assert.Equal(0, NamespacePolicyRowsView.GeneratedRecipe);
+        Assert.Equal(DataGridGeneratedPerformanceProfile.HighFrequencyStreaming, NamespacePolicyRowsView.GeneratedPerformanceProfile);
+        Assert.Equal(4, ExplicitPolicyRowsView.GeneratedRecipe);
+        Assert.Equal(DataGridGeneratedPerformanceProfile.Spreadsheet, ExplicitPolicyRowsView.GeneratedPerformanceProfile);
     }
 
     [AvaloniaFact]

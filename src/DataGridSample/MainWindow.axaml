@@ -670,6 +670,13 @@
         </pages:GeneratedCustomImplementationsPage.DataContext>
       </pages:GeneratedCustomImplementationsPage>
     </TabItem>
+    <TabItem Header="Generated Assembly Namespace Policy">
+      <pages:GeneratedAssemblyNamespacePolicyPage>
+        <pages:GeneratedAssemblyNamespacePolicyPage.DataContext>
+          <viewModels:GeneratedAssemblyNamespacePolicyPageViewModel />
+        </pages:GeneratedAssemblyNamespacePolicyPage.DataContext>
+      </pages:GeneratedAssemblyNamespacePolicyPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

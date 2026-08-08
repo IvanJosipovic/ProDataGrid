@@ -3897,6 +3897,124 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("GeneratedToolbarSlot", result.CombinedSource);
     }
 
+    [Fact]
+    public void Assembly_namespace_policies_apply_defaults_and_explicit_type_overrides_deterministically()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridRegistry(RegistryNamespace = "Demo.Generated", RegistryName = "PolicyRegistry")]
+            [assembly: GenerateDataGridColumnsForNamespace(
+                "Demo.Models",
+                IncludeNestedNamespaces = false,
+                Strict = true,
+                Streaming = true,
+                PerformanceProfile = DataGridGeneratedPerformanceProfile.HighFrequencyStreaming)]
+            [assembly: GenerateDataGridViewModelsForNamespace(
+                "Demo.Policy.ViewModels",
+                IncludeNestedNamespaces = false,
+                Strict = true,
+                Streaming = true)]
+            [assembly: GenerateDataGridViewsForNamespace(
+                "Demo.Policy.ViewModels",
+                IncludeNestedNamespaces = false,
+                Framework = DataGridViewFramework.ReactiveUI,
+                Recipe = DataGridViewRecipe.GridOnly,
+                IsReadOnly = true,
+                PerformanceProfile = DataGridGeneratedPerformanceProfile.HighFrequencyStreaming)]
+            [assembly: DataGridViewRegistration(typeof(Demo.RootViewModel), typeof(Demo.RootView))]
+
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo.Models
+            {
+                public sealed class NamespaceRow
+                {
+                    public int Id { get; set; }
+                    public string Symbol { get; set; } = "";
+                }
+
+                [GenerateDataGridColumns(
+                    ProviderName = "ExplicitRowSchema",
+                    ProviderNamespace = "Demo.Generated",
+                    SchemaId = "demo/explicit/v2",
+                    StateVersion = 2,
+                    Discovery = DataGridColumnDiscovery.AttributedOnly,
+                    Strict = false,
+                    Streaming = false,
+                    PerformanceProfile = DataGridGeneratedPerformanceProfile.Spreadsheet)]
+                public sealed class ExplicitRow
+                {
+                    [DataGridColumn(ColumnKey = "name")]
+                    public string Name { get; set; } = "";
+                    public string ExcludedByAttributedOnly { get; set; } = "";
+                }
+            }
+            namespace Demo.Models.Nested
+            {
+                public sealed class ExcludedRow { public int Id { get; set; } }
+            }
+            namespace Demo.Policy.ViewModels
+            {
+                public sealed partial class NamespaceRowsViewModel
+                {
+                    public IReadOnlyList<global::Demo.Models.NamespaceRow> Items { get; } = Array.Empty<global::Demo.Models.NamespaceRow>();
+                }
+
+                [GenerateDataGridViewModel(typeof(global::Demo.Models.ExplicitRow), Strict = false, Streaming = false)]
+                [GenerateDataGridView(
+                    typeof(global::Demo.Models.ExplicitRow),
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    Recipe = DataGridViewRecipe.Spreadsheet,
+                    IsReadOnly = false,
+                    PerformanceProfile = DataGridGeneratedPerformanceProfile.Spreadsheet)]
+                public sealed partial class ExplicitRowsViewModel
+                {
+                    public IReadOnlyList<global::Demo.Models.ExplicitRow> Items { get; } = Array.Empty<global::Demo.Models.ExplicitRow>();
+                }
+            }
+            namespace Demo
+            {
+                public sealed class RootViewModel { }
+                public sealed class RootView : global::Avalonia.Controls.UserControl { }
+            }
+            """);
+
+        AssertNoErrors(result);
+        string namespaceSchema = Assert.Single(
+            result.Sources,
+            static source => source.Contains("class NamespaceRowDataGridSchema", StringComparison.Ordinal));
+        Assert.Contains("UseAccessorsOnly = true", namespaceSchema);
+        Assert.Contains("HighPerformanceSearchTrackItemChanges = false", namespaceSchema);
+
+        string explicitSchema = Assert.Single(
+            result.Sources,
+            static source => source.Contains("class ExplicitRowSchema", StringComparison.Ordinal));
+        Assert.Contains("public const string SchemaId = \"demo/explicit/v2\"", explicitSchema);
+        Assert.Contains("public const int StateVersion = 2", explicitSchema);
+        Assert.Contains("UseAccessorsOnly = false", explicitSchema);
+        Assert.Contains("HighPerformanceSearchTrackItemChanges = true", explicitSchema);
+        Assert.DoesNotContain("ExcludedByAttributedOnly", explicitSchema);
+
+        Assert.DoesNotContain("class ExcludedRowDataGridSchema", result.CombinedSource);
+        Assert.Contains("class NamespaceRowsView :", result.CombinedSource);
+        Assert.Contains("class ExplicitRowsView :", result.CombinedSource);
+        Assert.Contains("public const int GeneratedRecipe = 0", result.CombinedSource);
+        Assert.Contains("public const int GeneratedRecipe = 4", result.CombinedSource);
+        Assert.Contains("itemType == typeof(global::Demo.Models.NamespaceRow)", result.CombinedSource);
+        Assert.Contains("itemType == typeof(global::Demo.Models.ExplicitRow)", result.CombinedSource);
+        Assert.DoesNotContain("itemType == typeof(global::Demo.Models.Nested.ExcludedRow)", result.CombinedSource);
+        Assert.Contains("new global::Demo.RootView { DataContext = typedViewModel0 }", result.CombinedSource);
+    }
+
     private static void AssertNoErrors(GeneratorTestResult result)
     {
         Assert.True(
