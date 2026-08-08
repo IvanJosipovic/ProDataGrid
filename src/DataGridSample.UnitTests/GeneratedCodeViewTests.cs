@@ -857,6 +857,72 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_indexed_spreadsheet_page_binds_formulas_and_replaces_runtime_columns()
+    {
+        using var viewModel = new GeneratedIndexedSpreadsheetViewModel();
+        var view = new GeneratedIndexedSpreadsheetPage { DataContext = viewModel };
+        var window = new Window { Width = 1280, Height = 780, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Same(viewModel.ColumnDefinitions, grid.ColumnDefinitionsSource);
+            Assert.Same(viewModel.FormulaModel, grid.FormulaModel);
+            Assert.Same(viewModel.FastPathOptions, grid.FastPathOptions);
+            Assert.True(grid.FastPathOptions.StrictMode);
+            Assert.Equal(10, grid.Columns.Count);
+            Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+            Assert.Equal(DataGridSelectionUnit.CellOrRowHeader, grid.SelectionUnit);
+
+            viewModel.FormulaModel.Recalculate();
+            Dispatcher.UIThread.RunJobs();
+            GeneratedSpreadsheetRow first = viewModel.Items[0];
+            double expectedTotal = (double)first.GetCell(1)! * (double)first.GetCell(2)! *
+                (1d - (double)first.GetCell(3)!);
+            object? evaluatedTotal = viewModel.EvaluateFormula(0, 4);
+            Assert.True(evaluatedTotal is double, $"Expected E1 to be numeric, but it was '{evaluatedTotal ?? "<null>"}'.");
+            Assert.Equal(expectedTotal, (double)evaluatedTotal, precision: 8);
+            Assert.Equal(expectedTotal / 5d, Assert.IsType<double>(viewModel.EvaluateFormula(0, 6)), precision: 8);
+            Assert.Equal(expectedTotal + (double)first.GetCell(8)!, Assert.IsType<double>(viewModel.EvaluateFormula(0, 9)), precision: 8);
+
+            viewModel.ApplyCellFormulaCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            object? evaluatedOverride = viewModel.EvaluateFormula(0, 7);
+            Assert.True(evaluatedOverride is double, $"Expected H1 to be numeric, but it was '{evaluatedOverride ?? "<null>"}'.");
+            Assert.Equal(150d, (double)evaluatedOverride, precision: 8);
+
+            viewModel.AddColumnCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(11, grid.Columns.Count);
+            Assert.Equal("K", grid.Columns[^1].ColumnKey);
+            viewModel.AddColumnCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(12, grid.Columns.Count);
+            Assert.Equal("L", grid.Columns[^1].ColumnKey);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-indexed-spreadsheet.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Generated_editing_clipboard_fill_page_binds_and_executes_typed_datagrid_adapters()
     {
         using var viewModel = new GeneratedEditingClipboardFillViewModel();

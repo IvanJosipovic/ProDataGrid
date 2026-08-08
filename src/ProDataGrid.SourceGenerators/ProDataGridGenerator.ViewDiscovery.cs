@@ -342,6 +342,7 @@ internal static partial class Discovery
                 key is "SelectionModelPropertyName" or "SelectionMode" or "SelectionUnit"),
             ClipboardImportModelPropertyName = GeneratorUtilities.GetString(arguments, "ClipboardImportModelPropertyName"),
             FillModelPropertyName = GeneratorUtilities.GetString(arguments, "FillModelPropertyName"),
+            FormulaModelPropertyName = GeneratorUtilities.GetString(arguments, "FormulaModelPropertyName"),
             EditTriggers = GetEnumValue(arguments, "EditTriggers", 9),
             ClipboardCopyMode = GetEnumValue(arguments, "ClipboardCopyMode", 1),
             IsReadOnly = GeneratorUtilities.GetBoolean(arguments, "IsReadOnly", false),
@@ -673,6 +674,7 @@ internal static partial class Discovery
                 "Avalonia.Controls.DataGridFilling.IDataGridFillModel",
                 "IDataGridFillModel",
                 diagnostics),
+            FormulaModel = ResolveFormulaViewBinding(request, diagnostics),
             EditTriggers = request.EditTriggers,
             ClipboardCopyMode = request.ClipboardCopyMode,
             IsReadOnly = request.IsReadOnly,
@@ -1240,6 +1242,36 @@ internal static partial class Discovery
         return null;
     }
 
+    private static ViewBindingModel? ResolveFormulaViewBinding(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        ViewBindingModel? binding = ResolveOptionalViewBinding(request, request.FormulaModelPropertyName, diagnostics);
+        if (binding == null || string.IsNullOrWhiteSpace(request.FormulaModelPropertyName))
+        {
+            return binding;
+        }
+
+        const string interfaceMetadataName = "Avalonia.Controls.DataGridFormulas.IDataGridFormulaModel";
+        ITypeSymbol? propertyType = FindViewBindingMemberType(request.ViewModelType, request.FormulaModelPropertyName!);
+        if (propertyType is INamedTypeSymbol namedType &&
+            (string.Equals(GeneratorUtilities.GetMetadataName(namedType), interfaceMetadataName, StringComparison.Ordinal) ||
+             namedType.AllInterfaces.Any(implemented => string.Equals(
+                 GeneratorUtilities.GetMetadataName(implemented),
+                 interfaceMetadataName,
+                 StringComparison.Ordinal))))
+        {
+            return binding;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewFormulaIntegration,
+            request.Location,
+            request.ViewName,
+            $"member '{request.FormulaModelPropertyName}' must implement IDataGridFormulaModel"));
+        return null;
+    }
+
     private static ViewBindingModel? ResolveViewBinding(
         ViewRequest request,
         string propertyName,
@@ -1403,6 +1435,7 @@ internal static partial class Discovery
         public bool HasSelectionConfiguration { get; set; }
         public string? ClipboardImportModelPropertyName { get; set; }
         public string? FillModelPropertyName { get; set; }
+        public string? FormulaModelPropertyName { get; set; }
         public int EditTriggers { get; set; } = 9;
         public int ClipboardCopyMode { get; set; } = 1;
         public bool IsReadOnly { get; set; }

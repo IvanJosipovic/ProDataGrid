@@ -278,6 +278,7 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridSelectionUnit.FullRow;
                 public string? ClipboardImportModelPropertyName { get; set; }
                 public string? FillModelPropertyName { get; set; }
+                public string? FormulaModelPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
                     global::Avalonia.Controls.DataGridEditTriggers.Default;
                 public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
@@ -349,6 +350,7 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridSelectionUnit.FullRow;
                 public string? ClipboardImportModelPropertyName { get; set; }
                 public string? FillModelPropertyName { get; set; }
+                public string? FormulaModelPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
                     global::Avalonia.Controls.DataGridEditTriggers.Default;
                 public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =

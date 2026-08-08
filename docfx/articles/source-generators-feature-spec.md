@@ -28,11 +28,11 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. The remote-query sample validates offset paging, bounded cache reuse, field translation, cancellation, stale-response suppression, observable state, and retry. |
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
 | F09–F14 data workflows | Core implemented | Grouping, rendered total/group summary definitions, incremental summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. Formal grouping, selection/state, and editing/transfer samples validate the main runtime paths; relative-formula fill and broader conditional-formatting sample parity remain. |
-| F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
+| F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, typed formula slots that bypass runtime getters, and replaceable pin/freeze command bridges are available. The formal indexed spreadsheet sample validates runtime family replacement. |
 | F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
-| F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
-| F19 generated views | Implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, hierarchical-model bindings with model-owned flattened wrapper sources, retry-command bindings, typed routed-event command bridges, typed ReactiveUI interaction responses, activation/DataContext-scoped subscriptions, protected handler factories, and `[DataGridViewRegistration]` mappings for existing XAML views are available. |
+| F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, runtime indexed formula definitions, and an optional reflection-free chart adapter are available; optional formula-parser analyzers, relative-reference fill, and range projection remain. |
+| F19 generated views | Implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, hierarchical and formula-model bindings, retry-command bindings, typed routed-event command bridges, typed ReactiveUI interaction responses, activation/DataContext-scoped subscriptions, protected handler factories, and `[DataGridViewRegistration]` mappings for existing XAML views are available. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
 | F21 collection views/dynamic shapes | Partial | Typed collection-view factories and range-aware generated services are available; unknown runtime shapes still require explicit user adapters. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
@@ -759,7 +759,7 @@ Requirements:
 - Generate column chooser items and commands keyed by schema column ID.
 - Support fixed property columns and runtime indexed/method-backed column families.
 
-**Proposed indexed-column API:**
+**Implemented indexed-column API:**
 
 ```csharp
 [GenerateDataGridIndexedColumns(
@@ -775,15 +775,17 @@ public sealed partial class SpreadsheetRow
 }
 ```
 
-The generated schema should expose:
+The generated family exposes:
 
 ```csharp
-DataGridColumnDefinition CreateCellColumn<TValue>(
+DataGridColumnDefinition CreateColumn<TValue>(
     int index,
-    in DataGridIndexedColumnOptions<TValue> options);
+    in DataGridGeneratedIndexedColumnOptions<TValue> options);
 ```
 
-This removes the duplicated handwritten `ClrPropertyInfo`/`DataGridBindingDefinition` helper pattern while keeping runtime column count and per-slot customization.
+This removes the duplicated handwritten `ClrPropertyInfo`/`DataGridBindingDefinition` helper pattern while keeping runtime column count and per-slot customization. Standard kinds receive a cached typed accessor; `DataGridGeneratedIndexedColumnKind.Formula` deliberately creates a `DataGridFormulaColumnDefinition` without invoking or requiring the indexed getter. Formula options include `Formula`, `FormulaName`, `AllowCellFormulas`, sizing, read-only policy, and the common final `Configure` callback.
+
+Generated views accept `FormulaModelPropertyName`. The resolved member must implement `IDataGridFormulaModel`; the emitter installs a direct compiled property binding on `DataGrid.FormulaModelProperty`, and `PDGSG130` rejects missing or incompatible members. The formal indexed spreadsheet sample validates 7–12 replaceable columns, typed slot notification names, strict fast-path operation, structured and chained formulas, a per-cell override, and generated ReactiveUI lifetime wiring.
 
 For `DataTable`, dictionaries, or other truly runtime-defined shapes, the generator cannot infer a schema. It should generate only an adapter shell around a user-supplied typed/dynamic accessor provider and clearly mark that path as runtime-defined.
 
@@ -1424,9 +1426,16 @@ Proposed diagnostic range for expansion work:
 | `PDGSG118` | Warning | Async stream uses an unbounded buffer without explicit opt-in. |
 | `PDGSG119` | Error | Namespace convention produces an ambiguous ViewModel/item/view match. |
 | `PDGSG120` | Warning | Hierarchical compiled-binding projection is unavailable and runtime binding would be required. |
+| `PDGSG121` | Error | Generated formula metadata has invalid dependencies, names, or value-resolver configuration. |
+| `PDGSG122` | Error | Custom drawing factory configuration is conflicting or incompatible. |
+| `PDGSG123` | Error | Generated row-details source, nested collection, or template factory is invalid. |
+| `PDGSG124` | Error | Generated button/toggle content, command, or parameter binding is invalid. |
 | `PDGSG125` | Error | Generated view-state projection is incomplete or has an incompatible state, message, or retry-command member. |
 | `PDGSG126` | Error | Generated routed-event bridge uses zero/unknown flags, omits its command, or targets a member that does not implement `ICommand`. |
 | `PDGSG127` | Error | Generated ReactiveUI interaction metadata is incomplete, duplicated, targets an incompatible property, or names an invalid handler implementation. |
+| `PDGSG128` | Error | Generated performance profile, input map, command, metrics sink, or details combination is invalid. |
+| `PDGSG129` | Error | Generated clipboard-import or fill-model binding is missing or incompatible. |
+| `PDGSG130` | Error | Generated formula-model binding is missing or does not implement `IDataGridFormulaModel`. |
 
 Strict mode promotes applicable fallback warnings to errors. Diagnostics should point to the smallest relevant attribute argument or member declaration and include the expected signature/type.
 
@@ -1589,7 +1598,7 @@ Current status: core implementation is available. Formal hierarchy and paging/fu
 
 Exit criteria: the Excel sample removes its generic binding helper and most selection/clipboard/fill bridge boilerplate without losing spreadsheet-specific customization.
 
-Current status: the formal editing/clipboard/fill sample is complete with typed DataAnnotations and custom validation, async approval, coercion, eligibility, DataGrid paste/fill adapters, bounded multi-format export, and undo/redo. The broader Excel sample migration and relative-formula fill integration remain.
+Current status: the formal editing/clipboard/fill sample is complete with typed DataAnnotations and custom validation, async approval, coercion, eligibility, DataGrid paste/fill adapters, bounded multi-format export, and undo/redo. The formal indexed spreadsheet sample is also complete with replaceable runtime column families, formula slots, generated formula-model binding, and per-cell overrides. The broader Excel sample migration and relative-formula fill integration remain.
 
 ### Phase 5 — grouping, summaries, formatting, and layout
 
@@ -1646,7 +1655,7 @@ Add focused pages rather than one overloaded showcase:
 6. `GeneratedSelectionStatePage` — implemented with one generated key accessor shared by the fast index, extended identity selection, filtered/reordered projection, paging and replacement preservation, generated view selection-mode/unit wiring, every-section state capture/restore, source-generated JSON, stable schema metadata, a `ticker` to `symbol` alias, version-one migration, a typed ReactiveUI interaction handler, passive compiled XAML, and runtime, ViewModel, generator, and Avalonia Headless coverage.
 7. `GeneratedGroupingSummariesPage` — implemented with two reflection-free typed group levels, generated group-footer and total-summary descriptions, five shared-accessor aggregates, direct Add/Remove/Replace updates, reset fallback, a generated ReactiveUI view with summary placement, passive compiled XAML, and runtime, generator, ViewModel, rendered-value, and Avalonia Headless screenshot coverage.
 8. `GeneratedEditingClipboardFillPage` — implemented with generated typed edit fields, `Required`/length/range plus custom synchronous/asynchronous validation, culture-aware span parsing, coercion and row eligibility, direct and DataGrid-context bounded paste/fill, stable-key structured errors, one-batch undo/redo, CSV/JSON/Markdown/HTML/XML/YAML export, a generated ReactiveUI spreadsheet view, passive compiled XAML, and generator, runtime, ViewModel, Avalonia Headless, and deterministic screenshot coverage.
-9. `GeneratedIndexedSpreadsheetPage` — runtime slot columns and formulas.
+9. `GeneratedIndexedSpreadsheetPage` — implemented with one generated method-backed family materializing a replaceable 7–12 column range, typed text/numeric slots, spreadsheet notification names, strict fast-path options, formula definitions that require no runtime property accessor, structured and chained formulas, an editable row-local formula, generated `IDataGridFormulaModel` binding, passive compiled XAML, ReactiveUI source-generated state/commands, ViewModel tests, and Avalonia Headless screenshot coverage.
 10. `GeneratedConditionalFormattingPage` — typed predicates and theme keys.
 11. `GeneratedPivotChartPage` — typed pivot and chart projection.
 12. `GeneratedReactiveViewRecipesPage` — grid-only, explorer, spreadsheet, and analytics recipes.

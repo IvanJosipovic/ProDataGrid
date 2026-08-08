@@ -2613,6 +2613,10 @@ internal static class Emitter
         {
             EmitViewPropertyInfo(builder, model.FillModel, viewModelType, "FillModel");
         }
+        if (model.FormulaModel != null)
+        {
+            EmitViewPropertyInfo(builder, model.FormulaModel, viewModelType, "FormulaModel");
+        }
         if (model.HierarchicalModel != null)
         {
             EmitViewPropertyInfo(builder, model.HierarchicalModel, viewModelType, "HierarchicalModel");
@@ -2811,6 +2815,7 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.SelectionModel, "Selection", "s_selectionModelProperty");
         EmitOptionalGridBinding(builder, model.ClipboardImportModel, "ClipboardImportModel", "s_clipboardImportModelProperty");
         EmitOptionalGridBinding(builder, model.FillModel, "FillModel", "s_fillModelProperty");
+        EmitOptionalGridBinding(builder, model.FormulaModel, "FormulaModel", "s_formulaModelProperty");
         EmitOptionalGridBinding(builder, model.HierarchicalModel, "HierarchicalModel", "s_hierarchicalModelProperty");
         if (model.HierarchicalModel != null)
         {

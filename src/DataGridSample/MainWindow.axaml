@@ -635,6 +635,13 @@
         </pages:GeneratedEditingClipboardFillPage.DataContext>
       </pages:GeneratedEditingClipboardFillPage>
     </TabItem>
+    <TabItem Header="Generated Indexed Spreadsheet">
+      <pages:GeneratedIndexedSpreadsheetPage>
+        <pages:GeneratedIndexedSpreadsheetPage.DataContext>
+          <viewModels:GeneratedIndexedSpreadsheetViewModel />
+        </pages:GeneratedIndexedSpreadsheetPage.DataContext>
+      </pages:GeneratedIndexedSpreadsheetPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

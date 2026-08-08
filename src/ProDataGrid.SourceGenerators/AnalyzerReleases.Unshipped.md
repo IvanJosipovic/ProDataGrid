@@ -32,3 +32,4 @@ PDGSG126 | ProDataGrid.SourceGeneration | Error | Invalid generated view event b
 PDGSG127 | ProDataGrid.SourceGeneration | Error | Invalid generated view interaction
 PDGSG128 | ProDataGrid.SourceGeneration | Error | Invalid generated view performance integration
 PDGSG129 | ProDataGrid.SourceGeneration | Error | Invalid generated view transfer integration
+PDGSG130 | ProDataGrid.SourceGeneration | Error | Invalid generated view formula integration

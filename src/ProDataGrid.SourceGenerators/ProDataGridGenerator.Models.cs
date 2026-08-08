@@ -125,6 +125,8 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? FillModel { get; set; }
 
+    public ViewBindingModel? FormulaModel { get; set; }
+
     public int EditTriggers { get; set; }
 
     public int ClipboardCopyMode { get; set; }

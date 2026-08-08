@@ -493,6 +493,62 @@ public sealed class GeneratedColumnsViewModelTests
     }
 
     [AvaloniaFact]
+    public void Generated_indexed_spreadsheet_view_model_materializes_runtime_slot_families()
+    {
+        using var viewModel = new GeneratedIndexedSpreadsheetViewModel();
+
+        Assert.Equal(10, viewModel.VisibleColumnCount);
+        Assert.Equal(10, viewModel.ColumnDefinitions.Count);
+        Assert.Equal(24, viewModel.Items.Count);
+        Assert.True(viewModel.FastPathOptions.StrictMode);
+        Assert.IsType<DataGridTextColumnDefinition>(viewModel.ColumnDefinitions[0]);
+        Assert.IsType<DataGridNumericColumnDefinition>(viewModel.ColumnDefinitions[1]);
+        Assert.IsType<DataGridFormulaColumnDefinition>(viewModel.ColumnDefinitions[4]);
+        DataGridFormulaColumnDefinition cellFormula = Assert.IsType<DataGridFormulaColumnDefinition>(viewModel.ColumnDefinitions[7]);
+        Assert.True(cellFormula.AllowCellFormulas);
+
+        GeneratedSpreadsheetRow first = viewModel.Items[0];
+        DataGridNumericColumnDefinition quantity = Assert.IsType<DataGridNumericColumnDefinition>(viewModel.ColumnDefinitions[1]);
+        Assert.Equal("B", quantity.SortMemberPath);
+        Assert.Equal(4d, first.GetCell(1));
+
+        viewModel.AddColumnCommand.Execute().Subscribe();
+        Assert.Equal(11, viewModel.VisibleColumnCount);
+        Assert.Equal("K", viewModel.ColumnDefinitions[^1].ColumnKey);
+        viewModel.AddColumnCommand.Execute().Subscribe();
+        Assert.Equal(12, viewModel.ColumnDefinitions.Count);
+        Assert.IsType<DataGridFormulaColumnDefinition>(viewModel.ColumnDefinitions[^1]);
+
+        viewModel.RemoveColumnCommand.Execute().Subscribe();
+        Assert.Equal(11, viewModel.VisibleColumnCount);
+        Assert.Contains("runtime family", viewModel.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generated_indexed_row_uses_stable_spreadsheet_notification_names()
+    {
+        var row = new GeneratedSpreadsheetRow(1, GeneratedIndexedSpreadsheetViewModel.MaximumColumnCount);
+        string? changedProperty = null;
+        row.PropertyChanged += (_, args) => changedProperty = args.PropertyName;
+
+        row.SetCell(10, 42d);
+
+        Assert.Equal("K", changedProperty);
+        Assert.Equal("AA", GeneratedSpreadsheetRow.GetCellPropertyName(26));
+    }
+
+    [Fact]
+    public void Generated_indexed_spreadsheet_view_model_disposes_formula_model_idempotently()
+    {
+        var viewModel = new GeneratedIndexedSpreadsheetViewModel();
+
+        viewModel.Dispose();
+        viewModel.Dispose();
+
+        Assert.True(viewModel.IsDisposed);
+    }
+
+    [AvaloniaFact]
     public async Task Generated_editing_clipboard_fill_view_model_exercises_typed_workflows()
     {
         using var viewModel = new GeneratedEditingClipboardFillViewModel();

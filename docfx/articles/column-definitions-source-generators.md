@@ -242,6 +242,81 @@ if (GeneratedProDataGridRegistration.TryCreateView(viewModel, out Control? view)
 
 The generator validates that each registered view derives from `Control`, has an accessible parameterless constructor, and that each ViewModel has at most one mapping. The generated type switch constructs the view and assigns its `DataContext`; it does not use naming conventions, `Type.GetType`, or `Activator.CreateInstance`.
 
+## Runtime indexed columns and formulas
+
+Use `GenerateDataGridIndexedColumns` when the row stores a bounded runtime family in slots rather than CLR properties. The generator validates the getter, optional setter, and notification-name method once and emits direct generic factories without reflection, expression compilation, or per-cell property discovery:
+
+```csharp
+[GenerateDataGridIndexedColumns(
+    Name = "Cells",
+    GetterMethod = nameof(GetCell),
+    SetterMethod = nameof(SetCell),
+    NotificationNameMethod = nameof(GetCellPropertyName))]
+public sealed class SpreadsheetRow : ReactiveObject
+{
+    private readonly object?[] _cells = new object?[32];
+
+    public object? GetCell(int index) => _cells[index];
+
+    public void SetCell(int index, object? value)
+    {
+        _cells[index] = value;
+        this.RaisePropertyChanged(GetCellPropertyName(index));
+    }
+
+    public static string GetCellPropertyName(int index) => GetSpreadsheetName(index);
+}
+```
+
+The emitted `SpreadsheetRowCells.CreateColumn<TValue>` creates text, numeric, checkbox, date/time, progress, slider, hyperlink, image, hierarchical, custom-drawing, or formula definitions from the same indexed family. Each non-formula definition receives a cached `DataGridBindingDefinition` and typed value accessor:
+
+```csharp
+var amount = new DataGridGeneratedIndexedColumnOptions<double>
+{
+    Header = "B",
+    ColumnKey = "B",
+    PropertyName = "B",
+    Kind = DataGridGeneratedIndexedColumnKind.Numeric,
+    FormatString = "N2",
+    Width = new DataGridLength(105)
+};
+
+columns.Add(SpreadsheetRowCells.CreateColumn<double>(1, in amount));
+```
+
+Formula slots bypass the row getter entirely. They produce `DataGridFormulaColumnDefinition` instances with a stable formula name, explicit value type, optional per-cell overrides, sizing, and the same final `Configure` hook:
+
+```csharp
+var total = new DataGridGeneratedIndexedColumnOptions<double>
+{
+    Header = "E",
+    ColumnKey = "E",
+    PropertyName = "E",
+    Kind = DataGridGeneratedIndexedColumnKind.Formula,
+    Formula = "=([@B]*[@C])*(1-[@D])",
+    FormulaName = "E",
+    IsReadOnly = true
+};
+
+columns.Add(SpreadsheetRowCells.CreateColumn<double>(4, in total));
+```
+
+A generated view can bind an application-owned formula model directly. `FormulaModelPropertyName` is compile-time validated as `IDataGridFormulaModel`; an incompatible member reports `PDGSG130` instead of falling back to a runtime binding:
+
+```csharp
+[GenerateDataGridView(
+    typeof(SpreadsheetRow),
+    Framework = DataGridViewFramework.ReactiveUI,
+    Recipe = DataGridViewRecipe.Spreadsheet,
+    FormulaModelPropertyName = nameof(FormulaModel))]
+public sealed partial class SpreadsheetViewModel : ReactiveObject
+{
+    public IDataGridFormulaModel FormulaModel { get; } = new DataGridFormulaModel();
+}
+```
+
+`DataGridSample.Pages.GeneratedIndexedSpreadsheetPage` demonstrates a replaceable 7–12 column family, typed slot notifications, strict fast-path options, structured/chained formulas, a row-local cell formula, and generated ReactiveUI view composition.
+
 ## Column coverage and customization
 
 `DataGridColumnKind` covers every current definition builder: text, checkbox, hyperlink, image, numeric, progress bar, slider, date picker, time picker, masked text, autocomplete, toggle button, toggle switch, hierarchical, custom drawing, all three combo-box modes, template, button, and formula.

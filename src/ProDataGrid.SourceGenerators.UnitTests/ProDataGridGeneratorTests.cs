@@ -2377,6 +2377,30 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Indexed_column_family_supports_formula_options_through_the_same_typed_factory()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridIndexedColumns(
+                Name = "Cells",
+                GetterMethod = nameof(GetCell),
+                NotificationNameMethod = nameof(GetCellName))]
+            public sealed class SheetRow
+            {
+                public object? GetCell(int index) => null;
+                public static string GetCellName(int index) => "Cell" + index;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("CreateColumn<TValue>", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedIndexedColumnOptions<TValue>", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedIndexedColumnFactory.Create<", result.CombinedSource);
+    }
+
+    [Fact]
     public void Canonical_manifest_contains_export_editor_remote_and_accessibility_metadata()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -3420,6 +3444,48 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("dataGrid.SelectionUnit = (global::Avalonia.Controls.DataGridSelectionUnit)2", result.CombinedSource);
         Assert.Contains("CanUserAddRows = false", result.CombinedSource);
         Assert.Contains("CanUserDeleteRows = false", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_binds_a_typed_formula_model()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls.DataGridFormulas;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } public object? GetCell(int index) => null; }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), FormulaModelPropertyName = nameof(Formulas))]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+                public IDataGridFormulaModel Formulas { get; } = new DataGridFormulaModel();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGrid.FormulaModelProperty", result.CombinedSource);
+        Assert.Contains("s_formulaModelProperty", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_rejects_an_incompatible_formula_model_member()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public object? GetCell(int index) => null; }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), FormulaModelPropertyName = nameof(Formulas))]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+                public object Formulas { get; } = new();
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG130");
     }
 
     [Fact]

@@ -37,7 +37,9 @@ namespace Avalonia.Controls
         /// <summary>A hierarchical text column.</summary>
         Hierarchical,
         /// <summary>A custom-drawing column.</summary>
-        CustomDrawing
+        CustomDrawing,
+        /// <summary>A formula column evaluated by the configured DataGrid formula model.</summary>
+        Formula
     }
 
     /// <summary>Configures one column created from a generated indexed accessor family.</summary>
@@ -59,6 +61,12 @@ namespace Avalonia.Controls
         public DataGridGeneratedIndexedColumnKind Kind { get; set; }
         /// <summary>Gets or sets an optional compiled binding format.</summary>
         public string FormatString { get; set; }
+        /// <summary>Gets or sets the structured or A1 formula used by a formula column.</summary>
+        public string Formula { get; set; }
+        /// <summary>Gets or sets the stable formula name used by structured references.</summary>
+        public string FormulaName { get; set; }
+        /// <summary>Gets or sets whether individual cells may override the column formula.</summary>
+        public bool AllowCellFormulas { get; set; }
         /// <summary>Gets or sets whether editing is disabled.</summary>
         public bool IsReadOnly { get; set; }
         /// <summary>Gets or sets optional width.</summary>
@@ -87,11 +95,30 @@ namespace Avalonia.Controls
             in DataGridGeneratedIndexedColumnOptions<TValue> options)
         {
             if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
-            ArgumentNullException.ThrowIfNull(getter);
 
             string propertyName = string.IsNullOrWhiteSpace(options.PropertyName)
                 ? "Item" + index.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : options.PropertyName;
+            if (options.Kind == DataGridGeneratedIndexedColumnKind.Formula)
+            {
+                var formulaDefinition = new DataGridFormulaColumnDefinition
+                {
+                    Header = options.Header,
+                    ColumnKey = options.ColumnKey ?? propertyName,
+                    Formula = options.Formula,
+                    FormulaName = string.IsNullOrWhiteSpace(options.FormulaName) ? propertyName : options.FormulaName,
+                    FormulaValueType = typeof(TValue),
+                    AllowCellFormulas = options.AllowCellFormulas,
+                    IsReadOnly = options.IsReadOnly || !options.AllowCellFormulas,
+                    Width = options.Width,
+                    MinWidth = options.MinWidth,
+                    MaxWidth = options.MaxWidth
+                };
+                options.Configure?.Invoke(formulaDefinition);
+                return formulaDefinition;
+            }
+
+            ArgumentNullException.ThrowIfNull(getter);
             var property = new ClrPropertyInfo(
                 propertyName,
                 target => target is TItem item ? getter(item) : default,
