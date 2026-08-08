@@ -7,6 +7,7 @@ using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
@@ -557,6 +558,69 @@ public sealed class GeneratedCodeViewTests
         finally
         {
             window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_hierarchical_dynamic_data_page_binds_typed_model_and_compiled_wrapper_columns()
+    {
+        using var viewModel = new GeneratedHierarchicalDynamicDataViewModel();
+        var view = new GeneratedHierarchicalDynamicDataPage { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 640, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            TextBox searchBox = view.GetLogicalDescendants().OfType<TextBox>()
+                .Single(static textBox => textBox.Name == "GeneratedSearchBox");
+
+            Assert.True(grid.HierarchicalRowsEnabled);
+            Assert.Contains("hierarchical", grid.Classes);
+            Assert.Same(viewModel.HierarchicalModel, grid.HierarchicalModel);
+            Assert.Same(((IHierarchicalModel)viewModel.HierarchicalModel).ObservableFlattened, grid.ItemsSource);
+            Assert.Same(viewModel.SortingModel, grid.SortingModel);
+            Assert.Same(viewModel.FilteringModel, grid.FilteringModel);
+            Assert.Same(viewModel.SearchModel, grid.SearchModel);
+            Assert.Equal(viewModel.ColumnDefinitions.Count, grid.Columns.Count);
+            Assert.Equal(20, grid.ItemsSource!.Cast<object>().Count());
+            Assert.All(grid.ItemsSource.Cast<object>(), static item =>
+            {
+                HierarchicalNode node = Assert.IsType<HierarchicalNode>(item);
+                Assert.IsType<GeneratedHierarchyNode>(node.Item);
+            });
+
+            searchBox.Text = "Warsaw";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Warsaw", viewModel.Query);
+            Assert.Single(viewModel.Items);
+            Assert.Equal(5, viewModel.VisibleNodeCount);
+
+            searchBox.Text = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            GeneratedHierarchyNode original = viewModel.Items[0];
+            viewModel.RefreshRootsCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.NotSame(original, viewModel.Items[0]);
+            Assert.Equal(20, viewModel.VisibleNodeCount);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-hierarchical-dynamic-data.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
         }
     }
 

@@ -461,6 +461,44 @@ The generated view contains a title, an optional two-way search box, and a confi
 
 Every generated control uses stable automation IDs derived from `AutomationId`. The grid also receives an accessible name/help text, and the title is exposed as a level-one automation heading. These identifiers are covered by Avalonia Headless tests and do not require visual-tree reflection for test lookup.
 
+### Hierarchical generated views
+
+Set `HierarchicalModelPropertyName` when the ViewModel exposes a typed `HierarchicalModel<TItem>`. The generator emits a compiled property-info binding for `DataGrid.HierarchicalModel`, enables hierarchical rows, and adds the `hierarchical` style class:
+
+```csharp
+[GenerateDataGridColumns(
+    ProviderName = "NodeSchema",
+    Discovery = DataGridColumnDiscovery.AttributedOnly,
+    HierarchicalRows = true)]
+public sealed class Node
+{
+    [DataGridKey]
+    public int Id { get; init; }
+
+    [DataGridChildren]
+    public ObservableCollection<Node> Children { get; } = new();
+
+    [DataGridExpanded]
+    public bool IsExpanded { get; set; }
+
+    [DataGridColumn(DataGridColumnKind.Hierarchical)]
+    public Node Item => this;
+}
+
+[GenerateDataGridViewModel(typeof(Node), ProviderName = "NodeSchema")]
+[GenerateDataGridView(
+    typeof(Node),
+    Framework = DataGridViewFramework.ReactiveUI,
+    HierarchicalModelPropertyName = nameof(Hierarchy))]
+public sealed partial class ExplorerViewModel : ReactiveObject
+{
+    public HierarchicalModel<Node> Hierarchy { get; } =
+        new(NodeSchema.CreateHierarchicalOptions());
+}
+```
+
+The hierarchical model exclusively owns the grid's flattened wrapper `ItemsSource`; the generated view deliberately omits the ordinary root-items binding in this mode. This prevents binding order from replacing `IReadOnlyList<HierarchicalNode>` with the root collection. Generated column bindings remain wrapper-aware (`HierarchicalNode.Item`) while operation descriptors and DynamicData pipelines remain strongly typed to `TItem`.
+
 ### Loading, empty, and error projections
 
 Generated views can project one typed state property into mutually exclusive content, loading, empty, and error surfaces. The view model owns the state transition and retry command; generated C# owns only the visual projection and compiled bindings.

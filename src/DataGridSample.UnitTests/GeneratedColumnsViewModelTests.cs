@@ -231,4 +231,81 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.True(viewModel.IsDisposed);
         Assert.Empty(viewModel.SelectionModel.Source.Cast<object>());
     }
+
+    [AvaloniaFact]
+    public void Generated_hierarchical_dynamic_data_pipeline_preserves_expansion_and_applies_root_operations()
+    {
+        using var viewModel = new GeneratedHierarchicalDynamicDataViewModel();
+
+        Assert.Equal(4, viewModel.SourceRootCount);
+        Assert.Equal(4, viewModel.VisibleRootCount);
+        Assert.Equal(20, viewModel.NodeCount);
+        Assert.Equal(20, viewModel.VisibleNodeCount);
+        Assert.Equal(0, viewModel.ErrorCount);
+
+        viewModel.CollapseAllCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(4, viewModel.VisibleNodeCount);
+        Assert.All(viewModel.Items, static root => Assert.False(root.IsExpanded));
+
+        viewModel.ExpandAllCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(20, viewModel.VisibleNodeCount);
+        Assert.All(viewModel.Items, static root => Assert.True(root.IsExpanded));
+
+        viewModel.AddChildCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(21, viewModel.NodeCount);
+        Assert.Equal(21, viewModel.VisibleNodeCount);
+
+        GeneratedHierarchyNode[] originalRoots = viewModel.Items.ToArray();
+        viewModel.RefreshRootsCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(4, viewModel.ReplacementCount);
+        Assert.Equal(21, viewModel.NodeCount);
+        Assert.Equal(21, viewModel.VisibleNodeCount);
+        Assert.All(viewModel.Items, replacement =>
+            Assert.DoesNotContain(originalRoots, original => ReferenceEquals(original, replacement)));
+        Assert.All(viewModel.Items, static root => Assert.True(root.IsExpanded));
+
+        GeneratedHierarchyNode rootOne = viewModel.Items.Single(static root => root.Id == 1);
+        GeneratedHierarchyNode rootSix = viewModel.Items.Single(static root => root.Id == 6);
+        viewModel.Query = "Warsaw";
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0, viewModel.ErrorCount);
+        Assert.Equal(2, viewModel.SearchModel.Descriptors.Count);
+        Assert.True(viewModel.TreeRoots.SearchPredicate(rootSix));
+        Assert.False(viewModel.TreeRoots.SearchPredicate(rootOne));
+        GeneratedHierarchyNode searchedRoot = Assert.Single(viewModel.Items);
+        Assert.Equal(6, searchedRoot.Id);
+
+        viewModel.ClearOperationsCommand.Execute().Subscribe();
+        viewModel.SortPriceDescendingCommand.Execute().Subscribe();
+        Assert.Equal(new[] { 16, 11, 6, 1 }, viewModel.Items.Select(static root => root.Id));
+
+        viewModel.ApplyWarsawFilterCommand.Execute().Subscribe();
+        GeneratedHierarchyNode filteredRoot = Assert.Single(viewModel.Items);
+        Assert.Equal(6, filteredRoot.Id);
+        Assert.Equal("Warsaw", filteredRoot.Desk);
+        Assert.True(filteredRoot.Price >= 80m);
+
+        viewModel.ClearOperationsCommand.Execute().Subscribe();
+        viewModel.AddRootBatchCommand.Execute().Subscribe();
+        Assert.Equal(6, viewModel.SourceRootCount);
+        Assert.Equal(6, viewModel.VisibleRootCount);
+        Assert.Equal(31, viewModel.NodeCount);
+    }
+
+    [AvaloniaFact]
+    public void Generated_hierarchical_dynamic_data_pipeline_disposes_idempotently()
+    {
+        var viewModel = new GeneratedHierarchicalDynamicDataViewModel();
+
+        viewModel.Dispose();
+        viewModel.Dispose();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(viewModel.IsDisposed);
+        Assert.Empty(viewModel.HierarchicalModel.ObservableFlattened);
+    }
 }

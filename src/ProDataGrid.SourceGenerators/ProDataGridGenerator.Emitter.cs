@@ -2505,6 +2505,10 @@ internal static class Emitter
         {
             EmitViewPropertyInfo(builder, model.SelectionModel, viewModelType, "SelectionModel");
         }
+        if (model.HierarchicalModel != null)
+        {
+            EmitViewPropertyInfo(builder, model.HierarchicalModel, viewModelType, "HierarchicalModel");
+        }
         if (model.StateController != null)
         {
             EmitViewPropertyInfo(builder, model.StateController, viewModelType, "StateController");
@@ -2664,8 +2668,12 @@ internal static class Emitter
             .AppendLine("            };")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(dataGrid, GeneratedAutomationId);")
             .Append("            global::Avalonia.Automation.AutomationProperties.SetName(dataGrid, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");")
-            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetHelpText(dataGrid, \"Generated reflection-free ProDataGrid view.\");")
-            .AppendLine("            dataGrid[!global::Avalonia.Controls.DataGrid.ItemsSourceProperty] = CreateBinding(s_itemsProperty, global::Avalonia.Data.BindingMode.OneWay);")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetHelpText(dataGrid, \"Generated reflection-free ProDataGrid view.\");");
+        if (model.HierarchicalModel == null)
+        {
+            builder.AppendLine("            dataGrid[!global::Avalonia.Controls.DataGrid.ItemsSourceProperty] = CreateBinding(s_itemsProperty, global::Avalonia.Data.BindingMode.OneWay);");
+        }
+        builder
             .AppendLine("            dataGrid[!global::Avalonia.Controls.DataGrid.ColumnDefinitionsSourceProperty] = CreateBinding(s_columnDefinitionsProperty, global::Avalonia.Data.BindingMode.OneWay);")
             .AppendLine("            dataGrid[!global::Avalonia.Controls.DataGrid.FastPathOptionsProperty] = CreateBinding(s_fastPathOptionsProperty, global::Avalonia.Data.BindingMode.OneWay);");
 
@@ -2673,6 +2681,12 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
         EmitOptionalGridBinding(builder, model.SearchModel, "SearchModel", "s_searchModelProperty");
         EmitOptionalGridBinding(builder, model.SelectionModel, "Selection", "s_selectionModelProperty");
+        EmitOptionalGridBinding(builder, model.HierarchicalModel, "HierarchicalModel", "s_hierarchicalModelProperty");
+        if (model.HierarchicalModel != null)
+        {
+            builder.AppendLine("            dataGrid.HierarchicalRowsEnabled = true;")
+                .AppendLine("            dataGrid.Classes.Add(\"hierarchical\");");
+        }
         EmitRowDetailsConfiguration(builder, model);
 
         builder.AppendLine("            ConfigureGeneratedPerformanceAndInput(dataGrid);")

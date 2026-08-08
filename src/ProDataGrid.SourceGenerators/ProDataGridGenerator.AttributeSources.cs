@@ -272,6 +272,7 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchModelPropertyName { get; set; }
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
+                public string? HierarchicalModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
                 public string? ViewStatePropertyName { get; set; }
                 public string? ErrorMessagePropertyName { get; set; }
@@ -323,6 +324,7 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchModelPropertyName { get; set; }
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
+                public string? HierarchicalModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
                 public string? ViewStatePropertyName { get; set; }
                 public string? ErrorMessagePropertyName { get; set; }

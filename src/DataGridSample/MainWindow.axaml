@@ -600,6 +600,13 @@
         </pages:GeneratedDynamicDataSourceCachePage.DataContext>
       </pages:GeneratedDynamicDataSourceCachePage>
     </TabItem>
+    <TabItem Header="Generated Hierarchical DynamicData">
+      <pages:GeneratedHierarchicalDynamicDataPage>
+        <pages:GeneratedHierarchicalDynamicDataPage.DataContext>
+          <viewModels:GeneratedHierarchicalDynamicDataViewModel />
+        </pages:GeneratedHierarchicalDynamicDataPage.DataContext>
+      </pages:GeneratedHierarchicalDynamicDataPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

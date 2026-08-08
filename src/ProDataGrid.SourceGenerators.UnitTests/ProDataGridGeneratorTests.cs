@@ -1489,6 +1489,38 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Generated_view_binds_hierarchical_model_and_enables_hierarchical_rows()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridHierarchical;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(HierarchicalRows = true)]
+            public sealed class Row
+            {
+                [DataGridKey] public int Id { get; init; }
+                [DataGridChildren] public List<Row> Children { get; } = new();
+                [DataGridColumn(DataGridColumnKind.Hierarchical)] public Row Item => this;
+            }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), HierarchicalModelPropertyName = nameof(Tree))]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public HierarchicalModel<Row> Tree { get; } = new();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGrid.HierarchicalModelProperty", result.CombinedSource);
+        Assert.Contains("dataGrid.HierarchicalRowsEnabled = true", result.CombinedSource);
+        Assert.Contains("dataGrid.Classes.Add(\"hierarchical\")", result.CombinedSource);
+        Assert.DoesNotContain("DataGrid.ItemsSourceProperty", result.CombinedSource);
+    }
+
+    [Fact]
     public void Assembly_view_attribute_and_namespace_view_attribute_are_supported()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
