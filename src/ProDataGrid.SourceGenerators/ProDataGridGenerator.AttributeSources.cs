@@ -376,6 +376,17 @@ public sealed partial class ProDataGridGenerator
                 public string? FormulaName { get; set; }
                 public string? Mask { get; set; }
                 public string? Content { get; set; }
+                public string? CheckedContent { get; set; }
+                public string? UncheckedContent { get; set; }
+                public string? OnContent { get; set; }
+                public string? OffContent { get; set; }
+                public string? ContentMember { get; set; }
+                public string? CheckedContentMember { get; set; }
+                public string? UncheckedContentMember { get; set; }
+                public string? OnContentMember { get; set; }
+                public string? OffContentMember { get; set; }
+                public string? CommandMember { get; set; }
+                public string? CommandParameterMember { get; set; }
                 public string? ItemsSourceMember { get; set; }
                 public string? DisplayMemberPath { get; set; }
                 public string? SelectedValuePath { get; set; }

@@ -6,7 +6,7 @@ Target: reflection-free source generation for complex reactive, streaming, remot
 
 Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
 
 ## 1. Purpose
 
@@ -29,7 +29,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
 | F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. |
 | F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
-| F16 templates/drawing | Partial | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, and template-root automation metadata are available; generated button/toggle command and parameter accessors remain. |
+| F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
 | F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
 | F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, and `[DataGridViewRegistration]` mappings for existing XAML views are available; richer command/event bridges and loading/error/empty projections remain. |
@@ -807,6 +807,26 @@ public sealed partial class BooksViewModel : ReactiveObject;
 ```
 
 The generator validates the nested collection as `IEnumerable<TNested>`, validates an optional string summary property, and emits a recycling detail presenter that creates the referenced nested schema/fast-path options once. Presenter reuse updates only typed member accessors. Resource-key, accessible parameterless `IDataTemplate` implementation, and typed static factory-method sources are supported as mutually exclusive alternatives and are available on class- and assembly-level view attributes. `PDGSG123` reports invalid combinations or signatures. The built-in detail root, summary, and nested grid have stable automation IDs/names/help text. The migrated `RowDetailsSelectionPage` is a generated `ReactiveUserControl<TViewModel>` with a real selection/materialization headless test and no page XAML or attach-time code-behind.
+
+Implemented row-action API:
+
+```csharp
+[DataGridColumn(
+    DataGridColumnKind.Button,
+    ContentMember = nameof(ActionLabel),
+    CommandMember = nameof(ActionCommand),
+    CommandParameterMember = nameof(Id))]
+public string Action => Id;
+
+[DataGridColumn(
+    DataGridColumnKind.ToggleButton,
+    CheckedContentMember = nameof(CheckedLabel),
+    UncheckedContentMember = nameof(UncheckedLabel),
+    CommandMember = nameof(ToggleCommand))]
+public bool Enabled { get; set; }
+```
+
+The same direct-accessor path supports `ContentMember` for buttons/toggle buttons and `OnContentMember`/`OffContentMember` for toggle switches. Each configured role gets one cached typed `DataGridBindingDefinition` per schema. `CommandMember` must be an accessible readable `ICommand` property. A missing `CommandParameterMember` deliberately passes the row item, preserving the existing button-column fallback. `PDGSG124` rejects incompatible column kinds, static/member conflicts, missing or inaccessible members, and non-command command members. The migrated `ButtonColumnDefinitionBindingsPage` is now a generated ReactiveUI C# view backed by attributed reactive rows and has schema, command-state, and Avalonia Headless tests; its former reflection binding factory, page XAML, and attach-time code-behind were removed.
 
 Implemented custom-drawing API:
 

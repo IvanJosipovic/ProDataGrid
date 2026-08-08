@@ -1526,6 +1526,20 @@ internal static partial class Discovery
                 diagnostics,
                 out INamedTypeSymbol? drawOperationFactoryType,
                 out string? drawOperationFactoryMethod);
+            IPropertySymbol? contentMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "ContentMember", diagnostics);
+            IPropertySymbol? checkedContentMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "CheckedContentMember", diagnostics);
+            IPropertySymbol? uncheckedContentMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "UncheckedContentMember", diagnostics);
+            IPropertySymbol? onContentMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "OnContentMember", diagnostics);
+            IPropertySymbol? offContentMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "OffContentMember", diagnostics);
+            IPropertySymbol? commandMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "CommandMember", diagnostics);
+            IPropertySymbol? commandParameterMember = ValidateAuxiliaryColumnBinding(
+                schema.ItemType, property, kind, options, "CommandParameterMember", diagnostics);
             string? headerProviderMethod = ValidateLocalizationMethod(
                 schema.ItemType, property, options, "HeaderProviderMethod", diagnostics, out bool headerProviderAcceptsFormatProvider);
             string? descriptionProviderMethod = ValidateLocalizationMethod(
@@ -1589,6 +1603,13 @@ internal static partial class Discovery
                 NewRowTemplateFactoryMethod = newRowTemplateFactoryMethod,
                 DrawOperationFactoryType = drawOperationFactoryType,
                 DrawOperationFactoryMethod = drawOperationFactoryMethod,
+                ContentMember = contentMember,
+                CheckedContentMember = checkedContentMember,
+                UncheckedContentMember = uncheckedContentMember,
+                OnContentMember = onContentMember,
+                OffContentMember = offContentMember,
+                CommandMember = commandMember,
+                CommandParameterMember = commandParameterMember,
                 Group = group,
                 Summaries = summaries,
                 ConditionalRules = conditionalRules,
@@ -2113,6 +2134,105 @@ internal static partial class Discovery
                 kind,
                 required));
         }
+    }
+
+    private static IPropertySymbol? ValidateAuxiliaryColumnBinding(
+        INamedTypeSymbol itemType,
+        IPropertySymbol columnProperty,
+        string kind,
+        Dictionary<string, TypedConstant> options,
+        string optionName,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        string? memberName = GeneratorUtilities.GetString(options, optionName);
+        if (string.IsNullOrWhiteSpace(memberName))
+        {
+            return null;
+        }
+
+        if (!IsAuxiliaryColumnBindingSupported(kind, optionName))
+        {
+            ReportInvalidAuxiliaryBinding(
+                diagnostics,
+                columnProperty,
+                optionName,
+                $"column kind '{kind}' does not support this binding");
+            return null;
+        }
+
+        string? staticOption = optionName switch
+        {
+            "ContentMember" => "Content",
+            "CheckedContentMember" => "CheckedContent",
+            "UncheckedContentMember" => "UncheckedContent",
+            "OnContentMember" => "OnContent",
+            "OffContentMember" => "OffContent",
+            _ => null
+        };
+        bool conflictsWithNamedStaticOption = staticOption != null &&
+            !string.IsNullOrEmpty(GeneratorUtilities.GetString(options, staticOption));
+        bool conflictsWithLegacySwitchContent = optionName == "OnContentMember" &&
+            !string.IsNullOrEmpty(GeneratorUtilities.GetString(options, "Content"));
+        if (conflictsWithNamedStaticOption || conflictsWithLegacySwitchContent)
+        {
+            string conflictingOption = conflictsWithLegacySwitchContent ? "Content" : staticOption!;
+            ReportInvalidAuxiliaryBinding(
+                diagnostics,
+                columnProperty,
+                optionName,
+                $"cannot be combined with static {conflictingOption}");
+            return null;
+        }
+
+        IPropertySymbol? member = EnumerateMembers(itemType, includeInherited: true)
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, memberName, StringComparison.Ordinal));
+        if (member == null || member.IsStatic || member.Parameters.Length != 0 || member.GetMethod == null ||
+            !GeneratorUtilities.IsAccessibleFromGeneratedCode(member) ||
+            !GeneratorUtilities.IsAccessibleFromGeneratedCode(member.GetMethod))
+        {
+            ReportInvalidAuxiliaryBinding(
+                diagnostics,
+                columnProperty,
+                optionName,
+                $"member '{memberName}' must be an accessible readable instance property");
+            return null;
+        }
+
+        if (optionName == "CommandMember" && !ImplementsMetadataName(member.Type, "System.Windows.Input.ICommand"))
+        {
+            ReportInvalidAuxiliaryBinding(
+                diagnostics,
+                columnProperty,
+                optionName,
+                $"member '{memberName}' must implement System.Windows.Input.ICommand");
+            return null;
+        }
+
+        return member;
+    }
+
+    private static bool IsAuxiliaryColumnBindingSupported(string kind, string optionName) => optionName switch
+    {
+        "ContentMember" => kind is "Button" or "ToggleButton",
+        "CheckedContentMember" or "UncheckedContentMember" => kind == "ToggleButton",
+        "OnContentMember" or "OffContentMember" => kind == "ToggleSwitch",
+        "CommandMember" or "CommandParameterMember" => kind is "Button" or "ToggleButton" or "ToggleSwitch",
+        _ => false
+    };
+
+    private static void ReportInvalidAuxiliaryBinding(
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        IPropertySymbol property,
+        string optionName,
+        string reason)
+    {
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidAuxiliaryBinding,
+            GeneratorUtilities.GetLocation(property),
+            optionName,
+            property.ToDisplayString(),
+            reason));
     }
 
     private static bool HasGlobalConfigureMethod(INamedTypeSymbol type, string name)

@@ -130,6 +130,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated row details",
         "Generated row details for view '{0}' are invalid: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidAuxiliaryBinding = Create(
+        "PDGSG124",
+        "Invalid generated column binding",
+        "Generated binding option '{0}' for property '{1}' is invalid: {2}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

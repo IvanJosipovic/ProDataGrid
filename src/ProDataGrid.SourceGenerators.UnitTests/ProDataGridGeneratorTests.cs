@@ -406,6 +406,133 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Button_and_toggle_members_generate_cached_direct_bindings()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Windows.Input;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(Discovery = DataGridColumnDiscovery.AttributedOnly)]
+            public sealed class Row
+            {
+                [DataGridColumn(
+                    Kind = DataGridColumnKind.Button,
+                    ContentMember = nameof(ActionLabel),
+                    CommandMember = nameof(ActionCommand),
+                    CommandParameterMember = nameof(ActionParameter))]
+                public string Action { get; } = "Run";
+
+                [DataGridColumn(
+                    Kind = DataGridColumnKind.ToggleButton,
+                    ContentMember = nameof(ToggleLabel),
+                    CheckedContentMember = nameof(CheckedLabel),
+                    UncheckedContentMember = nameof(UncheckedLabel),
+                    CommandMember = nameof(ToggleCommand),
+                    CommandParameterMember = nameof(ToggleParameter))]
+                public bool Enabled { get; set; }
+
+                [DataGridColumn(
+                    Kind = DataGridColumnKind.ToggleSwitch,
+                    OnContentMember = nameof(OnLabel),
+                    OffContentMember = nameof(OffLabel),
+                    CommandMember = nameof(ToggleCommand))]
+                public bool Online { get; set; }
+
+                public string ActionLabel { get; } = "Execute";
+                public object ActionParameter { get; } = new();
+                public ICommand ActionCommand { get; } = new TestCommand();
+                public string ToggleLabel { get; } = "State";
+                public string CheckedLabel { get; } = "Enabled";
+                public string UncheckedLabel { get; } = "Disabled";
+                public string OnLabel { get; } = "Online";
+                public string OffLabel { get; } = "Offline";
+                public object ToggleParameter { get; } = new();
+                public ICommand ToggleCommand { get; } = new TestCommand();
+            }
+            public sealed class TestCommand : ICommand
+            {
+                public event EventHandler? CanExecuteChanged;
+                public bool CanExecute(object? parameter) => true;
+                public void Execute(object? parameter) { }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("static item => item.ActionLabel", result.CombinedSource);
+        Assert.Contains("static item => item.ActionCommand", result.CombinedSource);
+        Assert.Contains("static item => item.ActionParameter", result.CombinedSource);
+        Assert.Contains("column.ContentBinding = s_ActionContentBinding", result.CombinedSource);
+        Assert.Contains("column.CommandBinding = s_ActionCommandBinding", result.CombinedSource);
+        Assert.Contains("column.CommandParameterBinding = s_ActionCommandParameterBinding", result.CombinedSource);
+        Assert.Contains("column.CheckedContentBinding = s_EnabledCheckedContentBinding", result.CombinedSource);
+        Assert.Contains("column.UncheckedContentBinding = s_EnabledUncheckedContentBinding", result.CombinedSource);
+        Assert.Contains("column.OnContentBinding = s_OnlineOnContentBinding", result.CombinedSource);
+        Assert.Contains("column.OffContentBinding = s_OnlineOffContentBinding", result.CombinedSource);
+        Assert.DoesNotContain("GetProperty(", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Missing_auxiliary_member_reports_PDGSG124()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn(Kind = DataGridColumnKind.Button, ContentMember = "Missing")]
+                public string Action { get; } = "Run";
+            }
+            """);
+
+        Diagnostic diagnostic = Assert.Single(result.GeneratorDiagnostics.Where(static item => item.Id == "PDGSG124"));
+        Assert.Contains("accessible readable instance property", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void Unsupported_or_conflicting_auxiliary_members_report_PDGSG124()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                public string Label { get; } = "Label";
+
+                [DataGridColumn(Kind = DataGridColumnKind.Text, ContentMember = nameof(Label))]
+                public string Name { get; set; } = "";
+
+                [DataGridColumn(Kind = DataGridColumnKind.ToggleSwitch, Content = "On", OnContentMember = nameof(Label))]
+                public bool Online { get; set; }
+            }
+            """);
+
+        Diagnostic[] diagnostics = result.GeneratorDiagnostics.Where(static item => item.Id == "PDGSG124").ToArray();
+        Assert.Equal(2, diagnostics.Length);
+        Assert.Contains(diagnostics, static item => item.GetMessage().Contains("does not support this binding", StringComparison.Ordinal));
+        Assert.Contains(diagnostics, static item => item.GetMessage().Contains("cannot be combined with static Content", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Non_command_auxiliary_member_reports_PDGSG124()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                public string NotACommand { get; } = "Run";
+
+                [DataGridColumn(Kind = DataGridColumnKind.Button, CommandMember = nameof(NotACommand))]
+                public string Action { get; } = "Run";
+            }
+            """);
+
+        Diagnostic diagnostic = Assert.Single(result.GeneratorDiagnostics.Where(static item => item.Id == "PDGSG124"));
+        Assert.Contains("must implement System.Windows.Input.ICommand", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void User_defined_schema_implementation_is_forwarded_without_reflection()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

@@ -587,7 +587,11 @@
       <pages:ToggleSwitchColumnBindingsPage />
     </TabItem>
     <TabItem Header="Button Definition Bindings">
-      <pages:ButtonColumnDefinitionBindingsPage />
+      <pages:ButtonColumnDefinitionBindingsPage>
+        <pages:ButtonColumnDefinitionBindingsPage.DataContext>
+          <viewModels:ButtonColumnDefinitionBindingsViewModel />
+        </pages:ButtonColumnDefinitionBindingsPage.DataContext>
+      </pages:ButtonColumnDefinitionBindingsPage>
     </TabItem>
     <TabItem Header="ToggleButton Definition Bindings">
       <pages:ToggleButtonColumnDefinitionBindingsPage />

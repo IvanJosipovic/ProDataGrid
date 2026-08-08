@@ -235,6 +235,7 @@ internal static class Emitter
         foreach (ColumnModel column in schema.Columns)
         {
             EmitAccessorFields(builder, schema, column, itemType);
+            EmitAuxiliaryBindingFields(builder, column, itemType);
             EmitEditField(builder, schema, column, itemType);
         }
 
@@ -1009,6 +1010,51 @@ internal static class Emitter
         builder.AppendLine();
     }
 
+    private static void EmitAuxiliaryBindingFields(StringBuilder builder, ColumnModel column, string itemType)
+    {
+        EmitAuxiliaryBindingField(builder, column, column.ContentMember, "Content", itemType);
+        EmitAuxiliaryBindingField(builder, column, column.CheckedContentMember, "CheckedContent", itemType);
+        EmitAuxiliaryBindingField(builder, column, column.UncheckedContentMember, "UncheckedContent", itemType);
+        EmitAuxiliaryBindingField(builder, column, column.OnContentMember, "OnContent", itemType);
+        EmitAuxiliaryBindingField(builder, column, column.OffContentMember, "OffContent", itemType);
+        EmitAuxiliaryBindingField(builder, column, column.CommandMember, "Command", itemType);
+        EmitAuxiliaryBindingField(builder, column, column.CommandParameterMember, "CommandParameter", itemType);
+    }
+
+    private static void EmitAuxiliaryBindingField(
+        StringBuilder builder,
+        ColumnModel column,
+        IPropertySymbol? member,
+        string role,
+        string itemType)
+    {
+        if (member == null)
+        {
+            return;
+        }
+
+        string valueType = member.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string runtimeValueType = UnwrapNullable(member.Type).ToDisplayString(GeneratorUtilities.FullyQualifiedFormat);
+        string memberName = GeneratorUtilities.EscapeIdentifier(member.Name);
+        string prefix = GetAuxiliaryBindingPrefix(column, role);
+        builder.Append("        private static readonly global::Avalonia.Data.Core.IPropertyInfo ")
+            .Append(prefix).AppendLine("Property =")
+            .AppendLine("            new global::Avalonia.Data.Core.ClrPropertyInfo(")
+            .Append("                ").Append(GeneratorUtilities.EscapeString(member.Name)).AppendLine(",")
+            .Append("                static target => target is ").Append(itemType).Append(" item ? item.")
+            .Append(memberName).Append(" : default(").Append(valueType).AppendLine("),")
+            .AppendLine("                setter: null,")
+            .Append("                typeof(").Append(runtimeValueType).AppendLine("));")
+            .AppendLine()
+            .Append("        private static readonly global::Avalonia.Controls.DataGridBindingDefinition ")
+            .Append(prefix).AppendLine("Binding =")
+            .Append("            global::Avalonia.Controls.DataGridBindingDefinition.CreateCached<")
+            .Append(itemType).Append(", ").Append(valueType).AppendLine(">(")
+            .Append("                ").Append(prefix).AppendLine("Property,")
+            .Append("                static item => item.").Append(memberName).AppendLine(");")
+            .AppendLine();
+    }
+
     private static void EmitEditField(StringBuilder builder, SchemaModel schema, ColumnModel column, string itemType)
     {
         IPropertySymbol property = column.Property;
@@ -1748,6 +1794,7 @@ internal static class Emitter
             case "ToggleSwitch":
                 EmitBooleanAssignment(builder, column.Options, "IsThreeState");
                 EmitToggleContentOptions(builder, column);
+                EmitAuxiliaryColumnBindings(builder, column);
                 break;
             case "AutoComplete":
                 EmitOptionalString(builder, "Watermark", watermark);
@@ -1790,6 +1837,7 @@ internal static class Emitter
             case "Formula":
                 break;
             case "Button":
+                EmitAuxiliaryColumnBindings(builder, column);
                 break;
             case "Hierarchical":
                 EmitOptionalString(builder, "CellTemplateKey", GetStringOption(column.Options, "TemplateKey"));
@@ -1833,19 +1881,43 @@ internal static class Emitter
     private static void EmitToggleContentOptions(StringBuilder builder, ColumnModel column)
     {
         string? content = GetStringOption(column.Options, "Content");
-        if (content == null)
+        if (column.Kind == "ToggleSwitch")
+        {
+            EmitOptionalString(builder, "OnContent", GetStringOption(column.Options, "OnContent") ?? content);
+            EmitOptionalString(builder, "OffContent", GetStringOption(column.Options, "OffContent"));
+        }
+        else if (column.Kind == "ToggleButton")
+        {
+            EmitOptionalString(builder, "Content", content);
+            EmitOptionalString(builder, "CheckedContent", GetStringOption(column.Options, "CheckedContent"));
+            EmitOptionalString(builder, "UncheckedContent", GetStringOption(column.Options, "UncheckedContent"));
+        }
+    }
+
+    private static void EmitAuxiliaryColumnBindings(StringBuilder builder, ColumnModel column)
+    {
+        EmitAuxiliaryColumnBinding(builder, column, column.ContentMember, "Content");
+        EmitAuxiliaryColumnBinding(builder, column, column.CheckedContentMember, "CheckedContent");
+        EmitAuxiliaryColumnBinding(builder, column, column.UncheckedContentMember, "UncheckedContent");
+        EmitAuxiliaryColumnBinding(builder, column, column.OnContentMember, "OnContent");
+        EmitAuxiliaryColumnBinding(builder, column, column.OffContentMember, "OffContent");
+        EmitAuxiliaryColumnBinding(builder, column, column.CommandMember, "Command");
+        EmitAuxiliaryColumnBinding(builder, column, column.CommandParameterMember, "CommandParameter");
+    }
+
+    private static void EmitAuxiliaryColumnBinding(
+        StringBuilder builder,
+        ColumnModel column,
+        IPropertySymbol? member,
+        string role)
+    {
+        if (member == null)
         {
             return;
         }
 
-        if (column.Kind == "ToggleSwitch")
-        {
-            builder.Append("            column.OnContent = ").Append(GeneratorUtilities.EscapeString(content)).AppendLine(";");
-        }
-        else if (column.Kind == "ToggleButton")
-        {
-            builder.Append("            column.Content = ").Append(GeneratorUtilities.EscapeString(content)).AppendLine(";");
-        }
+        builder.Append("            column.").Append(role).Append("Binding = ")
+            .Append(GetAuxiliaryBindingPrefix(column, role)).AppendLine("Binding;");
     }
 
     private static void EmitItemsSource(StringBuilder builder, ColumnModel column, string itemType)
@@ -2936,6 +3008,9 @@ internal static class Emitter
     {
         return "s_" + GeneratorUtilities.SanitizeIdentifier(property.Name).TrimStart('@');
     }
+
+    private static string GetAuxiliaryBindingPrefix(ColumnModel column, string role) =>
+        GetFieldName(column.Property) + GeneratorUtilities.SanitizeIdentifier(role).TrimStart('@');
 
     private static string GetEditFieldName(IPropertySymbol property)
     {

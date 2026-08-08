@@ -26,3 +26,4 @@ PDGSG118 | ProDataGrid.SourceGeneration | Error | Invalid generated state metada
 PDGSG121 | ProDataGrid.SourceGeneration | Error | Invalid generated formula metadata
 PDGSG122 | ProDataGrid.SourceGeneration | Error | Invalid custom drawing factory
 PDGSG123 | ProDataGrid.SourceGeneration | Error | Invalid generated row details
+PDGSG124 | ProDataGrid.SourceGeneration | Error | Invalid generated column binding

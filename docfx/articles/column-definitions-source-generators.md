@@ -301,6 +301,54 @@ public sealed partial class Quote
 
 `GenerateDataGridCellDrawCache` is an independent incremental pipeline for partial row classes. It emits `IDataGridCellDrawOperationItemCache`, deterministic `{Property}CellDrawCacheSlot` constants for attributed custom-drawing columns, array-backed O(1) storage, and whole-cache/per-slot clear methods. `InitialCapacity` avoids first-use growth; `MaximumCapacity` bounds retained entries and rejects out-of-range slots without allocation. Set `GenerateSlotConstants = false` when slot ownership is entirely external.
 
+### Row commands and dynamic button/toggle content
+
+Button, toggle-button, and toggle-switch definitions can resolve commands, parameters, and state labels directly from each row. Name accessible row properties with the member options; the generator emits cached `ClrPropertyInfo` and `DataGridBindingDefinition` instances with typed static delegates:
+
+```csharp
+[GenerateDataGridColumns(Discovery = DataGridColumnDiscovery.AttributedOnly)]
+public sealed class ServerRow : ReactiveObject
+{
+    [DataGridColumn(
+        DataGridColumnKind.Button,
+        ContentMember = nameof(RestartLabel),
+        CommandMember = nameof(RestartCommand),
+        CommandParameterMember = nameof(Id))]
+    public string RestartAction => Id;
+
+    [DataGridColumn(
+        DataGridColumnKind.ToggleButton,
+        CheckedContentMember = nameof(PinnedLabel),
+        UncheckedContentMember = nameof(UnpinnedLabel),
+        CommandMember = nameof(PinChangedCommand),
+        CommandParameterMember = nameof(Id))]
+    public bool IsPinned { get; set; }
+
+    [DataGridColumn(
+        DataGridColumnKind.ToggleSwitch,
+        OnContentMember = nameof(OnlineLabel),
+        OffContentMember = nameof(OfflineLabel),
+        CommandMember = nameof(PresenceChangedCommand))]
+    public bool IsOnline { get; set; }
+
+    public string Id { get; init; } = string.Empty;
+    public string RestartLabel => "Restart";
+    public string PinnedLabel => "Pinned";
+    public string UnpinnedLabel => "Not pinned";
+    public string OnlineLabel => "Online";
+    public string OfflineLabel => "Offline";
+    public ICommand RestartCommand { get; init; } = default!;
+    public ICommand PinChangedCommand { get; init; } = default!;
+    public ICommand PresenceChangedCommand { get; init; } = default!;
+}
+```
+
+Supported member options are `ContentMember`, `CheckedContentMember`, `UncheckedContentMember`, `OnContentMember`, `OffContentMember`, `CommandMember`, and `CommandParameterMember`. `CommandMember` must implement `ICommand`. A member-based label cannot be combined with its static counterpart. `Content` remains the legacy static on-label fallback for toggle switches.
+
+`CommandParameterMember` is optional. When neither a compiled parameter binding nor a static parameter is configured, the generated cell passes the row item. A row-level `CommandMember` takes precedence over a definition-wide static command. `FactoryMethod` and `ConfigureMethod` remain available when an application needs a custom command bridge or control implementation.
+
+The runtime definition surfaces are additive: `ContentBinding`, state-specific content bindings, `CommandBinding`, and `CommandParameterBinding` accept cached `DataGridBindingDefinition` values. Existing static content/command properties and XAML bindings continue to work.
+
 ## DynamicData, async streams, and snapshot reconciliation
 
 The low-level schema compilers remain available for custom pipelines, but named controllers generate the standard `SourceList<T>` and `SourceCache<T,TKey>` pipeline, descriptor subjects, operation propagation, final scheduler boundary, errors, completion, and disposal automatically. `SourceCache` generation requires its key type to match `[DataGridKey]` or `KeyMember`, and generated external pipelines reject view-owned operation execution at compile time.
@@ -357,6 +405,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG121` | Formula names or stable-key dependencies are invalid. |
 | `PDGSG122` | A custom-drawing factory type/method is conflicting or incompatible. |
 | `PDGSG123` | Generated row-details sources or typed nested-grid members are conflicting or incompatible. |
+| `PDGSG124` | A button/toggle member binding is unsupported, conflicting, inaccessible, missing, or has an invalid command type. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable.
 

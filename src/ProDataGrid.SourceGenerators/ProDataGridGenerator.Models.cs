@@ -415,6 +415,20 @@ internal sealed class ColumnModel
 
     public string? DrawOperationFactoryMethod { get; set; }
 
+    public IPropertySymbol? ContentMember { get; set; }
+
+    public IPropertySymbol? CheckedContentMember { get; set; }
+
+    public IPropertySymbol? UncheckedContentMember { get; set; }
+
+    public IPropertySymbol? OnContentMember { get; set; }
+
+    public IPropertySymbol? OffContentMember { get; set; }
+
+    public IPropertySymbol? CommandMember { get; set; }
+
+    public IPropertySymbol? CommandParameterMember { get; set; }
+
     public GroupModel? Group { get; set; }
 
     public ImmutableArray<SummaryModel> Summaries { get; set; } = ImmutableArray<SummaryModel>.Empty;
