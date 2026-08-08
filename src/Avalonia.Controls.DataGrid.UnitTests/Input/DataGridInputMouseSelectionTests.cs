@@ -780,6 +780,72 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
+    public void CellDragSelection_Cancellation_Preserves_PreDrag_Selection()
+    {
+        var (grid, _) = CreateGrid(rowCount: 4, columnCount: 3, selectionUnit: DataGridSelectionUnit.CellOrRowOrColumnHeader, selectionMode: DataGridSelectionMode.Extended);
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+
+        var startRow = Assert.IsType<DataGridRow>(grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        var endRow = Assert.IsType<DataGridRow>(grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(2)));
+        var startCell = startRow.Cells[0];
+        var endCell = endRow.Cells[2];
+        var startPoint = GetCenterPoint(startCell, grid);
+        var endPoint = GetCenterPoint(endCell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        startCell.RaiseEvent(CreatePointerPressedArgs(startCell, grid, pointer, startPoint, KeyModifiers.None));
+        Assert.Single(grid.SelectedCells);
+        DataGridCellInfo current = grid.CurrentCell;
+        DataGridSelectionChangingEventArgs? observed = null;
+        grid.SelectionChanging += (_, e) =>
+        {
+            if (e.Source.HasFlag(DataGridSelectionChangeSource.DragInteraction))
+            {
+                observed = e;
+                e.Cancel = true;
+            }
+        };
+
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
+
+        Assert.NotNull(observed);
+        Assert.True(observed!.Source.HasFlag(DataGridSelectionChangeSource.Pointer));
+        Assert.True(observed.Source.HasFlag(DataGridSelectionChangeSource.DragInteraction));
+        Assert.Single(grid.SelectedCells);
+        Assert.Equal(current, grid.CurrentCell);
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, endPoint, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public void ColumnHeaderSelection_Cancellation_Commits_Nothing()
+    {
+        var (grid, _) = CreateGrid(rowCount: 3, columnCount: 2, selectionUnit: DataGridSelectionUnit.CellOrColumnHeader, selectionMode: DataGridSelectionMode.Extended);
+        grid.HeadersVisibility = DataGridHeadersVisibility.All;
+        grid.CanUserSelectColumns = true;
+        grid.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        var column = grid.ColumnsInternal[0];
+        var header = GetColumnHeader(grid, column);
+        var point = GetCenterPoint(header, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        DataGridSelectionChangingEventArgs? observed = null;
+        grid.SelectionChanging += (_, e) =>
+        {
+            observed = e;
+            e.Cancel = true;
+        };
+
+        header.RaiseEvent(CreatePointerPressedArgs(header, grid, pointer, point, KeyModifiers.None));
+
+        Assert.NotNull(observed);
+        Assert.True(observed!.Source.HasFlag(DataGridSelectionChangeSource.Pointer));
+        Assert.Single(observed.AddedColumns);
+        Assert.Empty(grid.SelectedColumns);
+        Assert.Empty(grid.SelectedCells);
+    }
+
+    [AvaloniaFact]
     public void CellDragSelection_Ignores_Touch_By_Default()
     {
         var (grid, _) = CreateGrid(rowCount: 3, columnCount: 3, selectionUnit: DataGridSelectionUnit.CellOrRowOrColumnHeader, selectionMode: DataGridSelectionMode.Extended);

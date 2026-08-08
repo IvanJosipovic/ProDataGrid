@@ -69,11 +69,6 @@ internal
             }
 
             var anchorSlot = SlotFromRowIndex(0);
-            if (EditingRow != null && anchorSlot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
-            {
-                return;
-            }
-
             if (SuppressSortOnColumnHeaderSelection)
             {
                 header.SuppressSortOnClick();
@@ -97,6 +92,28 @@ internal
             if (SelectionMode == DataGridSelectionMode.Extended && ctrl && !shift && IsColumnSelected(column))
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, e);
+                List<DataGridCellInfo> proposed = BuildNormalizedCellSelectionProposal(_selectedCellsView);
+                for (int rowIndex = 0; rowIndex < DataConnection.Count; rowIndex++)
+                {
+                    if (!IsRowHeaderSelectionActive(rowIndex))
+                    {
+                        RemoveCellFromProposal(proposed, rowIndex, column.Index);
+                    }
+                }
+                DataGridSelectionAnchorInfo proposedAnchor = proposed.Count == 0
+                    ? DataGridSelectionAnchorInfo.Unset
+                    : GetCurrentSelectionAnchorInfo();
+                if (!TryPreviewCellSelection(proposed, CurrentCell, proposedAnchor))
+                {
+                    e.Handled = true;
+                    return;
+                }
+                if (EditingRow != null && anchorSlot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 var removed = new List<DataGridCellInfo>();
                 var rowCount = DataConnection.Count;
 
@@ -204,11 +221,6 @@ internal
                 return false;
             }
 
-            if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
-            {
-                return false;
-            }
-
             KeyboardHelper.GetMetaKeyState(this, e.KeyModifiers, out var ctrl, out _);
             var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
 
@@ -228,6 +240,27 @@ internal
                 IsRowFullySelectedByCells(rowIndex))
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, e);
+                List<DataGridCellInfo> proposed = BuildNormalizedCellSelectionProposal(_selectedCellsView);
+                for (int columnIndex = 0; columnIndex < ColumnsItemsInternal.Count; columnIndex++)
+                {
+                    if (!IsColumnHeaderSelectionActive(columnIndex))
+                    {
+                        RemoveCellFromProposal(proposed, rowIndex, columnIndex);
+                    }
+                }
+                DataGridSelectionAnchorInfo proposedAnchor = proposed.Count == 0
+                    ? DataGridSelectionAnchorInfo.Unset
+                    : GetCurrentSelectionAnchorInfo();
+                if (!TryPreviewCellSelection(proposed, CurrentCell, proposedAnchor))
+                {
+                    return true;
+                }
+                if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
+                {
+                    return false;
+                }
+
+                using var commit = BeginSelectionCommit();
                 var removed = new List<DataGridCellInfo>();
 
                 _selectedRowHeaderIndices.Remove(rowIndex);

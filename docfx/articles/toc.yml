@@ -164,6 +164,8 @@
   items:
   - name: Selection and Navigation
     href: selection-and-navigation.md
+  - name: Transactional Selection Veto
+    href: selection-changing.md
   - name: Selection Model (End-to-End)
     href: selection-model-end-to-end.md
   - name: Selection Index Resolution Performance

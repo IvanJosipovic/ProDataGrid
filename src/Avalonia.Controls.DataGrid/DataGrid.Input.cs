@@ -1369,6 +1369,68 @@ internal
                 return true;
             }
 
+            SelectionCommitScope selectionCommit = default;
+            if (HasSelectionChangingHandlers)
+            {
+                int targetRowIndex = RowIndexFromSlot(slot);
+                List<DataGridCellInfo> proposed;
+                DataGridSelectionAnchorInfo proposedAnchor = CreateAnchorInfo(slot, columnIndex);
+                if (SelectionMode == DataGridSelectionMode.Single)
+                {
+                    proposed = BuildCellSelectionProposal(
+                        append: false,
+                        targetRowIndex,
+                        targetRowIndex,
+                        columnIndex,
+                        columnIndex,
+                        columnIndexesAreDisplayIndexes: false);
+                }
+                else if (SelectionMode == DataGridSelectionMode.Extended && shift && _cellAnchor.Slot != -1 &&
+                         TryGetSelectionDisplayIndexes(_cellAnchor.ColumnIndex, columnIndex, out int anchorDisplayIndex, out int targetDisplayIndex))
+                {
+                    int anchorRowIndex = RowIndexFromSlot(_cellAnchor.Slot);
+                    var anchorCell = new DataGridCellPosition(anchorRowIndex, anchorDisplayIndex);
+                    var targetCell = new DataGridCellPosition(targetRowIndex, targetDisplayIndex);
+                    DataGridCellRange range = RangeInteractionModel != null
+                        ? RangeInteractionModel.BuildSelectionRange(new DataGridSelectionRangeContext(this, anchorCell, targetCell, pointerPressedEventArgs.KeyModifiers))
+                        : new DataGridCellRange(
+                            Math.Min(anchorRowIndex, targetRowIndex),
+                            Math.Max(anchorRowIndex, targetRowIndex),
+                            Math.Min(anchorDisplayIndex, targetDisplayIndex),
+                            Math.Max(anchorDisplayIndex, targetDisplayIndex));
+                    proposed = BuildCellSelectionProposal(
+                        append: ctrl,
+                        range.StartRow,
+                        range.EndRow,
+                        range.StartColumn,
+                        range.EndColumn,
+                        columnIndexesAreDisplayIndexes: true);
+                    proposedAnchor = GetCurrentSelectionAnchorInfo();
+                }
+                else
+                {
+                    proposed = BuildCellSelectionProposal(
+                        append: ctrl,
+                        targetRowIndex,
+                        targetRowIndex,
+                        columnIndex,
+                        columnIndex,
+                        columnIndexesAreDisplayIndexes: false);
+                    if (ctrl && GetCellSelectionFromSlot(slot, columnIndex))
+                    {
+                        RemoveCellFromProposal(proposed, targetRowIndex, columnIndex);
+                    }
+                }
+
+                if (!TryPreviewCellSelection(proposed, CreateCellInfo(columnIndex, slot), proposedAnchor))
+                {
+                    return true;
+                }
+
+                selectionCommit = BeginSelectionCommit();
+            }
+
+            using var selectionTransaction = selectionCommit;
             if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
             {
                 return true;

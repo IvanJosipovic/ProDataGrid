@@ -501,6 +501,12 @@ internal
 
             if (currentItem != null && (slot < 0 || slot >= SlotCount))
             {
+                if (!TryPreviewClearSelectionAndCurrent())
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ClearRowSelection(true);
                 SetCurrentCellCore(-1, -1);
                 return;
@@ -510,6 +516,12 @@ internal
                 _selectionModelAdapter.Model.SelectedIndexes.Count > 0 &&
                 !currentInSelection)
             {
+                if (!TryPreviewSelectionModelSelection())
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ApplySelectionFromSelectionModel();
                 return;
             }
@@ -519,13 +531,18 @@ internal
                 _noSelectionChangeCount++;
                 _noCurrentCellChangeCount++;
 
-                if (!CommitEdit())
-                {
-                    CancelEdit(DataGridEditingUnit.Row, false);
-                }
-
                 if (currentItem == null)
                 {
+                    if (!TryPreviewClearSelectionAndCurrent())
+                    {
+                        return;
+                    }
+
+                    using var commit = BeginSelectionCommit();
+                    if (!CommitEdit())
+                    {
+                        CancelEdit(DataGridEditingUnit.Row, false);
+                    }
                     ClearRowSelection(true);
                     SetCurrentCellCore(-1, -1);
                 }
@@ -535,6 +552,16 @@ internal
                 }
                 else
                 {
+                    if (!TryPreviewRowSelection(columnIndex, slot, DataGridSelectionAction.SelectCurrent))
+                    {
+                        return;
+                    }
+
+                    using var commit = BeginSelectionCommit();
+                    if (!CommitEdit())
+                    {
+                        CancelEdit(DataGridEditingUnit.Row, false);
+                    }
                     ClearRowSelection(true);
                     ProcessSelectionAndCurrency(columnIndex, currentItem, slot, DataGridSelectionAction.SelectCurrent, false);
                 }

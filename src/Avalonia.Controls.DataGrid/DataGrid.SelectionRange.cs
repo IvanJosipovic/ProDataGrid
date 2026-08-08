@@ -25,6 +25,30 @@ internal
             }
 
             using var _ = BeginSelectionChangeScope(source, triggerEventArgs);
+            var proposed = BuildCellSelectionProposal(
+                append,
+                range.StartRow,
+                range.EndRow,
+                range.StartColumn,
+                range.EndColumn,
+                columnIndexesAreDisplayIndexes: false);
+            int proposedAnchorSlot = SlotFromRowIndex(range.StartRow);
+            var proposedCurrentCell = CreateCellInfo(range.StartColumn, proposedAnchorSlot);
+            if (!TryPreviewCellSelection(
+                    proposed,
+                    proposedCurrentCell,
+                    CreateAnchorInfo(proposedAnchorSlot, range.StartColumn)))
+            {
+                return false;
+            }
+
+            using var commit = BeginSelectionCommit();
+            if (EditingRow != null && proposedAnchorSlot != EditingRow.Slot &&
+                !CommitEdit(DataGridEditingUnit.Row, true))
+            {
+                return false;
+            }
+
             var added = new List<DataGridCellInfo>();
             var removed = new List<DataGridCellInfo>();
 
@@ -68,6 +92,30 @@ internal
             }
 
             using var _ = BeginSelectionChangeScope(source, triggerEventArgs);
+            var proposed = BuildCellSelectionProposal(
+                append,
+                0,
+                DataConnection.Count - 1,
+                startDisplayIndex,
+                endDisplayIndex,
+                columnIndexesAreDisplayIndexes: true);
+            int proposedColumnIndex = GetColumnIndexFromDisplayIndex(Math.Min(startDisplayIndex, endDisplayIndex));
+            int proposedAnchorSlot = SlotFromRowIndex(0);
+            if (!TryPreviewCellSelection(
+                    proposed,
+                    CreateCellInfo(proposedColumnIndex, proposedAnchorSlot),
+                    CreateAnchorInfo(proposedAnchorSlot, proposedColumnIndex)))
+            {
+                return false;
+            }
+
+            using var commit = BeginSelectionCommit();
+            if (EditingRow != null && proposedAnchorSlot != EditingRow.Slot &&
+                !CommitEdit(DataGridEditingUnit.Row, true))
+            {
+                return false;
+            }
+
             var added = new List<DataGridCellInfo>();
             var removed = new List<DataGridCellInfo>();
 

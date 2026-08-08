@@ -87,6 +87,12 @@ namespace Avalonia.Controls
             }
             else
             {
+                if (!OwningGrid.TryPreviewSetRowSelection(slot, isSelected: true, setAnchorSlot: false))
+                {
+                    return -1;
+                }
+
+                using var commit = OwningGrid.BeginSelectionCommit();
                 OwningGrid.SetRowSelection(slot, true /*isSelected*/, false /*setAnchorSlot*/);
             }
             return IndexOf(dataItem);
@@ -103,12 +109,18 @@ namespace Avalonia.Controls
 
             if (_selectedSlots.Count > 0)
             {
+                if (!OwningGrid.TryPreviewClearRowSelection(resetAnchorSlot: true))
+                {
+                    return;
+                }
+
                 // Clearing the selection does not reset the potential current cell.
                 if (!OwningGrid.CommitEdit(DataGridEditingUnit.Row, true /*exitEditing*/))
                 {
                     // Edited value couldn't be committed or aborted
                     return;
                 }
+                using var commit = OwningGrid.BeginSelectionCommit();
                 OwningGrid.ClearRowSelection(true /*resetAnchorSlot*/);
             }
         }
@@ -163,14 +175,21 @@ namespace Avalonia.Controls
             }
             Debug.Assert(itemIndex >= 0);
 
-            if (itemIndex == OwningGrid.CurrentSlot &&
+            int slot = OwningGrid.SlotFromRowIndex(itemIndex);
+            if (!OwningGrid.TryPreviewSetRowSelection(slot, isSelected: false, setAnchorSlot: false))
+            {
+                return;
+            }
+
+            if (slot == OwningGrid.CurrentSlot &&
                 !OwningGrid.CommitEdit(DataGridEditingUnit.Row, true /*exitEditing*/))
             {
                 // Edited value couldn't be committed or aborted
                 return;
             }
 
-            OwningGrid.SetRowSelection(OwningGrid.SlotFromRowIndex(itemIndex), false /*isSelected*/, false /*setAnchorSlot*/);
+            using var commit = OwningGrid.BeginSelectionCommit();
+            OwningGrid.SetRowSelection(slot, false /*isSelected*/, false /*setAnchorSlot*/);
         }
 
         public void RemoveAt(int index)
@@ -189,6 +208,11 @@ namespace Avalonia.Controls
             int rowIndex = GetNthSlot(index);
             Debug.Assert(rowIndex > -1);
 
+            if (!OwningGrid.TryPreviewSetRowSelection(rowIndex, isSelected: false, setAnchorSlot: false))
+            {
+                return;
+            }
+
             if (rowIndex == OwningGrid.CurrentSlot &&
                 !OwningGrid.CommitEdit(DataGridEditingUnit.Row, true /*exitEditing*/))
             {
@@ -196,6 +220,7 @@ namespace Avalonia.Controls
                 return;
             }
 
+            using var commit = OwningGrid.BeginSelectionCommit();
             OwningGrid.SetRowSelection(rowIndex, false /*isSelected*/, false /*setAnchorSlot*/);
         }
 

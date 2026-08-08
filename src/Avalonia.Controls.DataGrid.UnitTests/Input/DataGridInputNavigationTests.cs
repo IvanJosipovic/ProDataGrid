@@ -1103,6 +1103,29 @@ public class DataGridInputNavigationTests
         Assert.True(args.Handled);
     }
 
+    [AvaloniaFact]
+    public void Keyboard_Selection_Cancellation_Preserves_Current_Row_And_Cell()
+    {
+        var (grid, _) = CreateGrid(rowCount: 4);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        DataGridCellInfo current = grid.CurrentCell;
+        object? selectedItem = grid.SelectedItem;
+        DataGridSelectionChangingEventArgs? observed = null;
+        grid.SelectionChanging += (_, e) =>
+        {
+            observed = e;
+            e.Cancel = true;
+        };
+
+        var args = CreateKeyArgs(grid, Key.Down, KeyModifiers.None, InputElement.KeyDownEvent);
+        InvokeKeyDown(grid, args);
+
+        Assert.NotNull(observed);
+        Assert.True(observed!.Source.HasFlag(DataGridSelectionChangeSource.Keyboard));
+        Assert.Equal(current, grid.CurrentCell);
+        Assert.Same(selectedItem, grid.SelectedItem);
+    }
+
     private static (DataGrid grid, ObservableCollection<InputRow> items) CreateGrid(
         int rowCount = 5,
         int columnCount = 3,

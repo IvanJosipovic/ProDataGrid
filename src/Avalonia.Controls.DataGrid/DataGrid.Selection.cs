@@ -34,6 +34,12 @@ internal
         public void SelectAll()
         {
             using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Command);
+            if (!TryPreviewAllRows())
+            {
+                return;
+            }
+
+            using var commit = BeginSelectionCommit();
             SetRowsSelection(0, SlotCount - 1);
         }
 
@@ -75,6 +81,13 @@ internal
                 }
 
                 columnIndex = CoerceColumnIndexToVisible(columnIndex);
+
+                if (!TryPreviewRowSelection(columnIndex, slot, action))
+                {
+                    return;
+                }
+
+                using var selectionCommit = BeginSelectionCommit();
 
                 if (action != DataGridSelectionAction.SelectFromAnchorToCurrent)
                 {
@@ -287,6 +300,13 @@ internal
             try
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                if (!TryPreviewSelectionModelSelection())
+                {
+                    RestoreSelectionFromSnapshot(restoreEmpty: true);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 _syncingSelectionModel = true;
 
                 ApplySelectionFromSelectionModel();
@@ -409,6 +429,13 @@ internal
             try
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                if (!TryPreviewSelectionModelSelection())
+                {
+                    RestoreSelectionFromSnapshot(restoreEmpty: true);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 _syncingSelectionModel = true;
                 ApplySelectionFromSelectionModel();
                 UpdateSelectionSnapshot();
@@ -429,6 +456,13 @@ internal
             try
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                if (!TryPreviewClearRowSelection(resetAnchorSlot: true))
+                {
+                    RestoreSelectionFromSnapshot(restoreEmpty: true);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 _syncingSelectionModel = true;
                 ClearRowSelection(resetAnchorSlot: true);
                 SetCurrentCellCore(-1, -1);
@@ -517,7 +551,7 @@ internal
             }
         }
 
-        private void RestoreSelectionFromSnapshot()
+        private void RestoreSelectionFromSnapshot(bool restoreEmpty = false)
         {
             if (_selectionModelAdapter == null)
             {
@@ -525,7 +559,7 @@ internal
             }
 
             var snapshot = _selectionModelSnapshot;
-            if (snapshot == null || snapshot.Count == 0)
+            if (!restoreEmpty && (snapshot == null || snapshot.Count == 0))
             {
                 return;
             }
@@ -536,12 +570,15 @@ internal
                 using (_selectionModelAdapter.Model.BatchUpdate())
                 {
                     _selectionModelAdapter.Model.Clear();
-                    foreach (var item in snapshot)
+                    if (snapshot != null)
                     {
-                        int index = GetSelectionModelIndexOfItem(item);
-                        if (index >= 0)
+                        foreach (var item in snapshot)
                         {
-                            _selectionModelAdapter.Select(index);
+                            int index = GetSelectionModelIndexOfItem(item);
+                            if (index >= 0)
+                            {
+                                _selectionModelAdapter.Select(index);
+                            }
                         }
                     }
                 }
@@ -644,6 +681,13 @@ internal
 
                 int newCurrentPosition = -1;
                 object item = ItemFromSlot(slot, ref newCurrentPosition);
+
+                if (!TryPreviewRowSelection(columnIndex, slot, action))
+                {
+                    return false;
+                }
+
+                using var selectionCommit = BeginSelectionCommit();
 
                 if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
                 {
@@ -803,6 +847,31 @@ internal
             _syncingSelectedItems = true;
             try
             {
+                HashSet<int> proposedRows = BuildRowSelectionProposal(boundItems, out int proposedSlot);
+                int proposedColumnIndex = CurrentColumnIndex >= 0
+                    ? CurrentColumnIndex
+                    : FirstDisplayedNonFillerColumnIndex;
+                if (!TryPreviewRowSet(
+                        proposedRows,
+                        CreateCellInfo(proposedColumnIndex, proposedSlot),
+                        CreateAnchorInfo(proposedSlot, proposedColumnIndex)))
+                {
+                    if (!ReferenceEquals(boundItems, _selectedItems))
+                    {
+                        boundItems.Clear();
+                        foreach (int selectedSlot in _selectedItems.GetIndexes())
+                        {
+                            int rowIndex = RowIndexFromSlot(selectedSlot);
+                            if (rowIndex >= 0)
+                            {
+                                boundItems.Add(ProjectSelectionItem(DataConnection.GetDataItem(rowIndex)));
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 if (_selectionModelAdapter != null && DataConnection?.CollectionView != null)
                 {
                     _syncingSelectionModel = true;
@@ -1199,17 +1268,28 @@ internal
             _syncingSelectedCells = true;
             try
             {
+                using var origin = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                List<DataGridCellInfo> proposed = BuildNormalizedCellSelectionProposal(boundCells);
+                if (!TryPreviewCellSelection(proposed, CurrentCell, GetCurrentSelectionAnchorInfo()))
+                {
+                    if (!ReferenceEquals(boundCells, _selectedCellsView))
+                    {
+                        boundCells.Clear();
+                        for (int i = 0; i < _selectedCellsView.Count; i++)
+                        {
+                            boundCells.Add(_selectedCellsView[i]);
+                        }
+                    }
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 var removed = _selectedCellsView.ToList();
                 ClearCellSelectionInternal(clearRows: true, raiseEvent: false);
 
                 var added = new List<DataGridCellInfo>();
-                foreach (var cell in boundCells)
+                foreach (DataGridCellInfo normalized in proposed)
                 {
-                    if (!TryNormalizeCell(cell, out var normalized))
-                    {
-                        continue;
-                    }
-
                     if (AddCellSelectionInternal(normalized, added))
                     {
                         SetRowSelection(SlotFromRowIndex(normalized.RowIndex), isSelected: true, setAnchorSlot: false);
@@ -1364,6 +1444,22 @@ internal
             _syncingSelectedColumns = true;
             try
             {
+                using var origin = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                List<DataGridCellInfo> proposed = BuildColumnSelectionProposal(boundColumns);
+                if (!TryPreviewCellSelection(proposed, CurrentCell, GetCurrentSelectionAnchorInfo()))
+                {
+                    if (!ReferenceEquals(boundColumns, _selectedColumnsView))
+                    {
+                        boundColumns.Clear();
+                        for (int i = 0; i < _selectedColumnsView.Count; i++)
+                        {
+                            boundColumns.Add(_selectedColumnsView[i]);
+                        }
+                    }
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 var removedColumns = _selectedColumnsView.ToList();
                 var removedCells = _selectedCellsView.ToList();
 
@@ -2323,6 +2419,24 @@ internal
             }
 
             using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Command);
+            var proposed = BuildCellSelectionProposal(
+                append: false,
+                0,
+                DataConnection.Count - 1,
+                0,
+                ColumnsItemsInternal.Count - 1,
+                columnIndexesAreDisplayIndexes: false);
+            int proposedAnchorSlot = SlotFromRowIndex(0);
+            int proposedAnchorColumn = ColumnsInternal.FirstVisibleNonFillerColumn?.Index ?? -1;
+            if (!TryPreviewCellSelection(
+                    proposed,
+                    CurrentCell,
+                    CreateAnchorInfo(proposedAnchorSlot, proposedAnchorColumn)))
+            {
+                return;
+            }
+
+            using var commit = BeginSelectionCommit();
             var removed = _selectedCellsView.ToList();
             ClearCellSelectionInternal(clearRows: true, raiseEvent: false);
 
@@ -2705,6 +2819,16 @@ internal
                 if (selectionIndex == -1)
                 {
                     // If the Item is null or it's not found, clear the Selection
+                    if (!TryPreviewRowSelection(-1, -1, DataGridSelectionAction.SelectCurrent))
+                    {
+                        SetValueNoCallback(SelectedItemProperty, normalizedOld);
+                        SetValueNoCallback(
+                            SelectedIndexProperty,
+                            normalizedOld == null ? -1 : GetSelectionModelIndexOfItem(normalizedOld));
+                        return;
+                    }
+
+                    using var selectionCommit = BeginSelectionCommit();
                     if (!CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true))
                     {
                         // Edited value couldn't be committed or aborted
@@ -2840,6 +2964,13 @@ internal
             if (!_areHandlersSuspended)
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                if (!TryPreviewClearRowSelection(resetAnchorSlot: true))
+                {
+                    SetValueNoCallback(SelectionModeProperty, (DataGridSelectionMode)e.OldValue);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ClearRowSelection(resetAnchorSlot: true);
                 if (_selectionModelAdapter != null)
                 {
@@ -2859,10 +2990,27 @@ internal
             var newValue = (DataGridSelectionUnit)e.NewValue;
             if (newValue == DataGridSelectionUnit.FullRow)
             {
+                using var origin = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                var proposed = new List<DataGridCellInfo>();
+                if (!TryPreviewCellSelection(proposed, CurrentCell, DataGridSelectionAnchorInfo.Unset))
+                {
+                    SetValueNoCallback(SelectionUnitProperty, (DataGridSelectionUnit)e.OldValue);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ClearCellSelectionInternal(clearRows: false);
             }
             else
             {
+                using var origin = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                if (!TryPreviewClearRowSelection(resetAnchorSlot: true))
+                {
+                    SetValueNoCallback(SelectionUnitProperty, (DataGridSelectionUnit)e.OldValue);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ClearRowSelection(resetAnchorSlot: true);
                 _cellAnchor = new DataGridCellCoordinates(-1, -1);
             }

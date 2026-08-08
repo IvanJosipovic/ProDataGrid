@@ -1195,7 +1195,7 @@ internal
         public int SelectedIndex
         {
             get { return _selectedIndex; }
-            set { SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value); }
+            set { SetSelectedIndexWithPreview(value); }
         }
 
         public static readonly DirectProperty<DataGrid, object> SelectedItemProperty =
@@ -1211,7 +1211,7 @@ internal
         public object SelectedItem
         {
             get { return _selectedItem; }
-            set { SetAndRaise(SelectedItemProperty, ref _selectedItem, value); }
+            set { SetSelectedItemWithPreview(value); }
         }
 
         public static readonly DirectProperty<DataGrid, IList> SelectedItemsProperty =

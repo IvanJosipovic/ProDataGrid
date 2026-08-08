@@ -743,6 +743,8 @@ internal
         //TODO Cleanup
         double? _previousDetailsHeight = null;
 
+        private bool _restoringSelectionAfterVeto;
+
 
 
 
@@ -772,8 +774,26 @@ internal
             {
                 var value = change.GetNewValue<bool>();
 
-                if (OwningGrid != null && Slot != -1)
+                if (!_restoringSelectionAfterVeto && OwningGrid != null && Slot != -1)
                 {
+                    using var origin = OwningGrid.BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                    if (!OwningGrid.TryPreviewSetRowSelection(Slot, value, setAnchorSlot: false))
+                    {
+                        try
+                        {
+                            _restoringSelectionAfterVeto = true;
+                            SetCurrentValue(IsSelectedProperty, !value);
+                        }
+                        finally
+                        {
+                            _restoringSelectionAfterVeto = false;
+                        }
+                        UpdateSelectionPseudoClasses();
+                        base.OnPropertyChanged(change);
+                        return;
+                    }
+
+                    using var commit = OwningGrid.BeginSelectionCommit();
                     OwningGrid.SetRowSelection(Slot, value, false);
                 }
 
