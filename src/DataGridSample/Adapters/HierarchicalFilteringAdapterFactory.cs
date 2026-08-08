@@ -7,7 +7,12 @@ namespace DataGridSample.Adapters
     {
         public DataGridFilteringAdapter Create(DataGrid grid, IFilteringModel model)
         {
-            return new AccessorFilteringAdapter(model, () => grid.ColumnDefinitions);
+            return new DataGridHierarchicalFilteringAdapter(
+                model,
+                () => grid.ColumnDefinitions,
+                grid.HierarchicalModel,
+                DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches,
+                grid.FastPathOptions);
         }
     }
 }

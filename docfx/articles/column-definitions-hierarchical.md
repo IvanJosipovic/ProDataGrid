@@ -36,6 +36,13 @@ _idColumn = new DataGridTextColumnDefinition
 ## XAML wiring
 
 ```xml
+<UserControl xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid">
+  <UserControl.Resources>
+    <filtering:DataGridHierarchicalFilteringAdapterFactory
+        x:Key="HierarchicalFilteringAdapterFactory"
+        Policy="KeepAncestorsOfMatches" />
+  </UserControl.Resources>
+
 <DataGrid ColumnDefinitionsSource="{Binding ColumnDefinitions}"
           HierarchicalModel="{Binding Model}"
           HierarchicalRowsEnabled="True"
@@ -43,9 +50,10 @@ _idColumn = new DataGridTextColumnDefinition
           FilteringModel="{Binding FilteringModel}"
           SearchModel="{Binding SearchModel}"
           SortingAdapterFactory="{StaticResource HierarchicalSortingAdapterFactory}"
-          FilteringAdapterFactory="{StaticResource AccessorFilteringAdapterFactory}"
+          FilteringAdapterFactory="{StaticResource HierarchicalFilteringAdapterFactory}"
           SearchAdapterFactory="{StaticResource AccessorSearchAdapterFactory}"
           AutoGenerateColumns="False" />
+</UserControl>
 ```
 
 The sorting adapter is optional; it is useful when you want header clicks to update the sorting model but apply sorting inside the hierarchical model instead of the flattened view. The accessor adapter factory names are examples; implement them in your app to avoid reflection.
@@ -79,17 +87,21 @@ If you handle sorting in the model, use a sorting adapter that short-circuits vi
 
 ## Filtering while keeping parents
 
-Hierarchical filters often keep ancestor nodes of matches so users can see the path. Build a match set and use a custom predicate:
+`DataGridHierarchicalFilteringAdapterFactory` builds one match set across the
+materialized hierarchy and keeps ancestor paths by default:
 
 ```csharp
-var matches = BuildMatchSet(RootItems, filterText);
 FilteringModel.SetOrUpdate(new FilteringDescriptor(
     columnId: _nameColumn,
-    @operator: FilteringOperator.Custom,
-    predicate: item => MatchesFilter(item, matches)));
+    @operator: FilteringOperator.Contains,
+    value: filterText));
 ```
 
-Use an accessor-based filtering adapter so filtering does not fall back to reflection.
+Set the factory policy to `SelfOnly`, `KeepAncestorsOfMatches`,
+`KeepDescendantsOfMatches`, or a combination of the last two. The adapter never
+loads or expands nodes. Only materialized descendants participate, and clearing a
+filter does not change expansion state. Item-typed and explicitly node-typed column
+accessors are both supported without reflection.
 
 ## Searching and highlights
 

@@ -67,6 +67,24 @@ namespace Avalonia.Controls.DataGridFiltering
             _afterViewRefresh = afterViewRefresh;
         }
 
+        /// <summary>
+        /// Invokes the owning grid's pre-refresh lifecycle callback, when configured.
+        /// Derived adapters should pair this with <see cref="InvokeAfterViewRefresh"/>
+        /// around refreshes initiated outside descriptor application.
+        /// </summary>
+        protected void InvokeBeforeViewRefresh()
+        {
+            _beforeViewRefresh?.Invoke();
+        }
+
+        /// <summary>
+        /// Invokes the owning grid's post-refresh lifecycle callback, when configured.
+        /// </summary>
+        protected void InvokeAfterViewRefresh()
+        {
+            _afterViewRefresh?.Invoke();
+        }
+
 #if !DATAGRID_INTERNAL
         public
 #else
@@ -103,7 +121,7 @@ namespace Avalonia.Controls.DataGridFiltering
             }
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             DetachView();
             WeakEventHandlerManager.Unsubscribe<FilteringChangedEventArgs, DataGridFilteringAdapter>(
@@ -145,7 +163,7 @@ namespace Avalonia.Controls.DataGridFiltering
             {
                 if (!beforeInvoked)
                 {
-                    _beforeViewRefresh?.Invoke();
+                    InvokeBeforeViewRefresh();
                     beforeInvoked = true;
                 }
             }
@@ -156,7 +174,7 @@ namespace Avalonia.Controls.DataGridFiltering
             {
                 if (handled)
                 {
-                    _afterViewRefresh?.Invoke();
+                    InvokeAfterViewRefresh();
                 }
                 return handled;
             }
@@ -174,7 +192,7 @@ namespace Avalonia.Controls.DataGridFiltering
                 _view.Filter = predicate;
             }
 
-            _afterViewRefresh?.Invoke();
+            InvokeAfterViewRefresh();
             return true;
         }
 

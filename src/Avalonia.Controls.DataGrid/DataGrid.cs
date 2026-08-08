@@ -2248,7 +2248,21 @@ internal
         Avalonia.Controls.DataGridFiltering.IDataGridFilteringAdapterFactory FilteringAdapterFactory
         {
             get => _filteringAdapterFactory;
-            set => _filteringAdapterFactory = value;
+            set
+            {
+                if (ReferenceEquals(_filteringAdapterFactory, value))
+                {
+                    return;
+                }
+
+                _filteringAdapterFactory = value;
+                if (_filteringModel != null)
+                {
+                    _filteringAdapter?.Dispose();
+                    _filteringAdapter = CreateFilteringAdapter(_filteringModel);
+                    UpdateFilteringAdapterView();
+                }
+            }
         }
 
         /// <summary>
@@ -5464,6 +5478,12 @@ internal
 
             EnsureHierarchicalItemsSource();
             UpdateSelectionProxy();
+            if (_filteringModel != null)
+            {
+                _filteringAdapter?.Dispose();
+                _filteringAdapter = CreateFilteringAdapter(_filteringModel);
+                UpdateFilteringAdapterView();
+            }
             RecreateSortingAdapter(descriptorSnapshot, ownsViewSorts);
             RaisePropertyChanged(HierarchicalModelProperty, oldModel, _hierarchicalModel);
         }
