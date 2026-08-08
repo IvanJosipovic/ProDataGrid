@@ -32,6 +32,7 @@ public sealed partial class ProDataGridGenerator
     internal const string GenerateViewAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridViewAttribute";
     internal const string GenerateViewsForNamespaceAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridViewsForNamespaceAttribute";
     internal const string GenerateRegistryAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridRegistryAttribute";
+    internal const string ViewRegistrationAttributeName = "ProDataGrid.SourceGeneration.DataGridViewRegistrationAttribute";
     internal const string GenerateIndexedColumnsAttributeName = "ProDataGrid.SourceGeneration.GenerateDataGridIndexedColumnsAttribute";
 
     private static void RegisterAttributeSources(IncrementalGeneratorInitializationContext context)
@@ -118,6 +119,19 @@ public sealed partial class ProDataGridGenerator
                 public string RegistryNamespace { get; set; } = "ProDataGrid.Generated";
             }
 
+            [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
+            internal sealed class DataGridViewRegistrationAttribute : Attribute
+            {
+                public DataGridViewRegistrationAttribute(Type viewModelType, Type viewType)
+                {
+                    ViewModelType = viewModelType;
+                    ViewType = viewType;
+                }
+
+                public Type ViewModelType { get; }
+                public Type ViewType { get; }
+            }
+
             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true, Inherited = false)]
             internal sealed class GenerateDataGridIndexedColumnsAttribute : Attribute
             {
@@ -142,6 +156,7 @@ public sealed partial class ProDataGridGenerator
                 public bool IncludeInherited { get; set; } = true;
                 public bool Strict { get; set; } = true;
                 public bool Streaming { get; set; }
+                public bool HierarchicalRows { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public Type? ImplementationType { get; set; }
                 public string? ConfigureMethod { get; set; }
@@ -158,6 +173,7 @@ public sealed partial class ProDataGridGenerator
                 public bool IncludeInherited { get; set; } = true;
                 public bool Strict { get; set; } = true;
                 public bool Streaming { get; set; }
+                public bool HierarchicalRows { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public int StateVersion { get; set; } = 1;
             }

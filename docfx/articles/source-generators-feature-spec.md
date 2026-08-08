@@ -4,9 +4,9 @@ Status: approved implementation specification; core implementation available, ad
 
 Target: reflection-free source generation for complex reactive, streaming, remote, hierarchical, spreadsheet, and analytics applications
 
-Last updated: 2026-08-07
+Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-07): the canonical manifest and typed field API, direct attribute-scoped incremental schema pipeline, assembly registry with optional Microsoft DI registration, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling templates, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Compilation-wide controller/view/policy discovery and the advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema pipeline, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling templates, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Compilation-wide controller/view/policy discovery and the advanced items explicitly marked partial below remain tracked work.
 
 ## 1. Purpose
 
@@ -26,13 +26,13 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 |---|---|---|
 | F01 incremental foundation | Partial | Direct type schemas, indexed-column triggers, and type-level generated views use isolated attributed pipelines with stable semantic/output reuse; assembly/namespace policy, ViewModel, and controller composition still share the compilation-wide policy lane. |
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. |
-| F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, and reset preservation are available; broader conversion of legacy sample trees remains. |
+| F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
 | F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. |
 | F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
 | F16 templates/drawing | Partial | Typed recycling cell/edit/new-row templates are available; row-details and custom-drawing cache generation remain. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
 | F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
-| F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, and state bridges are available; richer command/event bridges and loading/error/empty projections remain. |
+| F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, and `[DataGridViewRegistration]` mappings for existing XAML views are available; richer command/event bridges and loading/error/empty projections remain. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
 | F21 collection views/dynamic shapes | Partial | Typed collection-view factories and range-aware generated services are available; unknown runtime shapes still require explicit user adapters. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
@@ -141,6 +141,62 @@ The samples also contain logic that must remain user code:
 - Data storage, networking, authentication, and retry policy.
 
 The generator should produce typed metadata, adapters, controllers, and optional reusable view composition. It should not become an application framework.
+
+### 3.5 ProDiagnostics validation migration
+
+ProDiagnostics is a production validation lane, not a synthetic sample. It combines flat read-only grids, editable template cells, multi-grid view models, live telemetry, column visibility, hierarchical wrappers, existing XAML views, and an inspector whose domain is arbitrary runtime objects.
+
+| Surface | Row type | Generated contract | Validation purpose |
+|---|---|---|---|
+| Viewer metrics | `MetricSeriesViewModel` | streaming schema, keyed template, fast-path options, layout controller | high-frequency updates, numeric formatting, reusable trend cell, column chooser |
+| Viewer activities | `ActivityEventViewModel` | streaming schema and second named ViewModel projection | multiple schemas on one ViewModel and formatted telemetry rows |
+| Assets | `AssetEntryViewModel` | attributed-only schema | sortable reflection-free read-only grid |
+| Control properties | `PropertyViewModel` | shared template schema and generated layout visibility | editable recycling template plus runtime column-profile switching |
+| Resource details | `PropertyViewModel` | second ViewModel projection of the shared schema | schema reuse with per-view layout policy |
+| Resource picker | `ResourceReferenceEntryViewModel` | text/template schema | external collection-view sort/filter ownership |
+| Resources | `ResourceEntryViewModel` and `ResourceTreeNode` | two named schemas on one ViewModel | flat and hierarchical grids on the same screen |
+| Visual/logical tree | `TreeNode` | hierarchical-row schema | compiled binding through `HierarchicalNode.Item` with no XAML binding fallback |
+
+The migration introduced two APIs because the application exposed real gaps:
+
+```csharp
+[GenerateDataGridColumns(
+    Discovery = DataGridColumnDiscovery.AttributedOnly,
+    HierarchicalRows = true)]
+internal abstract class TreeNode
+{
+    [DataGridColumn(
+        DataGridColumnKind.Hierarchical,
+        SortMemberPath = nameof(Type),
+        TemplateKey = "VisualTreeNodeCellTemplate")]
+    public TreeNode Item => this;
+}
+```
+
+`HierarchicalRows` keeps canonical schema accessors typed to `TItem`, but emits separate compiled column bindings and value accessors typed to `HierarchicalNode`. Generated sort paths are prefixed with `Item.`. This preserves typed data operations while matching the row wrapper actually presented by a hierarchical DataGrid.
+
+```csharp
+[assembly: GenerateDataGridRegistry(
+    RegistryName = "ProDiagnosticsGeneratedSchemas",
+    RegistryNamespace = "Avalonia.Diagnostics.Generated")]
+[assembly: DataGridViewRegistration(typeof(TreePageViewModel), typeof(TreePageView))]
+
+// Generated registry usage; no Type.GetType or Activator.CreateInstance.
+if (ProDiagnosticsGeneratedSchemas.TryCreateView(viewModel, out Control? view))
+{
+    return view;
+}
+```
+
+Multiple `[GenerateDataGridViewModel]` attributes on one partial type are supported when each projection has distinct member names. Hint names include the column-definition member name so the generated files remain deterministic and collision-free.
+
+The reflection-free boundary is explicit:
+
+- ProDiagnostics' own grid schemas, compiled column bindings, fast-path options, column layout, schema registry, and view lookup are generated.
+- Reflection used only to inspect unknown third-party runtime objects remains in the inspector domain. It is not a DataGrid binding or view-location fallback.
+- Future inspected assemblies may opt into generated inspection metadata. Unknown types still require the inspector's dynamic provider; silently pretending they are statically knowable would make the diagnostics tool incomplete.
+
+Migration validation includes generator-driver tests for hierarchical wrappers, multi-grid ViewModels, registered XAML views, generated-code compilation, ProDiagnostics registry/schema tests, Avalonia Headless view creation, and the complete ProDiagnostics test suite. A repository audit test or build check should continue to prevent reintroduction of inline DataGrid columns and `x:CompileBindings="False"` in these two validation projects.
 
 ## 4. Design principles
 
@@ -1401,6 +1457,16 @@ Exit criteria: generated views require no handwritten event handlers; ReactiveUI
 
 Exit criteria: pivot, outline, chart, formula, and drag/drop sample families each demonstrate typed generated metadata with custom implementation escape hatches.
 
+### Continuous validation lane — ProDiagnostics
+
+1. Keep every ProDiagnostics DataGrid on generated column definitions and fast-path options.
+2. Exercise flat, template, hierarchical, shared-schema, multi-schema, streaming, and layout-controller paths.
+3. Keep existing XAML view activation on generated registrations rather than naming reflection.
+4. Run ProDiagnostics unit and Avalonia Headless tests for every generator change.
+5. Record intentional inspector reflection separately from generated application wiring and never use it as a silent grid fallback.
+
+Exit criteria: both ProDiagnostics assemblies build for every target framework, all ProDiagnostics tests pass, registry manifests match the expected schema set, registered views instantiate without reflection, and source audits contain no inline DataGrid columns or disabled compiled-binding scopes.
+
 ## 13. New sample plan
 
 Add focused pages rather than one overloaded showcase:
@@ -1434,6 +1500,7 @@ The expansion is complete when:
 - DynamicData and async pipelines have explicit ownership, scheduler, backpressure, errors, and disposal.
 - Stable keys are shared by selection, state, hierarchy, drag/drop, and chart coordination.
 - Hierarchical generated samples use compiled bindings.
+- ProDiagnostics remains a green production validation lane with generated schemas for every grid and generated view registration.
 - Generated views are passive, command/interaction driven, and support custom base classes.
 - ReactiveUI is the first full strategy; core schema/controller output remains framework neutral.
 - Custom user implementations are compile-time validated and called directly.

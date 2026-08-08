@@ -25,7 +25,7 @@ internal static partial class Discovery
             .ToArray();
 
         var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
-        var viewModels = new Dictionary<INamedTypeSymbol, PendingViewModel>(SymbolEqualityComparer.Default);
+        var viewModels = new Dictionary<string, PendingViewModel>(StringComparer.Ordinal);
         var controllers = new List<ControllerModel>();
         ImmutableArray<AttributeData> assemblyAttributes = compilation.Assembly.GetAttributes();
         bool hasGlobalSchemaPolicies = HasGlobalSchemaPolicies(assemblyAttributes);
@@ -117,9 +117,12 @@ internal static partial class Discovery
         }
 
         var resolvedViewModels = ImmutableArray.CreateBuilder<ViewModelModel>();
+        var generatedViewModelMembers = new Dictionary<INamedTypeSymbol, HashSet<string>>(SymbolEqualityComparer.Default);
         foreach (PendingViewModel pending in viewModels.Values.OrderBy(
                      static model => GeneratorUtilities.GetMetadataName(model.ViewModelType),
-                     StringComparer.Ordinal))
+                     StringComparer.Ordinal)
+                 .ThenBy(static model => model.ColumnDefinitionsPropertyName, StringComparer.Ordinal)
+                 .ThenBy(static model => GeneratorUtilities.GetMetadataName(model.ItemType), StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!AllContainingTypesArePartial(pending.ViewModelType))
@@ -152,19 +155,22 @@ internal static partial class Discovery
                 Location = pending.Location
             };
 
-            model.GenerateColumnDefinitionsProperty = ValidateGeneratedMember(
+            model.GenerateColumnDefinitionsProperty = ValidateGeneratedViewModelMember(
                 pending.ViewModelType,
                 model.ColumnDefinitionsPropertyName,
+                generatedViewModelMembers,
                 diagnostics,
                 pending.Location);
-            model.GenerateSchemaProperty = ValidateGeneratedMember(
+            model.GenerateSchemaProperty = ValidateGeneratedViewModelMember(
                 pending.ViewModelType,
                 model.SchemaPropertyName,
+                generatedViewModelMembers,
                 diagnostics,
                 pending.Location);
-            model.GenerateFastPathOptionsProperty = ValidateGeneratedMember(
+            model.GenerateFastPathOptionsProperty = ValidateGeneratedViewModelMember(
                 pending.ViewModelType,
                 model.FastPathOptionsPropertyName,
+                generatedViewModelMembers,
                 diagnostics,
                 pending.Location);
             resolvedViewModels.Add(model);
@@ -183,7 +189,7 @@ internal static partial class Discovery
             diagnostics,
             cancellationToken);
 
-        RegistryModel? registry = DiscoverRegistry(compilation, assemblyAttributes);
+        RegistryModel? registry = DiscoverRegistry(compilation, assemblyAttributes, diagnostics);
         return new GenerationModel(
             orderedSchemas,
             resolvedViewModels.ToImmutable(),
@@ -378,8 +384,10 @@ internal static partial class Discovery
 
     private static RegistryModel? DiscoverRegistry(
         Compilation compilation,
-        ImmutableArray<AttributeData> assemblyAttributes)
+        ImmutableArray<AttributeData> assemblyAttributes,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
     {
+        RegistryModel? registry = null;
         foreach (AttributeData attribute in assemblyAttributes)
         {
             if (!IsAttribute(attribute, ProDataGridGenerator.GenerateRegistryAttributeName))
@@ -388,18 +396,70 @@ internal static partial class Discovery
             }
 
             Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
-            return new RegistryModel
+            registry = new RegistryModel
             {
                 RegistryName = GeneratorUtilities.SanitizeIdentifier(
                     GeneratorUtilities.GetString(arguments, "RegistryName") ?? "GeneratedProDataGridRegistration"),
                 RegistryNamespace = GeneratorUtilities.GetString(arguments, "RegistryNamespace") ?? "ProDataGrid.Generated",
+                IsPublic = compilation.GetTypeByMetadataName("Avalonia.Controls.IDataGridGeneratedSchemaManifestProvider")?.DeclaredAccessibility == Accessibility.Public,
                 HasMicrosoftDependencyInjection =
                     compilation.GetTypeByMetadataName("Microsoft.Extensions.DependencyInjection.IServiceCollection") != null &&
                     compilation.GetTypeByMetadataName("Microsoft.Extensions.DependencyInjection.ServiceDescriptor") != null
             };
+            break;
         }
 
-        return null;
+        if (registry == null)
+        {
+            return null;
+        }
+
+        var registrations = ImmutableArray.CreateBuilder<ViewRegistrationModel>();
+        var registeredViewModels = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        foreach (AttributeData attribute in assemblyAttributes)
+        {
+            if (!IsAttribute(attribute, ProDataGridGenerator.ViewRegistrationAttributeName))
+            {
+                continue;
+            }
+
+            INamedTypeSymbol? viewModelType = GetConstructorType(attribute, 0);
+            INamedTypeSymbol? viewType = GetConstructorType(attribute, 1);
+            if (viewModelType == null || viewType == null ||
+                !GeneratorUtilities.IsAccessibleFromGeneratedCode(viewType) ||
+                !IsOrDerivesFrom(viewType, "Avalonia.Controls.Control") ||
+                !viewType.InstanceConstructors.Any(static constructor =>
+                    constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor)))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidTarget,
+                    GetLocation(attribute),
+                    viewType?.ToDisplayString() ?? "(unknown)",
+                    "registered views must derive from Avalonia.Controls.Control and expose an accessible parameterless constructor"));
+                continue;
+            }
+
+            if (!registeredViewModels.Add(viewModelType))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidTarget,
+                    GetLocation(attribute),
+                    viewModelType.ToDisplayString(),
+                    "only one registered view is allowed for each view-model type"));
+                continue;
+            }
+
+            registrations.Add(new ViewRegistrationModel
+            {
+                ViewModelType = viewModelType,
+                ViewType = viewType
+            });
+        }
+
+        registry.ViewRegistrations = registrations
+            .OrderBy(static registration => GeneratorUtilities.GetMetadataName(registration.ViewModelType), StringComparer.Ordinal)
+            .ToImmutableArray();
+        return registry;
     }
 
     private static void DiscoverNamespaceSchemas(
@@ -507,7 +567,7 @@ internal static partial class Discovery
         IReadOnlyList<INamedTypeSymbol> sourceTypes,
         ImmutableArray<AttributeData> assemblyAttributes,
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
-        Dictionary<INamedTypeSymbol, PendingViewModel> viewModels,
+        Dictionary<string, PendingViewModel> viewModels,
         ImmutableArray<Diagnostic>.Builder diagnostics,
         CancellationToken cancellationToken)
     {
@@ -552,7 +612,7 @@ internal static partial class Discovery
 
                 SchemaModel schema = EnsureSchema(schemas, itemType, attribute, explicitProviderName: null);
                 ApplyFastOptions(schema, arguments);
-                viewModels[viewModelType] = CreatePendingViewModel(viewModelType, itemType, attribute, arguments);
+                AddPendingViewModel(viewModels, CreatePendingViewModel(viewModelType, itemType, attribute, arguments));
             }
         }
     }
@@ -560,7 +620,7 @@ internal static partial class Discovery
     private static void DiscoverAssemblyViewModels(
         ImmutableArray<AttributeData> assemblyAttributes,
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
-        Dictionary<INamedTypeSymbol, PendingViewModel> viewModels,
+        Dictionary<string, PendingViewModel> viewModels,
         ImmutableArray<Diagnostic>.Builder diagnostics)
     {
         foreach (AttributeData attribute in assemblyAttributes)
@@ -586,14 +646,14 @@ internal static partial class Discovery
             string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");
             SchemaModel schema = EnsureSchema(schemas, itemType, attribute, providerName);
             ApplyFastOptions(schema, arguments);
-            viewModels[viewModelType] = CreatePendingViewModel(viewModelType, itemType, attribute, arguments);
+            AddPendingViewModel(viewModels, CreatePendingViewModel(viewModelType, itemType, attribute, arguments));
         }
     }
 
     private static void DiscoverTypeViewModels(
         IReadOnlyList<INamedTypeSymbol> sourceTypes,
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
-        Dictionary<INamedTypeSymbol, PendingViewModel> viewModels,
+        Dictionary<string, PendingViewModel> viewModels,
         ImmutableArray<Diagnostic>.Builder diagnostics,
         CancellationToken cancellationToken)
     {
@@ -622,7 +682,7 @@ internal static partial class Discovery
                 string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");
                 SchemaModel schema = EnsureSchema(schemas, itemType, attribute, providerName);
                 ApplyFastOptions(schema, arguments);
-                viewModels[viewModelType] = CreatePendingViewModel(viewModelType, itemType, attribute, arguments);
+                AddPendingViewModel(viewModels, CreatePendingViewModel(viewModelType, itemType, attribute, arguments));
             }
         }
     }
@@ -1067,6 +1127,7 @@ internal static partial class Discovery
     {
         schema.Strict = GeneratorUtilities.GetBoolean(arguments, "Strict", schema.Strict);
         schema.Streaming = GeneratorUtilities.GetBoolean(arguments, "Streaming", schema.Streaming);
+        schema.HierarchicalRows = GeneratorUtilities.GetBoolean(arguments, "HierarchicalRows", schema.HierarchicalRows);
         schema.PerformanceProfile = GetEnumValue(arguments, "PerformanceProfile", schema.PerformanceProfile);
     }
 
@@ -2335,6 +2396,37 @@ internal static partial class Discovery
         return false;
     }
 
+    private static bool ValidateGeneratedViewModelMember(
+        INamedTypeSymbol viewModelType,
+        string memberName,
+        Dictionary<INamedTypeSymbol, HashSet<string>> generatedMembers,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        Location location)
+    {
+        if (!ValidateGeneratedMember(viewModelType, memberName, diagnostics, location))
+        {
+            return false;
+        }
+
+        if (!generatedMembers.TryGetValue(viewModelType, out HashSet<string>? names))
+        {
+            names = new HashSet<string>(StringComparer.Ordinal);
+            generatedMembers.Add(viewModelType, names);
+        }
+
+        if (names.Add(memberName))
+        {
+            return true;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.MemberCollision,
+            location,
+            viewModelType.ToDisplayString(),
+            memberName));
+        return false;
+    }
+
     private static bool AllContainingTypesArePartial(INamedTypeSymbol type)
     {
         INamedTypeSymbol? current = type;
@@ -2407,6 +2499,18 @@ internal static partial class Discovery
             FastPathOptionsPropertyName = GeneratorUtilities.GetString(arguments, "FastPathOptionsPropertyName") ?? "FastPathOptions",
             Location = GetLocation(attribute)
         };
+    }
+
+    private static void AddPendingViewModel(
+        Dictionary<string, PendingViewModel> viewModels,
+        PendingViewModel pending)
+    {
+        string key = GeneratorUtilities.GetMetadataName(pending.ViewModelType) + "|" +
+            GeneratorUtilities.GetMetadataName(pending.ItemType) + "|" +
+            pending.ColumnDefinitionsPropertyName + "|" +
+            pending.SchemaPropertyName + "|" +
+            pending.FastPathOptionsPropertyName;
+        viewModels[key] = pending;
     }
 
     private static void ResolveProviderCollisions(IEnumerable<SchemaModel> schemas)

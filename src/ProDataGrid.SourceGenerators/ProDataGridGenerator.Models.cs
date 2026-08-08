@@ -46,6 +46,17 @@ internal sealed class RegistryModel
     public string RegistryNamespace { get; set; } = "ProDataGrid.Generated";
 
     public bool HasMicrosoftDependencyInjection { get; set; }
+
+    public bool IsPublic { get; set; } = true;
+
+    public ImmutableArray<ViewRegistrationModel> ViewRegistrations { get; set; } = ImmutableArray<ViewRegistrationModel>.Empty;
+}
+
+internal sealed class ViewRegistrationModel
+{
+    public INamedTypeSymbol ViewModelType { get; set; } = null!;
+
+    public INamedTypeSymbol ViewType { get; set; } = null!;
 }
 
 internal enum ViewFrameworkModel
@@ -163,6 +174,8 @@ internal sealed class SchemaModel
     public bool Strict { get; set; } = true;
 
     public bool Streaming { get; set; }
+
+    public bool HierarchicalRows { get; set; }
 
     public int PerformanceProfile { get; set; }
 

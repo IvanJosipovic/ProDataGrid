@@ -212,6 +212,19 @@ Assembly and namespace requests are merged deterministically with type and prope
 
 Add `[assembly: GenerateDataGridRegistry]` when another assembly needs reflection-free schema discovery. The generated `ProDataGrid.Generated.GeneratedProDataGridRegistration` exposes all manifest providers and `TryGetSchema` overloads for item `Type` and stable schema ID. `RegistryNamespace` and `RegistryName` are configurable. When `Microsoft.Extensions.DependencyInjection` is referenced, the registry also emits `AddGeneratedProDataGrids(IServiceCollection)`; Microsoft DI remains optional.
 
+Existing XAML views can participate in the same reflection-free registry:
+
+```csharp
+[assembly: DataGridViewRegistration(typeof(TradesViewModel), typeof(TradesView))]
+
+if (GeneratedProDataGridRegistration.TryCreateView(viewModel, out Control? view))
+{
+    return view;
+}
+```
+
+The generator validates that each registered view derives from `Control`, has an accessible parameterless constructor, and that each ViewModel has at most one mapping. The generated type switch constructs the view and assigns its `DataContext`; it does not use naming conventions, `Type.GetType`, or `Activator.CreateInstance`.
+
 ## Column coverage and customization
 
 `DataGridColumnKind` covers every current definition builder: text, checkbox, hyperlink, image, numeric, progress bar, slider, date picker, time picker, masked text, autocomplete, toggle button, toggle switch, hierarchical, custom drawing, all three combo-box modes, template, button, and formula.
@@ -282,6 +295,8 @@ Snapshot reconciliation applies keyed add/remove/move/replace changes without cl
 ## Generated hierarchy, selection, and state helpers
 
 Annotate one children property with `[DataGridChildren]`, an optional writable Boolean property with `[DataGridExpanded]`, and an optional parent-key field/property with `[DataGridParentKey]`. The provider emits typed `CreateHierarchicalOptions()` and `GetParentKey()` methods. Invalid or ambiguous hierarchy members produce `PDGSG109`.
+
+Set `HierarchicalRows = true` on `[GenerateDataGridColumns]` when the schema's columns are displayed by a DataGrid using `HierarchicalRowsEnabled`. Canonical manifest accessors remain typed to the item, while column bindings are generated against `HierarchicalNode` and unwrap `node.Item` with compiled delegates. Sort member paths are emitted under `Item.`. This replaces the common `x:CompileBindings="False"` hierarchical-column workaround.
 
 A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptions(...)`. Both reuse the same typed identity selector as the item index, streams, snapshot reconciliation, and `SourceCache`; persisted state and selection therefore cannot drift onto a different property-key convention.
 
@@ -384,3 +399,19 @@ Views can also be requested externally with assembly attributes:
 ```
 
 Namespace view generation infers the item type from `ItemsPropertyName`, matching namespace-level view-model augmentation.
+
+A partial ViewModel can receive multiple named schema projections. Give every projection distinct member names:
+
+```csharp
+[GenerateDataGridViewModel(
+    typeof(MetricRow),
+    ColumnDefinitionsPropertyName = "MetricColumns",
+    SchemaPropertyName = "MetricSchema",
+    FastPathOptionsPropertyName = "MetricFastPath")]
+[GenerateDataGridViewModel(
+    typeof(ActivityRow),
+    ColumnDefinitionsPropertyName = "ActivityColumns",
+    SchemaPropertyName = "ActivitySchema",
+    FastPathOptionsPropertyName = "ActivityFastPath")]
+public sealed partial class DiagnosticsViewModel;
+```

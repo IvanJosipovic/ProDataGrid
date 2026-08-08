@@ -41,7 +41,8 @@ internal static class Emitter
             yield return new GeneratedSource(
                 CreateHintName(
                     viewModel.ViewModelType.ContainingNamespace?.ToDisplayString() ?? string.Empty,
-                    GeneratorUtilities.GetMetadataName(viewModel.ViewModelType),
+                    GeneratorUtilities.GetMetadataName(viewModel.ViewModelType) + "." +
+                    viewModel.ColumnDefinitionsPropertyName,
                     "ViewModel"),
                 EmitViewModel(viewModel));
         }
@@ -89,7 +90,7 @@ internal static class Emitter
         var builder = new StringBuilder(4096);
         AppendHeader(builder);
         OpenNamespace(builder, registry.RegistryNamespace);
-        builder.Append("    public static class ").Append(registry.RegistryName).AppendLine()
+        builder.Append("    ").Append(registry.IsPublic ? "public" : "internal").Append(" static class ").Append(registry.RegistryName).AppendLine()
             .AppendLine("    {")
             .AppendLine("        private static readonly global::Avalonia.Controls.IDataGridGeneratedSchemaManifestProvider[] s_schemas =")
             .AppendLine("            new global::Avalonia.Controls.IDataGridGeneratedSchemaManifestProvider[]")
@@ -141,6 +142,28 @@ internal static class Emitter
         }
 
         builder.AppendLine("            schema = null!;")
+            .AppendLine("            return false;")
+            .AppendLine("        }");
+
+        builder.AppendLine()
+            .AppendLine("        public static bool TryCreateView(")
+            .AppendLine("            object? viewModel,")
+            .AppendLine("            out global::Avalonia.Controls.Control? view)")
+            .AppendLine("        {");
+        for (int registrationIndex = 0; registrationIndex < registry.ViewRegistrations.Length; registrationIndex++)
+        {
+            ViewRegistrationModel registration = registry.ViewRegistrations[registrationIndex];
+            string viewModelType = registration.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string viewType = registration.ViewType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string variableName = "typedViewModel" + registrationIndex.ToString(CultureInfo.InvariantCulture);
+            builder.Append("            if (viewModel is ").Append(viewModelType).Append(' ').Append(variableName).AppendLine(")")
+                .AppendLine("            {")
+                .Append("                view = new ").Append(viewType).Append(" { DataContext = ").Append(variableName).AppendLine(" };")
+                .AppendLine("                return true;")
+                .AppendLine("            }");
+        }
+
+        builder.AppendLine("            view = null;")
             .AppendLine("            return false;")
             .AppendLine("        }");
 
@@ -727,7 +750,8 @@ internal static class Emitter
             .Append(schema.SchemaId).Append('|')
             .Append(schema.StateVersion.ToString(CultureInfo.InvariantCulture)).Append('|')
             .Append(schema.Strict ? '1' : '0').Append('|')
-            .Append(schema.Streaming ? '1' : '0').Append('|');
+            .Append(schema.Streaming ? '1' : '0').Append('|')
+            .Append(schema.HierarchicalRows ? '1' : '0').Append('|');
         canonical.Append(schema.PerformanceProfile.ToString(CultureInfo.InvariantCulture)).Append('|');
 
         if (schema.KeyMember != null)
@@ -903,6 +927,73 @@ internal static class Emitter
         else
         {
             builder.AppendLine(");");
+        }
+
+        if (schema.HierarchicalRows)
+        {
+            const string nodeType = "global::Avalonia.Controls.DataGridHierarchical.HierarchicalNode";
+            builder.AppendLine()
+                .Append("        private static readonly global::Avalonia.Data.Core.IPropertyInfo ")
+                .Append(fieldName).AppendLine("HierarchicalProperty =")
+                .AppendLine("            new global::Avalonia.Data.Core.ClrPropertyInfo(")
+                .Append("                ").Append(GeneratorUtilities.EscapeString(property.Name)).AppendLine(",")
+                .Append("                static target => target is ").Append(nodeType).Append(" node && node.Item is ")
+                .Append(itemType).Append(" item ? item.").Append(propertyName).Append(" : default(")
+                .Append(valueType).AppendLine("),");
+            if (canWrite)
+            {
+                builder.AppendLine("                static (target, value) =>")
+                    .AppendLine("                {")
+                    .Append("                    if (target is ").Append(nodeType).Append(" node && node.Item is ")
+                    .Append(itemType).AppendLine(" item)")
+                    .AppendLine("                    {")
+                    .Append("                        item.").Append(propertyName).Append(" = value is null ? default! : (")
+                    .Append(valueType).AppendLine(")value;")
+                    .AppendLine("                    }")
+                    .AppendLine("                },");
+            }
+            else
+            {
+                builder.AppendLine("                setter: null,");
+            }
+
+            builder.Append("                typeof(").Append(runtimeValueType).AppendLine("));")
+                .AppendLine()
+                .Append("        private static readonly global::Avalonia.Controls.DataGridColumnValueAccessor<")
+                .Append(nodeType).Append(", ").Append(valueType).Append("> ").Append(fieldName).AppendLine("HierarchicalAccessor =")
+                .Append("            new global::Avalonia.Controls.DataGridColumnValueAccessor<")
+                .Append(nodeType).Append(", ").Append(valueType).AppendLine(">(")
+                .Append("                static node => node.Item is ").Append(itemType).Append(" item ? item.")
+                .Append(propertyName).Append(" : default!");
+            if (canWrite)
+            {
+                builder.AppendLine(",")
+                    .Append("                static (node, value) => ((").Append(itemType)
+                    .Append(")node.Item).").Append(propertyName).AppendLine(" = value);");
+            }
+            else
+            {
+                builder.AppendLine(");");
+            }
+
+            builder.AppendLine()
+                .Append("        private static readonly global::Avalonia.Controls.DataGridBindingDefinition ")
+                .Append(fieldName).AppendLine("HierarchicalBinding =")
+                .Append("            global::Avalonia.Controls.DataGridBindingDefinition.CreateCached<")
+                .Append(nodeType).Append(", ").Append(valueType).AppendLine(">(")
+                .Append("                ").Append(fieldName).AppendLine("HierarchicalProperty,")
+                .Append("                static node => node.Item is ").Append(itemType).Append(" item ? item.")
+                .Append(propertyName).Append(" : default!");
+            if (canWrite)
+            {
+                builder.AppendLine(",")
+                    .Append("                static (node, value) => ((").Append(itemType)
+                    .Append(")node.Item).").Append(propertyName).AppendLine(" = value);");
+            }
+            else
+            {
+                builder.AppendLine(");");
+            }
         }
 
         builder.AppendLine();
@@ -1483,8 +1574,17 @@ internal static class Emitter
             .Append("            column.SortMemberPath = ")
             .Append(GeneratorUtilities.EscapeString(GetStringOption(column.Options, "SortMemberPath") ?? column.Property.Name))
             .AppendLine(";")
-            .Append("            column.ValueAccessor = ").Append(fieldName).AppendLine("Accessor;")
+            .Append("            column.ValueAccessor = ").Append(fieldName)
+            .Append(schema.HierarchicalRows ? "HierarchicalAccessor" : "Accessor").AppendLine(";")
             .Append("            column.ValueType = typeof(").Append(runtimeValueType).AppendLine(");");
+
+        if (schema.HierarchicalRows && column.Kind != "Template" && column.Kind != "Button" && column.Kind != "Formula")
+        {
+            builder.Append("            column.Binding = ").Append(fieldName).AppendLine("HierarchicalBinding;");
+            builder.Append("            column.SortMemberPath = ")
+                .Append(GeneratorUtilities.EscapeString("Item." + (GetStringOption(column.Options, "SortMemberPath") ?? column.Property.Name)))
+                .AppendLine(";");
+        }
 
         EmitCommonOptions(builder, column);
         EmitKindOptions(builder, column, itemType);

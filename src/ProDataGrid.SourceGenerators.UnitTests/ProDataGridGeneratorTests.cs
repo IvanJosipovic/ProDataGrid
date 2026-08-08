@@ -142,6 +142,30 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Assembly_registry_generates_reflection_free_user_view_mappings()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridRegistry]
+            [assembly: DataGridViewRegistration(typeof(Demo.RowsViewModel), typeof(Demo.RowsView))]
+
+            namespace Demo
+            {
+                [GenerateDataGridColumns]
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class RowsViewModel { }
+                public sealed class RowsView : Avalonia.Controls.UserControl { }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("public static bool TryCreateView", result.CombinedSource);
+        Assert.Contains("viewModel is global::Demo.RowsViewModel typedViewModel0", result.CombinedSource);
+        Assert.Contains("new global::Demo.RowsView { DataContext = typedViewModel0 }", result.CombinedSource);
+        Assert.DoesNotContain("Activator.CreateInstance", result.CombinedSource);
+    }
+
+    [Fact]
     public void Partial_view_model_receives_columns_schema_and_fast_options()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -158,6 +182,53 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("IDataGridGeneratedSchema<global::Demo.Row> DataGridSchema", result.CombinedSource);
         Assert.Contains("DataGridFastPathOptions FastPathOptions", result.CombinedSource);
         Assert.Contains("HighPerformanceSearchTrackItemChanges = false", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Partial_view_model_can_receive_multiple_named_grid_schemas()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridColumns] public sealed class Metric { public double Value { get; set; } }
+            [GenerateDataGridColumns] public sealed class Activity { public string Name { get; set; } = ""; }
+
+            [GenerateDataGridViewModel(
+                typeof(Metric),
+                ColumnDefinitionsPropertyName = "MetricColumns",
+                SchemaPropertyName = "MetricSchema",
+                FastPathOptionsPropertyName = "MetricFastPath")]
+            [GenerateDataGridViewModel(
+                typeof(Activity),
+                ColumnDefinitionsPropertyName = "ActivityColumns",
+                SchemaPropertyName = "ActivitySchema",
+                FastPathOptionsPropertyName = "ActivityFastPath")]
+            public sealed partial class DashboardViewModel { }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("MetricColumns", result.CombinedSource);
+        Assert.Contains("ActivityColumns", result.CombinedSource);
+        Assert.Contains("MetricFastPath", result.CombinedSource);
+        Assert.Contains("ActivityFastPath", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Multiple_view_model_schemas_report_default_member_collisions()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Metric { public double Value { get; set; } }
+            public sealed class Activity { public string Name { get; set; } = ""; }
+
+            [GenerateDataGridViewModel(typeof(Metric))]
+            [GenerateDataGridViewModel(typeof(Activity))]
+            public sealed partial class DashboardViewModel { }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG006");
     }
 
     [Fact]
@@ -217,6 +288,32 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("CreateIncludedColumn", result.CombinedSource);
         Assert.DoesNotContain("CreateIgnoredColumn", result.CombinedSource);
         Assert.DoesNotContain("CreateNotAttributedColumn", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Hierarchical_rows_emit_wrapper_aware_compiled_bindings()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridColumns(
+                Discovery = DataGridColumnDiscovery.AttributedOnly,
+                HierarchicalRows = true)]
+            public sealed class Row
+            {
+                [DataGridColumn(DataGridColumnKind.Hierarchical, SortMemberPath = nameof(DisplayName))]
+                public Row Item => this;
+
+                public string DisplayName { get; init; } = "";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGridColumnValueAccessor<global::Avalonia.Controls.DataGridHierarchical.HierarchicalNode, global::Demo.Row>", result.CombinedSource);
+        Assert.Contains("node.Item is global::Demo.Row item ? item.Item : default!", result.CombinedSource);
+        Assert.Contains("column.Binding = s_ItemHierarchicalBinding", result.CombinedSource);
+        Assert.Contains("column.SortMemberPath = \"Item.DisplayName\"", result.CombinedSource);
     }
 
     [Fact]
