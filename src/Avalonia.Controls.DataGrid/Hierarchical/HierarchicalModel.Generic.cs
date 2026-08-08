@@ -765,14 +765,37 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         private void WireTypedEvents()
         {
-            NodeExpanded += (_, e) => NodeExpandedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeCollapsed += (_, e) => NodeCollapsedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeLoading += (_, e) => NodeLoadingTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeLoaded += (_, e) => NodeLoadedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
             NodeLoadFailed += (_, e) => NodeLoadFailedTyped?.Invoke(this, new HierarchicalNodeLoadFailedEventArgs<T>(new HierarchicalNode<T>(e.Node), e.Error));
             NodeLoadRetryScheduled += (_, e) => NodeLoadRetryScheduledTyped?.Invoke(this, new HierarchicalNodeRetryEventArgs<T>(new HierarchicalNode<T>(e.Node), e.Delay));
             HierarchyChanged += (_, e) => HierarchyChangedTyped?.Invoke(this, new HierarchyChangedEventArgs<T>(new HierarchicalNode<T>(e.Node), e.Action));
             FlattenedChanged += (_, e) => FlattenedChangedTyped?.Invoke(this, new FlattenedChangedEventArgs<T>(e, ObservableFlattened));
+        }
+
+        protected override void OnNodeExpanded(HierarchicalNode node)
+        {
+            base.OnNodeExpanded(node);
+            NodeExpandedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override bool HasNodeExpandedObservers =>
+            base.HasNodeExpandedObservers || NodeExpandedTyped != null;
+
+        protected override void OnNodeCollapsed(HierarchicalNode node)
+        {
+            base.OnNodeCollapsed(node);
+            NodeCollapsedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override void OnNodeLoading(HierarchicalNode node)
+        {
+            base.OnNodeLoading(node);
+            NodeLoadingTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override void OnNodeLoaded(HierarchicalNode node)
+        {
+            base.OnNodeLoaded(node);
+            NodeLoadedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
         }
 
         public HierarchicalOptions<T> TypedOptions { get; }

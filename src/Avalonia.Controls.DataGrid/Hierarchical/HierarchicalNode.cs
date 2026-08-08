@@ -23,12 +23,12 @@ namespace Avalonia.Controls.DataGridHierarchical
     #endif
     class HierarchicalNode : INotifyPropertyChanged, IHierarchicalNodeItem
     {
-        private readonly List<HierarchicalNode> _children;
+        private List<HierarchicalNode>? _children;
         private bool _isExpanded;
         private bool _isLeaf;
         private int _level;
         private bool _isLoading;
-        private Exception? _loadError;
+        private NodeLoadInfo? _loadInfo;
         private int _expandedCount;
 
         public HierarchicalNode(object item, HierarchicalNode? parent = null, int level = 0, bool isLeaf = false)
@@ -37,7 +37,11 @@ namespace Avalonia.Controls.DataGridHierarchical
             Parent = parent;
             _level = level;
             _isLeaf = isLeaf;
-            _children = new List<HierarchicalNode>();
+            if (!isLeaf)
+            {
+                _children = new List<HierarchicalNode>();
+            }
+            HasMaterializedChildren = isLeaf;
         }
 
         /// <summary>
@@ -53,12 +57,13 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// <summary>
         /// Gets the realized children of this node.
         /// </summary>
-        public IReadOnlyList<HierarchicalNode> Children => _children;
+        public IReadOnlyList<HierarchicalNode> Children =>
+            _children is null ? Array.Empty<HierarchicalNode>() : _children;
 
         /// <summary>
         /// Exposes the mutable children list for the owning model.
         /// </summary>
-        internal List<HierarchicalNode> MutableChildren => _children;
+        internal List<HierarchicalNode> MutableChildren => _children ??= new List<HierarchicalNode>();
 
         /// <summary>
         /// Gets a value indicating whether the node is expanded.
@@ -66,7 +71,17 @@ namespace Avalonia.Controls.DataGridHierarchical
         public bool IsExpanded
         {
             get => _isExpanded;
-            set => SetField(ref _isExpanded, value);
+            set
+            {
+                if (_isExpanded == value)
+                {
+                    return;
+                }
+
+                _isExpanded = value;
+                Owner?.OnNodeExpandedStateChanged(this);
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
@@ -110,8 +125,26 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// </summary>
         public Exception? LoadError
         {
-            get => _loadError;
-            internal set => SetField(ref _loadError, value);
+            get => _loadInfo?.Error;
+            internal set
+            {
+                var current = _loadInfo?.Error;
+                if (ReferenceEquals(current, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _loadInfo!.Error = null;
+                    TrimLoadInfo();
+                }
+                else
+                {
+                    (_loadInfo ??= new NodeLoadInfo()).Error = value;
+                }
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
@@ -140,14 +173,32 @@ namespace Avalonia.Controls.DataGridHierarchical
         internal EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler { get; set; }
 
         /// <summary>
-        /// Cached handler to detach node expanded state subscription.
+        /// Gets or sets the model that owns this node.
         /// </summary>
-        internal EventHandler<PropertyChangedEventArgs>? NodeExpandedStateChangedHandler { get; set; }
+        internal HierarchicalModel? Owner { get; set; }
 
         /// <summary>
         /// Tracks in-flight load cancellation for this node.
         /// </summary>
-        internal CancellationTokenSource? LoadCancellation { get; set; }
+        internal CancellationTokenSource? LoadCancellation
+        {
+            get => _loadInfo?.Cancellation;
+            set
+            {
+                if (value == null)
+                {
+                    if (_loadInfo != null)
+                    {
+                        _loadInfo.Cancellation = null;
+                        TrimLoadInfo();
+                    }
+                }
+                else
+                {
+                    (_loadInfo ??= new NodeLoadInfo()).Cancellation = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Tracks whether children were materialized.
@@ -155,6 +206,17 @@ namespace Avalonia.Controls.DataGridHierarchical
         internal bool HasMaterializedChildren { get; set; }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        internal void SetExpandedFromOwner(bool value)
+        {
+            if (_isExpanded == value)
+            {
+                return;
+            }
+
+            _isExpanded = value;
+            OnPropertyChanged(nameof(IsExpanded));
+        }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -168,6 +230,20 @@ namespace Avalonia.Controls.DataGridHierarchical
                 storage = value;
                 OnPropertyChanged(propertyName);
             }
+        }
+
+        private void TrimLoadInfo()
+        {
+            if (_loadInfo is { Error: null, Cancellation: null })
+            {
+                _loadInfo = null;
+            }
+        }
+
+        private sealed class NodeLoadInfo
+        {
+            public Exception? Error;
+            public CancellationTokenSource? Cancellation;
         }
     }
 }

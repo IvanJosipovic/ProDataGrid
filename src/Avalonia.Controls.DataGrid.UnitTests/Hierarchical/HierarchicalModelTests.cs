@@ -1185,6 +1185,32 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public void TypedNodeLifecycleEvents_FireWithoutBaseEventSubscriptions()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+
+        var model = new HierarchicalModel<Item>(new HierarchicalOptions<Item>
+        {
+            ChildrenSelector = item => item.Children
+        });
+        model.SetRoot(root);
+
+        var events = new List<string>();
+        model.NodeLoadingTyped += (_, e) => events.Add($"loading:{e.Node.Item.Name}");
+        model.NodeLoadedTyped += (_, e) => events.Add($"loaded:{e.Node.Item.Name}");
+        model.NodeExpandedTyped += (_, e) => events.Add($"expanded:{e.Node.Item.Name}");
+        model.NodeCollapsedTyped += (_, e) => events.Add($"collapsed:{e.Node.Item.Name}");
+
+        model.Expand(model.Root!.Value);
+        model.Collapse(model.Root.Value);
+
+        Assert.Equal(
+            new[] { "loading:root", "loaded:root", "expanded:root", "collapsed:root" },
+            events);
+    }
+
+    [Fact]
     public void TypedAdapter_ForwardsEventsAndNodes()
     {
         var root = new Item("root");
@@ -1297,6 +1323,33 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
             expanded);
         Assert.True(model.Root!.IsExpanded);
         Assert.Equal(4, model.Count);
+    }
+
+    [Fact]
+    public void ExpandAll_SynchronousSource_CommitsOneCoherentFlattenedChange()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        child.Children.Add(new Item("grand"));
+        root.Children.Add(child);
+
+        var model = CreateModel();
+        model.SetRoot(root);
+        var changes = new List<FlattenedChangedEventArgs>();
+        model.FlattenedChanged += (_, e) =>
+        {
+            Assert.Equal(3, model.Count);
+            Assert.All(model.Flattened, node => Assert.True(node.IsExpanded));
+            changes.Add(e);
+        };
+
+        model.ExpandAll();
+
+        FlattenedChangedEventArgs args = Assert.Single(changes);
+        FlattenedChange change = Assert.Single(args.Changes);
+        Assert.Equal(0, change.Index);
+        Assert.Equal(1, change.OldCount);
+        Assert.Equal(3, change.NewCount);
     }
 
     [Fact]
