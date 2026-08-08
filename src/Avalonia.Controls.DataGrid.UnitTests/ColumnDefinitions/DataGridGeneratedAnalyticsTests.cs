@@ -25,6 +25,7 @@ public sealed class DataGridGeneratedAnalyticsTests
         Assert.Equal("Rates", key);
         Assert.Equal("desk", field.CreateDescription().PropertyName);
         Assert.Equal(ListSortDirection.Descending, field.Direction);
+        Assert.True(field.CreateSortComparer().Compare(new Row("A", 0m), new Row("B", 0m)) < 0);
     }
 
     [Fact]

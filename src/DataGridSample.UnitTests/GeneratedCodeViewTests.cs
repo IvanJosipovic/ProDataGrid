@@ -786,6 +786,75 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_grouping_summary_page_materializes_typed_groups_and_rendered_summary_metadata()
+    {
+        var viewModel = new GeneratedGroupingSummariesViewModel();
+        var view = new GeneratedGroupingSummariesPage { DataContext = viewModel };
+        var window = new Window { Width = 1180, Height = 760, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            Assert.True(grid.ShowTotalSummary);
+            Assert.True(grid.ShowGroupSummary);
+            Assert.Equal(DataGridSummaryRowPosition.Bottom, grid.TotalSummaryPosition);
+            Assert.Equal(DataGridGroupSummaryPosition.Footer, grid.GroupSummaryPosition);
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Equal(2, viewModel.Items.GroupDescriptions.Count);
+            Assert.All(
+                viewModel.Items.GroupDescriptions,
+                static description => Assert.StartsWith("DataGridGeneratedGroupDescription", description.GetType().Name, StringComparison.Ordinal));
+
+            DataGridColumn orderColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "order-id"));
+            DataGridColumn revenueColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "revenue"));
+            DataGridColumn unitPriceColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "unit-price"));
+            Assert.Single(orderColumn.Summaries);
+            Assert.Equal("Orders: ", orderColumn.Summaries[0].Title);
+            Assert.Equal(DataGridSummaryScope.Both, revenueColumn.Summaries[0].Scope);
+            Assert.Equal("C2", revenueColumn.Summaries[0].StringFormat);
+            Assert.Equal(DataGridSummaryScope.Total, unitPriceColumn.Summaries[0].Scope);
+
+            grid.RecalculateSummaries();
+            Dispatcher.UIThread.RunJobs();
+            DataGridSummaryCell[] renderedSummaryCells = grid.GetVisualDescendants().OfType<DataGridSummaryCell>().ToArray();
+            Assert.Contains(renderedSummaryCells, static cell => cell.DisplayText == "Orders: 12");
+            Assert.Contains(
+                renderedSummaryCells,
+                static cell => cell.Column?.ColumnKey?.ToString() == "revenue" &&
+                               cell.DisplayText.StartsWith("Revenue: ", StringComparison.Ordinal));
+
+            viewModel.AddBatchCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            grid.RecalculateSummaries();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(15, grid.ItemsSource!.Cast<object>().Count());
+            Assert.Equal(15, viewModel.OrderCount);
+            Assert.Contains(
+                grid.GetVisualDescendants().OfType<DataGridSummaryCell>(),
+                static cell => cell.DisplayText == "Orders: 15");
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-grouping-summaries.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

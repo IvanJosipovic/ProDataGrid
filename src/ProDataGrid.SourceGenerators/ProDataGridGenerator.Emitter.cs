@@ -1159,11 +1159,19 @@ internal static class Emitter
             .AppendLine("            if (source is null) throw new global::System.ArgumentNullException(nameof(source));")
             .AppendLine("            if (pageSize < 0) throw new global::System.ArgumentOutOfRangeException(nameof(pageSize));")
             .AppendLine("            var view = new global::Avalonia.Collections.DataGridCollectionView(source, sourceIsSorted, sourceIsInGroupOrder);")
+            .AppendLine("            using (view.DeferRefresh())")
+            .AppendLine("            {")
             .AppendLine("            for (int index = 0; index < s_groupFields.Length; index++)")
             .AppendLine("            {")
-            .AppendLine("                view.GroupDescriptions.Add(s_groupFields[index].CreateDescription());")
+            .AppendLine("                global::Avalonia.Controls.IDataGridGeneratedGroupField<" + itemType + "> field = s_groupFields[index];")
+            .AppendLine("                view.GroupDescriptions.Add(field.CreateDescription());")
+            .AppendLine("                if (!sourceIsSorted)")
+            .AppendLine("                {")
+            .AppendLine("                    view.SortDescriptions.Add(global::Avalonia.Collections.DataGridSortDescription.FromComparer(field.CreateSortComparer(), field.Direction, field.ColumnKey));")
+            .AppendLine("                }")
             .AppendLine("            }")
-            .AppendLine("            view.PageSize = pageSize;")
+            .AppendLine("                view.PageSize = pageSize;")
+            .AppendLine("            }")
             .AppendLine("            return view;")
             .AppendLine("        }")
             .AppendLine()
@@ -1659,6 +1667,7 @@ internal static class Emitter
         }
 
         EmitCommonOptions(builder, column);
+        EmitSummaryDefinitions(builder, column);
         EmitKindOptions(builder, column, itemType);
         EmitGeneratedTemplates(builder, column, itemType);
 
@@ -1759,6 +1768,27 @@ internal static class Emitter
 
             builder.AppendLine("            };");
         }
+    }
+
+    private static void EmitSummaryDefinitions(StringBuilder builder, ColumnModel column)
+    {
+        if (column.Summaries.IsDefaultOrEmpty)
+        {
+            return;
+        }
+
+        builder.AppendLine("            column.SummaryDefinitions = new global::Avalonia.Controls.DataGridSummaryDefinition[]")
+            .AppendLine("            {");
+        foreach (SummaryModel summary in column.Summaries)
+        {
+            builder.Append("                new global::Avalonia.Controls.DataGridSummaryDefinition((global::Avalonia.Controls.DataGridAggregateType)")
+                .Append(summary.Aggregate.ToString(CultureInfo.InvariantCulture))
+                .Append(", (global::Avalonia.Controls.DataGridSummaryScope)")
+                .Append(summary.Scope.ToString(CultureInfo.InvariantCulture)).Append(", ")
+                .Append(GeneratorUtilities.EscapeString(summary.Format)).Append(", ")
+                .Append(GeneratorUtilities.EscapeString(summary.Title)).AppendLine("),");
+        }
+        builder.AppendLine("            };");
     }
 
     private static void EmitKindOptions(StringBuilder builder, ColumnModel column, string itemType)
@@ -2664,6 +2694,12 @@ internal static class Emitter
             .AppendLine("                Name = \"GeneratedDataGrid\",")
             .AppendLine("                AutoGenerateColumns = false,")
             .AppendLine("                CanUserSortColumns = true,")
+            .Append("                ShowTotalSummary = ").Append(model.ShowTotalSummary ? "true" : "false").AppendLine(",")
+            .Append("                ShowGroupSummary = ").Append(model.ShowGroupSummary ? "true" : "false").AppendLine(",")
+            .Append("                TotalSummaryPosition = (global::Avalonia.Controls.DataGridSummaryRowPosition)")
+            .Append(model.TotalSummaryPosition.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
+            .Append("                GroupSummaryPosition = (global::Avalonia.Controls.DataGridGroupSummaryPosition)")
+            .Append(model.GroupSummaryPosition.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
             .AppendLine("                GridLinesVisibility = global::Avalonia.Controls.DataGridGridLinesVisibility.Horizontal")
             .AppendLine("            };")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(dataGrid, GeneratedAutomationId);")

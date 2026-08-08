@@ -276,6 +276,12 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridSelectionMode.Single;
                 public global::Avalonia.Controls.DataGridSelectionUnit SelectionUnit { get; set; } =
                     global::Avalonia.Controls.DataGridSelectionUnit.FullRow;
+                public bool ShowTotalSummary { get; set; }
+                public bool ShowGroupSummary { get; set; }
+                public global::Avalonia.Controls.DataGridSummaryRowPosition TotalSummaryPosition { get; set; } =
+                    global::Avalonia.Controls.DataGridSummaryRowPosition.Bottom;
+                public global::Avalonia.Controls.DataGridGroupSummaryPosition GroupSummaryPosition { get; set; } =
+                    global::Avalonia.Controls.DataGridGroupSummaryPosition.Footer;
                 public string? HierarchicalModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
                 public string? ViewStatePropertyName { get; set; }
@@ -332,6 +338,12 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridSelectionMode.Single;
                 public global::Avalonia.Controls.DataGridSelectionUnit SelectionUnit { get; set; } =
                     global::Avalonia.Controls.DataGridSelectionUnit.FullRow;
+                public bool ShowTotalSummary { get; set; }
+                public bool ShowGroupSummary { get; set; }
+                public global::Avalonia.Controls.DataGridSummaryRowPosition TotalSummaryPosition { get; set; } =
+                    global::Avalonia.Controls.DataGridSummaryRowPosition.Bottom;
+                public global::Avalonia.Controls.DataGridGroupSummaryPosition GroupSummaryPosition { get; set; } =
+                    global::Avalonia.Controls.DataGridGroupSummaryPosition.Footer;
                 public string? HierarchicalModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
                 public string? ViewStatePropertyName { get; set; }
@@ -482,6 +494,7 @@ public sealed partial class ProDataGridGenerator
                 public global::Avalonia.Controls.DataGridSummaryScope Scope { get; set; } =
                     global::Avalonia.Controls.DataGridSummaryScope.Both;
                 public string? Format { get; set; }
+                public string? Title { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]

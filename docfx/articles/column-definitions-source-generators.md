@@ -318,6 +318,45 @@ public sealed partial class Quote
 
 `GenerateDataGridCellDrawCache` is an independent incremental pipeline for partial row classes. It emits `IDataGridCellDrawOperationItemCache`, deterministic `{Property}CellDrawCacheSlot` constants for attributed custom-drawing columns, array-backed O(1) storage, and whole-cache/per-slot clear methods. `InitialCapacity` avoids first-use growth; `MaximumCapacity` bounds retained entries and rejects out-of-range slots without allocation. Set `GenerateSlotConstants = false` when slot ownership is entirely external.
 
+### Typed grouping and rendered summaries
+
+`DataGridGroup` emits ordered `DataGridGeneratedGroupField<TItem,TValue>` values. `CreateCollectionView` installs their direct typed group descriptions, avoiding `DataGridPathGroupDescription` and property-path lookup:
+
+```csharp
+[DataGridColumn(Header = "Region", ColumnKey = "region")]
+[DataGridGroup(Order = 0)]
+public string Region { get; init; } = string.Empty;
+
+[DataGridColumn(DataGridColumnKind.Numeric, Header = "Revenue", ColumnKey = "revenue")]
+[DataGridSummary(
+    DataGridAggregateType.Sum,
+    Scope = DataGridSummaryScope.Both,
+    Format = "C2",
+    Title = "Revenue: ")]
+public decimal Revenue { get; init; }
+```
+
+Every `DataGridSummary` now produces both an incremental `IDataGridGeneratedSummary<TItem>` and a `DataGridSummaryDefinition` on the generated column definition. The latter creates an independent `DataGridSummaryDescription` for each materialized column, so a shared definition collection remains safe across grids. The DataGrid's summary service reads the already-generated column value accessor; built-in sum, average, count, distinct-count, minimum, maximum, first, and last calculations therefore avoid reflection.
+
+Generated aggregates support `Add`, `Remove`, `Replace`, and `Reset`. Use the first three for streaming change sets and reserve `Reset` for a source reset or a custom calculation that cannot reverse removals. `Scope`, `Format`, `Title`, the column's `SummaryCellThemeKey`, and the generated view's summary placement are preserved:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Order),
+    Framework = DataGridViewFramework.ReactiveUI,
+    ShowTotalSummary = true,
+    ShowGroupSummary = true,
+    TotalSummaryPosition = DataGridSummaryRowPosition.Bottom,
+    GroupSummaryPosition = DataGridGroupSummaryPosition.Footer)]
+public sealed partial class OrdersViewModel : ReactiveObject
+{
+}
+```
+
+For a custom calculator, a column `ConfigureMethod` can assign `DataGridSummaryDefinition.Factory`. The factory is called directly once per materialized column and must return a fresh `DataGridSummaryDescription`; no activation or method reflection is used.
+
+`DataGridSample.Pages.GeneratedGroupingSummariesPage` demonstrates two typed group levels, rendered group footers and total summaries, five incremental aggregates, and deterministic Add/Replace/Remove/Reset updates in a passive compiled-binding ReactiveUI page.
+
 ### Row commands and dynamic button/toggle content
 
 Button, toggle-button, and toggle-switch definitions can resolve commands, parameters, and state labels directly from each row. Name accessible row properties with the member options; the generator emits cached `ClrPropertyInfo` and `DataGridBindingDefinition` instances with typed static delegates:

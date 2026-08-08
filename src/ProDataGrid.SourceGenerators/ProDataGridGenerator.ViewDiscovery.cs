@@ -338,6 +338,10 @@ internal static partial class Discovery
             SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
             SelectionMode = GetEnumValue(arguments, "SelectionMode", 1),
             SelectionUnit = GetEnumValue(arguments, "SelectionUnit", 0),
+            ShowTotalSummary = GeneratorUtilities.GetBoolean(arguments, "ShowTotalSummary", false),
+            ShowGroupSummary = GeneratorUtilities.GetBoolean(arguments, "ShowGroupSummary", false),
+            TotalSummaryPosition = GetEnumValue(arguments, "TotalSummaryPosition", 1),
+            GroupSummaryPosition = GetEnumValue(arguments, "GroupSummaryPosition", 1),
             HierarchicalModelPropertyName = GeneratorUtilities.GetString(arguments, "HierarchicalModelPropertyName"),
             StateControllerPropertyName = GeneratorUtilities.GetString(arguments, "StateControllerPropertyName"),
             ViewStatePropertyName = GeneratorUtilities.GetString(arguments, "ViewStatePropertyName"),
@@ -647,6 +651,10 @@ internal static partial class Discovery
             SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
             SelectionMode = request.SelectionMode,
             SelectionUnit = request.SelectionUnit,
+            ShowTotalSummary = request.ShowTotalSummary,
+            ShowGroupSummary = request.ShowGroupSummary,
+            TotalSummaryPosition = request.TotalSummaryPosition,
+            GroupSummaryPosition = request.GroupSummaryPosition,
             HierarchicalModel = ResolveOptionalViewBinding(request, request.HierarchicalModelPropertyName, diagnostics),
             StateController = ResolveOptionalViewBinding(request, request.StateControllerPropertyName, diagnostics),
             ViewState = viewState,
@@ -1333,6 +1341,10 @@ internal static partial class Discovery
         public string? SelectionModelPropertyName { get; set; }
         public int SelectionMode { get; set; } = 1;
         public int SelectionUnit { get; set; }
+        public bool ShowTotalSummary { get; set; }
+        public bool ShowGroupSummary { get; set; }
+        public int TotalSummaryPosition { get; set; } = 1;
+        public int GroupSummaryPosition { get; set; } = 1;
         public string? HierarchicalModelPropertyName { get; set; }
         public string? StateControllerPropertyName { get; set; }
         public string? ViewStatePropertyName { get; set; }

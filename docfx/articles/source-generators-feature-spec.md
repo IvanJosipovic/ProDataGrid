@@ -27,7 +27,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F01 incremental foundation | Implemented | Direct type and property-triggered schemas, ViewModels, controllers, indexed-column triggers, cell-draw caches, and generated views use equatable attributed candidates with isolated composition and stable semantic/output reuse. View framework/collision facts and owner-driven schema options are part of the candidate graph. Assembly/namespace policy and registry coordination remain compilation-wide only when requested; an empty-policy gate prevents global model construction and source-type enumeration for direct-only consumers. |
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. The remote-query sample validates offset paging, bounded cache reuse, field translation, cancellation, stale-response suppression, observable state, and retry. |
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
-| F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. The selection/state sample validates filtered/reordered identity projection, paging and replacement preservation, all-section JSON round-trips, column aliases, and migration. |
+| F09–F14 data workflows | Implemented | Grouping, rendered total/group summary definitions, incremental summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. The grouping sample validates two typed group levels, independent materialized summary descriptions, and Add/Remove/Replace/Reset aggregates. The selection/state sample validates filtered/reordered identity projection, paging and replacement preservation, all-section JSON round-trips, column aliases, and migration. |
 | F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
 | F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
@@ -653,6 +653,8 @@ Requirements:
 - Support summary scope, placement, string format, alignment, theme key, and title.
 
 The DataGrid runtime may need a typed group-description contract and a summary value-accessor property so generated code can avoid existing path lookup.
+
+Implemented grouping/summary API: `[DataGridGroup]` emits ordered typed selectors and direct `DataGridGeneratedGroupDescription<TItem,TValue>` adapters. `[DataGridSummary]` emits allocation-conscious `IDataGridGeneratedSummary<TItem>` instances for Add/Remove/Replace/Reset and installs `DataGridSummaryDefinition` metadata on generated column definitions. Each materialized column receives independent aggregate/custom descriptions with scope, format, and title; the DataGrid summary calculators reuse the generated column value accessor instead of property reflection. `DataGridSummaryDefinition.Factory` preserves direct custom-description ownership. Generated views expose total/group visibility and placement options. The formal sample proves two-level grouping, rendered group/total summaries, and deterministic incremental aggregate updates.
 
 ### F10. Selection, current cell, and shared selection — P1
 
@@ -1595,6 +1597,8 @@ Exit criteria: the Excel sample removes its generic binding helper and most sele
 
 Exit criteria: grouping, summary, conditional-formatting, banding, chooser, and custom-drawing samples each have generated equivalents and parity tests.
 
+Current status: the formal grouping/summaries sample is complete, including rendered generated summary descriptions and incremental Add/Remove/Replace/Reset coverage. Conditional-formatting and header-filter formal samples remain, while banding, chooser/layout, templates, row details, and custom drawing already have generated APIs and focused tests.
+
 ### Phase 6 — views and application integration
 
 1. Expand generated view recipes and event-to-command bridges.
@@ -1634,7 +1638,7 @@ Add focused pages rather than one overloaded showcase:
 4. `GeneratedHierarchicalDynamicDataPage` — implemented with a generated keyed `SourceCache` root pipeline, typed children/parent/key/expansion metadata, generated hierarchy validation and expansion restoration, upstream root sorting/filtering/searching, a generated ReactiveUI view whose `HierarchicalModel` exclusively owns the flattened wrapper source, passive compiled XAML, and ViewModel plus Avalonia Headless screenshot coverage proving `HierarchicalNode.Item` column bindings.
 5. `GeneratedRemoteQueryPage` — implemented with immutable generated sort/filter/search descriptors, offset paging, bounded page-cache reuse, stable-to-backend field translation, cancellation and stale-response suppression, generated loading/error/content projection, retry, deterministic provider failures, passive compiled XAML, and ViewModel plus Avalonia Headless screenshot coverage.
 6. `GeneratedSelectionStatePage` — implemented with one generated key accessor shared by the fast index, extended identity selection, filtered/reordered projection, paging and replacement preservation, generated view selection-mode/unit wiring, every-section state capture/restore, source-generated JSON, stable schema metadata, a `ticker` to `symbol` alias, version-one migration, a typed ReactiveUI interaction handler, passive compiled XAML, and runtime, ViewModel, generator, and Avalonia Headless coverage.
-7. `GeneratedGroupingSummariesPage` — incremental grouped aggregates.
+7. `GeneratedGroupingSummariesPage` — implemented with two reflection-free typed group levels, generated group-footer and total-summary descriptions, five shared-accessor aggregates, direct Add/Remove/Replace updates, reset fallback, a generated ReactiveUI view with summary placement, passive compiled XAML, and runtime, generator, ViewModel, rendered-value, and Avalonia Headless screenshot coverage.
 8. `GeneratedEditingClipboardFillPage` — typed validation, paste, and fill.
 9. `GeneratedIndexedSpreadsheetPage` — runtime slot columns and formulas.
 10. `GeneratedConditionalFormattingPage` — typed predicates and theme keys.

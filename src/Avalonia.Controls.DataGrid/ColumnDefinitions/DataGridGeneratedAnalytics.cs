@@ -4,6 +4,7 @@
 #nullable disable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -32,6 +33,8 @@ namespace Avalonia.Controls
         string FormatKey(TItem item, IFormatProvider formatProvider);
         /// <summary>Creates an Avalonia collection-view group description with a direct typed getter.</summary>
         DataGridGroupDescription CreateDescription();
+        /// <summary>Creates a non-reflection group-order comparer for the collection view.</summary>
+        IComparer CreateSortComparer();
     }
 
     /// <summary>Provides a typed generated grouping field and adapter.</summary>
@@ -47,6 +50,7 @@ namespace Avalonia.Controls
         private readonly Func<TItem, TValue> _getter;
         private readonly Func<TValue, IFormatProvider, string> _formatter;
         private readonly IEqualityComparer<TValue> _comparer;
+        private readonly IComparer<TValue> _orderComparer;
 
         /// <summary>Initializes a generated grouping field.</summary>
         public DataGridGeneratedGroupField(
@@ -55,7 +59,8 @@ namespace Avalonia.Controls
             ListSortDirection direction,
             Func<TItem, TValue> getter,
             Func<TValue, IFormatProvider, string> formatter = null,
-            IEqualityComparer<TValue> comparer = null)
+            IEqualityComparer<TValue> comparer = null,
+            IComparer<TValue> orderComparer = null)
         {
             ColumnKey = columnKey ?? throw new ArgumentNullException(nameof(columnKey));
             Order = order;
@@ -63,6 +68,7 @@ namespace Avalonia.Controls
             _getter = getter ?? throw new ArgumentNullException(nameof(getter));
             _formatter = formatter;
             _comparer = comparer ?? EqualityComparer<TValue>.Default;
+            _orderComparer = orderComparer ?? Comparer<TValue>.Default;
         }
 
         /// <inheritdoc />
@@ -86,6 +92,29 @@ namespace Avalonia.Controls
         /// <inheritdoc />
         public DataGridGroupDescription CreateDescription() =>
             new DataGridGeneratedGroupDescription<TItem, TValue>(ColumnKey, _getter, _comparer);
+
+        /// <inheritdoc />
+        public IComparer CreateSortComparer() => new GroupItemComparer(_getter, _orderComparer);
+
+        private sealed class GroupItemComparer : IComparer
+        {
+            private readonly Func<TItem, TValue> _getter;
+            private readonly IComparer<TValue> _comparer;
+
+            public GroupItemComparer(Func<TItem, TValue> getter, IComparer<TValue> comparer)
+            {
+                _getter = getter;
+                _comparer = comparer;
+            }
+
+            public int Compare(object left, object right)
+            {
+                if (ReferenceEquals(left, right)) return 0;
+                if (left is null) return -1;
+                if (right is null) return 1;
+                return _comparer.Compare(_getter((TItem)left), _getter((TItem)right));
+            }
+        }
     }
 
     /// <summary>Adapts a typed generated grouping getter to <see cref="DataGridGroupDescription"/>.</summary>

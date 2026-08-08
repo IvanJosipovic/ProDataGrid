@@ -119,6 +119,14 @@ internal sealed class ViewModelViewModel
 
     public int SelectionUnit { get; set; }
 
+    public bool ShowTotalSummary { get; set; }
+
+    public bool ShowGroupSummary { get; set; }
+
+    public int TotalSummaryPosition { get; set; }
+
+    public int GroupSummaryPosition { get; set; }
+
     public ViewBindingModel? HierarchicalModel { get; set; }
 
     public ViewBindingModel? StateController { get; set; }
@@ -514,6 +522,7 @@ internal sealed class SummaryModel
     public int Aggregate { get; set; }
     public int Scope { get; set; }
     public string? Format { get; set; }
+    public string? Title { get; set; }
 }
 
 internal sealed class ConditionalRuleModel

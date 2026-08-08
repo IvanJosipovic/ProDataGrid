@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -429,5 +430,65 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.True(viewModel.IsDisposed);
         Assert.Empty(viewModel.SelectionModel.SelectedItems);
         Assert.Throws<InvalidOperationException>(() => _ = viewModel.StatefulRows);
+    }
+
+    [Fact]
+    public void Generated_grouping_summaries_update_incrementally_for_add_replace_remove_and_reset()
+    {
+        var viewModel = new GeneratedGroupingSummariesViewModel();
+
+        Assert.Equal(2, GeneratedGroupedOrderSchema.GroupFields.Count);
+        Assert.Equal(2, viewModel.Items.SortDescriptions.Count);
+        Assert.Equal(5, viewModel.GeneratedSummaries.Count);
+        Assert.Equal(12, viewModel.OrderCount);
+        Assert.Equal(6, viewModel.UniqueCustomerCount);
+        Assert.Equal(82, viewModel.TotalQuantity);
+        Assert.Equal(11, viewModel.GroupCount);
+        Assert.Equal("East", Assert.IsType<GeneratedGroupedOrder>(viewModel.Items[0]).Region);
+        Assert.Equal(
+            new[] { "East", "North", "South", "West" },
+            viewModel.Items.Groups!
+                .Cast<DataGridCollectionViewGroup>()
+                .Select(static group => Assert.IsType<string>(group.Key)));
+        Assert.All(
+            viewModel.Items.Groups!.Cast<DataGridCollectionViewGroup>(),
+            static regionGroup => Assert.Equal(
+                regionGroup.Items
+                    .Cast<DataGridCollectionViewGroup>()
+                    .Select(static group => Assert.IsType<string>(group.Key))
+                    .Order(StringComparer.Ordinal),
+                regionGroup.Items
+                    .Cast<DataGridCollectionViewGroup>()
+                    .Select(static group => Assert.IsType<string>(group.Key))));
+        decimal initialRevenue = viewModel.TotalRevenue;
+
+        viewModel.AddBatchCommand.Execute().Subscribe();
+        Assert.Equal(15, viewModel.OrderCount);
+        Assert.Equal(110, viewModel.TotalQuantity);
+        Assert.True(viewModel.TotalRevenue > initialRevenue);
+        Assert.Contains("Incremental Add", viewModel.Status, StringComparison.Ordinal);
+        Assert.Equal(
+            new[] { "East", "North", "South", "West" },
+            viewModel.Items.Groups!
+                .Cast<DataGridCollectionViewGroup>()
+                .Select(static group => Assert.IsType<string>(group.Key)));
+
+        viewModel.ReplaceOrderCommand.Execute().Subscribe();
+        Assert.Equal(15, viewModel.OrderCount);
+        Assert.Equal(7, viewModel.UniqueCustomerCount);
+        Assert.Equal(117, viewModel.TotalQuantity);
+        Assert.Contains("Incremental Replace", viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.RemoveOrderCommand.Execute().Subscribe();
+        Assert.Equal(14, viewModel.OrderCount);
+        Assert.Equal(112, viewModel.TotalQuantity);
+        Assert.Contains("Incremental Remove", viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.ResetCommand.Execute().Subscribe();
+        Assert.Equal(12, viewModel.OrderCount);
+        Assert.Equal(6, viewModel.UniqueCustomerCount);
+        Assert.Equal(82, viewModel.TotalQuantity);
+        Assert.Equal(initialRevenue, viewModel.TotalRevenue);
+        Assert.Contains("Reset fallback", viewModel.Status, StringComparison.Ordinal);
     }
 }

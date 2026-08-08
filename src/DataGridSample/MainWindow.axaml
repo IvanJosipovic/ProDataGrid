@@ -621,6 +621,13 @@
         </pages:GeneratedSelectionStatePage.DataContext>
       </pages:GeneratedSelectionStatePage>
     </TabItem>
+    <TabItem Header="Generated Grouping + Summaries">
+      <pages:GeneratedGroupingSummariesPage>
+        <pages:GeneratedGroupingSummariesPage.DataContext>
+          <viewModels:GeneratedGroupingSummariesViewModel />
+        </pages:GeneratedGroupingSummariesPage.DataContext>
+      </pages:GeneratedGroupingSummariesPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

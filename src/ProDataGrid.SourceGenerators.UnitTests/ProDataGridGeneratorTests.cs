@@ -3306,7 +3306,7 @@ public sealed class ProDataGridGeneratorTests
             public sealed class Row
             {
                 [DataGridGroup(Order = 1)]
-                [DataGridSummary(DataGridAggregateType.Sum, Scope = DataGridSummaryScope.Both)]
+                [DataGridSummary(DataGridAggregateType.Sum, Scope = DataGridSummaryScope.Both, Format = "N2", Title = "Total: ")]
                 [DataGridConditionalFormat(DataGridCondition.GreaterThan, Operand = "100", CellThemeKey = "LargeValue")]
                 [DataGridBand("Trading/Risk", Order = 2)]
                 public decimal Value { get; set; }
@@ -3315,9 +3315,40 @@ public sealed class ProDataGridGeneratorTests
 
         AssertNoErrors(result);
         Assert.Contains("DataGridGeneratedGroupField<global::Demo.Row, decimal>", result.CombinedSource);
+        Assert.Contains("DataGridSortDescription.FromComparer(field.CreateSortComparer(), field.Direction, field.ColumnKey)", result.CombinedSource);
         Assert.Contains("DataGridGeneratedSummary<global::Demo.Row, decimal>", result.CombinedSource);
+        Assert.Contains("column.SummaryDefinitions = new global::Avalonia.Controls.DataGridSummaryDefinition[]", result.CombinedSource);
+        Assert.Contains("DataGridSummaryDefinition((global::Avalonia.Controls.DataGridAggregateType)1, (global::Avalonia.Controls.DataGridSummaryScope)2, \"N2\", \"Total: \")", result.CombinedSource);
         Assert.Contains("Comparer<decimal>.Default.Compare(value, (decimal)100m) > 0", result.CombinedSource);
         Assert.Contains("DataGridGeneratedBandField(\"Value\", new string[] { \"Trading\", \"Risk\" }, 2)", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_configures_total_and_group_summary_placement()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Value { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                ShowTotalSummary = true,
+                ShowGroupSummary = true,
+                TotalSummaryPosition = DataGridSummaryRowPosition.Top,
+                GroupSummaryPosition = DataGridGroupSummaryPosition.Both)]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("ShowTotalSummary = true", result.CombinedSource);
+        Assert.Contains("ShowGroupSummary = true", result.CombinedSource);
+        Assert.Contains("TotalSummaryPosition = (global::Avalonia.Controls.DataGridSummaryRowPosition)0", result.CombinedSource);
+        Assert.Contains("GroupSummaryPosition = (global::Avalonia.Controls.DataGridGroupSummaryPosition)2", result.CombinedSource);
     }
 
     [Fact]

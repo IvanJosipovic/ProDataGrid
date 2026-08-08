@@ -2364,7 +2364,8 @@ internal static partial class Discovery
             {
                 Aggregate = attribute.ConstructorArguments.Length > 0 && attribute.ConstructorArguments[0].Value is int aggregate ? aggregate : 0,
                 Scope = GetEnumValue(arguments, "Scope", 2),
-                Format = GeneratorUtilities.GetString(arguments, "Format")
+                Format = GeneratorUtilities.GetString(arguments, "Format"),
+                Title = GeneratorUtilities.GetString(arguments, "Title")
             });
         }
         return summaries.ToImmutable();
