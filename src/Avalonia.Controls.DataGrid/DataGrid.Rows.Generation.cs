@@ -111,23 +111,6 @@ namespace Avalonia.Controls
                         cell.InvalidateMeasureForContentChange();
                     }
                 }
-                else if (recycledRow != null)
-                {
-                    foreach (DataGridCell cell in dataGridRow.Cells)
-                    {
-                        if (cell.OwningColumn != null &&
-                            cell.OwningColumn is not DataGridTemplateColumn)
-                        {
-                            cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
-                            cell.InvalidateMeasureForContentChange();
-                        }
-                        else if (cell.OwningColumn is DataGridTemplateColumn)
-                        {
-                            cell.InvalidateMeasureForContentChange();
-                        }
-                    }
-                }
-
                 OnLoadingRow(new DataGridRowEventArgs(dataGridRow));
             }
             else if (isOwnContainer)

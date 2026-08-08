@@ -23,7 +23,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    sealed class DataGridCustomDrawingCell : Control
+    sealed class DataGridCustomDrawingCell : DataGridCell
     {
         internal const int DefaultSharedTextLayoutCacheCapacity = 1024;
 
@@ -60,22 +60,22 @@ namespace Avalonia.Controls
                 nameof(RenderBackend),
                 DataGridCustomDrawingRenderBackend.ImmediateDrawOperation);
 
-        public static readonly AttachedProperty<FontFamily> FontFamilyProperty =
+        public new static readonly AttachedProperty<FontFamily> FontFamilyProperty =
             TextElement.FontFamilyProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<double> FontSizeProperty =
+        public new static readonly AttachedProperty<double> FontSizeProperty =
             TextElement.FontSizeProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<FontStyle> FontStyleProperty =
+        public new static readonly AttachedProperty<FontStyle> FontStyleProperty =
             TextElement.FontStyleProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<FontWeight> FontWeightProperty =
+        public new static readonly AttachedProperty<FontWeight> FontWeightProperty =
             TextElement.FontWeightProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<FontStretch> FontStretchProperty =
+        public new static readonly AttachedProperty<FontStretch> FontStretchProperty =
             TextElement.FontStretchProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<IBrush> ForegroundProperty =
+        public new static readonly AttachedProperty<IBrush> ForegroundProperty =
             TextElement.ForegroundProperty.AddOwner<DataGridCustomDrawingCell>();
 
         public static readonly StyledProperty<TextAlignment> TextAlignmentProperty =
@@ -150,37 +150,37 @@ namespace Avalonia.Controls
             set => SetValue(RenderBackendProperty, value);
         }
 
-        public FontFamily FontFamily
+        public new FontFamily FontFamily
         {
             get => GetValue(FontFamilyProperty);
             set => SetValue(FontFamilyProperty, value);
         }
 
-        public double FontSize
+        public new double FontSize
         {
             get => GetValue(FontSizeProperty);
             set => SetValue(FontSizeProperty, value);
         }
 
-        public FontStyle FontStyle
+        public new FontStyle FontStyle
         {
             get => GetValue(FontStyleProperty);
             set => SetValue(FontStyleProperty, value);
         }
 
-        public FontWeight FontWeight
+        public new FontWeight FontWeight
         {
             get => GetValue(FontWeightProperty);
             set => SetValue(FontWeightProperty, value);
         }
 
-        public FontStretch FontStretch
+        public new FontStretch FontStretch
         {
             get => GetValue(FontStretchProperty);
             set => SetValue(FontStretchProperty, value);
         }
 
-        public IBrush Foreground
+        public new IBrush Foreground
         {
             get => GetValue(ForegroundProperty);
             set => SetValue(ForegroundProperty, value);
@@ -245,8 +245,6 @@ namespace Avalonia.Controls
             set => SetValue(LayoutInvalidationTokenProperty, value);
         }
 
-        internal DataGridCell OwningCell { get; set; }
-
         internal DataGridCustomDrawingTextLayoutCache SharedTextLayoutCache
         {
             get => _sharedTextLayoutCache;
@@ -263,8 +261,24 @@ namespace Avalonia.Controls
             }
         }
 
+        internal void UseDrawingTemplate()
+        {
+            Content = null;
+            ClearValue(TemplateProperty);
+        }
+
+        internal void UseRetainedTemplate()
+        {
+            ClearValue(TemplateProperty);
+        }
+
         protected override Size MeasureOverride(Size availableSize)
         {
+            if (Content != null)
+            {
+                return base.MeasureOverride(availableSize);
+            }
+
             var text = GetDisplayText();
             if (TryMeasureWithDrawOperationFastPath(availableSize, text, out Size fastPathSize))
             {
@@ -287,6 +301,11 @@ namespace Avalonia.Controls
 
         protected override Size ArrangeOverride(Size finalSize)
         {
+            if (Content != null)
+            {
+                return base.ArrangeOverride(finalSize);
+            }
+
             var text = GetDisplayText();
             if (TryArrangeWithDrawOperationFastPath(finalSize, text, out Size arrangedSize))
             {
@@ -302,6 +321,11 @@ namespace Avalonia.Controls
         public override void Render(DrawingContext context)
         {
             base.Render(context);
+
+            if (Content != null)
+            {
+                return;
+            }
 
             var text = GetDisplayText();
             var shouldDrawOperation = IsDrawOperationEnabled;
@@ -648,7 +672,7 @@ namespace Avalonia.Controls
             out bool isCurrent,
             out bool isSelected)
         {
-            cell = OwningCell;
+            cell = this;
             foreground = Foreground ?? Brushes.Black;
             typeface = GetResolvedTypeface();
             isCurrent = cell is { OwningGrid: { }, OwningRow: { }, OwningColumn: { } } && cell.IsCurrent;

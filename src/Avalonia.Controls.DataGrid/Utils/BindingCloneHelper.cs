@@ -185,6 +185,22 @@ namespace Avalonia.Controls.Utils
             };
         }
 
+        public static bool SupportsDirectDataContextRead(BindingBase? binding)
+        {
+            return binding switch
+            {
+                Binding avaloniaBinding => HasImplicitSource(avaloniaBinding.Source) &&
+                                           string.IsNullOrWhiteSpace(avaloniaBinding.ElementName) &&
+                                           avaloniaBinding.RelativeSource is null,
+                ReflectionBinding reflectionBinding => HasImplicitSource(reflectionBinding.Source) &&
+                                                       string.IsNullOrWhiteSpace(reflectionBinding.ElementName) &&
+                                                       reflectionBinding.RelativeSource is null,
+                CompiledBindingExtension compiledBindingExtension => HasImplicitSource(compiledBindingExtension.Source),
+                CompiledBinding compiledBinding => HasImplicitSource(compiledBinding.Source),
+                _ => false
+            };
+        }
+
         private static bool HasImplicitSource(object? source)
         {
             return source is null || ReferenceEquals(source, AvaloniaProperty.UnsetValue);

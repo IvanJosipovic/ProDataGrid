@@ -16,6 +16,7 @@ namespace Avalonia.Controls
     {
         private double? _indent;
         private string _cellTemplateKey;
+        private bool _useDirectCell;
 
         public double? Indent
         {
@@ -29,6 +30,15 @@ namespace Avalonia.Controls
             set => SetProperty(ref _cellTemplateKey, value);
         }
 
+        /// <summary>
+        /// Gets or sets whether the generated hierarchical column uses the optimized retained direct cell.
+        /// </summary>
+        public bool UseDirectCell
+        {
+            get => _useDirectCell;
+            set => SetProperty(ref _useDirectCell, value);
+        }
+
         protected override DataGridColumn CreateColumnCore()
         {
             return new DataGridHierarchicalColumn();
@@ -40,6 +50,7 @@ namespace Avalonia.Controls
 
             if (column is DataGridHierarchicalColumn hierarchicalColumn)
             {
+                hierarchicalColumn.UseDirectCell = UseDirectCell;
                 hierarchicalColumn.CellTemplate = CellTemplateKey != null
                     ? context?.ResolveResource<IDataTemplate>(CellTemplateKey)
                     : null;
@@ -72,6 +83,9 @@ namespace Avalonia.Controls
 
             switch (propertyName)
             {
+                case nameof(UseDirectCell):
+                    hierarchicalColumn.UseDirectCell = UseDirectCell;
+                    return true;
                 case nameof(CellTemplateKey):
                     hierarchicalColumn.CellTemplate = CellTemplateKey != null
                         ? context?.ResolveResource<IDataTemplate>(CellTemplateKey)

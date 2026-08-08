@@ -1398,6 +1398,10 @@ internal
             {
                 dataGridColumn.RefreshCellContent(element, propertyName);
             }
+            else if (dataGridCell is DataGridDirectTextCell directTextCell)
+            {
+                dataGridColumn.RefreshCellContent(directTextCell, propertyName);
+            }
             dataGridColumn.RefreshCellBindings(dataGridCell, propertyName);
         }
 

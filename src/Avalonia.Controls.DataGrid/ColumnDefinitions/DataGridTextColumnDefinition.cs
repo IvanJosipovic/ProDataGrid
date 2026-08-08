@@ -21,6 +21,7 @@ namespace Avalonia.Controls
         private FontStretch? _fontStretch;
         private IBrush _foreground;
         private string _watermark;
+        private bool _useDirectTextCell;
 
         public FontFamily FontFamily
         {
@@ -64,6 +65,15 @@ namespace Avalonia.Controls
             set => SetProperty(ref _watermark, value);
         }
 
+        /// <summary>
+        /// Gets or sets whether generated text columns use the optimized retained direct-text cell.
+        /// </summary>
+        public bool UseDirectTextCell
+        {
+            get => _useDirectTextCell;
+            set => SetProperty(ref _useDirectTextCell, value);
+        }
+
         protected override DataGridColumn CreateColumnCore()
         {
             return new DataGridTextColumn();
@@ -75,6 +85,7 @@ namespace Avalonia.Controls
 
             if (column is DataGridTextColumn textColumn)
             {
+                textColumn.UseDirectTextCell = UseDirectTextCell;
                 if (FontFamily != null)
                 {
                     textColumn.FontFamily = FontFamily;
@@ -157,6 +168,9 @@ namespace Avalonia.Controls
 
             switch (propertyName)
             {
+                case nameof(UseDirectTextCell):
+                    textColumn.UseDirectTextCell = UseDirectTextCell;
+                    return true;
                 case nameof(FontFamily):
                     if (FontFamily != null)
                     {

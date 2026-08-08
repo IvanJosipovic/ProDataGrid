@@ -9,6 +9,7 @@ using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Avalonia.Styling;
 
 namespace Avalonia.Controls
 {
@@ -27,6 +28,7 @@ internal
         private static readonly Binding _dataContextBinding = new Binding { Mode = BindingMode.OneWay };
 
         private readonly Lazy<IDataTemplate?> _cellTemplate;
+        private readonly Lazy<ControlTheme?> _directCellTheme;
         private bool _refreshingBinding;
 
         public DataGridHierarchicalColumn()
@@ -38,6 +40,22 @@ internal
                 OwningGrid != null && OwningGrid.TryFindResource("DataGridHierarchicalCellTemplate", out var template)
                     ? (IDataTemplate)template
                     : null);
+            _directCellTheme = new Lazy<ControlTheme?>(() => GetColumnControlTheme("DataGridOptimizedDirectHierarchicalCellTheme"));
+        }
+
+        /// <summary>
+        /// Defines the <see cref="UseDirectCell"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectCellProperty =
+            AvaloniaProperty.Register<DataGridHierarchicalColumn, bool>(nameof(UseDirectCell));
+
+        /// <summary>
+        /// Gets or sets whether the retained expander presenter is combined with its DataGrid cell container.
+        /// </summary>
+        public bool UseDirectCell
+        {
+            get => GetValue(UseDirectCellProperty);
+            set => SetValue(UseDirectCellProperty, value);
         }
 
         /// <summary>
@@ -94,6 +112,15 @@ internal
         /// <inheritdoc />
         protected override Control GenerateElement(DataGridCell cell, object dataItem)
         {
+            if (cell is DataGridDirectHierarchicalCell directCell)
+            {
+                directCell.Content = null;
+                directCell.Theme = CellTheme ?? GetDirectCellTheme();
+                directCell.Indent = Indent;
+                BindContent(directCell, dataItem);
+                return null;
+            }
+
             if (cell.Content is DataGridHierarchicalPresenter existingPresenter && !_refreshingBinding)
             {
                 BindContent(existingPresenter, dataItem, isEditing: false);
@@ -155,6 +182,32 @@ internal
             return presenter;
         }
 
+        internal override DataGridCell CreateCell()
+        {
+            if (!UseDirectCell)
+            {
+                return base.CreateCell();
+            }
+
+            var cell = new DataGridDirectHierarchicalCell();
+            cell.ToggleRequested += PresenterOnToggleRequested;
+            return cell;
+        }
+
+        internal override ControlTheme ResolveCellTheme(DataGrid grid)
+        {
+            return UseDirectCell
+                ? CellTheme ?? GetDirectCellTheme() ?? base.ResolveCellTheme(grid)
+                : base.ResolveCellTheme(grid);
+        }
+
+        private ControlTheme? GetDirectCellTheme()
+        {
+            return _directCellTheme.IsValueCreated
+                ? _directCellTheme.Value
+                : OwningGrid == null ? null : _directCellTheme.Value;
+        }
+
         private void PresenterOnToggleRequested(object? sender, EventArgs e)
         {
             if (OwningGrid?.HierarchicalModel == null)
@@ -162,8 +215,7 @@ internal
                 return;
             }
 
-            if (sender is DataGridHierarchicalPresenter presenter &&
-                presenter.DataContext is HierarchicalNode node)
+            if (sender is Control presenter && presenter.DataContext is HierarchicalNode node)
             {
                 var row = presenter.FindAncestorOfType<DataGridRow>();
                 if (row != null)
@@ -173,6 +225,24 @@ internal
 
                 OwningGrid.HierarchicalModel.Toggle(node);
             }
+        }
+
+        private void BindContent(DataGridDirectHierarchicalCell cell, object dataItem)
+        {
+            if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+            {
+                cell.Bind(ContentControl.ContentProperty, Binding);
+            }
+            else if (dataItem != DataGridCollectionView.NewItemPlaceholder)
+            {
+                cell.Bind(ContentControl.ContentProperty, _dataContextBinding);
+            }
+            else
+            {
+                cell.Content = dataItem;
+            }
+
+            cell.ContentTemplate = CellTemplate ?? _cellTemplate.Value;
         }
 
         private void BindContent(DataGridHierarchicalPresenter presenter, object dataItem, bool isEditing)

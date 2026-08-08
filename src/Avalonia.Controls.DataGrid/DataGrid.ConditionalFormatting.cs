@@ -77,7 +77,7 @@ namespace Avalonia.Controls
                 return;
             }
 
-            var columnTheme = cell.OwningColumn?.CellTheme;
+            var columnTheme = cell.OwningColumn?.ResolveCellTheme(this);
             if (columnTheme != null)
             {
                 if (!ReferenceEquals(cell.Theme, columnTheme))

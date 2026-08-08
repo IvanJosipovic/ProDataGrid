@@ -413,6 +413,8 @@ internal
             }
         }
 
+        internal DataGridCell ExistingFillerCell => _fillerCell;
+
         internal bool HasBottomGridLine
         {
             get

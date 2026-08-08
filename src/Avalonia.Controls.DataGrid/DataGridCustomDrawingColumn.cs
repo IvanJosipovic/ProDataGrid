@@ -27,6 +27,7 @@ internal
     class DataGridCustomDrawingColumn : DataGridBoundColumn
     {
         private readonly Lazy<ControlTheme> _cellCustomDrawingTheme;
+        private readonly Lazy<ControlTheme> _retainedCellTheme;
         private readonly Lazy<ControlTheme> _cellTextBoxTheme;
         private readonly DataGridCustomDrawingTextLayoutCache _sharedTextLayoutCache;
         private IDataGridCellDrawOperationFactory _subscribedInvalidationFactory;
@@ -41,7 +42,10 @@ internal
         {
             BindingTarget = TextBox.TextProperty;
             IsReadOnly = true;
-            _cellCustomDrawingTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme("DataGridCellCustomDrawingTheme"));
+            _cellCustomDrawingTheme = new Lazy<ControlTheme>(() =>
+                GetColumnControlTheme("DataGridOptimizedDrawingCellTheme") ??
+                GetColumnControlTheme("DataGridCellCustomDrawingTheme"));
+            _retainedCellTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme(typeof(DataGridCell)));
             _cellTextBoxTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme("DataGridCellTextBoxTheme"));
             _sharedTextLayoutCache = new DataGridCustomDrawingTextLayoutCache(DataGridCustomDrawingCell.DefaultSharedTextLayoutCacheCapacity);
         }
@@ -318,12 +322,41 @@ internal
 
         protected override Control GenerateElement(DataGridCell cell, object dataItem)
         {
-            return CreateDisplayElement(cell, dataItem, bindValue: true);
+            if (cell is not DataGridCustomDrawingCell drawingCell)
+            {
+                return CreateDisplayElement(cell, dataItem, bindValue: true);
+            }
+
+            EnsureInvalidationSourceSubscription();
+            drawingCell.UseDrawingTemplate();
+            drawingCell.Theme = CellCustomDrawingTheme;
+            SyncDisplayProperties(drawingCell);
+            if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+            {
+                drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, Binding);
+            }
+
+            return null;
         }
 
         protected override Control GenerateEditingElementDirect(DataGridCell cell, object dataItem)
         {
+            if (cell is DataGridCustomDrawingCell drawingCell)
+            {
+                drawingCell.Theme = OwningGrid?.CellTheme ?? GetThemeValue(_retainedCellTheme);
+                drawingCell.UseRetainedTemplate();
+            }
             return CreateEditingElement();
+        }
+
+        internal override DataGridCell CreateCell()
+        {
+            return new DataGridCustomDrawingCell();
+        }
+
+        internal override ControlTheme ResolveCellTheme(DataGrid grid)
+        {
+            return CellTheme ?? CellCustomDrawingTheme ?? base.ResolveCellTheme(grid);
         }
 
         protected override void CancelCellEdit(Control editingElement, object uneditedValue)
@@ -388,8 +421,7 @@ internal
 
             var drawingCell = new DataGridCustomDrawingCell
             {
-                Name = "CellCustomDrawing",
-                OwningCell = cell
+                Name = "CellCustomDrawing"
             };
 
             if (CellCustomDrawingTheme is { } theme)
