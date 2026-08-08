@@ -1443,6 +1443,66 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Direct_only_compilation_skips_compilation_wide_semantic_model()
+    {
+        const string directSchema = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class DirectRow { public int Id { get; set; } }
+            public sealed class PropertyRow
+            {
+                [DataGridColumn] public string Name { get; set; } = "";
+            }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { public int Value { get; set; } }
+            """;
+        const string unrelatedAfter = """
+            namespace Demo;
+            public sealed class Unrelated { public string Value { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { directSchema, unrelatedBefore },
+            new[] { directSchema, unrelatedAfter },
+            "SemanticModel");
+
+        Assert.Empty(result.Reasons);
+        Assert.Contains(result.Sources, static source =>
+            source.Contains("class DirectRowDataGridSchema", StringComparison.Ordinal));
+        Assert.Contains(result.Sources, static source =>
+            source.Contains("class PropertyRowDataGridSchema", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Assembly_policy_keeps_compilation_wide_semantic_model_active()
+    {
+        const string policy = """
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridColumnsForNamespace("Demo.Models")]
+            """;
+        const string rowBefore = """
+            namespace Demo.Models;
+            public sealed class Row { public int Id { get; set; } }
+            """;
+        const string rowAfter = """
+            namespace Demo.Models;
+            public sealed class Row { public int Id { get; set; } public decimal Amount { get; set; } }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { policy, rowBefore },
+            new[] { policy, rowAfter },
+            "SemanticModel");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.Contains(result.Sources, static source =>
+            source.Contains("class RowDataGridSchema", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Unchanged_schema_output_is_reused_when_another_schema_changes()
     {
         const string firstSource = """
@@ -1501,6 +1561,65 @@ public sealed class ProDataGridGeneratorTests
 
         Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
         Assert.Contains(IncrementalStepRunReason.Unchanged, result.Reasons);
+    }
+
+    [Fact]
+    public void Unrelated_type_edit_does_not_invalidate_property_schema_composition()
+    {
+        const string propertySchema = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn] public int Id { get; set; }
+            }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { public int Value { get; set; } }
+            """;
+        const string unrelatedAfter = """
+            namespace Demo;
+            public sealed class Unrelated { public string Value { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { propertySchema, unrelatedBefore },
+            new[] { propertySchema, unrelatedAfter },
+            "DirectSchemaComposition");
+
+        Assert.DoesNotContain(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(IncrementalStepRunReason.New, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
+    public void Property_schema_candidate_is_invalidated_when_attributed_row_changes()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn] public int Id { get; set; }
+            }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn] public long Id { get; set; }
+            }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectPropertySchemaCandidates");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
     }
 
     [Fact]

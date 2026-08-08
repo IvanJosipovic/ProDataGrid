@@ -274,7 +274,8 @@ internal enum DirectSchemaSourceKind
 {
     Schema,
     ViewModel,
-    Controller
+    Controller,
+    Property
 }
 
 internal sealed class DirectSchemaCandidateComparer : IEqualityComparer<DirectSchemaCandidate>

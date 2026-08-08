@@ -15,6 +15,11 @@ namespace ProDataGrid.SourceGenerators;
 
 internal static partial class Discovery
 {
+    internal static bool HasCompilationWideRequests(ImmutableArray<AttributeData> assemblyAttributes) =>
+        HasGlobalSchemaPolicies(assemblyAttributes) ||
+        HasGlobalViewModelPolicies(assemblyAttributes) ||
+        HasGlobalViewPolicies(assemblyAttributes);
+
     public static GenerationModel Build(Compilation compilation, CancellationToken cancellationToken)
     {
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
@@ -150,6 +155,25 @@ internal static partial class Discovery
         };
     }
 
+    public static DirectSchemaCandidate? CreateDirectPropertySchemaCandidate(GeneratorAttributeSyntaxContext context)
+    {
+        if (context.TargetSymbol is not IPropertySymbol property ||
+            property.ContainingType is not { } targetType ||
+            (targetType.TypeKind != TypeKind.Class && targetType.TypeKind != TypeKind.Struct) ||
+            HasGlobalSchemaPolicies(targetType.ContainingAssembly.GetAttributes()))
+        {
+            return null;
+        }
+
+        return new DirectSchemaCandidate
+        {
+            TargetType = targetType,
+            Attributes = context.Attributes,
+            SourceKind = DirectSchemaSourceKind.Property,
+            CacheKey = "property|" + CreateDirectSchemaCacheKey(targetType, context.Attributes)
+        };
+    }
+
     public static DirectSchemaCandidate? CreateDirectOwnerSchemaCandidate(
         GeneratorAttributeSyntaxContext context,
         DirectSchemaSourceKind sourceKind)
@@ -253,6 +277,7 @@ internal static partial class Discovery
 
     public static DirectSchemaGenerationResult BuildDirectSchemas(
         ImmutableArray<DirectSchemaCandidate> schemaCandidates,
+        ImmutableArray<DirectSchemaCandidate> propertyCandidates,
         ImmutableArray<DirectSchemaCandidate> viewModelCandidates,
         ImmutableArray<DirectSchemaCandidate> controllerCandidates,
         CancellationToken cancellationToken)
@@ -267,6 +292,21 @@ internal static partial class Discovery
             {
                 INamedTypeSymbol itemType = GetConstructorType(attribute, 0) ?? candidate.TargetType;
                 AddOrUpdateSchema(schemas, itemType, attribute, explicitProviderName: null, explicitConfiguration: true);
+            }
+        }
+
+        foreach (DirectSchemaCandidate candidate in propertyCandidates
+                     .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.TargetType), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!schemas.ContainsKey(candidate.TargetType))
+            {
+                schemas.Add(
+                    candidate.TargetType,
+                    CreateDefaultSchema(
+                        candidate.TargetType,
+                        GeneratorUtilities.GetLocation(candidate.TargetType),
+                        attributedOnly: true));
             }
         }
 

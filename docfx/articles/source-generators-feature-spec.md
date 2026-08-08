@@ -6,7 +6,7 @@ Target: reflection-free source generation for complex reactive, streaming, remot
 
 Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, and routed-event command bridges are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, gated assembly/namespace/registry coordination, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, and routed-event command bridges are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane only when requested; direct-only compilations bypass that model and source-type enumeration entirely. Advanced items explicitly marked partial below remain tracked work.
 
 ## 1. Purpose
 
@@ -24,7 +24,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 
 | Feature | Status | Implemented boundary / remaining work |
 |---|---|---|
-| F01 incremental foundation | Core implemented | Direct type schemas, ViewModels, controllers, indexed-column triggers, and generated views use equatable attributed candidates with isolated composition and stable semantic/output reuse. View framework/collision facts and owner-driven schema options are part of the candidate graph. Assembly/namespace policy and registry coordination remain compilation-wide; the residual empty-policy scan is the remaining optimization. |
+| F01 incremental foundation | Implemented | Direct type and property-triggered schemas, ViewModels, controllers, indexed-column triggers, cell-draw caches, and generated views use equatable attributed candidates with isolated composition and stable semantic/output reuse. View framework/collision facts and owner-driven schema options are part of the candidate graph. Assembly/namespace policy and registry coordination remain compilation-wide only when requested; an empty-policy gate prevents global model construction and source-type enumeration for direct-only consumers. |
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. |
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
 | F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. |
@@ -264,7 +264,7 @@ Package splitting is a target architecture. Initial implementation may keep asse
 
 ### 5.2 Incremental generator pipeline
 
-The current generator builds its full model from `CompilationProvider`. Before adding broad feature discovery, it should move to isolated incremental pipelines:
+The generator uses isolated incremental pipelines for direct requests and a separately gated compilation-wide lane for assembly/namespace expansion and registries:
 
 - `ForAttributeWithMetadataName` for item, property, ViewModel, view, assembly, and namespace triggers.
 - Small immutable, equatable semantic models before `.Collect()`.
@@ -276,6 +276,8 @@ The current generator builds its full model from `CompilationProvider`. Before a
 - Cancellation checks in discovery and emission loops.
 
 Editing one row type must not invalidate generated outputs for unrelated schemas or views.
+
+The `CompilationWideRequests` gate checks the assembly request surface before the global semantic step. When no assembly/namespace policy or registry is present, it emits no value, so unrelated compilation edits cannot invoke `Discovery.Build` or enumerate source types. Property-only schemas use their own attributed candidate lane, preserving their diagnostics and output without depending on the global scan. Incremental run-reason tests cover the direct type/property bypass, property-candidate isolation and invalidation, and an active namespace policy.
 
 ### 5.3 Generated manifest
 
@@ -1486,7 +1488,7 @@ Use xUnit and Roslyn generator-driver tests for:
 
 ## 12. Implementation plan
 
-### Phase 0 — generator foundation
+### Phase 0 — generator foundation (implemented)
 
 1. Split discovery into attribute-driven incremental pipelines.
 2. Introduce equatable schema/field/controller/view semantic models.

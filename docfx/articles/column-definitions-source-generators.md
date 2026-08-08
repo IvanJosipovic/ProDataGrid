@@ -409,7 +409,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG125` | A generated view-state projection is incomplete or uses an incompatible state, message, or command member. |
 | `PDGSG126` | A generated routed-event bridge uses unsupported flags or an incompatible command member. |
 
-The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable.
+The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
 ## Generate code-only Avalonia views
 

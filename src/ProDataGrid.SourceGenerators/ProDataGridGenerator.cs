@@ -1,6 +1,7 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -64,6 +65,16 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
             .WithComparer(DirectSchemaCandidateComparer.Instance)
             .WithTrackingName("DirectSchemaCandidates");
 
+        IncrementalValuesProvider<DirectSchemaCandidate> directPropertySchemaCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                ColumnAttributeName,
+                static (node, _) => node is PropertyDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateDirectPropertySchemaCandidate(attributeContext))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(DirectSchemaCandidateComparer.Instance)
+            .WithTrackingName("DirectPropertySchemaCandidates");
+
         IncrementalValuesProvider<DirectSchemaCandidate> directViewModelSchemaCandidates = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 GenerateViewModelAttributeName,
@@ -90,10 +101,12 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
 
         IncrementalValueProvider<DirectSchemaGenerationResult> directSchemas = directSchemaCandidates
             .Collect()
+            .Combine(directPropertySchemaCandidates.Collect())
             .Combine(directViewModelSchemaCandidates.Collect())
             .Combine(directControllerSchemaCandidates.Collect())
             .Select(static (input, cancellationToken) => Discovery.BuildDirectSchemas(
-                input.Left.Left,
+                input.Left.Left.Left,
+                input.Left.Left.Right,
                 input.Left.Right,
                 input.Right,
                 cancellationToken))
@@ -193,7 +206,15 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(directControllerSources, static (productionContext, source) =>
             productionContext.AddSource(source.HintName, source.Source));
 
-        IncrementalValueProvider<GenerationModel> model = context.CompilationProvider
+        IncrementalValuesProvider<Compilation> compilationWideRequests = context.CompilationProvider
+            .Select(static (compilation, _) =>
+                Discovery.HasCompilationWideRequests(compilation.Assembly.GetAttributes())
+                    ? ImmutableArray.Create(compilation)
+                    : ImmutableArray<Compilation>.Empty)
+            .SelectMany(static (compilations, _) => compilations)
+            .WithTrackingName("CompilationWideRequests");
+
+        IncrementalValuesProvider<GenerationModel> model = compilationWideRequests
             .Select(static (compilation, cancellationToken) => Discovery.Build(compilation, cancellationToken))
             .WithTrackingName("SemanticModel");
 

@@ -86,7 +86,11 @@ internal static class GeneratorTestHelper
         driver = driver.RunGenerators(secondCompilation);
 
         GeneratorRunResult result = driver.GetRunResult().Results.Single();
-        ImmutableArray<IncrementalGeneratorRunStep> steps = result.TrackedSteps[trackingName];
+        ImmutableArray<IncrementalGeneratorRunStep> steps = result.TrackedSteps.TryGetValue(
+            trackingName,
+            out ImmutableArray<IncrementalGeneratorRunStep> trackedSteps)
+                ? trackedSteps
+                : ImmutableArray<IncrementalGeneratorRunStep>.Empty;
         IncrementalStepRunReason[] reasons = steps
             .SelectMany(static step => step.Outputs)
             .Select(static output => output.Reason)
