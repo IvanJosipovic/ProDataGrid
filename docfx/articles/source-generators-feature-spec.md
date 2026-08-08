@@ -6,7 +6,7 @@ Target: reflection-free source generation for complex reactive, streaming, remot
 
 Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, gated assembly/namespace/registry coordination, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, routed-event command bridges, and typed ReactiveUI interaction response adapters with activation/DataContext lifetime management are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane only when requested; direct-only compilations bypass that model and source-type enumeration entirely. Advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, gated assembly/namespace/registry coordination, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, routed-event command bridges, typed ReactiveUI interaction response adapters, platform-aware generated keyboard maps, typed input command bridges, and activation/visual-tree-scoped renderer metric sinks are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane only when requested; direct-only compilations bypass that model and source-type enumeration entirely. Advanced items explicitly marked partial below remain tracked work.
 
 ## 1. Purpose
 
@@ -36,7 +36,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
 | F21 collection views/dynamic shapes | Partial | Typed collection-view factories and range-aware generated services are available; unknown runtime shapes still require explicit user adapters. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
-| F23 performance/input diagnostics | Partial | Explicit performance profiles and generated runtime diagnostics are available; generated keyboard maps and renderer metric bridges remain. |
+| F23 performance/input diagnostics | Core implemented | Explicit performance profiles, platform-aware keyboard maps, typed input-command feedback, diagnostics metric-name manifests, replaceable renderer metric sinks, and ReactiveUI/Avalonia lifetime management are available. High-frequency profile incompatibility diagnostics and dedicated XY-focus/scroll-interaction generation remain. |
 
 ## 2. Existing baseline
 
@@ -1100,6 +1100,19 @@ Requirements:
 
 Generated profiles are presets, not hidden heuristics. Explicit user properties always win, and the active settings appear in diagnostics.
 
+Implemented API:
+
+- `GenerateDataGridViewAttribute.PerformanceProfile` selects the generated view preset; type-, assembly-, and namespace-level requests use the same option.
+- `InputMapType` accepts a validated `IDataGridGeneratedInputMap`; `InputCommandPropertyName` resolves a typed `ICommand` target and emits `DataGridGeneratedInputEvent<TItem>` with handled feedback.
+- The default map uses Avalonia's platform command modifier for search and adds fill/undo/redo commands for the spreadsheet profile. Custom maps can replace both DataGrid gesture overrides and command matching.
+- `DiagnosticsSinkType` accepts a validated `IDataGridGeneratedMetricsSink`. `DataGridGeneratedMetricsBridge` forwards the process-wide ProDataGrid meter's long/double counter, up/down-counter, and histogram samples without a tag collection allocation.
+- Generated diagnostics manifests list stable renderer and generated-pipeline metric names appropriate to the schema capabilities.
+- ReactiveUI subscriptions are activation scoped. Plain Avalonia metric subscriptions follow visual-tree attachment. Generated subscriptions own and deterministically dispose custom sinks.
+- Protected `CreateGeneratedPerformanceOptions`, `CreateGeneratedInputMap`, and `CreateGeneratedMetricsSink` factories provide DI and custom-estimator/cache escape hatches; `ConfigureGeneratedDataGrid` runs after the preset so application settings win.
+- `PDGSG128` rejects unsupported profiles, invalid input maps or sinks, and missing/incompatible input commands. ReactiveUI custom bases that need activation remain validated through `PDGSG013`.
+
+The built-in meter does not currently tag samples with a DataGrid instance identity. A generated subscription therefore attaches schema/profile context for its owning view but intentionally documents that process-wide boundary rather than claiming per-grid attribution.
+
 ## 8. End-to-end proposed usages
 
 ### 8.1 ReactiveUI + DynamicData `SourceCache`
@@ -1623,7 +1636,7 @@ Add focused pages rather than one overloaded showcase:
 13. `GeneratedCustomImplementationsPage` — custom factory, base view, hook, comparer, validator, and summary calculator.
 14. `GeneratedAssemblyNamespacePolicyPage` — assembly/namespace discovery and explicit overrides.
 15. `GeneratedHeaderFiltersPage` — typed editors, local/remote distinct values, and header commands.
-16. `GeneratedVirtualizationProfilePage` — variable-height estimates, recycling metrics, keyboard maps, and state-safe scrolling.
+16. `GeneratedVirtualizationProfilePage` — implemented with a variable-height estimate profile, custom J/K/Enter gesture overrides, typed search/fill/undo/redo command forwarding, an activation-scoped custom metrics sink, and Avalonia Headless lifetime coverage; dedicated generated scroll-state interactions remain part of F23 follow-up work.
 17. `GeneratedReactiveViewStatesPage` — ReactiveUI-owned loading, empty, error, retry, and content transitions through a generated code-only view.
 18. `GeneratedReactiveEventCommandsPage` — typed selection, current-cell, sorting, and editing event snapshots with command-driven handled/cancel feedback plus activation/DataContext-scoped typed ReactiveUI interaction responses.
 

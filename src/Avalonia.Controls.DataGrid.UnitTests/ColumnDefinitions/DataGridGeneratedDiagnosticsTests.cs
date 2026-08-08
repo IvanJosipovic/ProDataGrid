@@ -28,12 +28,15 @@ public sealed class DataGridGeneratedDiagnosticsTests
             DataGridGeneratedPerformanceProfile.HighFrequencyStreaming,
             hasStableKey: true,
             [field],
-            ["RuntimeCompatibility"]);
+            ["RuntimeCompatibility"],
+            ["prodatagrid.rows.realized.count", "generated.stream.queued"]);
 
         Assert.Equal("orders/v1", manifest.SchemaId);
         Assert.True(manifest.Streaming);
         Assert.True(manifest.HasStableKey);
         Assert.True(manifest.HasFallbacks);
+        Assert.Equal(2, manifest.MetricNames.Count);
+        Assert.Contains("generated.stream.queued", manifest.MetricNames);
         Assert.Equal(DataGridGeneratedFilterEditorKind.Range, manifest.Fields[0].FilterEditor);
         Assert.True(manifest.Fields[0].AnalyticsRoles.HasFlag(DataGridGeneratedAnalyticsRole.ChartValue));
     }

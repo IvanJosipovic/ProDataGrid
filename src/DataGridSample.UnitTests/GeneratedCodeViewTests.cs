@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Diagnostics.Metrics;
 using System.IO;
 using System.Linq;
 using System.Reactive.Threading.Tasks;
@@ -10,7 +11,9 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using DataGridSample.Models;
 using DataGridSample.Pages;
 using DataGridSample.ViewModels;
@@ -247,6 +250,70 @@ public sealed class GeneratedCodeViewTests
         Assert.Equal("customized", grid.Tag);
     }
 
+    [Fact]
+    public void Generated_virtualization_view_model_handles_typed_input_without_a_grid_reference()
+    {
+        var viewModel = new GeneratedVirtualizationProfileViewModel();
+        var input = new DataGridGeneratedInputEvent<GeneratedVirtualizationRow>(
+            DataGridGeneratedInputAction.FillDown,
+            Key.D,
+            KeyModifiers.Control,
+            viewModel.Items[0],
+            rowIndex: 0,
+            columnIndex: 2);
+
+        ((System.Windows.Input.ICommand)viewModel.InputCommand).Execute(input);
+
+        Assert.Same(input, viewModel.LastInput);
+        Assert.Contains("FillDown", viewModel.LastAction, StringComparison.Ordinal);
+        Assert.Contains("Streaming", viewModel.LastAction, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public void Generated_virtualization_profile_applies_input_and_activation_scoped_metrics()
+    {
+        var viewModel = new GeneratedVirtualizationProfileViewModel();
+        var view = new TestGeneratedVirtualizationProfilePage(viewModel);
+        var window = new Window { Width = 900, Height = 560, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+
+        Assert.True(grid.UseLogicalScrollable);
+        Assert.IsType<AdvancedRowHeightEstimator>(grid.RowHeightEstimator);
+        Assert.Equal(Key.J, grid.KeyboardGestureOverrides.MoveDown.Key);
+        Assert.Equal(Key.K, grid.KeyboardGestureOverrides.MoveUp.Key);
+
+        KeyModifiers commandModifiers =
+            view.GetPlatformSettings()?.HotkeyConfiguration.CommandModifiers ?? KeyModifiers.Control;
+        var keyArgs = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Route = InputElement.KeyDownEvent.RoutingStrategies,
+            Key = Key.F,
+            KeyModifiers = commandModifiers,
+            Source = grid,
+            KeyDeviceType = KeyDeviceType.Keyboard
+        };
+        grid.RaiseEvent(keyArgs);
+
+        Assert.True(keyArgs.Handled);
+        Assert.NotNull(viewModel.LastInput);
+        Assert.Equal(DataGridGeneratedInputAction.Search, viewModel.LastInput!.Action);
+
+        using (var meter = new Meter(DataGridGeneratedMetricsBridge.MeterName, "sample-tests"))
+        {
+            Counter<long> realized = meter.CreateCounter<long>("prodatagrid.rows.realized.count");
+            realized.Add(1);
+        }
+        Assert.True(view.MetricsSink.MeasurementCount > 0);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.True(view.MetricsSink.IsDisposed);
+    }
+
     [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
@@ -301,5 +368,17 @@ public sealed class GeneratedCodeViewTests
             dataGrid.CanUserSortColumns = false;
             dataGrid.Tag = "customized";
         }
+    }
+
+    private sealed class TestGeneratedVirtualizationProfilePage : GeneratedVirtualizationProfilePage
+    {
+        public TestGeneratedVirtualizationProfilePage(GeneratedVirtualizationProfileViewModel viewModel)
+            : base(viewModel)
+        {
+        }
+
+        public GeneratedVirtualizationMetricsSink MetricsSink { get; } = new();
+
+        protected override IDataGridGeneratedMetricsSink CreateGeneratedMetricsSink() => MetricsSink;
     }
 }

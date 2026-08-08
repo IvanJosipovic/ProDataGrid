@@ -572,6 +572,13 @@
         </pages:GeneratedReactiveEventCommandsPage.DataContext>
       </pages:GeneratedReactiveEventCommandsPage>
     </TabItem>
+    <TabItem Header="Generated C# View - Virtualization Profile">
+      <pages:GeneratedVirtualizationProfilePage>
+        <pages:GeneratedVirtualizationProfilePage.DataContext>
+          <viewModels:GeneratedVirtualizationProfileViewModel />
+        </pages:GeneratedVirtualizationProfilePage.DataContext>
+      </pages:GeneratedVirtualizationProfilePage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

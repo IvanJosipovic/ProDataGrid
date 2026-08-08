@@ -3148,6 +3148,165 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Generated_view_emits_typed_performance_input_and_metrics_integration()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using Avalonia.Controls;
+            using Avalonia.Input;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            public sealed class InputMap : IDataGridGeneratedInputMap
+            {
+                public DataGridKeyboardGestures CreateKeyboardGestureOverrides(KeyModifiers commandModifiers) => new();
+                public bool TryMatch(Key key, KeyModifiers modifiers, KeyModifiers commandModifiers, out DataGridGeneratedInputAction action)
+                {
+                    action = DataGridGeneratedInputAction.Search;
+                    return true;
+                }
+            }
+            public sealed class MetricsSink : IDataGridGeneratedMetricsSink
+            {
+                public void Record(in DataGridGeneratedMetricMeasurement measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags) { }
+                public void Dispose() { }
+            }
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "GeneratedVirtualizationProfilePage",
+                PerformanceProfile = DataGridGeneratedPerformanceProfile.Spreadsheet,
+                InputMapType = typeof(InputMap),
+                InputCommandPropertyName = nameof(InputCommand),
+                DiagnosticsSinkType = typeof(MetricsSink))]
+            public sealed class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+                public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                public DataGridFastPathOptions FastPathOptions { get; } = new();
+                public ICommand InputCommand => null!;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("GeneratedPerformanceProfile = (global::Avalonia.Controls.DataGridGeneratedPerformanceProfile)4", result.CombinedSource);
+        Assert.Contains("protected virtual global::Avalonia.Controls.IDataGridGeneratedInputMap CreateGeneratedInputMap()", result.CombinedSource);
+        Assert.Contains("=> new global::Demo.InputMap();", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedInputEvent<global::Demo.Row>", result.CombinedSource);
+        Assert.Contains("ConfigureGeneratedAvaloniaMetricsLifetime", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedMetricsBridge.Subscribe", result.CombinedSource);
+        Assert.Contains("protected virtual global::Avalonia.Controls.IDataGridGeneratedMetricsSink CreateGeneratedMetricsSink()", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_rejects_invalid_input_map_and_metrics_sink_implementations()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            public sealed class InvalidMap { }
+            public abstract class InvalidSink : IDataGridGeneratedMetricsSink
+            {
+                public void Record(in DataGridGeneratedMetricMeasurement measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags) { }
+                public void Dispose() { }
+            }
+            [GenerateDataGridView(typeof(Row), InputMapType = typeof(InvalidMap))]
+            public sealed class InvalidMapViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+                public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                public DataGridFastPathOptions FastPathOptions { get; } = new();
+            }
+            [GenerateDataGridView(typeof(Row), DiagnosticsSinkType = typeof(InvalidSink))]
+            public sealed class InvalidSinkViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+                public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                public DataGridFastPathOptions FastPathOptions { get; } = new();
+            }
+            """);
+
+        Assert.Equal(2, result.GeneratorDiagnostics.Count(static diagnostic => diagnostic.Id == "PDGSG128"));
+    }
+
+    [Fact]
+    public void Assembly_and_namespace_view_policies_propagate_performance_input_and_metrics_options()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using Avalonia.Controls;
+            using Avalonia.Input;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridView(
+                typeof(Demo.AssemblyRowsViewModel),
+                typeof(Demo.Row),
+                ViewName = "AssemblyPerformanceView",
+                PerformanceProfile = DataGridGeneratedPerformanceProfile.Spreadsheet,
+                InputMapType = typeof(Demo.InputMap),
+                InputCommandPropertyName = "InputCommand",
+                DiagnosticsSinkType = typeof(Demo.MetricsSink))]
+            [assembly: GenerateDataGridViewsForNamespace(
+                "Demo.NamespaceViewModels",
+                IncludeNestedNamespaces = false,
+                PerformanceProfile = DataGridGeneratedPerformanceProfile.HighFrequencyStreaming,
+                InputMapType = typeof(Demo.InputMap),
+                InputCommandPropertyName = "InputCommand",
+                DiagnosticsSinkType = typeof(Demo.MetricsSink))]
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class InputMap : IDataGridGeneratedInputMap
+                {
+                    public DataGridKeyboardGestures CreateKeyboardGestureOverrides(KeyModifiers commandModifiers) => new();
+                    public bool TryMatch(Key key, KeyModifiers modifiers, KeyModifiers commandModifiers, out DataGridGeneratedInputAction action)
+                    {
+                        action = DataGridGeneratedInputAction.Search;
+                        return true;
+                    }
+                }
+                public sealed class MetricsSink : IDataGridGeneratedMetricsSink
+                {
+                    public void Record(in DataGridGeneratedMetricMeasurement measurement, ReadOnlySpan<KeyValuePair<string, object?>> tags) { }
+                    public void Dispose() { }
+                }
+                public sealed class AssemblyRowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+                    public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public DataGridFastPathOptions FastPathOptions { get; } = new();
+                    public ICommand InputCommand => null!;
+                }
+            }
+            namespace Demo.NamespaceViewModels
+            {
+                public sealed class NamespaceRowsViewModel
+                {
+                    public IReadOnlyList<Demo.Row> Items { get; } = Array.Empty<Demo.Row>();
+                    public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public DataGridFastPathOptions FastPathOptions { get; } = new();
+                    public ICommand InputCommand => null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class AssemblyPerformanceView", result.CombinedSource);
+        Assert.Contains("class NamespaceRowsView", result.CombinedSource);
+        Assert.Contains("GeneratedPerformanceProfile = (global::Avalonia.Controls.DataGridGeneratedPerformanceProfile)4", result.CombinedSource);
+        Assert.Contains("GeneratedPerformanceProfile = (global::Avalonia.Controls.DataGridGeneratedPerformanceProfile)6", result.CombinedSource);
+        Assert.Contains("=> new global::Demo.InputMap();", result.CombinedSource);
+        Assert.Contains("=> new global::Demo.MetricsSink();", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedInputEvent<global::Demo.Row>", result.CombinedSource);
+    }
+
+    [Fact]
     public void Generated_view_recipe_emits_customizable_toolbar_and_stable_metadata()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

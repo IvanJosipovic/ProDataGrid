@@ -1310,6 +1310,22 @@ internal static class Emitter
         {
             builder.AppendLine("                    \"RuntimeCompatibility\",");
         }
+        builder.AppendLine("                },")
+            .AppendLine("                new string[]")
+            .AppendLine("                {")
+            .AppendLine("                    \"prodatagrid.rows.realized.count\",")
+            .AppendLine("                    \"prodatagrid.rows.recycled.count\",")
+            .AppendLine("                    \"prodatagrid.rows.display.update.time\",")
+            .AppendLine("                    \"generated.search.index.items\",")
+            .AppendLine("                    \"generated.pipeline.revision\",");
+        if (schema.Streaming)
+        {
+            builder.AppendLine("                    \"generated.stream.queued\",");
+        }
+        if (schema.HierarchicalRows)
+        {
+            builder.AppendLine("                    \"generated.hierarchy.flattened.items\",");
+        }
         builder.AppendLine("                });");
     }
 
@@ -2449,7 +2465,8 @@ internal static class Emitter
         string accessibility = IsPubliclyAccessible(model.ViewModelType) ? "public" : "internal";
         string baseType = ViewGenerationStrategyRegistry.Get(model.Framework).GetBaseType(model);
         bool usesReactiveActivation = model.Framework == ViewFrameworkModel.ReactiveUI &&
-            (model.RoutedEventCommand != null || !model.Interactions.IsDefaultOrEmpty);
+            (model.RoutedEventCommand != null || !model.Interactions.IsDefaultOrEmpty ||
+                model.InputCommand != null || model.DiagnosticsSinkType != null);
         var builder = new StringBuilder(12288);
         AppendHeader(builder);
         OpenNamespace(builder, model.ViewNamespace);
@@ -2459,6 +2476,10 @@ internal static class Emitter
             .Append("        public const int GeneratedRecipe = ").Append(model.Recipe.ToString(CultureInfo.InvariantCulture)).AppendLine(";")
             .Append("        public const string GeneratedAutomationId = ").Append(GeneratorUtilities.EscapeString(model.AutomationId)).AppendLine(";")
             .Append("        public const string? GeneratedControllerName = ").Append(GeneratorUtilities.EscapeString(model.ControllerName)).AppendLine(";")
+            .Append("        public const global::Avalonia.Controls.DataGridGeneratedPerformanceProfile GeneratedPerformanceProfile = (global::Avalonia.Controls.DataGridGeneratedPerformanceProfile)")
+            .Append(model.PerformanceProfile.ToString(CultureInfo.InvariantCulture)).AppendLine(";")
+            .Append("        public const string GeneratedDiagnosticsSchemaId = ")
+            .Append(GeneratorUtilities.EscapeString(GeneratorUtilities.GetMetadataName(model.ItemType) + "/" + model.ViewName)).AppendLine(";")
             .AppendLine();
 
         EmitViewPropertyInfo(builder, model.Items, viewModelType, "Items");
@@ -2517,6 +2538,12 @@ internal static class Emitter
         }
 
         builder.AppendLine("        private global::Avalonia.Controls.DataGrid? _generatedDataGrid;")
+            .AppendLine("        private global::Avalonia.Controls.IDataGridGeneratedInputMap? _generatedInputMap;");
+        if (model.DiagnosticsSinkType != null && model.Framework == ViewFrameworkModel.Avalonia)
+        {
+            builder.AppendLine("        private global::System.IDisposable? _generatedMetricsSubscription;");
+        }
+        builder
             .AppendLine()
             .AppendLine("        protected global::Avalonia.Controls.DataGrid GeneratedDataGrid")
             .AppendLine("            => _generatedDataGrid ?? throw new global::System.InvalidOperationException(\"Generated DataGrid is not initialized.\");")
@@ -2530,6 +2557,10 @@ internal static class Emitter
         if (usesReactiveActivation)
         {
             builder.AppendLine("            ConfigureGeneratedReactiveActivation(GeneratedDataGrid);");
+        }
+        else if (model.DiagnosticsSinkType != null)
+        {
+            builder.AppendLine("            ConfigureGeneratedAvaloniaMetricsLifetime();");
         }
         builder.AppendLine("        }")
             .AppendLine()
@@ -2644,10 +2675,15 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.SelectionModel, "Selection", "s_selectionModelProperty");
         EmitRowDetailsConfiguration(builder, model);
 
-        builder.AppendLine("            ConfigureGeneratedDataGrid(dataGrid);");
+        builder.AppendLine("            ConfigureGeneratedPerformanceAndInput(dataGrid);")
+            .AppendLine("            ConfigureGeneratedDataGrid(dataGrid);");
         if (model.RoutedEventCommand != null && model.Framework != ViewFrameworkModel.ReactiveUI)
         {
             builder.AppendLine("            ConfigureGeneratedRoutedEventCommands(dataGrid);");
+        }
+        if (model.InputCommand != null && model.Framework != ViewFrameworkModel.ReactiveUI)
+        {
+            builder.AppendLine("            ConfigureGeneratedInputCommand(dataGrid);");
         }
         builder
             .AppendLine("            return dataGrid;")
@@ -2659,6 +2695,7 @@ internal static class Emitter
             .AppendLine();
 
         EmitGeneratedRoutedEventMembers(builder, model);
+        EmitGeneratedPerformanceIntegrationMembers(builder, model);
         EmitGeneratedReactiveActivationMembers(builder, model);
         EmitGeneratedViewStateMembers(builder, model);
 
@@ -3010,10 +3047,125 @@ internal static class Emitter
         }
     }
 
+    private static void EmitGeneratedPerformanceIntegrationMembers(StringBuilder builder, ViewModelViewModel model)
+    {
+        string itemType = model.ItemType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string viewModelType = model.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        builder.AppendLine("        protected virtual global::Avalonia.Controls.DataGridGeneratedPerformanceOptions CreateGeneratedPerformanceOptions()")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPerformanceOptions.Create(GeneratedPerformanceProfile);")
+            .AppendLine()
+            .AppendLine("        protected virtual global::Avalonia.Controls.IDataGridGeneratedInputMap CreateGeneratedInputMap()");
+        if (model.InputMapType == null)
+        {
+            builder.AppendLine("            => global::Avalonia.Controls.DataGridGeneratedInputMap.Create(GeneratedPerformanceProfile);");
+        }
+        else
+        {
+            builder.Append("            => new ")
+                .Append(model.InputMapType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat)).AppendLine("();");
+        }
+        builder.AppendLine()
+            .AppendLine("        private void ConfigureGeneratedPerformanceAndInput(global::Avalonia.Controls.DataGrid dataGrid)")
+            .AppendLine("        {")
+            .AppendLine("            CreateGeneratedPerformanceOptions().Apply(dataGrid);")
+            .AppendLine("            global::Avalonia.Controls.IDataGridGeneratedInputMap inputMap = CreateGeneratedInputMap()")
+            .AppendLine("                ?? throw new global::System.InvalidOperationException(\"Generated input map factory returned null.\");")
+            .AppendLine("            _generatedInputMap = inputMap;")
+            .AppendLine("            global::Avalonia.Input.KeyModifiers commandModifiers = GetGeneratedCommandModifiers();")
+            .AppendLine("            dataGrid.KeyboardGestureOverrides = inputMap.CreateKeyboardGestureOverrides(commandModifiers);")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        private global::Avalonia.Input.KeyModifiers GetGeneratedCommandModifiers()")
+            .AppendLine("        {")
+            .AppendLine("            global::Avalonia.Platform.IPlatformSettings? platformSettings =")
+            .AppendLine("                global::Avalonia.VisualTree.VisualExtensions.GetPlatformSettings(this) ?? global::Avalonia.Application.Current?.PlatformSettings;")
+            .AppendLine("            return platformSettings?.HotkeyConfiguration.CommandModifiers ?? global::Avalonia.Input.KeyModifiers.Control;")
+            .AppendLine("        }")
+            .AppendLine();
+
+        if (model.InputCommand != null)
+        {
+            string propertyName = GeneratorUtilities.EscapeIdentifier(model.InputCommand.PropertyName);
+            builder.AppendLine("        protected virtual void ConfigureGeneratedInputCommand(global::Avalonia.Controls.DataGrid dataGrid)")
+                .AppendLine("        {")
+                .AppendLine("            dataGrid.KeyDown += OnGeneratedInputKeyDown;")
+                .AppendLine("        }")
+                .AppendLine()
+                .AppendLine("        protected virtual void DetachGeneratedInputCommand(global::Avalonia.Controls.DataGrid dataGrid)")
+                .AppendLine("        {")
+                .AppendLine("            dataGrid.KeyDown -= OnGeneratedInputKeyDown;")
+                .AppendLine("        }")
+                .AppendLine()
+                .AppendLine("        private void OnGeneratedInputKeyDown(object? sender, global::Avalonia.Input.KeyEventArgs args)")
+                .AppendLine("        {")
+                .AppendLine("            if (args.Handled || sender is not global::Avalonia.Controls.DataGrid dataGrid ||")
+                .AppendLine("                _generatedInputMap is not { } inputMap ||")
+                .AppendLine("                !inputMap.TryMatch(args.Key, args.KeyModifiers, GetGeneratedCommandModifiers(), out global::Avalonia.Controls.DataGridGeneratedInputAction action) ||")
+                .Append("                DataContext is not ").Append(viewModelType).AppendLine(" viewModel)")
+                .AppendLine("            {")
+                .AppendLine("                return;")
+                .AppendLine("            }")
+                .AppendLine()
+                .Append("            ").Append(itemType).AppendLine(" item = dataGrid.SelectedItem is " + itemType + " typedItem ? typedItem : default!;")
+                .Append("            var input = new global::Avalonia.Controls.DataGridGeneratedInputEvent<")
+                .Append(itemType).AppendLine(">(")
+                .AppendLine("                action,")
+                .AppendLine("                args.Key,")
+                .AppendLine("                args.KeyModifiers,")
+                .AppendLine("                item,")
+                .AppendLine("                dataGrid.SelectedIndex,")
+                .AppendLine("                dataGrid.CurrentColumn?.DisplayIndex ?? -1);")
+                .Append("            global::System.Windows.Input.ICommand command = viewModel.").Append(propertyName).AppendLine(";")
+                .AppendLine("            if (command.CanExecute(input))")
+                .AppendLine("            {")
+                .AppendLine("                command.Execute(input);")
+                .AppendLine("                args.Handled = input.Handled;")
+                .AppendLine("            }")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
+        if (model.DiagnosticsSinkType != null)
+        {
+            builder.AppendLine("        protected virtual global::Avalonia.Controls.IDataGridGeneratedMetricsSink CreateGeneratedMetricsSink()")
+                .Append("            => new ")
+                .Append(model.DiagnosticsSinkType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat)).AppendLine("();")
+                .AppendLine()
+                .AppendLine("        private global::System.IDisposable CreateGeneratedMetricsSubscription()")
+                .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedMetricsBridge.Subscribe(")
+                .AppendLine("                GeneratedDiagnosticsSchemaId,")
+                .AppendLine("                GeneratedPerformanceProfile,")
+                .AppendLine("                CreateGeneratedMetricsSink() ?? throw new global::System.InvalidOperationException(\"Generated metrics sink factory returned null.\"));")
+                .AppendLine();
+            if (model.Framework == ViewFrameworkModel.Avalonia)
+            {
+                builder.AppendLine("        private void ConfigureGeneratedAvaloniaMetricsLifetime()")
+                    .AppendLine("        {")
+                    .AppendLine("            AttachedToVisualTree += OnGeneratedMetricsAttached;")
+                    .AppendLine("            DetachedFromVisualTree += OnGeneratedMetricsDetached;")
+                    .AppendLine("        }")
+                    .AppendLine()
+                    .AppendLine("        private void OnGeneratedMetricsAttached(object? sender, global::Avalonia.VisualTreeAttachmentEventArgs args)")
+                    .AppendLine("        {")
+                    .AppendLine("            _generatedMetricsSubscription?.Dispose();")
+                    .AppendLine("            _generatedMetricsSubscription = CreateGeneratedMetricsSubscription();")
+                    .AppendLine("        }")
+                    .AppendLine()
+                    .AppendLine("        private void OnGeneratedMetricsDetached(object? sender, global::Avalonia.VisualTreeAttachmentEventArgs args)")
+                    .AppendLine("        {")
+                    .AppendLine("            _generatedMetricsSubscription?.Dispose();")
+                    .AppendLine("            _generatedMetricsSubscription = null;")
+                    .AppendLine("        }")
+                    .AppendLine();
+            }
+        }
+    }
+
     private static void EmitGeneratedReactiveActivationMembers(StringBuilder builder, ViewModelViewModel model)
     {
         if (model.Framework != ViewFrameworkModel.ReactiveUI ||
-            (model.RoutedEventCommand == null && model.Interactions.IsDefaultOrEmpty))
+            (model.RoutedEventCommand == null && model.Interactions.IsDefaultOrEmpty &&
+                model.InputCommand == null && model.DiagnosticsSinkType == null))
         {
             return;
         }
@@ -3032,6 +3184,15 @@ internal static class Emitter
         if (!model.Interactions.IsDefaultOrEmpty)
         {
             builder.AppendLine("                    dispose(new GeneratedInteractionSubscription(this, dataGrid));");
+        }
+        if (model.InputCommand != null)
+        {
+            builder.AppendLine("                    ConfigureGeneratedInputCommand(dataGrid);")
+                .AppendLine("                    dispose(new GeneratedInputSubscription(this, dataGrid));");
+        }
+        if (model.DiagnosticsSinkType != null)
+        {
+            builder.AppendLine("                    dispose(CreateGeneratedMetricsSubscription());");
         }
         builder.AppendLine("                }));")
             .AppendLine("        }")
@@ -3065,6 +3226,35 @@ internal static class Emitter
                 .AppendLine("                if (view is not null && dataGrid is not null)")
                 .AppendLine("                {")
                 .AppendLine("                    view.DetachGeneratedRoutedEventCommands(dataGrid);")
+                .AppendLine("                }")
+                .AppendLine("            }")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+
+        if (model.InputCommand != null)
+        {
+            builder.AppendLine("        private sealed class GeneratedInputSubscription : global::System.IDisposable")
+                .AppendLine("        {")
+                .Append("            private ").Append(model.ViewName).AppendLine("? _view;")
+                .AppendLine("            private global::Avalonia.Controls.DataGrid? _dataGrid;")
+                .AppendLine()
+                .Append("            public GeneratedInputSubscription(").Append(model.ViewName)
+                .AppendLine(" view, global::Avalonia.Controls.DataGrid dataGrid)")
+                .AppendLine("            {")
+                .AppendLine("                _view = view;")
+                .AppendLine("                _dataGrid = dataGrid;")
+                .AppendLine("            }")
+                .AppendLine()
+                .AppendLine("            public void Dispose()")
+                .AppendLine("            {")
+                .Append("                ").Append(model.ViewName).AppendLine("? view = _view;")
+                .AppendLine("                global::Avalonia.Controls.DataGrid? dataGrid = _dataGrid;")
+                .AppendLine("                _view = null;")
+                .AppendLine("                _dataGrid = null;")
+                .AppendLine("                if (view is not null && dataGrid is not null)")
+                .AppendLine("                {")
+                .AppendLine("                    view.DetachGeneratedInputCommand(dataGrid);")
                 .AppendLine("                }")
                 .AppendLine("            }")
                 .AppendLine("        }")

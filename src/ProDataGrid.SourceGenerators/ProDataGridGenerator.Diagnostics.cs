@@ -150,6 +150,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated view interaction",
         "Generated ReactiveUI interaction for view '{0}' is invalid: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidViewPerformanceIntegration = Create(
+        "PDGSG128",
+        "Invalid generated view performance integration",
+        "Generated performance, input, or diagnostics integration for view '{0}' is invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

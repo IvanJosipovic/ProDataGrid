@@ -348,6 +348,10 @@ internal static partial class Discovery
             InteractionHandlerTypes = GeneratorUtilities.GetTypeArray(arguments, "InteractionHandlerTypes"),
             HasInteractionConfiguration = arguments.Keys.Any(static key =>
                 key is "InteractionPropertyNames" or "InteractionHandlerTypes"),
+            PerformanceProfile = GetEnumValue(arguments, "PerformanceProfile", 0),
+            InputMapType = GeneratorUtilities.GetType(arguments, "InputMapType"),
+            InputCommandPropertyName = GeneratorUtilities.GetString(arguments, "InputCommandPropertyName"),
+            DiagnosticsSinkType = GeneratorUtilities.GetType(arguments, "DiagnosticsSinkType"),
             LoadingText = GeneratorUtilities.GetString(arguments, "LoadingText") ?? "Loading data…",
             EmptyText = GeneratorUtilities.GetString(arguments, "EmptyText") ?? "No items to display.",
             ErrorText = GeneratorUtilities.GetString(arguments, "ErrorText") ?? "Unable to load data.",
@@ -429,7 +433,8 @@ internal static partial class Discovery
         }
 
         bool needsReactiveActivation = request.Framework == ViewFrameworkModel.ReactiveUI &&
-            (request.HasRoutedEventConfiguration || request.HasInteractionConfiguration);
+            (request.HasRoutedEventConfiguration || request.HasInteractionConfiguration ||
+                !string.IsNullOrWhiteSpace(request.InputCommandPropertyName) || request.DiagnosticsSinkType != null);
         if (needsReactiveActivation && request.BaseType != null &&
             !ImplementsMetadataName(request.BaseType, "ReactiveUI.IActivatableView"))
         {
@@ -553,6 +558,47 @@ internal static partial class Discovery
             return null;
         }
 
+        if (request.PerformanceProfile < 0 || request.PerformanceProfile > 6)
+        {
+            ReportInvalidViewPerformanceIntegration(request, diagnostics, "PerformanceProfile contains an unsupported value");
+            return null;
+        }
+
+        if (request.InputMapType != null &&
+            !ValidateParameterlessImplementation(request.InputMapType, "Avalonia.Controls.IDataGridGeneratedInputMap"))
+        {
+            ReportInvalidViewPerformanceIntegration(
+                request,
+                diagnostics,
+                $"input map '{request.InputMapType.ToDisplayString()}' must be an accessible non-abstract type with a parameterless constructor implementing IDataGridGeneratedInputMap");
+            return null;
+        }
+
+        ViewBindingModel? inputCommand = null;
+        if (!string.IsNullOrWhiteSpace(request.InputCommandPropertyName))
+        {
+            inputCommand = ResolveViewBinding(request, request.InputCommandPropertyName!, null, false, diagnostics);
+            ITypeSymbol? commandType = FindViewBindingMemberType(request.ViewModelType, request.InputCommandPropertyName!);
+            if (inputCommand == null || commandType == null || !ImplementsMetadataName(commandType, "System.Windows.Input.ICommand"))
+            {
+                ReportInvalidViewPerformanceIntegration(
+                    request,
+                    diagnostics,
+                    $"member '{request.InputCommandPropertyName}' must be an accessible readable property implementing System.Windows.Input.ICommand");
+                return null;
+            }
+        }
+
+        if (request.DiagnosticsSinkType != null &&
+            !ValidateParameterlessImplementation(request.DiagnosticsSinkType, "Avalonia.Controls.IDataGridGeneratedMetricsSink"))
+        {
+            ReportInvalidViewPerformanceIntegration(
+                request,
+                diagnostics,
+                $"diagnostics sink '{request.DiagnosticsSinkType.ToDisplayString()}' must be an accessible non-abstract type with a parameterless constructor implementing IDataGridGeneratedMetricsSink");
+            return null;
+        }
+
         RowDetailsViewModel? rowDetails = ResolveRowDetails(request, diagnostics);
         if (request.HasRowDetailsConfiguration && rowDetails == null)
         {
@@ -586,6 +632,10 @@ internal static partial class Discovery
             RoutedEventCommand = routedEventCommand,
             RoutedEvents = request.RoutedEvents,
             Interactions = interactions.IsDefault ? ImmutableArray<ViewInteractionModel>.Empty : interactions,
+            PerformanceProfile = request.PerformanceProfile,
+            InputMapType = request.InputMapType,
+            InputCommand = inputCommand,
+            DiagnosticsSinkType = request.DiagnosticsSinkType,
             LoadingText = request.LoadingText,
             EmptyText = request.EmptyText,
             ErrorText = request.ErrorText,
@@ -708,6 +758,20 @@ internal static partial class Discovery
                 StringComparison.Ordinal) &&
             SymbolEqualityComparer.Default.Equals(implemented.TypeArguments[0], inputType) &&
             SymbolEqualityComparer.Default.Equals(implemented.TypeArguments[1], outputType));
+    }
+
+    private static bool ValidateParameterlessImplementation(INamedTypeSymbol implementationType, string interfaceMetadataName)
+    {
+        if (implementationType.TypeKind != TypeKind.Class || implementationType.IsAbstract ||
+            implementationType.TypeParameters.Length != 0 ||
+            !GeneratorUtilities.IsAccessibleFromGeneratedCode(implementationType))
+        {
+            return false;
+        }
+
+        bool hasConstructor = implementationType.InstanceConstructors.Any(static constructor =>
+            constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+        return hasConstructor && ImplementsMetadataName(implementationType, interfaceMetadataName);
     }
 
     private static RowDetailsViewModel? ResolveRowDetails(
@@ -918,6 +982,16 @@ internal static partial class Discovery
         string reason) =>
         diagnostics.Add(Diagnostic.Create(
             GeneratorDiagnostics.InvalidViewInteraction,
+            request.Location,
+            request.ViewName,
+            reason));
+
+    private static void ReportInvalidViewPerformanceIntegration(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string reason) =>
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewPerformanceIntegration,
             request.Location,
             request.ViewName,
             reason));
@@ -1183,6 +1257,10 @@ internal static partial class Discovery
         public ImmutableArray<string> InteractionPropertyNames { get; set; } = ImmutableArray<string>.Empty;
         public ImmutableArray<INamedTypeSymbol> InteractionHandlerTypes { get; set; } = ImmutableArray<INamedTypeSymbol>.Empty;
         public bool HasInteractionConfiguration { get; set; }
+        public int PerformanceProfile { get; set; }
+        public INamedTypeSymbol? InputMapType { get; set; }
+        public string? InputCommandPropertyName { get; set; }
+        public INamedTypeSymbol? DiagnosticsSinkType { get; set; }
         public string LoadingText { get; set; } = "Loading data…";
         public string EmptyText { get; set; } = "No items to display.";
         public string ErrorText { get; set; } = "Unable to load data.";

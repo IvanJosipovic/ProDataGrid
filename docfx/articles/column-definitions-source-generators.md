@@ -409,6 +409,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG125` | A generated view-state projection is incomplete or uses an incompatible state, message, or command member. |
 | `PDGSG126` | A generated routed-event bridge uses unsupported flags or an incompatible command member. |
 | `PDGSG127` | A generated ReactiveUI interaction declaration has mismatched metadata, an incompatible property, or an invalid handler implementation. |
+| `PDGSG128` | A generated-view performance profile, input map, input command, or diagnostics sink is invalid. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
@@ -529,6 +530,35 @@ Every configured property must implement the exact `IInteraction<TInput, TOutput
 The generated view observes `DataContext` directly through the Avalonia property observable while active. Replacing the ViewModel unregisters and disposes the old response adapters, cancels their context token, and registers adapters for the replacement. Deactivation performs the same cleanup. Handlers that implement `IDisposable` are disposed, and an in-flight handler receives cancellation through `DataGridGeneratedViewInteractionContext<TInput>.CancellationToken`.
 
 Each generated interaction also exposes a protected `CreateGeneratedInteractionHandlerN()` factory. A derived generated view can override that factory to construct a DI-backed or otherwise application-specific implementation while preserving the compile-time interaction signature and generated lifetime management.
+
+### Performance profiles, keyboard maps, and renderer metrics
+
+Generated views can apply an explicit performance profile, replace the grid keyboard map, forward command-oriented gestures to a typed ViewModel command, and consume ProDataGrid renderer metrics through a typed sink:
+
+```csharp
+[GenerateDataGridViewModel(typeof(Trade), ProviderName = "TradeGridSchema")]
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    PerformanceProfile = DataGridGeneratedPerformanceProfile.VariableHeightEstimated,
+    InputMapType = typeof(TradeGridInputMap),
+    InputCommandPropertyName = nameof(GridInputCommand),
+    DiagnosticsSinkType = typeof(TradeGridMetricsSink))]
+public sealed partial class TradesViewModel : ReactiveObject
+{
+    public ReactiveCommand<DataGridGeneratedInputEvent<Trade>, RxVoid> GridInputCommand { get; }
+}
+```
+
+`PerformanceProfile` selects a named `DataGridGeneratedPerformanceOptions` preset. The generated view applies it before calling `ConfigureGeneratedDataGrid`, so an explicit application override always wins. A derived view can instead override `CreateGeneratedPerformanceOptions()` to provide a custom row-height estimator, scrolling choice, or related runtime setting without changing the ViewModel.
+
+`InputMapType` must be an accessible, non-abstract, closed, parameterless implementation of `IDataGridGeneratedInputMap`. `CreateKeyboardGestureOverrides` replaces the grid's built-in gesture set, while the allocation-free `TryMatch` path maps command-oriented keys. The default map exposes platform-command+F for search; the spreadsheet profile additionally exposes fill-down, fill-right, undo, and redo. The generated view obtains the platform command modifier from Avalonia, falling back to Control. `DataGridGeneratedInputEvent<TItem>` contains the typed selected row, row and display-column indexes, physical key and modifiers, action, and mutable handled feedback without exposing the DataGrid to the ViewModel.
+
+`DiagnosticsSinkType` must implement `IDataGridGeneratedMetricsSink`. `DataGridGeneratedMetricsBridge` listens only to `ProDataGrid.Diagnostic.Meter` and forwards long and double counter, up/down-counter, and histogram samples with the generated schema ID and active performance profile. Metric tags remain a `ReadOnlySpan<KeyValuePair<string, object>>`; the bridge does not allocate a tag collection. The subscription owns and deterministically disposes the sink. ReactiveUI views scope input handlers and metric subscriptions to `WhenActivated`; plain Avalonia views own input handlers with the view and metric subscriptions with visual-tree attachment.
+
+Built-in renderer instruments are opt-in. Set the `ProDataGrid.Diagnostics.IsEnabled` AppContext switch before DataGrid initialization as described in [Metrics and Activities](metrics-and-activities.md). The current meter is process-wide, so a generated subscription supplies its view's schema/profile context but cannot infer which individual DataGrid instance produced a built-in sample.
+
+The generated `CreateGeneratedInputMap()` and `CreateGeneratedMetricsSink()` factories are protected and virtual. Applications can therefore use a configured parameterless implementation directly or override the factories in a derived generated view to resolve DI-backed implementations. Invalid profiles, command properties, input maps, sinks, or activation-incompatible ReactiveUI custom bases report `PDGSG128` or `PDGSG013` at compile time. Type-, assembly-, and namespace-level view attributes expose the same options.
 
 ### Typed row details and nested grids
 

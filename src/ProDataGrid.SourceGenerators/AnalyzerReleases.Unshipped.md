@@ -30,3 +30,4 @@ PDGSG124 | ProDataGrid.SourceGeneration | Error | Invalid generated column bindi
 PDGSG125 | ProDataGrid.SourceGeneration | Error | Invalid generated view state
 PDGSG126 | ProDataGrid.SourceGeneration | Error | Invalid generated view event bridge
 PDGSG127 | ProDataGrid.SourceGeneration | Error | Invalid generated view interaction
+PDGSG128 | ProDataGrid.SourceGeneration | Error | Invalid generated view performance integration

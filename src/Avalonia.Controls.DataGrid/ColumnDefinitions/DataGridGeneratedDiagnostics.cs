@@ -57,6 +57,7 @@ namespace Avalonia.Controls
     {
         private readonly DataGridGeneratedDiagnosticField[] _fields;
         private readonly string[] _fallbacks;
+        private readonly string[] _metricNames;
 
         /// <summary>Initializes a generated diagnostics manifest.</summary>
         public DataGridGeneratedDiagnosticsManifest(
@@ -68,7 +69,8 @@ namespace Avalonia.Controls
             DataGridGeneratedPerformanceProfile performanceProfile,
             bool hasStableKey,
             IReadOnlyList<DataGridGeneratedDiagnosticField> fields,
-            IReadOnlyList<string> fallbacks = null)
+            IReadOnlyList<string> fallbacks = null,
+            IReadOnlyList<string> metricNames = null)
         {
             SchemaId = schemaId ?? throw new ArgumentNullException(nameof(schemaId));
             SchemaHash = schemaHash ?? throw new ArgumentNullException(nameof(schemaHash));
@@ -79,6 +81,7 @@ namespace Avalonia.Controls
             HasStableKey = hasStableKey;
             _fields = Copy(fields, nameof(fields));
             _fallbacks = fallbacks == null ? Array.Empty<string>() : Copy(fallbacks, nameof(fallbacks));
+            _metricNames = metricNames == null ? Array.Empty<string>() : Copy(metricNames, nameof(metricNames));
         }
 
         /// <summary>Gets stable schema ID.</summary>
@@ -99,6 +102,8 @@ namespace Avalonia.Controls
         public IReadOnlyList<DataGridGeneratedDiagnosticField> Fields => _fields;
         /// <summary>Gets explicitly active compatibility fallbacks.</summary>
         public IReadOnlyList<string> Fallbacks => _fallbacks;
+        /// <summary>Gets renderer and generated-pipeline metric names exposed for this schema.</summary>
+        public IReadOnlyList<string> MetricNames => _metricNames;
         /// <summary>Gets whether any runtime fallback is active.</summary>
         public bool HasFallbacks => _fallbacks.Length != 0;
 
