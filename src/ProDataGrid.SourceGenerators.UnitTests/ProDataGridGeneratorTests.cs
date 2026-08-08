@@ -28,6 +28,7 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("DataGridColumnValueAccessor<global::Demo.Row, string>", result.CombinedSource);
         Assert.Contains("DataGridGeneratedDistinctValueProvider<global::Demo.Row, string> NameDistinctValues", result.CombinedSource);
         Assert.Contains("CreateNameRemoteDistinctValues", result.CombinedSource);
+        Assert.Contains("Generated collection views install typed group and sort descriptions", result.CombinedSource);
         Assert.Contains("Display name", result.CombinedSource);
         Assert.Contains("DataGridLengthUnitType.Star", result.CombinedSource);
     }
@@ -601,6 +602,8 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("protected virtual void ConfigureGeneratedDataGrid", result.CombinedSource);
         Assert.Contains("AutomationProperties.SetAutomationId(dataGrid, GeneratedAutomationId)", result.CombinedSource);
         Assert.Contains("AutomationProperties.SetHeadingLevel(title, 1)", result.CombinedSource);
+        Assert.Contains("The generated view uses compiled binding indexers and activation delegates", result.CombinedSource);
+        Assert.Contains("The generated DataGrid is paired with strict generated column definitions and fast-path accessors", result.CombinedSource);
     }
 
     [Fact]

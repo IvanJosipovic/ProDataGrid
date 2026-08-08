@@ -1175,6 +1175,7 @@ internal static class Emitter
             .Append("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.IDataGridGeneratedGroupField<")
             .Append(itemType).AppendLine(">> GroupFields { get; } = global::System.Array.AsReadOnly(s_groupFields);")
             .AppendLine()
+            .AppendLine("        [global::System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(\"Trimming\", \"IL2026\", Justification = \"Generated collection views install typed group and sort descriptions and do not invoke the TypeDescriptor compatibility endpoint.\")]")
             .Append("        public static global::Avalonia.Collections.DataGridCollectionView CreateCollectionView(global::System.Collections.Generic.IEnumerable<")
             .Append(itemType).AppendLine("> source, int pageSize = 0, bool sourceIsSorted = false, bool sourceIsInGroupOrder = false)")
             .AppendLine("        {")
@@ -2675,7 +2676,8 @@ internal static class Emitter
             .AppendLine("            => _generatedDataGrid ?? throw new global::System.InvalidOperationException(\"Generated DataGrid is not initialized.\");")
             .AppendLine();
 
-        builder.Append("        public ").Append(model.ViewName).AppendLine("()")
+        builder.AppendLine("        [global::System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(\"Trimming\", \"IL2026\", Justification = \"The generated view uses compiled binding indexers and activation delegates; it does not evaluate reflection-based member expressions.\")]")
+            .Append("        public ").Append(model.ViewName).AppendLine("()")
             .AppendLine("        {")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(this, GeneratedAutomationId + \"-view\");")
             .Append("            global::Avalonia.Automation.AutomationProperties.SetName(this, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");")
@@ -2779,6 +2781,7 @@ internal static class Emitter
             .AppendLine("            return layout;")
             .AppendLine("        }")
             .AppendLine()
+            .AppendLine("        [global::System.Diagnostics.CodeAnalysis.UnconditionalSuppressMessage(\"Trimming\", \"IL2026\", Justification = \"The generated DataGrid is paired with strict generated column definitions and fast-path accessors before it evaluates row members.\")]")
             .AppendLine("        protected virtual global::Avalonia.Controls.DataGrid CreateGeneratedDataGrid()")
             .AppendLine("        {")
             .AppendLine("            var dataGrid = new global::Avalonia.Controls.DataGrid")

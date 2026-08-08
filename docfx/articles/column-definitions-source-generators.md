@@ -1137,6 +1137,21 @@ The generator recognizes properties produced from ReactiveUI.SourceGenerators `[
 
 View emission is selected through an internal strategy registry. Avalonia and ReactiveUI are the first two strategies; another UI MVVM integration can be added without changing column, schema, or view-model discovery.
 
+### NativeAOT validation
+
+The repository includes `tests/ProDataGrid.SourceGeneration.AotSmoke`, a generated-only executable that publishes and runs as a self-contained NativeAOT application. It validates a strict attributed schema, typed operation controller, compiled Avalonia view, ReactiveUI view, custom view base, fast-path options, and the generated reflection-free registry.
+
+The project enables trimming and AOT analysis and promotes `IL2026`, `IL2070`, `IL2075`, and `IL3050` to build errors. Generated methods carry narrow suppressions only where the general-purpose DataGrid or ReactiveUI API is conservatively annotated but the emitted path installs typed accessors and compiled binding indexers. Native publishing still reports known compatibility-path warnings from unused general-purpose DataGrid APIs. CI captures that output, rejects any trimming/AOT warning whose source is emitted generator code, and then executes the native binary so successful linking alone is not accepted as proof.
+
+Run the local smoke test with the current platform runtime identifier:
+
+```bash
+dotnet restore tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGeneration.AotSmoke.csproj -r osx-arm64
+dotnet build tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGeneration.AotSmoke.csproj -c Release -r osx-arm64 --no-restore
+dotnet publish tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGeneration.AotSmoke.csproj -c Release -r osx-arm64 --self-contained true --no-restore -p:WarningsAsErrors=
+./tests/ProDataGrid.SourceGeneration.AotSmoke/bin/Release/net10.0/osx-arm64/publish/ProDataGrid.SourceGeneration.AotSmoke
+```
+
 ### Custom base classes and view customization
 
 Set `BaseType = typeof(MyGridViewBase)` to use an accessible, non-sealed `UserControl` base with a parameterless constructor. This supports shared styling, activation, services, and application-specific view infrastructure. A ReactiveUI custom base used with routed-event or interaction activation must also implement `IActivatableView`; an incompatible base reports `PDGSG013` at compile time.
