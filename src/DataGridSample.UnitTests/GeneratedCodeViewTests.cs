@@ -459,6 +459,51 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_source_list_page_binds_and_filters_the_owned_dynamic_data_pipeline()
+    {
+        using var viewModel = new GeneratedDynamicDataSourceListViewModel();
+        var view = new GeneratedDynamicDataSourceListPage { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 640, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            TextBox searchBox = view.GetLogicalDescendants().OfType<TextBox>()
+                .Single(static textBox => textBox.Name == "GeneratedSearchBox");
+
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Same(viewModel.SortingModel, grid.SortingModel);
+            Assert.Same(viewModel.FilteringModel, grid.FilteringModel);
+            Assert.Same(viewModel.SearchModel, grid.SearchModel);
+
+            searchBox.Text = "Warsaw";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Warsaw", viewModel.Query);
+            Assert.NotEmpty(viewModel.Items);
+            Assert.All(viewModel.Items, static trade => Assert.Equal("Warsaw", trade.Desk));
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-dynamic-data-source-list.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

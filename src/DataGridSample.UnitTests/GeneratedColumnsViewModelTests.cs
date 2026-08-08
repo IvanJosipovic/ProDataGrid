@@ -140,4 +140,38 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Empty(viewModel.FilteringModel.Descriptors);
         Assert.Empty(viewModel.SearchModel.Descriptors);
     }
+
+    [Fact]
+    public void Generated_source_list_pipeline_batches_and_applies_compiled_operations_upstream()
+    {
+        using var viewModel = new GeneratedDynamicDataSourceListViewModel();
+
+        Assert.Equal(24, viewModel.Items.Count);
+        Assert.Equal(24, viewModel.PublishedItemCount);
+        Assert.Equal(1, viewModel.BatchCount);
+        Assert.Equal(0, viewModel.ErrorCount);
+
+        viewModel.Query = "RXUI";
+        Assert.NotEmpty(viewModel.Items);
+        Assert.All(viewModel.Items, static trade => Assert.Equal("RXUI", trade.Symbol));
+
+        viewModel.Query = string.Empty;
+        viewModel.ApplyWarsawFilterCommand.Execute().Subscribe();
+        Assert.NotEmpty(viewModel.Items);
+        Assert.All(viewModel.Items, static trade =>
+        {
+            Assert.Equal("Warsaw", trade.Desk);
+            Assert.True(trade.Price >= 100m);
+        });
+
+        viewModel.SortPriceDescendingCommand.Execute().Subscribe();
+        decimal[] prices = viewModel.Items.Select(static trade => trade.Price).ToArray();
+        Assert.Equal(prices.OrderByDescending(static price => price), prices);
+
+        viewModel.ClearOperationsCommand.Execute().Subscribe();
+        viewModel.AddBatchCommand.Execute().Subscribe();
+        Assert.Equal(36, viewModel.Items.Count);
+        Assert.Equal(36, viewModel.PublishedItemCount);
+        Assert.Equal(2, viewModel.BatchCount);
+    }
 }

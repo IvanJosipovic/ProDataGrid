@@ -370,6 +370,8 @@ The runtime definition surfaces are additive: `ContentBinding`, state-specific c
 
 The low-level schema compilers remain available for custom pipelines, but named controllers generate the standard `SourceList<T>` and `SourceCache<T,TKey>` pipeline, descriptor subjects, operation propagation, final scheduler boundary, errors, completion, and disposal automatically. `SourceCache` generation requires its key type to match `[DataGridKey]` or `KeyMember`, and generated external pipelines reject view-owned operation execution at compile time.
 
+`DataGridSample.Pages.GeneratedDynamicDataSourceListPage` demonstrates the `SourceList<T>` shape end to end: batched edits enter one generated pipeline, sort/filter/search predicates are replaced upstream through the named controller, errors are observable, and the generated ReactiveUI view receives the bound read-only collection. The sample exposes deterministic published-item, batch, and error counters and verifies the complete lifetime in ViewModel and Avalonia Headless tests.
+
 For `IAsyncEnumerable<T>` or `ChannelReader<T>`, the named controller emits `Run{Name}StreamAsync`, `Stop{Name}Stream`, `{Name}StreamPump`, and `{Name}StreamMetrics`. Ingestion uses a bounded buffer with explicit `Wait`, `DropNewest`, `DropOldest`, or keyed `CoalesceByKey` overflow policy and one callback per drained batch. Disposal cancels active enumeration.
 
 Keyed schemas also expose reusable streaming primitives directly:

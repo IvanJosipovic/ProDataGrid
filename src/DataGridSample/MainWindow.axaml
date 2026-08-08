@@ -586,6 +586,13 @@
         </pages:GeneratedOperationsControllerPage.DataContext>
       </pages:GeneratedOperationsControllerPage>
     </TabItem>
+    <TabItem Header="Generated DynamicData SourceList">
+      <pages:GeneratedDynamicDataSourceListPage>
+        <pages:GeneratedDynamicDataSourceListPage.DataContext>
+          <viewModels:GeneratedDynamicDataSourceListViewModel />
+        </pages:GeneratedDynamicDataSourceListPage.DataContext>
+      </pages:GeneratedDynamicDataSourceListPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

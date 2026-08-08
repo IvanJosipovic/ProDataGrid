@@ -1623,7 +1623,7 @@ Exit criteria: both ProDiagnostics assemblies build for every target framework, 
 Add focused pages rather than one overloaded showcase:
 
 1. `GeneratedOperationsControllerPage` — implemented with a named generated controller, typed local sort/filter/search, reusable typed presets, a generated ReactiveUI grid/search view hosted by a passive compiled-binding shell, and ViewModel plus Avalonia Headless coverage.
-2. `GeneratedDynamicDataSourceListPage` — live list, batching, sorting, filtering, and search.
+2. `GeneratedDynamicDataSourceListPage` — implemented with a generated one-owner DynamicData pipeline, deterministic batched edits, typed upstream sorting/filtering/searching, error observation, live counters, disposal, a generated ReactiveUI grid, and ViewModel plus Avalonia Headless coverage.
 3. `GeneratedDynamicDataSourceCachePage` — keyed updates and selection preservation.
 4. `GeneratedHierarchicalDynamicDataPage` — typed compiled node bindings.
 5. `GeneratedRemoteQueryPage` — cancellation, paging, stale responses, loading, and error state.
