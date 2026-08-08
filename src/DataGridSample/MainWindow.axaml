@@ -656,6 +656,13 @@
         </pages:GeneratedPivotChartPage.DataContext>
       </pages:GeneratedPivotChartPage>
     </TabItem>
+    <TabItem Header="Generated View Recipes">
+      <pages:GeneratedReactiveViewRecipesPage>
+        <pages:GeneratedReactiveViewRecipesPage.DataContext>
+          <viewModels:GeneratedReactiveViewRecipesViewModel />
+        </pages:GeneratedReactiveViewRecipesPage.DataContext>
+      </pages:GeneratedReactiveViewRecipesPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

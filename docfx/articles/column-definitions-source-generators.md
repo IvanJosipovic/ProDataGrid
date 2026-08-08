@@ -824,7 +824,45 @@ public sealed partial class TradesViewModel : ReactiveObject
 }
 ```
 
-The generated view contains a title, an optional two-way search box, and a configured `DataGrid`. It binds items, definitions, fast-path options, and any named sorting, filtering, search, selection, and state models. Recipes add stable toolbar and Explorer, spreadsheet, analytics, or master-detail customization slots. The parameterless constructor supports XAML, DI, and view locators; an overload accepts the typed view model directly.
+The generated view contains a title, an optional two-way search box, and a configured `DataGrid`. It binds items, definitions, fast-path options, and any named sorting, filtering, search, selection, and state models. The parameterless constructor supports XAML, DI, and view locators; an overload accepts the typed view model directly.
+
+`Recipe` selects a stable layout contract without taking ownership of application-specific controls:
+
+| Recipe | Generated layout contract |
+| --- | --- |
+| `GridOnly` | Title and grid only. |
+| `SearchableGrid` | Compact title/search/grid layout. The search box is emitted when `SearchTextPropertyName` is supplied. |
+| `OperationsToolbar` | Adds the `GeneratedToolbarSlot` customization point. |
+| `Explorer` | Adds toolbar and `GeneratedExplorerSlot` customization points. |
+| `Spreadsheet` | Adds toolbar and `GeneratedFormulaBarSlot` customization points. |
+| `Analytics` | Adds toolbar and `GeneratedAnalyticsSlot` customization points. |
+| `MasterDetail` | Adds toolbar and `GeneratedDetailsSlot` customization points. |
+
+The generator exposes the selected value through the view's `GeneratedRecipe` constant. Each named slot has a deterministic automation ID and can be replaced by overriding `CreateGeneratedToolbar` or `CreateGeneratedRecipeContent` in a custom base or derived view. `ConfigureGeneratedDataGrid` remains the focused escape hatch for grid configuration. Search is an explicit compiled two-way binding and is independent of recipe selection.
+
+Multiple `GenerateDataGridView` declarations can target the same ViewModel. Each emitted view receives its own framework, recipe, editability, title, automation metadata, and optional bindings while sharing the same generated schema and ViewModel collection:
+
+```csharp
+[GenerateDataGridViewModel(typeof(WorkItem), ProviderName = "WorkItemSchema")]
+[GenerateDataGridView(
+    typeof(WorkItem),
+    ViewName = "WorkItemExplorerView",
+    Framework = DataGridViewFramework.ReactiveUI,
+    Recipe = DataGridViewRecipe.Explorer,
+    SearchTextPropertyName = nameof(Query))]
+[GenerateDataGridView(
+    typeof(WorkItem),
+    ViewName = "WorkItemSpreadsheetView",
+    Framework = DataGridViewFramework.ReactiveUI,
+    Recipe = DataGridViewRecipe.Spreadsheet,
+    IsReadOnly = false)]
+public sealed partial class WorkItemsViewModel : ReactiveObject
+{
+    // One generated Items/ColumnDefinitions/FastPathOptions contract is shared.
+}
+```
+
+`GeneratedReactiveViewRecipesPage` in the sample application exercises `GridOnly`, `Explorer`, `Spreadsheet`, and `Analytics` as four independently emitted ReactiveUI controls over one strict attributed-only schema and one `DataGridCollectionView`. Its ViewModel commands mutate the shared source, Explorer and Analytics use the same compiled canonical-field search, and Avalonia Headless coverage verifies each recipe's slots, automation metadata, editability, strict fast path, and shared binding.
 
 Every generated control uses stable automation IDs derived from `AutomationId`. The grid also receives an accessible name/help text, and the title is exposed as a level-one automation heading. These identifiers are covered by Avalonia Headless tests and do not require visual-tree reflection for test lookup.
 

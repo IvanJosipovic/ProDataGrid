@@ -10,6 +10,7 @@ using Avalonia.Controls.DataGridPivoting;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using DataGridSample.Models;
+using DataGridSample.Pages;
 using DataGridSample.ViewModels;
 using ProCharts;
 using ProDataGrid.Charting;
@@ -623,6 +624,39 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.RestoreCommand.Execute().Subscribe();
         Assert.Equal("Revenue", viewModel.SelectedMetric);
         Assert.Equal(12, viewModel.SourceRowCount);
+    }
+
+    [Fact]
+    public void Generated_reactive_view_recipes_share_schema_collection_and_compiled_search()
+    {
+        using var viewModel = new GeneratedReactiveViewRecipesViewModel();
+
+        Assert.Equal(6, viewModel.SourceRowCount);
+        Assert.Equal(6, viewModel.VisibleRowCount);
+        Assert.Equal(6, viewModel.ColumnDefinitions.Count);
+        Assert.True(viewModel.FastPathOptions.StrictMode);
+        Assert.Equal(0, GeneratedRecipeGridOnlyView.GeneratedRecipe);
+        Assert.Equal(3, GeneratedRecipeExplorerView.GeneratedRecipe);
+        Assert.Equal(4, GeneratedRecipeSpreadsheetView.GeneratedRecipe);
+        Assert.Equal(5, GeneratedRecipeAnalyticsView.GeneratedRecipe);
+
+        viewModel.Query = "Charts";
+        Assert.Equal(1, viewModel.VisibleRowCount);
+        Assert.Equal("Analytics slot", Assert.IsType<GeneratedRecipeRow>(viewModel.Items[0]).Name);
+        Assert.Contains("compiled search", viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.AddRowCommand.Execute().Subscribe();
+        Assert.Equal(7, viewModel.SourceRowCount);
+        Assert.Equal(1, viewModel.VisibleRowCount);
+
+        viewModel.AdvanceCommand.Execute().Subscribe();
+        Assert.Contains("stable row 1", viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.ClearSearchCommand.Execute().Subscribe();
+        Assert.Equal(7, viewModel.VisibleRowCount);
+        viewModel.RestoreCommand.Execute().Subscribe();
+        Assert.Equal(6, viewModel.SourceRowCount);
+        Assert.Equal(6, viewModel.VisibleRowCount);
     }
 
     [AvaloniaFact]

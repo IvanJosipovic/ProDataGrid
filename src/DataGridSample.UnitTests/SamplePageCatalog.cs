@@ -90,6 +90,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.GeneratedPivotChartPage", static () => new global::DataGridSample.Pages.GeneratedPivotChartPage()),
             ("DataGridSample.Pages.GeneratedReactiveDataGridView", static () => new global::DataGridSample.Pages.GeneratedReactiveDataGridView()),
             ("DataGridSample.Pages.GeneratedReactiveEventCommandsPage", static () => new global::DataGridSample.Pages.GeneratedReactiveEventCommandsPage()),
+            ("DataGridSample.Pages.GeneratedReactiveViewRecipesPage", static () => new global::DataGridSample.Pages.GeneratedReactiveViewRecipesPage()),
             ("DataGridSample.Pages.GeneratedReactiveViewStatesPage", static () => new global::DataGridSample.Pages.GeneratedReactiveViewStatesPage()),
             ("DataGridSample.Pages.GeneratedRemoteQueryPage", static () => new global::DataGridSample.Pages.GeneratedRemoteQueryPage()),
             ("DataGridSample.Pages.GeneratedSelectionStatePage", static () => new global::DataGridSample.Pages.GeneratedSelectionStatePage()),

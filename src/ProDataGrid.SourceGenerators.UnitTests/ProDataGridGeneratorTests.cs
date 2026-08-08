@@ -3803,6 +3803,42 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("GeneratedExplorerSlot", result.CombinedSource);
     }
 
+    [Fact]
+    public void Multiple_generated_view_recipes_emit_independent_layout_contracts()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridView(typeof(Row), ViewName = "GridOnlyView", Recipe = DataGridViewRecipe.GridOnly)]
+            [GenerateDataGridView(typeof(Row), ViewName = "ExplorerView", Recipe = DataGridViewRecipe.Explorer, SearchTextPropertyName = nameof(Query))]
+            [GenerateDataGridView(typeof(Row), ViewName = "SpreadsheetView", Recipe = DataGridViewRecipe.Spreadsheet)]
+            [GenerateDataGridView(typeof(Row), ViewName = "AnalyticsView", Recipe = DataGridViewRecipe.Analytics, SearchTextPropertyName = nameof(Query))]
+            public sealed class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new Row[0];
+                public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                public DataGridFastPathOptions FastPathOptions { get; } = new();
+                public string Query { get; set; } = "";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class GridOnlyView", result.CombinedSource);
+        Assert.Contains("class ExplorerView", result.CombinedSource);
+        Assert.Contains("class SpreadsheetView", result.CombinedSource);
+        Assert.Contains("class AnalyticsView", result.CombinedSource);
+        Assert.Contains("GeneratedRecipe = 0", result.CombinedSource);
+        Assert.Contains("GeneratedRecipe = 3", result.CombinedSource);
+        Assert.Contains("GeneratedRecipe = 4", result.CombinedSource);
+        Assert.Contains("GeneratedRecipe = 5", result.CombinedSource);
+        Assert.Contains("GeneratedExplorerSlot", result.CombinedSource);
+        Assert.Contains("GeneratedFormulaBarSlot", result.CombinedSource);
+        Assert.Contains("GeneratedAnalyticsSlot", result.CombinedSource);
+    }
+
     private static void AssertNoErrors(GeneratorTestResult result)
     {
         Assert.True(

@@ -1042,6 +1042,75 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_reactive_view_recipes_expose_distinct_layout_slots_and_shared_bindings()
+    {
+        using var viewModel = new GeneratedReactiveViewRecipesViewModel();
+        var view = new GeneratedReactiveViewRecipesPage { DataContext = viewModel };
+        var window = new Window { Width = 1120, Height = 720, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            TabControl tabs = view.GetLogicalDescendants().OfType<TabControl>().Single();
+            DataGrid gridOnly = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal("generated-recipe-grid-only", AutomationProperties.GetAutomationId(gridOnly));
+            Assert.Same(viewModel.Items, gridOnly.ItemsSource);
+            Assert.True(gridOnly.FastPathOptions.StrictMode);
+            Assert.DoesNotContain(
+                view.GetVisualDescendants().OfType<ContentControl>(),
+                static control => control.Name is "GeneratedToolbarSlot" or "GeneratedExplorerSlot");
+
+            tabs.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+            DataGrid explorerGrid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal("generated-recipe-explorer", AutomationProperties.GetAutomationId(explorerGrid));
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBox>(), static control => control.Name == "GeneratedSearchBox");
+            Assert.Contains(view.GetVisualDescendants().OfType<ContentControl>(), static control => control.Name == "GeneratedToolbarSlot");
+            Assert.Contains(view.GetVisualDescendants().OfType<ContentControl>(), static control => control.Name == "GeneratedExplorerSlot");
+
+            tabs.SelectedIndex = 2;
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+            DataGrid spreadsheetGrid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal("generated-recipe-spreadsheet", AutomationProperties.GetAutomationId(spreadsheetGrid));
+            Assert.False(spreadsheetGrid.IsReadOnly);
+            Assert.Contains(view.GetVisualDescendants().OfType<ContentControl>(), static control => control.Name == "GeneratedFormulaBarSlot");
+
+            tabs.SelectedIndex = 3;
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+            DataGrid analyticsGrid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal("generated-recipe-analytics", AutomationProperties.GetAutomationId(analyticsGrid));
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBox>(), static control => control.Name == "GeneratedSearchBox");
+            Assert.Contains(view.GetVisualDescendants().OfType<ContentControl>(), static control => control.Name == "GeneratedAnalyticsSlot");
+
+            viewModel.Query = "Runtime";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, viewModel.VisibleRowCount);
+            Assert.Single(analyticsGrid.ItemsSource!.Cast<object>());
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-reactive-view-recipes.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Generated_editing_clipboard_fill_page_binds_and_executes_typed_datagrid_adapters()
     {
         using var viewModel = new GeneratedEditingClipboardFillViewModel();
