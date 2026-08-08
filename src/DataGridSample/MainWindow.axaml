@@ -621,6 +621,13 @@
         </pages:GeneratedSelectionStatePage.DataContext>
       </pages:GeneratedSelectionStatePage>
     </TabItem>
+    <TabItem Header="Generated Grouped + Shared Selection">
+      <pages:GeneratedGroupedSharedSelectionPage>
+        <pages:GeneratedGroupedSharedSelectionPage.DataContext>
+          <viewModels:GeneratedGroupedSharedSelectionViewModel />
+        </pages:GeneratedGroupedSharedSelectionPage.DataContext>
+      </pages:GeneratedGroupedSharedSelectionPage>
+    </TabItem>
     <TabItem Header="Generated Grouping + Summaries">
       <pages:GeneratedGroupingSummariesPage>
         <pages:GeneratedGroupingSummariesPage.DataContext>

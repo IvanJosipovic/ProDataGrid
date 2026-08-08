@@ -521,6 +521,34 @@ public sealed class GeneratedColumnsViewModelTests
     }
 
     [AvaloniaFact]
+    public void Generated_grouped_shared_selection_uses_typed_groups_and_preserves_stable_keys()
+    {
+        using var viewModel = new GeneratedGroupedSharedSelectionViewModel();
+
+        Assert.Single(GeneratedFeatureRowSchema.GroupFields);
+        Assert.Single(viewModel.GroupedItems.GroupDescriptions);
+        Assert.IsNotType<DataGridPathGroupDescription>(viewModel.GroupedItems.GroupDescriptions[0]);
+        Assert.Same(viewModel.GroupedItems, viewModel.SelectionModel.Source);
+
+        viewModel.SelectAcrossGroupsCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new[] { 2, 7, 11 }, viewModel.SelectionController.SelectedItemKeys);
+        Assert.Equal(3, viewModel.SelectionModel.SelectedItems.Count);
+
+        viewModel.ReverseSourceCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(new[] { 2, 7, 11 }, viewModel.SelectionController.SelectedItemKeys);
+        Assert.Equal(
+            new[] { 2, 7, 11 },
+            viewModel.SelectionModel.SelectedItems.Cast<GeneratedFeatureRow>()
+                .Select(static item => item.Id)
+                .OrderBy(static id => id));
+        Assert.Contains("restored by generated stable keys", viewModel.Status, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
     public void Generated_selection_state_view_model_disposes_idempotently()
     {
         var viewModel = new GeneratedSelectionStateViewModel();

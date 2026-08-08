@@ -794,6 +794,55 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_grouped_shared_selection_page_binds_one_identity_model_to_both_controls()
+    {
+        using var viewModel = new GeneratedGroupedSharedSelectionViewModel();
+        var view = new GeneratedGroupedSharedSelectionPage { DataContext = viewModel };
+        var window = new Window { Width = 1100, Height = 680, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            ListBox list = view.GetLogicalDescendants().OfType<ListBox>().Single();
+
+            Assert.Same(viewModel.GroupedItems, grid.ItemsSource);
+            Assert.Same(viewModel.ColumnDefinitions, grid.ColumnDefinitionsSource);
+            Assert.Same(viewModel.FastPathOptions, grid.FastPathOptions);
+            Assert.True(grid.FastPathOptions.StrictMode);
+            Assert.Same(viewModel.SelectionModel, grid.Selection);
+            Assert.Same(viewModel.SelectionModel, list.Selection);
+            Assert.Equal(5, grid.Columns.Count);
+
+            viewModel.SelectAcrossGroupsCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(3, grid.SelectedItems.Count);
+            Assert.Equal(3, viewModel.SelectionModel.SelectedItems.Count);
+            Assert.Equal("2, 7, 11", viewModel.SelectedKeys);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(
+                    screenshotDirectory,
+                    "generated-grouped-shared-selection.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Generated_grouping_summary_page_materializes_typed_groups_and_rendered_summary_metadata()
     {
         var viewModel = new GeneratedGroupingSummariesViewModel();

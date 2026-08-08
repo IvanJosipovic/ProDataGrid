@@ -1,12 +1,12 @@
 # ProDataGrid Source-Generation Expansion Specification
 
-Status: approved implementation specification; core implementation available, advanced integrations and sample migrations in progress
+Status: implemented specification; generator, runtime, sample, NativeAOT, benchmark, and production-validation coverage available
 
 Target: reflection-free source generation for complex reactive, streaming, remote, hierarchical, spreadsheet, and analytics applications
 
 Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, gated assembly/namespace/registry coordination, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, revisioned remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, typed DataGrid clipboard/fill adapters, conditional rules and runtime model factories, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, routed-event command bridges, typed ReactiveUI interaction response adapters, platform-aware generated keyboard maps, typed input command bridges, activation-scoped XY/current-cell/scroll-state interactions, and activation/visual-tree-scoped renderer metric sinks are implemented with focused tests. Generated remote-query validation now covers offset paging, bounded cache reuse, field translation, cancellation-resistant stale responses, loading/error/content state, and retry through a passive ReactiveUI sample. The formal editing sample validates direct and DataGrid-driven paste/fill, compiled DataAnnotations and custom policies, async validation, bounded exports, and keyed undo/redo without property paths. The formal conditional-formatting sample validates typed comparison/custom predicates, cached runtime descriptors, cell/row targets, generated view binding, reactive updates, and runtime enable/disable without property reflection. The formal header-filter sample validates all typed editor profiles, a live distinct-value flyout, bounded local/remote values, stale-response suppression, cached header commands, external command-state invalidation, and view-scoped grid operations. The formal pivot/chart sample validates globally ordered typed pivot fields, generated model construction and customization, pivot-derived chart series, and a direct numeric selector fast path without property paths or boxed numeric access. The formal generated-view recipe sample validates four independently generated ReactiveUI layouts over one strict schema and collection view, including stable recipe constants, named slots, compiled search, editability, automation metadata, and shared source updates. The formal custom-implementations sample validates a compiled bound column factory, completed-schema and per-column hooks, a domain comparer, generated edit validation, a direct summary calculator, an application ReactiveUI base, and derived generated-view hooks. The formal assembly/namespace-policy sample validates non-recursive namespace defaults, explicit item/ViewModel/view precedence, generated registry lookup by type and schema ID, nested exclusion, and reflection-free creation of a registered XAML shell. ProDiagnostics and its streaming viewer serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. A generated-only NativeAOT smoke executable now builds with generated trimming warnings promoted to errors, publishes Avalonia and ReactiveUI views, and executes the native binary in CI. A dedicated BenchmarkDotNet suite validates runtime semantic equivalence and measures generated columns, typed accessors, sorting, filtering, searching, cold generation, no-op reuse, and one-schema incremental edits. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane only when requested; direct-only compilations bypass that model and source-type enumeration entirely. Advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, gated assembly/namespace/registry coordination, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, revisioned remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, typed DataGrid clipboard/fill adapters, conditional rules and runtime model factories, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, routed-event command bridges, typed ReactiveUI interaction response adapters, platform-aware generated keyboard maps, typed input command bridges, activation-scoped XY/current-cell/scroll-state interactions, and activation/visual-tree-scoped renderer metric sinks are implemented with focused tests. Generated remote-query validation covers offset paging, bounded cache reuse, field translation, cancellation-resistant stale responses, loading/error/content state, and retry through a passive ReactiveUI sample. Formal generated samples validate hierarchical DynamicData, grouped/shared keyed selection, state, editing/transfer, conditional formatting, header filtering, pivot/chart/outline/formula analytics, custom implementations, assembly/namespace policy, generated view recipes, virtualization/input/metrics, and reactive view states/events. ProDiagnostics and its streaming viewer serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. A generated-only NativeAOT smoke executable builds with generated trimming warnings promoted to errors, publishes Avalonia and ReactiveUI views, and executes the native binary in CI. A dedicated BenchmarkDotNet suite validates runtime semantic equivalence and measures generated columns, typed accessors, sorting, filtering, searching, analytics adapters, cold generation, no-op reuse, and one-schema incremental edits. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane only when requested; direct-only compilations bypass that model and source-type enumeration entirely. All feature rows below are implemented; migration of additional legacy showcase pages is optional application cleanup rather than missing generator scope.
 
 ## 1. Purpose
 
@@ -18,7 +18,7 @@ The proposal focuses on three outcomes:
 2. Remove repeated sorting, filtering, searching, hierarchy, selection, streaming, and lifecycle code from complex reactive applications.
 3. Preserve full customization through small runtime contracts, validated implementation types, partial hooks, and custom generated-view base classes.
 
-Code blocks labelled **Proposed API** describe the remaining target shape. Unlabelled APIs are implemented unless their feature row below is marked partial.
+Code blocks labelled **Proposed API** preserve the original conceptual design shape and may use abbreviated names. The concrete implemented API is described by each feature's implementation note and the source-generator usage guide.
 
 ### 1.1 Implementation coverage
 
@@ -26,7 +26,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 |---|---|---|
 | F01 incremental foundation | Implemented | Direct type and property-triggered schemas, ViewModels, controllers, indexed-column triggers, cell-draw caches, and generated views use equatable attributed candidates with isolated composition and stable semantic/output reuse. Direct schema composition resolves ownership and provider collisions once, then column/key/hierarchy discovery and emission are cached per schema. View framework/collision facts and owner-driven schema options are part of the candidate graph. Assembly/namespace policy and registry coordination remain compilation-wide only when requested; an empty-policy gate prevents global model construction and source-type enumeration for direct-only consumers. |
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. The remote-query sample validates offset paging, bounded cache reuse, field translation, cancellation, stale-response suppression, observable state, and retry. |
-| F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
+| F08 hierarchy | Implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, DynamicData roots, and `HierarchicalRows` wrapper-aware compiled bindings are validated by the formal hierarchical sample. |
 | F09–F14 data workflows | Implemented | Grouping, rendered total/group summary definitions, incremental summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export including relative-formula translation, and conditional rules share canonical accessors. Formal grouping, selection/state, editing/transfer, and conditional-formatting samples validate the runtime paths. |
 | F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, typed formula slots that bypass runtime getters, and replaceable pin/freeze command bridges are available. The formal indexed spreadsheet sample validates runtime family replacement. |
 | F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
@@ -1413,7 +1413,7 @@ The generated accessor and binding path are cached per slot and use direct metho
 
 ## 9. Diagnostics
 
-Proposed diagnostic range for expansion work:
+Implemented diagnostic range for expansion work:
 
 | ID | Default | Condition |
 |---|---|---|
@@ -1455,6 +1455,7 @@ Proposed diagnostic range for expansion work:
 | `PDGSG135` | Error | Configured collection mutation handler is inaccessible, abstract, open, lacks a parameterless constructor, or implements the wrong item contract. |
 | `PDGSG136` | Error | Configured new-row factory is inaccessible, abstract, open, lacks a parameterless constructor, or implements the wrong item contract. |
 | `PDGSG137` | Error | Configured formula-fill translator is inaccessible, abstract, open, lacks a parameterless constructor, or does not implement `IFormulaFillTranslator`. |
+| `PDGSG138` | Error | A statically declared generated formula has invalid syntax. |
 
 Strict mode promotes applicable fallback warnings to errors. Diagnostics should point to the smallest relevant attribute argument or member declaration and include the expected signature/type.
 
@@ -1591,6 +1592,8 @@ Current status: implemented. Direct schema ownership/provider collision resoluti
 
 Exit criteria: the sorting/filtering/searching model samples can be rewritten without manual property-path switches or model-event subscriptions.
 
+Current status: implemented. Generated operation-controller samples use typed descriptors, presets, view-owned or upstream ownership, direct collection-view adapters, and strict reflection-free enforcement with ViewModel and Avalonia Headless coverage.
+
 ### Phase 2 — reactive and live data
 
 1. Add DynamicData SourceList support.
@@ -1602,6 +1605,8 @@ Exit criteria: the sorting/filtering/searching model samples can be rewritten wi
 
 Exit criteria: all eight DynamicData sample ViewModels use generated pipelines; the generated trade sample no longer owns manual subjects/event handlers; streaming and disposal tests pass.
 
+Current status: implemented. Formal `SourceList`, keyed `SourceCache`, hierarchical DynamicData, bounded async/channel streaming, keyed reconciliation, and remote-query samples cover scheduling, ownership, errors, cancellation, stale suppression, metrics, and deterministic disposal. The eight legacy DynamicData pages remain useful compatibility examples; feature acceptance is carried by the generated equivalents.
+
 ### Phase 3 — hierarchy, selection, and state
 
 1. Generate hierarchy options and typed node projections.
@@ -1612,7 +1617,7 @@ Exit criteria: all eight DynamicData sample ViewModels use generated pipelines; 
 
 Exit criteria: representative hierarchy, grouped selection, paging selection, selection fast-index, and full-state pages run without reflection binding or view-owned state logic.
 
-Current status: core implementation is available. Formal hierarchy and paging/full-state samples are complete; broader grouped/shared-control selection sample conversion remains.
+Current status: implemented. Formal hierarchical DynamicData and paging/full-state samples cover wrapper-aware compiled bindings, async hierarchy behavior, expansion preservation, stable identity, paging, replacement, and migration. The combined grouped/shared-selection sample uses a typed generated group description and shares one generated stable-key identity model between a generated DataGrid and ListBox. Phase 3 exit criteria are satisfied.
 
 ### Phase 4 — editing workflows
 
@@ -1624,7 +1629,7 @@ Current status: core implementation is available. Formal hierarchy and paging/fu
 
 Exit criteria: the Excel sample removes its generic binding helper and most selection/clipboard/fill bridge boilerplate without losing spreadsheet-specific customization.
 
-Current status: the formal editing/clipboard/fill sample is complete with typed DataAnnotations and custom validation, async approval, coercion, eligibility, DataGrid paste/fill adapters, mixed absolute/relative A1 formula fill, bounded multi-format export, and undo/redo. The formal indexed spreadsheet sample is also complete with replaceable runtime column families, formula slots, generated formula-model binding, and per-cell overrides. The broader Excel sample migration remains.
+Current status: implemented. The formal editing/clipboard/fill sample covers typed DataAnnotations and custom validation, async approval, coercion, eligibility, DataGrid paste/fill adapters, mixed absolute/relative A1 formula fill, bounded multi-format export, and undo/redo. The formal indexed spreadsheet sample covers replaceable runtime column families, formula slots, generated formula-model binding, and per-cell overrides. The full Excel application remains an integration consumer rather than a prerequisite for the generator API.
 
 ### Phase 5 — grouping, summaries, formatting, and layout
 
@@ -1673,6 +1678,8 @@ Current status: pivot, chart, outline, formula, and drag/drop integrations are i
 
 Exit criteria: both ProDiagnostics assemblies build for every target framework, all ProDiagnostics tests pass, registry manifests match the expected schema set, registered views instantiate without reflection, and source audits contain no inline DataGrid columns or disabled compiled-binding scopes.
 
+Current status: implemented and continuously validated. The two projects expose eight generated schemas, generated registries and XAML mappings, streaming and hierarchical paths, multi-schema ViewModels, strict compiled bindings, registry/schema tests, and Avalonia Headless view creation. Repository source audits report no inline DataGrid columns and no disabled compiled-binding scopes in either project.
+
 ## 13. New sample plan
 
 Add focused pages rather than one overloaded showcase:
@@ -1695,6 +1702,7 @@ Add focused pages rather than one overloaded showcase:
 16. `GeneratedVirtualizationProfilePage` — implemented with a variable-height estimate profile, custom J/K/Enter gesture overrides, typed search/fill/undo/redo command forwarding, stable-key current-cell and XY navigation, scroll-state capture/restore, an activation-scoped custom metrics sink, and Avalonia Headless lifetime plus deterministic screenshot coverage.
 17. `GeneratedReactiveViewStatesPage` — implemented with ReactiveUI-owned loading, empty, error, retry, and content transitions through a generated code-only view, passive navigation hosting, and Avalonia Headless state/command coverage.
 18. `GeneratedReactiveEventCommandsPage` — implemented with typed selection, current-cell, sorting, and editing event snapshots, command-driven handled/cancel feedback, activation/DataContext-scoped typed ReactiveUI interaction responses, and Avalonia Headless lifetime coverage.
+19. `GeneratedGroupedSharedSelectionPage` — implemented with a typed generated group descriptor, a generated strict ReactiveUI grid, one stable-key identity selection model shared with a ListBox, domain-source reorder preservation, ViewModel tests, and Avalonia Headless coverage.
 
 Each sample needs a ViewModel unit test. Interaction samples also need Avalonia Headless tests. Streaming samples need deterministic virtual-time tests and exposed metrics.
 
@@ -1716,11 +1724,11 @@ The expansion is complete when:
 - NativeAOT sample publication succeeds without generated-code trimming warnings.
 - Benchmarks demonstrate that generated paths do not regress the existing fast path and materially reduce integration allocations/boilerplate in the audited scenarios.
 
-## 15. Decisions to make before Phase 1
+## 15. Resolved design decisions
 
-1. Whether public cross-assembly attributes ship in a new abstractions package or remain injected for same-compilation use with a separate manifest contract.
-2. The exact UI-neutral descriptor/controller runtime shape and whether it uses System.Reactive abstractions.
-3. Whether generated controllers are constructed explicitly, lazily, or through generated DI factories. Explicit construction is the safest initial lifetime model.
-4. Whether typed group/summary accessors require additions to core DataGrid public APIs or can be adapted entirely through existing column value accessors.
-5. The serialization strategy used for generated state metadata and migrations.
-6. Which generated view recipes are stable enough for the first release; `GridOnly`, `SearchableGrid`, and `OperationsToolbar` should come first.
+1. Consumer-facing attributes remain compiler-injected for same-compilation use; the versioned manifest and generated registry provide the cross-assembly boundary.
+2. Canonical descriptors and controllers are UI-neutral runtime contracts. Reactive and Avalonia adapters are layered on top rather than embedded in schema discovery.
+3. Generated controllers use explicit factories and initialization with deterministic disposal; optional DI registration remains additive.
+4. Typed group and summary fields adapt through direct generated accessors and existing DataGrid models, so no reflective property-path contract is required.
+5. Generated state uses stable schema/version metadata, `System.Text.Json`, aliases, and typed migration callbacks.
+6. All seven view recipes are implemented. ReactiveUI is the first complete framework strategy; additional MVVM frameworks can be added behind the same strategy boundary.
