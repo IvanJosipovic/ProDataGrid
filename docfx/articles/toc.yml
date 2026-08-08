@@ -130,6 +130,8 @@
     href: columns-and-editing.md
   - name: Cell Lifecycle Events
     href: cell-lifecycle-events.md
+  - name: Container Customization
+    href: container-customization.md
   - name: Column Definitions
     href: column-definitions.md
   - name: Column Definitions (AOT-Friendly Bindings)
