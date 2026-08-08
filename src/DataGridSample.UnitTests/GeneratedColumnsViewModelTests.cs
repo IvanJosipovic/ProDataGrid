@@ -6,10 +6,13 @@ using System.Threading.Tasks;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridConditionalFormatting;
+using Avalonia.Controls.DataGridPivoting;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using DataGridSample.Models;
 using DataGridSample.ViewModels;
+using ProCharts;
+using ProDataGrid.Charting;
 using Xunit;
 
 namespace DataGridSample.Tests;
@@ -576,6 +579,50 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.RandomizeCommand.Execute().Subscribe();
         Assert.Equal(16, viewModel.Items.Count);
         Assert.Contains("generated predicates", viewModel.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Generated_pivot_chart_view_model_uses_ordered_typed_metadata_and_reactive_projections()
+    {
+        using var viewModel = new GeneratedPivotChartViewModel();
+
+        Assert.Equal(12, viewModel.SourceRowCount);
+        Assert.Equal(2, GeneratedPivotChartRowSchema.AnalyticsFields.Count(
+            static field => (field.Role & DataGridGeneratedAnalyticsRole.PivotValue) != 0));
+        Assert.All(
+            GeneratedPivotChartRowSchema.AnalyticsFields.Where(
+                static field => (field.Role & DataGridGeneratedAnalyticsRole.ChartValue) != 0),
+            static field => Assert.NotNull(
+                Assert.IsAssignableFrom<IDataGridGeneratedNumericAnalyticsField>(field).NumericValueSelector));
+        Assert.Single(viewModel.Pivot.RowFields);
+        Assert.Single(viewModel.Pivot.ColumnFields);
+        Assert.Single(viewModel.Pivot.FilterFields);
+        Assert.Equal(new[] { "Revenue", "Profit" }, viewModel.Pivot.ValueFields.Select(static field => field.Header));
+        Assert.All(viewModel.Pivot.RowFields, static field => Assert.Null(field.PropertyPath));
+        Assert.All(viewModel.Pivot.ValueFields, static field => Assert.Null(field.PropertyPath));
+        Assert.Equal(2, viewModel.DirectChartSource.Series.Count);
+        Assert.All(viewModel.DirectChartSource.Series, static series => Assert.Null(series.ValuePath));
+        Assert.NotEmpty(viewModel.DirectChartModel.Snapshot.Categories);
+        Assert.Equal(2, viewModel.DirectChartModel.Snapshot.Series.Count);
+        Assert.NotEmpty(viewModel.PivotChartModel.Snapshot.Series);
+
+        viewModel.AddPeriodCommand.Execute().Subscribe();
+        Assert.Equal(15, viewModel.SourceRowCount);
+        Assert.Contains("Added P5", viewModel.Status, StringComparison.Ordinal);
+        Assert.Contains("P5", viewModel.DirectChartModel.Snapshot.Categories);
+
+        viewModel.ToggleMetricCommand.Execute().Subscribe();
+        Assert.Equal("Profit", viewModel.SelectedMetric);
+        Assert.Same(viewModel.Pivot.ValueFields[1], viewModel.PivotChart.ValueField);
+
+        viewModel.ToggleSeriesSourceCommand.Execute().Subscribe();
+        Assert.Equal(PivotChartSeriesSource.Rows, viewModel.PivotChart.SeriesSource);
+
+        viewModel.RemovePeriodCommand.Execute().Subscribe();
+        Assert.Equal(12, viewModel.SourceRowCount);
+        viewModel.RestoreCommand.Execute().Subscribe();
+        Assert.Equal("Revenue", viewModel.SelectedMetric);
+        Assert.Equal(12, viewModel.SourceRowCount);
     }
 
     [AvaloniaFact]

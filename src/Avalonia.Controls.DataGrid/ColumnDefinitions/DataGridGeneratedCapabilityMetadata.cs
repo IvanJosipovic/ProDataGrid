@@ -4,6 +4,7 @@
 #nullable disable
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Avalonia.Controls.DataGridPivoting;
 
@@ -74,6 +75,18 @@ namespace Avalonia.Controls
         object GetValue(object item);
     }
 
+    /// <summary>Exposes an optional direct numeric selector without changing the base analytics contract.</summary>
+#if !DATAGRID_INTERNAL
+    public
+#else
+    internal
+#endif
+    interface IDataGridGeneratedNumericAnalyticsField : IDataGridGeneratedAnalyticsField
+    {
+        /// <summary>Gets an optional generated numeric selector for allocation-conscious chart hot paths.</summary>
+        Func<object, double?> NumericValueSelector { get; }
+    }
+
     /// <summary>Contains a typed direct getter and capability metadata for one generated field role.</summary>
     /// <typeparam name="TItem">The row item type.</typeparam>
     /// <typeparam name="TValue">The field value type.</typeparam>
@@ -82,7 +95,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    sealed class DataGridGeneratedAnalyticsField<TItem, TValue> : IDataGridGeneratedAnalyticsField
+    sealed class DataGridGeneratedAnalyticsField<TItem, TValue> : IDataGridGeneratedNumericAnalyticsField
     {
         private readonly Func<TItem, TValue> _getter;
         private readonly string[] _dependencies;
@@ -98,6 +111,32 @@ namespace Avalonia.Controls
             int aggregate = 0,
             PivotValueDisplayMode pivotDisplayMode = PivotValueDisplayMode.Value,
             IReadOnlyList<string> dependencies = null)
+            : this(
+                columnKey,
+                role,
+                order,
+                getter,
+                null,
+                name,
+                format,
+                aggregate,
+                pivotDisplayMode,
+                dependencies)
+        {
+        }
+
+        /// <summary>Initializes capability metadata with a direct numeric chart selector.</summary>
+        public DataGridGeneratedAnalyticsField(
+            string columnKey,
+            DataGridGeneratedAnalyticsRole role,
+            int order,
+            Func<TItem, TValue> getter,
+            Func<object, double?> numericValueSelector,
+            string name = null,
+            string format = null,
+            int aggregate = 0,
+            PivotValueDisplayMode pivotDisplayMode = PivotValueDisplayMode.Value,
+            IReadOnlyList<string> dependencies = null)
         {
             ColumnKey = columnKey ?? throw new ArgumentNullException(nameof(columnKey));
             Role = role;
@@ -107,6 +146,7 @@ namespace Avalonia.Controls
             Format = format;
             Aggregate = aggregate;
             PivotDisplayMode = pivotDisplayMode;
+            NumericValueSelector = numericValueSelector;
             if (dependencies == null || dependencies.Count == 0)
             {
                 _dependencies = Array.Empty<string>();
@@ -137,6 +177,8 @@ namespace Avalonia.Controls
         public PivotValueDisplayMode PivotDisplayMode { get; }
         /// <inheritdoc />
         public IReadOnlyList<string> Dependencies => _dependencies;
+        /// <inheritdoc />
+        public Func<object, double?> NumericValueSelector { get; }
         /// <summary>Reads a typed value.</summary>
         public TValue GetTypedValue(TItem item) => _getter(item);
         /// <inheritdoc />
@@ -151,6 +193,11 @@ namespace Avalonia.Controls
 #endif
     static class DataGridGeneratedPivotAdapter
     {
+        private const DataGridGeneratedAnalyticsRole AxisRoles =
+            DataGridGeneratedAnalyticsRole.PivotRow |
+            DataGridGeneratedAnalyticsRole.PivotColumn |
+            DataGridGeneratedAnalyticsRole.PivotFilter;
+
         /// <summary>Creates a pivot axis field from a generated role.</summary>
         public static PivotAxisField CreateAxisField(IDataGridGeneratedAnalyticsField field)
         {
@@ -185,6 +232,113 @@ namespace Avalonia.Controls
                 AggregateType = (PivotAggregateType)field.Aggregate,
                 DisplayMode = field.PivotDisplayMode
             };
+        }
+
+        /// <summary>Creates globally ordered pivot axis fields for the requested roles.</summary>
+        public static IReadOnlyList<PivotAxisField> CreateAxisFields(
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            DataGridGeneratedAnalyticsRole roles = AxisRoles)
+        {
+            ArgumentNullException.ThrowIfNull(fields);
+            DataGridGeneratedAnalyticsRole requestedRoles = roles & AxisRoles;
+            var matches = new List<IDataGridGeneratedAnalyticsField>();
+            for (int index = 0; index < fields.Count; index++)
+            {
+                IDataGridGeneratedAnalyticsField field = fields[index] ??
+                    throw new ArgumentException("Generated analytics fields cannot contain null entries.", nameof(fields));
+                if ((field.Role & requestedRoles) != 0)
+                {
+                    matches.Add(field);
+                }
+            }
+
+            SortFields(matches);
+            var result = new PivotAxisField[matches.Count];
+            for (int index = 0; index < matches.Count; index++)
+            {
+                result[index] = CreateAxisField(matches[index]);
+            }
+            return result;
+        }
+
+        /// <summary>Creates globally ordered pivot value fields.</summary>
+        public static IReadOnlyList<PivotValueField> CreateValueFields(
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields)
+        {
+            ArgumentNullException.ThrowIfNull(fields);
+            var matches = new List<IDataGridGeneratedAnalyticsField>();
+            for (int index = 0; index < fields.Count; index++)
+            {
+                IDataGridGeneratedAnalyticsField field = fields[index] ??
+                    throw new ArgumentException("Generated analytics fields cannot contain null entries.", nameof(fields));
+                if ((field.Role & DataGridGeneratedAnalyticsRole.PivotValue) != 0)
+                {
+                    matches.Add(field);
+                }
+            }
+
+            SortFields(matches);
+            var result = new PivotValueField[matches.Count];
+            for (int index = 0; index < matches.Count; index++)
+            {
+                result[index] = CreateValueField(matches[index]);
+            }
+            return result;
+        }
+
+        /// <summary>Creates a populated pivot model whose selectors come only from generated metadata.</summary>
+        public static PivotTableModel CreateModel(
+            IEnumerable items,
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            Action<PivotTableModel> configure = null)
+        {
+            ArgumentNullException.ThrowIfNull(items);
+            ArgumentNullException.ThrowIfNull(fields);
+
+            var model = new PivotTableModel { AutoRefresh = false };
+            try
+            {
+                AddAxisFields(model.RowFields, fields, DataGridGeneratedAnalyticsRole.PivotRow);
+                AddAxisFields(model.ColumnFields, fields, DataGridGeneratedAnalyticsRole.PivotColumn);
+                AddAxisFields(model.FilterFields, fields, DataGridGeneratedAnalyticsRole.PivotFilter);
+
+                IReadOnlyList<PivotValueField> valueFields = CreateValueFields(fields);
+                for (int index = 0; index < valueFields.Count; index++)
+                {
+                    model.ValueFields.Add(valueFields[index]);
+                }
+
+                model.ItemsSource = items;
+                configure?.Invoke(model);
+                model.AutoRefresh = true;
+                return model;
+            }
+            catch
+            {
+                model.Dispose();
+                throw;
+            }
+        }
+
+        private static void AddAxisFields(
+            System.Collections.ObjectModel.ObservableCollection<PivotAxisField> destination,
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            DataGridGeneratedAnalyticsRole role)
+        {
+            IReadOnlyList<PivotAxisField> axisFields = CreateAxisFields(fields, role);
+            for (int index = 0; index < axisFields.Count; index++)
+            {
+                destination.Add(axisFields[index]);
+            }
+        }
+
+        private static void SortFields(List<IDataGridGeneratedAnalyticsField> fields)
+        {
+            fields.Sort(static (left, right) =>
+            {
+                int order = left.Order.CompareTo(right.Order);
+                return order != 0 ? order : string.CompareOrdinal(left.ColumnKey, right.ColumnKey);
+            });
         }
     }
 }

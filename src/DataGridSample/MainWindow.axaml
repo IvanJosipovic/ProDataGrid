@@ -649,6 +649,13 @@
         </pages:GeneratedConditionalFormattingPage.DataContext>
       </pages:GeneratedConditionalFormattingPage>
     </TabItem>
+    <TabItem Header="Generated Pivot + Chart">
+      <pages:GeneratedPivotChartPage>
+        <pages:GeneratedPivotChartPage.DataContext>
+          <viewModels:GeneratedPivotChartViewModel />
+        </pages:GeneratedPivotChartPage.DataContext>
+      </pages:GeneratedPivotChartPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

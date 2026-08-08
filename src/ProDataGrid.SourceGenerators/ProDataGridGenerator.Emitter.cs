@@ -1264,35 +1264,37 @@ internal static class Emitter
             .AppendLine()
             .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridPivoting.PivotAxisField> CreatePivotAxisFields(")
             .AppendLine("            global::Avalonia.Controls.DataGridGeneratedAnalyticsRole roles = global::Avalonia.Controls.DataGridGeneratedAnalyticsRole.PivotRow | global::Avalonia.Controls.DataGridGeneratedAnalyticsRole.PivotColumn | global::Avalonia.Controls.DataGridGeneratedAnalyticsRole.PivotFilter)")
-            .AppendLine("        {")
-            .AppendLine("            var result = new global::System.Collections.Generic.List<global::Avalonia.Controls.DataGridPivoting.PivotAxisField>();")
-            .AppendLine("            for (int index = 0; index < s_analyticsFields.Length; index++)")
-            .AppendLine("            {")
-            .AppendLine("                if ((s_analyticsFields[index].Role & roles) != 0) result.Add(global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateAxisField(s_analyticsFields[index]));")
-            .AppendLine("            }")
-            .AppendLine("            return result;")
-            .AppendLine("        }")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateAxisFields(AnalyticsFields, roles);")
             .AppendLine()
             .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridPivoting.PivotValueField> CreatePivotValueFields()")
-            .AppendLine("        {")
-            .AppendLine("            var result = new global::System.Collections.Generic.List<global::Avalonia.Controls.DataGridPivoting.PivotValueField>();")
-            .AppendLine("            for (int index = 0; index < s_analyticsFields.Length; index++)")
-            .AppendLine("            {")
-            .AppendLine("                if ((s_analyticsFields[index].Role & global::Avalonia.Controls.DataGridGeneratedAnalyticsRole.PivotValue) != 0) result.Add(global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateValueField(s_analyticsFields[index]));")
-            .AppendLine("            }")
-            .AppendLine("            return result;")
-            .AppendLine("        }");
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateValueFields(AnalyticsFields);")
+            .AppendLine()
+            .AppendLine("        public static global::Avalonia.Controls.DataGridPivoting.PivotTableModel CreatePivotTableModel(")
+            .AppendLine("            global::System.Collections.IEnumerable items,")
+            .AppendLine("            global::System.Action<global::Avalonia.Controls.DataGridPivoting.PivotTableModel>? configure = null)")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure);");
     }
 
     private static void EmitAnalyticsRole(StringBuilder builder, ColumnModel column, AnalyticsRoleModel role, string itemType)
     {
         string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        bool hasNumericSelector = IsNumericType(UnwrapNullable(column.Property.Type));
         builder.Append("                new global::Avalonia.Controls.DataGridGeneratedAnalyticsField<")
             .Append(itemType).Append(", ").Append(valueType).Append(">(")
             .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", (global::Avalonia.Controls.DataGridGeneratedAnalyticsRole)")
             .Append(role.Role.ToString(CultureInfo.InvariantCulture)).Append(", ")
             .Append(role.Order.ToString(CultureInfo.InvariantCulture)).Append(", static item => item.")
-            .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(", ")
+            .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(", ");
+        if (hasNumericSelector)
+        {
+            builder.Append("static item => item is ").Append(itemType).Append(" typed ? (double?)typed.")
+                .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(" : null");
+        }
+        else
+        {
+            builder.Append("null");
+        }
+        builder.Append(", ")
             .Append(GeneratorUtilities.EscapeString(role.Name)).Append(", ")
             .Append(GeneratorUtilities.EscapeString(role.Format)).Append(", ")
             .Append(role.Aggregate.ToString(CultureInfo.InvariantCulture)).Append(", (global::Avalonia.Controls.DataGridPivoting.PivotValueDisplayMode)")

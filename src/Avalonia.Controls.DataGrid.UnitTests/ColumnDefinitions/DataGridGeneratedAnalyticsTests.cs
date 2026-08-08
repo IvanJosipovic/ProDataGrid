@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridConditionalFormatting;
 using Avalonia.Controls.DataGridPivoting;
@@ -143,6 +144,48 @@ public sealed class DataGridGeneratedAnalyticsTests
         Assert.Equal(PivotValueDisplayMode.PercentOfGrandTotal, value.DisplayMode);
     }
 
+    [Fact]
+    public void Generated_pivot_factory_orders_fields_and_builds_model_without_property_paths()
+    {
+        IDataGridGeneratedAnalyticsField[] fields =
+        [
+            new DataGridGeneratedAnalyticsField<PivotSourceRow, decimal>(
+                "profit", DataGridGeneratedAnalyticsRole.PivotValue, 1, static row => row.Profit,
+                "Profit", "N0", (int)PivotAggregateType.Sum),
+            new DataGridGeneratedAnalyticsField<PivotSourceRow, string>(
+                "region", DataGridGeneratedAnalyticsRole.PivotRow, 1, static row => row.Region, "Region"),
+            new DataGridGeneratedAnalyticsField<PivotSourceRow, string>(
+                "period", DataGridGeneratedAnalyticsRole.PivotColumn, 0, static row => row.Period, "Period"),
+            new DataGridGeneratedAnalyticsField<PivotSourceRow, string>(
+                "desk", DataGridGeneratedAnalyticsRole.PivotRow, 0, static row => row.Desk, "Desk"),
+            new DataGridGeneratedAnalyticsField<PivotSourceRow, decimal>(
+                "revenue", DataGridGeneratedAnalyticsRole.PivotValue, 0, static row => row.Revenue,
+                "Revenue", "N0", (int)PivotAggregateType.Sum)
+        ];
+        PivotSourceRow[] items =
+        [
+            new("Rates", "North", "Q1", 100m, 30m),
+            new("Rates", "South", "Q1", 80m, 20m),
+            new("Credit", "North", "Q2", 120m, 45m)
+        ];
+
+        using PivotTableModel model = DataGridGeneratedPivotAdapter.CreateModel(
+            items,
+            fields,
+            static pivot => pivot.Layout.ShowRowSubtotals = false);
+
+        Assert.Equal(new[] { "Desk", "Region" }, model.RowFields.Select(static field => field.Header));
+        Assert.Equal("Period", Assert.Single(model.ColumnFields).Header);
+        Assert.Equal(new[] { "Revenue", "Profit" }, model.ValueFields.Select(static field => field.Header));
+        Assert.All(model.RowFields, static field => Assert.Null(field.PropertyPath));
+        Assert.All(model.ValueFields, static field => Assert.Null(field.PropertyPath));
+        Assert.Equal("Rates", model.RowFields[0].ValueSelector!(items[0]));
+        Assert.Equal(100m, model.ValueFields[0].ValueSelector!(items[0]));
+        Assert.NotEmpty(model.Rows);
+        Assert.NotEmpty(model.ColumnDefinitions);
+    }
+
     private sealed record Row(string Desk, decimal Amount);
     private sealed record NullableRow(string? Desk);
+    private sealed record PivotSourceRow(string Desk, string Region, string Period, decimal Revenue, decimal Profit);
 }

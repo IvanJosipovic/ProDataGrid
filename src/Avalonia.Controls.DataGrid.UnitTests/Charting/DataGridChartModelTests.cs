@@ -3,6 +3,7 @@
 
 #nullable enable
 
+using System;
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using ProCharts;
@@ -16,13 +17,15 @@ namespace Avalonia.Controls.DataGridTests.Charting
         [Fact]
         public void GeneratedChartAdapter_Uses_Direct_Category_Value_And_Companion_Selectors()
         {
+            Func<object, double?> directRevenue = static item => item is SampleRow row ? row.Revenue : null;
             var fields = new IDataGridGeneratedAnalyticsField[]
             {
                 new DataGridGeneratedAnalyticsField<SampleRow, string>(
                     "category", DataGridGeneratedAnalyticsRole.ChartCategory, 0, static row => row.Category),
                 new DataGridGeneratedAnalyticsField<SampleRow, double>(
                     "revenue", DataGridGeneratedAnalyticsRole.ChartValue, 0, static row => row.Revenue,
-                    name: "Revenue", format: "N1", aggregate: (int)DataGridAggregateType.Average),
+                    name: "Revenue", format: "N1", aggregate: (int)DataGridAggregateType.Average,
+                    numericValueSelector: directRevenue),
                 new DataGridGeneratedAnalyticsField<SampleRow, double>(
                     "cost", DataGridGeneratedAnalyticsRole.ChartXValue, 0, static row => row.Cost,
                     name: "Revenue")
@@ -39,6 +42,7 @@ namespace Avalonia.Controls.DataGridTests.Charting
             Assert.Equal(new[] { "A", "B" }, snapshot.Categories);
             Assert.Equal(new double?[] { 10d, 20d }, snapshot.Series[0].Values);
             Assert.Equal(new[] { 3d, 8d }, snapshot.Series[0].XValues);
+            Assert.Same(directRevenue, model.Series[0].ValueSelector);
             Assert.Equal(DataGridChartAggregation.Average, model.Series[0].Aggregation);
             Assert.Equal(10d.ToString("N1", System.Globalization.CultureInfo.CurrentCulture), model.Series[0].DataLabelFormatter!(10d));
         }

@@ -67,12 +67,18 @@ namespace ProDataGrid.Charting
                 IDataGridGeneratedAnalyticsField? xValue = FindCompanion(fields, DataGridGeneratedAnalyticsRole.ChartXValue, value);
                 IDataGridGeneratedAnalyticsField? size = FindCompanion(fields, DataGridGeneratedAnalyticsRole.ChartSize, value);
                 string? format = value.Format;
+                Func<object, double?> valueSelector = GetNumericSelector(value) ??
+                    (item => ToNullableDouble(value.GetValue(item)));
+                Func<object, double?>? xValueSelector = GetNumericSelector(xValue) ??
+                    (xValue == null ? null : item => ToNullableDouble(xValue.GetValue(item)));
+                Func<object, double?>? sizeSelector = GetNumericSelector(size) ??
+                    (size == null ? null : item => ToNullableDouble(size.GetValue(item)));
                 model.Series.Add(new DataGridChartSeriesDefinition
                 {
                     Name = value.Name ?? value.ColumnKey,
-                    ValueSelector = item => ToNullableDouble(value.GetValue(item)),
-                    XValueSelector = xValue == null ? null : item => ToNullableDouble(xValue.GetValue(item)),
-                    SizeSelector = size == null ? null : item => ToNullableDouble(size.GetValue(item)),
+                    ValueSelector = valueSelector,
+                    XValueSelector = xValueSelector,
+                    SizeSelector = sizeSelector,
                     Aggregation = ToChartAggregation(value.Aggregate),
                     DataLabelFormatter = string.IsNullOrWhiteSpace(format)
                         ? null
@@ -103,6 +109,9 @@ namespace ProDataGrid.Charting
 
             return result;
         }
+
+        private static Func<object, double?>? GetNumericSelector(IDataGridGeneratedAnalyticsField? field) =>
+            (field as IDataGridGeneratedNumericAnalyticsField)?.NumericValueSelector;
 
         private static IDataGridGeneratedAnalyticsField? FindCompanion(
             IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,

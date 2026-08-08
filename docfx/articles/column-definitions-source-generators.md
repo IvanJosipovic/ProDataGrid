@@ -317,6 +317,65 @@ public sealed partial class SpreadsheetViewModel : ReactiveObject
 
 `DataGridSample.Pages.GeneratedIndexedSpreadsheetPage` demonstrates a replaceable 7–12 column family, typed slot notifications, strict fast-path options, structured/chained formulas, a row-local cell formula, and generated ReactiveUI view composition.
 
+## Generated pivot and chart projections
+
+Assign analytics roles to the same attributed properties that define the grid schema. Pivot axes and values, chart categories and values, outline fields, and formula dependencies then share the canonical column key and generated getter:
+
+```csharp
+[GenerateDataGridColumns(
+    ProviderName = "SalesSchema",
+    Discovery = DataGridColumnDiscovery.AttributedOnly,
+    Strict = true)]
+public sealed class Sale
+{
+    [DataGridColumn(Header = "Period", ColumnKey = "period")]
+    [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotColumn, Order = 0)]
+    [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartCategory, Order = 0)]
+    public string Period { get; init; } = string.Empty;
+
+    [DataGridColumn(Header = "Region", ColumnKey = "region")]
+    [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotRow, Order = 0)]
+    public string Region { get; init; } = string.Empty;
+
+    [DataGridColumn(DataGridColumnKind.Numeric, Header = "Revenue", ColumnKey = "revenue")]
+    [DataGridPivotValue(PivotAggregateType.Sum, Order = 0, Format = "C0")]
+    [DataGridChartField(
+        DataGridGeneratedAnalyticsRole.ChartValue,
+        Order = 0,
+        Series = "Revenue",
+        Format = "C0",
+        Aggregate = DataGridAggregateType.Sum)]
+    public double Revenue { get; init; }
+}
+```
+
+The provider exposes `AnalyticsFields`, `CreatePivotAxisFields`, `CreatePivotValueFields`, and `CreatePivotTableModel`. Pivot fields are globally ordered by `Order` and then stable column key, independently of CLR property order. The model factory installs row, column, filter, and value fields while auto-refresh is suspended, assigns the supplied source, runs an optional application callback, and enables refresh only after configuration succeeds:
+
+```csharp
+PivotTableModel pivot = SalesSchema.CreatePivotTableModel(
+    items,
+    static model =>
+    {
+        model.Layout.RowLayout = PivotRowLayout.Tabular;
+        model.Layout.ValuesPosition = PivotValuesPosition.Columns;
+        model.Layout.ShowRowSubtotals = false;
+    });
+```
+
+No pivot field receives a property path. Each selector calls the generated field accessor directly. The callback remains the customization boundary for layout, sorting, subtotal policy, filters, calculated fields, and application-specific pivot behavior.
+
+Projects that reference `ProDataGrid.Charting` can create a direct chart projection from the same manifest:
+
+```csharp
+DataGridChartModel chart = DataGridGeneratedChartAdapter.CreateModel(
+    items,
+    SalesSchema.AnalyticsFields);
+```
+
+The adapter orders chart values deterministically and clears every runtime category/value/X/size property path. For numeric CLR properties, generated metadata implements `IDataGridGeneratedNumericAnalyticsField` and supplies a cached `Func<object, double?>`; the chart hot path therefore avoids the base interface's boxed value getter and runtime numeric conversion. Non-numeric or user-supplied fields retain the compatible conversion fallback. `IDataGridGeneratedAnalyticsField` and the original `DataGridGeneratedAnalyticsField<TItem, TValue>` constructor remain unchanged, preserving existing source and binary consumers.
+
+`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, ordered row/column/filter/value fields, a configurable generated `PivotTableModel`, a chart driven by the pivot result, a direct chart driven by generated numeric selectors, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage.
+
 ## Column coverage and customization
 
 `DataGridColumnKind` covers every current definition builder: text, checkbox, hyperlink, image, numeric, progress bar, slider, date picker, time picker, masked text, autocomplete, toggle button, toggle switch, hierarchical, custom drawing, all three combo-box modes, template, button, and formula.

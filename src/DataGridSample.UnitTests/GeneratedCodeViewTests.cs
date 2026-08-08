@@ -22,6 +22,7 @@ using Avalonia.VisualTree;
 using DataGridSample.Models;
 using DataGridSample.Pages;
 using DataGridSample.ViewModels;
+using ProCharts.Avalonia;
 using ReactiveUI.Avalonia;
 using Xunit;
 
@@ -972,6 +973,62 @@ public sealed class GeneratedCodeViewTests
                 Assert.NotNull(frame);
                 Directory.CreateDirectory(screenshotDirectory);
                 string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-conditional-formatting.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_pivot_chart_page_binds_source_and_pivot_charts_without_property_paths()
+    {
+        using var viewModel = new GeneratedPivotChartViewModel();
+        var view = new GeneratedPivotChartPage { DataContext = viewModel };
+        var window = new Window { Width = 1180, Height = 760, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid sourceGrid = view.GetVisualDescendants().OfType<DataGrid>().Single();
+            Assert.Equal("generated-pivot-chart-grid", AutomationProperties.GetAutomationId(sourceGrid));
+            Assert.Same(viewModel.Items, sourceGrid.ItemsSource);
+            Assert.True(sourceGrid.FastPathOptions.StrictMode);
+            Assert.Equal(7, viewModel.ColumnDefinitions.Count);
+            Assert.Equal(7, sourceGrid.Columns.Count(static column => column.ColumnKey != null));
+            ProChartView directChart = view.GetVisualDescendants().OfType<ProChartView>().Single();
+            Assert.Same(viewModel.DirectChartModel, directChart.ChartModel);
+
+            TabControl tabs = view.GetLogicalDescendants().OfType<TabControl>().Single();
+            tabs.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+
+            DataGrid pivotGrid = view.GetVisualDescendants().OfType<DataGrid>().Single();
+            Assert.Same(viewModel.Pivot.Rows, pivotGrid.ItemsSource);
+            Assert.Equal(viewModel.Pivot.ColumnDefinitions.Count, pivotGrid.Columns.Count);
+            ProChartView pivotChart = view.GetVisualDescendants().OfType<ProChartView>().Single();
+            Assert.Same(viewModel.PivotChartModel, pivotChart.ChartModel);
+            Assert.NotEmpty(viewModel.PivotChartModel.Snapshot.Series);
+
+            viewModel.AddPeriodCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(15, viewModel.SourceRowCount);
+            Assert.NotEmpty(viewModel.Pivot.Rows);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-pivot-chart.png"));
                 using FileStream stream = File.Create(path);
                 frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 Assert.True(new FileInfo(path).Length > 0);

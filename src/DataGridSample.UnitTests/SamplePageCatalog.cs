@@ -87,6 +87,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.GeneratedHierarchicalDynamicDataPage", static () => new global::DataGridSample.Pages.GeneratedHierarchicalDynamicDataPage()),
             ("DataGridSample.Pages.GeneratedIndexedSpreadsheetPage", static () => new global::DataGridSample.Pages.GeneratedIndexedSpreadsheetPage()),
             ("DataGridSample.Pages.GeneratedOperationsControllerPage", static () => new global::DataGridSample.Pages.GeneratedOperationsControllerPage()),
+            ("DataGridSample.Pages.GeneratedPivotChartPage", static () => new global::DataGridSample.Pages.GeneratedPivotChartPage()),
             ("DataGridSample.Pages.GeneratedReactiveDataGridView", static () => new global::DataGridSample.Pages.GeneratedReactiveDataGridView()),
             ("DataGridSample.Pages.GeneratedReactiveEventCommandsPage", static () => new global::DataGridSample.Pages.GeneratedReactiveEventCommandsPage()),
             ("DataGridSample.Pages.GeneratedReactiveViewStatesPage", static () => new global::DataGridSample.Pages.GeneratedReactiveViewStatesPage()),
