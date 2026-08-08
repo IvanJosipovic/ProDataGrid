@@ -3839,6 +3839,64 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("GeneratedAnalyticsSlot", result.CombinedSource);
     }
 
+    [Fact]
+    public void Custom_implementation_seams_compose_in_one_generated_schema_and_view()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections;
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public class CustomBase : UserControl { }
+            public sealed class Calculator : IDataGridSummaryCalculator
+            {
+                public string Name => "Direct";
+                public bool SupportsIncremental => false;
+                public object? Calculate(IEnumerable items, DataGridColumn column, string? propertyName) => 42;
+                public IDataGridSummaryState? CreateState() => null;
+            }
+            [GenerateDataGridColumns(Discovery = DataGridColumnDiscovery.AttributedOnly, ConfigureMethod = nameof(ConfigureColumns))]
+            public sealed class Row
+            {
+                [DataGridKey]
+                [DataGridColumn(DataGridColumnKind.Numeric, IsReadOnly = true)]
+                public int Id { get; set; }
+
+                [DataGridColumn(FactoryMethod = nameof(CreateNameColumn))]
+                public string Name { get; set; } = "";
+
+                [DataGridColumn(DataGridColumnKind.Numeric, ValidatorMethod = nameof(ValidateValue), ConfigureMethod = nameof(ConfigureValue))]
+                [DataGridSummary(DataGridAggregateType.Sum)]
+                public int Value { get; set; }
+
+                public static DataGridColumnDefinition CreateNameColumn() => new DataGridTextColumnDefinition();
+                public static string? ValidateValue(Row item, int value) => value < 0 ? "negative" : null;
+                public static void ConfigureValue(DataGridNumericColumnDefinition column)
+                {
+                    column.SummaryDefinitions[0].Factory = static () => new DataGridCustomSummaryDescription { Calculator = new Calculator() };
+                }
+                public static void ConfigureColumns(DataGridColumnDefinitionList columns) { }
+            }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), ViewName = "CustomView", BaseType = typeof(CustomBase), Recipe = DataGridViewRecipe.OperationsToolbar)]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("global::Demo.Row.CreateNameColumn()", result.CombinedSource);
+        Assert.Contains("global::Demo.Row.ConfigureValue(column)", result.CombinedSource);
+        Assert.Contains("global::Demo.Row.ConfigureColumns(columns)", result.CombinedSource);
+        Assert.Contains("global::Demo.Row.ValidateValue", result.CombinedSource);
+        Assert.Contains("class CustomView : global::Demo.CustomBase", result.CombinedSource);
+        Assert.Contains("protected virtual void ConfigureGeneratedDataGrid", result.CombinedSource);
+        Assert.Contains("GeneratedToolbarSlot", result.CombinedSource);
+    }
+
     private static void AssertNoErrors(GeneratorTestResult result)
     {
         Assert.True(

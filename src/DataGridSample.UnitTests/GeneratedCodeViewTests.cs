@@ -1111,6 +1111,68 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_custom_implementations_page_uses_custom_base_and_protected_view_hooks()
+    {
+        using var viewModel = new GeneratedCustomImplementationsViewModel();
+        var view = new GeneratedCustomImplementationsPage(viewModel);
+        var window = new Window { Width = 1120, Height = 720, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            Assert.Equal("application-reactive-view-base", view.CustomBaseContract);
+            Assert.IsAssignableFrom<GeneratedCustomImplementationsViewBase>(view);
+
+            DataGrid grid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal("generated-custom-implementations", AutomationProperties.GetAutomationId(grid));
+            Assert.Equal("custom-generated-view-hook", grid.Tag);
+            Assert.Contains("custom-implementations-grid", grid.Classes);
+            Assert.Equal(DataGridGridLinesVisibility.All, grid.GridLinesVisibility);
+            Assert.True(grid.ShowTotalSummary);
+            Assert.True(grid.FastPathOptions.StrictMode);
+
+            ContentControl toolbar = view.GetVisualDescendants()
+                .OfType<ContentControl>()
+                .Single(static control => control.Name == "GeneratedToolbarSlot");
+            Assert.Equal("User-defined generated view toolbar", AutomationProperties.GetName(toolbar));
+            Button[] buttons = toolbar.GetVisualDescendants().OfType<Button>().ToArray();
+            Assert.Equal(4, buttons.Length);
+            Assert.All(buttons, static button => Assert.NotNull(button.Command));
+
+            DataGridColumn scoreColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "score"));
+            DataGridCustomSummaryDescription summary = Assert.IsType<DataGridCustomSummaryDescription>(Assert.Single(scoreColumn.Summaries));
+            Assert.IsType<GeneratedWeightedScoreSummaryCalculator>(summary.Calculator);
+
+            viewModel.RejectInvalidEditCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains(nameof(DataGridGeneratedEditStatus.ValidationFailed), viewModel.Status, StringComparison.Ordinal);
+
+            viewModel.SortSeverityCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+            Assert.Equal("Critical", Assert.IsType<GeneratedCustomImplementationRow>(grid.ItemsSource!.Cast<object>().First()).Severity);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-custom-implementations.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Generated_editing_clipboard_fill_page_binds_and_executes_typed_datagrid_adapters()
     {
         using var viewModel = new GeneratedEditingClipboardFillViewModel();

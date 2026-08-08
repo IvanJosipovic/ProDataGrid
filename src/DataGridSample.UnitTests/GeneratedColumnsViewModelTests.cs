@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
@@ -657,6 +658,59 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.RestoreCommand.Execute().Subscribe();
         Assert.Equal(6, viewModel.SourceRowCount);
         Assert.Equal(6, viewModel.VisibleRowCount);
+    }
+
+    [Fact]
+    public void Generated_custom_implementations_execute_direct_factory_hooks_policies_and_summary()
+    {
+        using var viewModel = new GeneratedCustomImplementationsViewModel();
+
+        Assert.Equal(6, viewModel.ColumnDefinitions.Count);
+        Assert.True(viewModel.FastPathOptions.StrictMode);
+
+        DataGridTextColumnDefinition title = Assert.IsType<DataGridTextColumnDefinition>(
+            viewModel.ColumnDefinitions.Single(static column => Equals(column.ColumnKey, "title")));
+        Assert.Equal("Created by the user-defined column factory", title.Watermark);
+        Assert.NotNull(title.Binding);
+        Assert.Equal("schema-configure-hook", title.Tag);
+        Assert.Equal("generated-custom-implementations", title.WidthSharingGroup);
+
+        DataGridTextColumnDefinition severity = Assert.IsType<DataGridTextColumnDefinition>(
+            viewModel.ColumnDefinitions.Single(static column => Equals(column.ColumnKey, "severity")));
+        Assert.Same(GeneratedSeverityComparer.Instance, severity.Options.SortValueComparer);
+        Assert.Equal("custom-comparer-hook", severity.Tag);
+
+        IComparer<GeneratedCustomImplementationRow> comparer =
+            GeneratedCustomImplementationRowSchema.Instance.CreateSortComparer(
+            [
+                GeneratedCustomImplementationRowSchema.Severity.Ascending(GeneratedSeverityComparer.Instance)
+            ]);
+        GeneratedCustomImplementationRow[] sorted = viewModel.Items
+            .Cast<GeneratedCustomImplementationRow>()
+            .OrderBy(static row => row, comparer)
+            .ToArray();
+        Assert.Equal("Critical", sorted[0].Severity);
+        Assert.Equal("Low", sorted[^1].Severity);
+
+        DataGridNumericColumnDefinition score = Assert.IsType<DataGridNumericColumnDefinition>(
+            viewModel.ColumnDefinitions.Single(static column => Equals(column.ColumnKey, "score")));
+        DataGridSummaryDefinition summaryDefinition = Assert.Single(score.SummaryDefinitions);
+        DataGridCustomSummaryDescription summary = Assert.IsType<DataGridCustomSummaryDescription>(summaryDefinition.Factory!());
+        Assert.IsType<GeneratedWeightedScoreSummaryCalculator>(summary.Calculator);
+        Assert.Equal(viewModel.WeightedScore, Assert.IsType<double>(summary.Calculate(viewModel.Items, new DataGridNumericColumn())), 10);
+
+        int originalEffort = Assert.IsType<GeneratedCustomImplementationRow>(viewModel.Items[0]).Effort;
+        viewModel.RejectInvalidEditCommand.Execute().Subscribe();
+        Assert.Equal(originalEffort, Assert.IsType<GeneratedCustomImplementationRow>(viewModel.Items[0]).Effort);
+        Assert.Contains(nameof(DataGridGeneratedEditStatus.ValidationFailed), viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.ApplyValidEditCommand.Execute().Subscribe();
+        Assert.Equal(12, Assert.IsType<GeneratedCustomImplementationRow>(viewModel.Items[0]).Effort);
+        viewModel.SortSeverityCommand.Execute().Subscribe();
+        Assert.Same(GeneratedSeverityComparer.Instance, Assert.Single(viewModel.SortingModel.Descriptors).Comparer);
+        viewModel.RestoreCommand.Execute().Subscribe();
+        Assert.Empty(viewModel.SortingModel.Descriptors);
+        Assert.Equal(8, Assert.IsType<GeneratedCustomImplementationRow>(viewModel.Items[0]).Effort);
     }
 
     [AvaloniaFact]

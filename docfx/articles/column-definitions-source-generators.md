@@ -397,7 +397,11 @@ public static void ConfigureSymbol(DataGridTextColumnDefinition column)
 
 `FactoryMethod` replaces construction of one definition. `GenerateDataGridColumns.ConfigureMethod` customizes the completed list.
 
+A replacement factory owns the definition's initial binding as well as its concrete type. Use `DataGridColumnDefinitionBuilder.For<TItem>()` with a direct `ClrPropertyInfo` and typed delegates when the replacement is still a bound column; returning a bare bound definition intentionally does not cause the generator to reconstruct a binding behind the application's back. After the factory returns, the generator applies stable keys, canonical accessors, declared attribute options, summary metadata, and the optional per-column `ConfigureMethod`. Finally, the schema-level `ConfigureMethod` receives the completed list. This ordering gives application code predictable last-write customization without reflection.
+
 For full ownership, set `ImplementationType` to a public parameterless implementation of `IDataGridGeneratedSchema<TItem>`. The generated provider becomes a stable facade that forwards every operation to user code.
+
+`DataGridSample.Pages.GeneratedCustomImplementationsPage` combines the granular escape hatches in one strict generated schema. A user factory creates one compiled bound definition, a completed-list hook applies shared policy, a value comparer defines domain severity order, a synchronous validator participates in the generated edit controller, and a direct `IDataGridSummaryCalculator` replaces the rendered summary calculation. Its generated ReactiveUI view uses an application base class; a derived page overrides `ConfigureGeneratedDataGrid` and `CreateGeneratedToolbar`, with toolbar commands and status connected through explicit compiled binding property information. Generator, ViewModel, and Avalonia Headless tests verify that every implementation is invoked directly.
 
 ### Typed editing, clipboard, fill, and undo
 
@@ -1139,6 +1143,8 @@ protected virtual Control? CreateGeneratedRecipeContent();
 ```
 
 Subclass the generated view to replace the layout or fully customize the grid while retaining generated compiled bindings. The view model remains UI-framework agnostic.
+
+The custom-implementations sample uses both levels deliberately: `GeneratedCustomImplementationsViewBase` supplies the application-wide ReactiveUI view contract, while `GeneratedCustomImplementationsPage` derives from the emitted view to fill the toolbar slot and adjust grid presentation through protected hooks. Its custom command/status bindings use `ClrPropertyInfo` and `CompiledBindingPathBuilder`; no string path, runtime expression compilation, or event handler is introduced.
 
 Views can also be requested externally with assembly attributes:
 

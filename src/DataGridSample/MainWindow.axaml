@@ -663,6 +663,13 @@
         </pages:GeneratedReactiveViewRecipesPage.DataContext>
       </pages:GeneratedReactiveViewRecipesPage>
     </TabItem>
+    <TabItem Header="Generated Custom Implementations">
+      <pages:GeneratedCustomImplementationsPage>
+        <pages:GeneratedCustomImplementationsPage.DataContext>
+          <viewModels:GeneratedCustomImplementationsViewModel />
+        </pages:GeneratedCustomImplementationsPage.DataContext>
+      </pages:GeneratedCustomImplementationsPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>
