@@ -1,9 +1,9 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
-using System.Collections.Immutable;
-using System.Collections.Generic;
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace ProDataGrid.SourceGenerators;
@@ -114,6 +114,14 @@ internal sealed class DirectViewCandidate
 
     public ImmutableArray<AttributeData> Attributes { get; set; } = ImmutableArray<AttributeData>.Empty;
 
+    public ImmutableArray<string> ExistingViewTypes { get; set; } = ImmutableArray<string>.Empty;
+
+    public bool IsGeneratedViewModel { get; set; }
+
+    public bool HasAvaloniaUserControl { get; set; }
+
+    public bool HasReactiveUserControl { get; set; }
+
     public string CacheKey { get; set; } = string.Empty;
 }
 
@@ -202,7 +210,16 @@ internal sealed class DirectSchemaCandidate
 
     public ImmutableArray<AttributeData> Attributes { get; set; } = ImmutableArray<AttributeData>.Empty;
 
+    public DirectSchemaSourceKind SourceKind { get; set; }
+
     public string CacheKey { get; set; } = string.Empty;
+}
+
+internal enum DirectSchemaSourceKind
+{
+    Schema,
+    ViewModel,
+    Controller
 }
 
 internal sealed class DirectSchemaCandidateComparer : IEqualityComparer<DirectSchemaCandidate>
@@ -398,7 +415,45 @@ internal sealed class ViewModelModel
 
     public bool GenerateFastPathOptionsProperty { get; set; } = true;
 
+    public bool IsDirectIncremental { get; set; }
+
     public Location Location { get; set; } = Location.None;
+}
+
+internal sealed class DirectViewModelCandidate
+{
+    public INamedTypeSymbol ViewModelType { get; set; } = null!;
+
+    public ImmutableArray<AttributeData> Attributes { get; set; } = ImmutableArray<AttributeData>.Empty;
+
+    public string CacheKey { get; set; } = string.Empty;
+}
+
+internal sealed class DirectViewModelCandidateComparer : IEqualityComparer<DirectViewModelCandidate>
+{
+    public static readonly DirectViewModelCandidateComparer Instance = new();
+
+    public bool Equals(DirectViewModelCandidate? x, DirectViewModelCandidate? y) =>
+        ReferenceEquals(x, y) ||
+        (x != null && y != null && string.Equals(x.CacheKey, y.CacheKey, StringComparison.Ordinal));
+
+    public int GetHashCode(DirectViewModelCandidate candidate) =>
+        StringComparer.Ordinal.GetHashCode(candidate.CacheKey);
+}
+
+internal sealed class DirectViewModelGenerationResult
+{
+    public DirectViewModelGenerationResult(
+        ImmutableArray<GeneratedSource> sources,
+        ImmutableArray<Diagnostic> diagnostics)
+    {
+        Sources = sources;
+        Diagnostics = diagnostics;
+    }
+
+    public ImmutableArray<GeneratedSource> Sources { get; }
+
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
 }
 
 internal sealed class ControllerModel
@@ -423,7 +478,45 @@ internal sealed class ControllerModel
 
     public string? ConfigureMethod { get; set; }
 
+    public bool IsDirectIncremental { get; set; }
+
     public Location Location { get; set; } = Location.None;
+}
+
+internal sealed class DirectControllerCandidate
+{
+    public INamedTypeSymbol ViewModelType { get; set; } = null!;
+
+    public ImmutableArray<AttributeData> Attributes { get; set; } = ImmutableArray<AttributeData>.Empty;
+
+    public string CacheKey { get; set; } = string.Empty;
+}
+
+internal sealed class DirectControllerCandidateComparer : IEqualityComparer<DirectControllerCandidate>
+{
+    public static readonly DirectControllerCandidateComparer Instance = new();
+
+    public bool Equals(DirectControllerCandidate? x, DirectControllerCandidate? y) =>
+        ReferenceEquals(x, y) ||
+        (x != null && y != null && string.Equals(x.CacheKey, y.CacheKey, StringComparison.Ordinal));
+
+    public int GetHashCode(DirectControllerCandidate candidate) =>
+        StringComparer.Ordinal.GetHashCode(candidate.CacheKey);
+}
+
+internal sealed class DirectControllerGenerationResult
+{
+    public DirectControllerGenerationResult(
+        ImmutableArray<GeneratedSource> sources,
+        ImmutableArray<Diagnostic> diagnostics)
+    {
+        Sources = sources;
+        Diagnostics = diagnostics;
+    }
+
+    public ImmutableArray<GeneratedSource> Sources { get; }
+
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
 }
 
 internal readonly struct GeneratedSource

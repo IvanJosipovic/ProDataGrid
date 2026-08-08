@@ -45,9 +45,39 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
             .WithComparer(DirectSchemaCandidateComparer.Instance)
             .WithTrackingName("DirectSchemaCandidates");
 
+        IncrementalValuesProvider<DirectSchemaCandidate> directViewModelSchemaCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                GenerateViewModelAttributeName,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateDirectOwnerSchemaCandidate(
+                    attributeContext,
+                    DirectSchemaSourceKind.ViewModel))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(DirectSchemaCandidateComparer.Instance)
+            .WithTrackingName("DirectViewModelSchemaCandidates");
+
+        IncrementalValuesProvider<DirectSchemaCandidate> directControllerSchemaCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                GenerateControllerAttributeName,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateDirectOwnerSchemaCandidate(
+                    attributeContext,
+                    DirectSchemaSourceKind.Controller))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(DirectSchemaCandidateComparer.Instance)
+            .WithTrackingName("DirectControllerSchemaCandidates");
+
         IncrementalValueProvider<DirectSchemaGenerationResult> directSchemas = directSchemaCandidates
             .Collect()
-            .Select(static (candidates, cancellationToken) => Discovery.BuildDirectSchemas(candidates, cancellationToken))
+            .Combine(directViewModelSchemaCandidates.Collect())
+            .Combine(directControllerSchemaCandidates.Collect())
+            .Select(static (input, cancellationToken) => Discovery.BuildDirectSchemas(
+                input.Left.Left,
+                input.Left.Right,
+                input.Right,
+                cancellationToken))
             .WithTrackingName("DirectSchemaComposition");
 
         IncrementalValuesProvider<Diagnostic> directDiagnostics = directSchemas
@@ -75,9 +105,8 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
 
         IncrementalValueProvider<DirectViewGenerationResult> directViews = directViewCandidates
             .Collect()
-            .Combine(context.CompilationProvider)
-            .Select(static (input, cancellationToken) =>
-                Discovery.BuildDirectViews(input.Left, input.Right, cancellationToken))
+            .Select(static (candidates, cancellationToken) =>
+                Discovery.BuildDirectViews(candidates, cancellationToken))
             .WithTrackingName("DirectViewComposition");
 
         context.RegisterSourceOutput(
@@ -89,6 +118,60 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
             .WithComparer(GeneratedSourceComparer.Instance)
             .WithTrackingName("DirectViewSources");
         context.RegisterSourceOutput(directViewSources, static (productionContext, source) =>
+            productionContext.AddSource(source.HintName, source.Source));
+
+        IncrementalValuesProvider<DirectViewModelCandidate> directViewModelCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                GenerateViewModelAttributeName,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateDirectViewModelCandidate(attributeContext))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(DirectViewModelCandidateComparer.Instance)
+            .WithTrackingName("DirectViewModelCandidates");
+
+        IncrementalValueProvider<DirectViewModelGenerationResult> directViewModels = directViewModelCandidates
+            .Collect()
+            .Select(static (candidates, cancellationToken) =>
+                Discovery.BuildDirectViewModels(candidates, cancellationToken))
+            .WithTrackingName("DirectViewModelComposition");
+
+        context.RegisterSourceOutput(
+            directViewModels.SelectMany(static (result, _) => result.Diagnostics),
+            static (productionContext, diagnostic) => productionContext.ReportDiagnostic(diagnostic));
+
+        IncrementalValuesProvider<GeneratedSource> directViewModelSources = directViewModels
+            .SelectMany(static (result, _) => result.Sources)
+            .WithComparer(GeneratedSourceComparer.Instance)
+            .WithTrackingName("DirectViewModelSources");
+        context.RegisterSourceOutput(directViewModelSources, static (productionContext, source) =>
+            productionContext.AddSource(source.HintName, source.Source));
+
+        IncrementalValuesProvider<DirectControllerCandidate> directControllerCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                GenerateControllerAttributeName,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateDirectControllerCandidate(attributeContext))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(DirectControllerCandidateComparer.Instance)
+            .WithTrackingName("DirectControllerCandidates");
+
+        IncrementalValueProvider<DirectControllerGenerationResult> directControllers = directControllerCandidates
+            .Collect()
+            .Select(static (candidates, cancellationToken) =>
+                Discovery.BuildDirectControllers(candidates, cancellationToken))
+            .WithTrackingName("DirectControllerComposition");
+
+        context.RegisterSourceOutput(
+            directControllers.SelectMany(static (result, _) => result.Diagnostics),
+            static (productionContext, diagnostic) => productionContext.ReportDiagnostic(diagnostic));
+
+        IncrementalValuesProvider<GeneratedSource> directControllerSources = directControllers
+            .SelectMany(static (result, _) => result.Sources)
+            .WithComparer(GeneratedSourceComparer.Instance)
+            .WithTrackingName("DirectControllerSources");
+        context.RegisterSourceOutput(directControllerSources, static (productionContext, source) =>
             productionContext.AddSource(source.HintName, source.Source));
 
         IncrementalValueProvider<GenerationModel> model = context.CompilationProvider

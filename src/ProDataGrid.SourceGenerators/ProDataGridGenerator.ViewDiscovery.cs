@@ -105,28 +105,62 @@ internal static partial class Discovery
             return null;
         }
 
+        Compilation compilation = context.SemanticModel.Compilation;
+        ImmutableArray<AttributeData> assemblyAttributes = viewModelType.ContainingAssembly.GetAttributes();
+        var existingViewTypes = ImmutableArray.CreateBuilder<string>();
+        foreach (AttributeData attribute in context.Attributes)
+        {
+            INamedTypeSymbol? itemType = GetConstructorType(attribute, 0);
+            if (itemType == null)
+            {
+                continue;
+            }
+
+            ViewRequest request = CreateViewRequest(viewModelType, itemType, attribute);
+            string metadataName = GetViewMetadataName(request);
+            if (compilation.GetTypeByMetadataName(metadataName) != null)
+            {
+                existingViewTypes.Add(metadataName);
+            }
+        }
+
+        bool isGeneratedViewModel = IsGeneratedViewModel(viewModelType, assemblyAttributes);
+        bool hasAvaloniaUserControl = compilation.GetTypeByMetadataName("Avalonia.Controls.UserControl") != null;
+        bool hasReactiveUserControl = compilation.GetTypeByMetadataName("ReactiveUI.Avalonia.ReactiveUserControl`1") != null;
+        ImmutableArray<string> orderedExistingViewTypes = existingViewTypes
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static metadataName => metadataName, StringComparer.Ordinal)
+            .ToImmutableArray();
+        string cacheKey = CreateDirectSchemaCacheKey(viewModelType, context.Attributes) +
+            "|generated-view-model:" + isGeneratedViewModel +
+            "|avalonia-user-control:" + hasAvaloniaUserControl +
+            "|reactive-user-control:" + hasReactiveUserControl +
+            "|existing-view-types:" + string.Join(";", orderedExistingViewTypes);
+
         return new DirectViewCandidate
         {
             ViewModelType = viewModelType,
             Attributes = context.Attributes,
-            CacheKey = CreateDirectSchemaCacheKey(viewModelType, context.Attributes)
+            ExistingViewTypes = orderedExistingViewTypes,
+            IsGeneratedViewModel = isGeneratedViewModel,
+            HasAvaloniaUserControl = hasAvaloniaUserControl,
+            HasReactiveUserControl = hasReactiveUserControl,
+            CacheKey = cacheKey
         };
     }
 
     public static DirectViewGenerationResult BuildDirectViews(
         ImmutableArray<DirectViewCandidate> candidates,
-        Compilation compilation,
         CancellationToken cancellationToken)
     {
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
-        var requests = new List<ViewRequest>();
+        var requests = new List<KeyValuePair<ViewRequest, DirectViewCandidate>>();
         var generatedViewModels = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        ImmutableArray<AttributeData> assemblyAttributes = compilation.Assembly.GetAttributes();
 
         foreach (DirectViewCandidate candidate in candidates)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (IsGeneratedViewModel(candidate.ViewModelType, assemblyAttributes))
+            if (candidate.IsGeneratedViewModel)
             {
                 generatedViewModels.Add(candidate.ViewModelType);
             }
@@ -144,18 +178,31 @@ internal static partial class Discovery
                     continue;
                 }
 
-                requests.Add(CreateViewRequest(candidate.ViewModelType, itemType, attribute));
+                requests.Add(new KeyValuePair<ViewRequest, DirectViewCandidate>(
+                    CreateViewRequest(candidate.ViewModelType, itemType, attribute),
+                    candidate));
             }
         }
 
         var sources = ImmutableArray.CreateBuilder<GeneratedSource>();
-        foreach (ViewRequest request in requests
-                     .GroupBy(static request => request.ViewNamespace + "." + request.ViewName, StringComparer.Ordinal)
+        foreach (KeyValuePair<ViewRequest, DirectViewCandidate> entry in requests
+                     .GroupBy(static entry => GetViewMetadataName(entry.Key), StringComparer.Ordinal)
                      .Select(static group => group.Last())
-                     .OrderBy(static request => GeneratorUtilities.GetMetadataName(request.ViewModelType), StringComparer.Ordinal))
+                     .OrderBy(static entry => GeneratorUtilities.GetMetadataName(entry.Key.ViewModelType), StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            ViewModelViewModel? view = ResolveView(compilation, request, generatedViewModels, diagnostics);
+            ViewRequest request = entry.Key;
+            DirectViewCandidate candidate = entry.Value;
+            bool frameworkAvailable = request.BaseType != null ||
+                (request.Framework == ViewFrameworkModel.ReactiveUI
+                    ? candidate.HasReactiveUserControl
+                    : candidate.HasAvaloniaUserControl);
+            ViewModelViewModel? view = ResolveView(
+                request,
+                generatedViewModels.Contains(request.ViewModelType),
+                candidate.ExistingViewTypes.Contains(GetViewMetadataName(request), StringComparer.Ordinal),
+                frameworkAvailable,
+                diagnostics);
             if (view != null)
             {
                 sources.Add(Emitter.EmitViewSource(view));
@@ -303,6 +350,24 @@ internal static partial class Discovery
         HashSet<INamedTypeSymbol> generatedViewModels,
         ImmutableArray<Diagnostic>.Builder diagnostics)
     {
+        string requiredFrameworkType = request.Framework == ViewFrameworkModel.ReactiveUI
+            ? "ReactiveUI.Avalonia.ReactiveUserControl`1"
+            : "Avalonia.Controls.UserControl";
+        return ResolveView(
+            request,
+            generatedViewModels.Contains(request.ViewModelType),
+            compilation.GetTypeByMetadataName(GetViewMetadataName(request)) != null,
+            request.BaseType != null || compilation.GetTypeByMetadataName(requiredFrameworkType) != null,
+            diagnostics);
+    }
+
+    private static ViewModelViewModel? ResolveView(
+        ViewRequest request,
+        bool generatedViewModel,
+        bool targetViewTypeExists,
+        bool frameworkAvailable,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
         if (request.ViewModelType.TypeParameters.Length != 0)
         {
             diagnostics.Add(Diagnostic.Create(
@@ -313,10 +378,8 @@ internal static partial class Discovery
             return null;
         }
 
-        string metadataName = string.IsNullOrEmpty(request.ViewNamespace)
-            ? request.ViewName
-            : request.ViewNamespace + "." + request.ViewName;
-        if (compilation.GetTypeByMetadataName(metadataName) != null)
+        string metadataName = GetViewMetadataName(request);
+        if (targetViewTypeExists)
         {
             diagnostics.Add(Diagnostic.Create(
                 GeneratorDiagnostics.InvalidTarget,
@@ -326,10 +389,7 @@ internal static partial class Discovery
             return null;
         }
 
-        string requiredFrameworkType = request.Framework == ViewFrameworkModel.ReactiveUI
-            ? "ReactiveUI.Avalonia.ReactiveUserControl`1"
-            : "Avalonia.Controls.UserControl";
-        if (request.BaseType == null && compilation.GetTypeByMetadataName(requiredFrameworkType) == null)
+        if (!frameworkAvailable)
         {
             diagnostics.Add(Diagnostic.Create(
                 GeneratorDiagnostics.MissingViewFramework,
@@ -349,7 +409,6 @@ internal static partial class Discovery
             return null;
         }
 
-        bool generatedViewModel = generatedViewModels.Contains(request.ViewModelType);
         ViewBindingModel? items = ResolveViewBinding(request, request.ItemsPropertyName, generatedFallbackType: null, canUseGeneratedFallback: false, diagnostics);
         ViewBindingModel? columns = ResolveViewBinding(
             request,
@@ -392,6 +451,11 @@ internal static partial class Discovery
             Location = request.Location
         };
     }
+
+    private static string GetViewMetadataName(ViewRequest request) =>
+        string.IsNullOrEmpty(request.ViewNamespace)
+            ? request.ViewName
+            : request.ViewNamespace + "." + request.ViewName;
 
     private static ViewBindingModel? ResolveOptionalViewBinding(
         ViewRequest request,

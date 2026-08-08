@@ -31,31 +31,24 @@ internal static class Emitter
         foreach (ViewModelModel viewModel in model.ViewModels)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!viewModel.GenerateColumnDefinitionsProperty &&
-                !viewModel.GenerateSchemaProperty &&
-                !viewModel.GenerateFastPathOptionsProperty)
+            if (viewModel.IsDirectIncremental ||
+                (!viewModel.GenerateColumnDefinitionsProperty &&
+                 !viewModel.GenerateSchemaProperty &&
+                 !viewModel.GenerateFastPathOptionsProperty))
             {
                 continue;
             }
 
-            yield return new GeneratedSource(
-                CreateHintName(
-                    viewModel.ViewModelType.ContainingNamespace?.ToDisplayString() ?? string.Empty,
-                    GeneratorUtilities.GetMetadataName(viewModel.ViewModelType) + "." +
-                    viewModel.ColumnDefinitionsPropertyName,
-                    "ViewModel"),
-                EmitViewModel(viewModel));
+            yield return EmitViewModelSource(viewModel);
         }
 
         foreach (ControllerModel controller in model.Controllers)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return new GeneratedSource(
-                CreateHintName(
-                    controller.ViewModelType.ContainingNamespace?.ToDisplayString() ?? string.Empty,
-                    GeneratorUtilities.GetMetadataName(controller.ViewModelType) + "." + controller.Name,
-                    "Controller"),
-                EmitController(controller));
+            if (!controller.IsDirectIncremental)
+            {
+                yield return EmitControllerSource(controller);
+            }
         }
 
         foreach (ViewModelViewModel view in model.Views)
@@ -81,6 +74,23 @@ internal static class Emitter
         new(
             CreateHintName(view.ViewNamespace, view.ViewName, "View"),
             EmitView(view));
+
+    internal static GeneratedSource EmitViewModelSource(ViewModelModel viewModel) =>
+        new(
+            CreateHintName(
+                viewModel.ViewModelType.ContainingNamespace?.ToDisplayString() ?? string.Empty,
+                GeneratorUtilities.GetMetadataName(viewModel.ViewModelType) + "." +
+                viewModel.ColumnDefinitionsPropertyName,
+                "ViewModel"),
+            EmitViewModel(viewModel));
+
+    internal static GeneratedSource EmitControllerSource(ControllerModel controller) =>
+        new(
+            CreateHintName(
+                controller.ViewModelType.ContainingNamespace?.ToDisplayString() ?? string.Empty,
+                GeneratorUtilities.GetMetadataName(controller.ViewModelType) + "." + controller.Name,
+                "Controller"),
+            EmitController(controller));
 
     private static string EmitRegistry(GenerationModel model, RegistryModel registry)
     {

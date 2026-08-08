@@ -36,8 +36,18 @@ internal static partial class Discovery
 
         DiscoverNamespaceViewModels(sourceTypes, assemblyAttributes, schemas, viewModels, diagnostics, cancellationToken);
         DiscoverAssemblyViewModels(assemblyAttributes, schemas, viewModels, diagnostics);
-        DiscoverTypeViewModels(sourceTypes, schemas, viewModels, diagnostics, cancellationToken);
-        DiscoverTypeControllers(sourceTypes, schemas, controllers, diagnostics, cancellationToken);
+        bool enableDirectViewModels = !hasGlobalSchemaPolicies && !HasGlobalViewModelPolicies(assemblyAttributes);
+        DiscoverTypeViewModels(sourceTypes, schemas, viewModels, diagnostics, cancellationToken, enableDirectViewModels);
+        if (hasGlobalSchemaPolicies)
+        {
+            DiscoverTypeControllers(
+                sourceTypes,
+                schemas,
+                controllers,
+                diagnostics,
+                cancellationToken,
+                enableDirectIncremental: false);
+        }
 
         ResolveProviderCollisions(schemas.Values);
 
@@ -88,93 +98,14 @@ internal static partial class Discovery
             }
         }
 
-        for (int index = controllers.Count - 1; index >= 0; index--)
-        {
-            ControllerModel controller = controllers[index];
-            bool requiresKey = controller.SourceKind == 3 || controller.SourceKind == 4 || controller.SourceKind == 5 || controller.SourceKind == 6 ||
-                (controller.Features & ((1 << 4) | (1 << 5) | (1 << 13))) != 0;
-            if (requiresKey && controller.Schema.KeyMember == null)
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.InvalidItemKey,
-                    controller.Location,
-                    controller.Name,
-                    "the selected source or controller features require a stable [DataGridKey] or KeyMember"));
-                controllers.RemoveAt(index);
-                continue;
-            }
+        ValidateControllerKeys(controllers, diagnostics);
 
-            if (controller.SourceKeyType != null && controller.Schema.KeyMember != null &&
-                !SymbolEqualityComparer.Default.Equals(controller.SourceKeyType, controller.Schema.KeyMember.Type))
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.InvalidItemKey,
-                    controller.Location,
-                    controller.Name,
-                    "the SourceCache key type does not match the generated schema key type"));
-                controllers.RemoveAt(index);
-            }
-        }
-
-        var resolvedViewModels = ImmutableArray.CreateBuilder<ViewModelModel>();
-        var generatedViewModelMembers = new Dictionary<INamedTypeSymbol, HashSet<string>>(SymbolEqualityComparer.Default);
-        foreach (PendingViewModel pending in viewModels.Values.OrderBy(
-                     static model => GeneratorUtilities.GetMetadataName(model.ViewModelType),
-                     StringComparer.Ordinal)
-                 .ThenBy(static model => model.ColumnDefinitionsPropertyName, StringComparer.Ordinal)
-                 .ThenBy(static model => GeneratorUtilities.GetMetadataName(model.ItemType), StringComparer.Ordinal))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!AllContainingTypesArePartial(pending.ViewModelType))
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.ViewModelMustBePartial,
-                    pending.Location,
-                    pending.ViewModelType.ToDisplayString()));
-                continue;
-            }
-
-            if (pending.ViewModelType.TypeParameters.Length != 0)
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.InvalidTarget,
-                    pending.Location,
-                    pending.ViewModelType.ToDisplayString(),
-                    "open generic view models are not supported"));
-                continue;
-            }
-
-            SchemaModel schema = schemas[pending.ItemType];
-            var model = new ViewModelModel
-            {
-                ViewModelType = pending.ViewModelType,
-                Schema = schema,
-                ColumnDefinitionsPropertyName = pending.ColumnDefinitionsPropertyName,
-                SchemaPropertyName = pending.SchemaPropertyName,
-                FastPathOptionsPropertyName = pending.FastPathOptionsPropertyName,
-                Location = pending.Location
-            };
-
-            model.GenerateColumnDefinitionsProperty = ValidateGeneratedViewModelMember(
-                pending.ViewModelType,
-                model.ColumnDefinitionsPropertyName,
-                generatedViewModelMembers,
-                diagnostics,
-                pending.Location);
-            model.GenerateSchemaProperty = ValidateGeneratedViewModelMember(
-                pending.ViewModelType,
-                model.SchemaPropertyName,
-                generatedViewModelMembers,
-                diagnostics,
-                pending.Location);
-            model.GenerateFastPathOptionsProperty = ValidateGeneratedViewModelMember(
-                pending.ViewModelType,
-                model.FastPathOptionsPropertyName,
-                generatedViewModelMembers,
-                diagnostics,
-                pending.Location);
-            resolvedViewModels.Add(model);
-        }
+        ImmutableArray<ViewModelModel> resolvedViewModels = ResolveViewModels(
+            schemas,
+            viewModels,
+            diagnostics,
+            cancellationToken,
+            suppressDirectDiagnostics: true);
 
         ImmutableArray<SchemaModel> orderedSchemas = schemas.Values
             .OrderBy(static schema => schema.ProviderNamespace, StringComparer.Ordinal)
@@ -185,14 +116,14 @@ internal static partial class Discovery
             compilation,
             sourceTypes,
             assemblyAttributes,
-            resolvedViewModels.ToImmutable(),
+            resolvedViewModels,
             diagnostics,
             cancellationToken);
 
         RegistryModel? registry = DiscoverRegistry(compilation, assemblyAttributes, diagnostics);
         return new GenerationModel(
             orderedSchemas,
-            resolvedViewModels.ToImmutable(),
+            resolvedViewModels,
             controllers.OrderBy(static controller => GeneratorUtilities.GetMetadataName(controller.ViewModelType), StringComparer.Ordinal)
                 .ThenBy(static controller => controller.Name, StringComparer.Ordinal)
                 .ToImmutableArray(),
@@ -214,7 +145,29 @@ internal static partial class Discovery
         {
             TargetType = targetType,
             Attributes = context.Attributes,
-            CacheKey = CreateDirectSchemaCacheKey(targetType, context.Attributes)
+            SourceKind = DirectSchemaSourceKind.Schema,
+            CacheKey = "schema|" + CreateDirectSchemaCacheKey(targetType, context.Attributes)
+        };
+    }
+
+    public static DirectSchemaCandidate? CreateDirectOwnerSchemaCandidate(
+        GeneratorAttributeSyntaxContext context,
+        DirectSchemaSourceKind sourceKind)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol targetType ||
+            targetType.TypeKind != TypeKind.Class ||
+            HasGlobalSchemaPolicies(targetType.ContainingAssembly.GetAttributes()))
+        {
+            return null;
+        }
+
+        return new DirectSchemaCandidate
+        {
+            TargetType = targetType,
+            Attributes = context.Attributes,
+            SourceKind = sourceKind,
+            CacheKey = ((int)sourceKind).ToString(CultureInfo.InvariantCulture) + "|" +
+                CreateDirectSchemaCacheKey(targetType, context.Attributes)
         };
     }
 
@@ -299,12 +252,14 @@ internal static partial class Discovery
     }
 
     public static DirectSchemaGenerationResult BuildDirectSchemas(
-        ImmutableArray<DirectSchemaCandidate> candidates,
+        ImmutableArray<DirectSchemaCandidate> schemaCandidates,
+        ImmutableArray<DirectSchemaCandidate> viewModelCandidates,
+        ImmutableArray<DirectSchemaCandidate> controllerCandidates,
         CancellationToken cancellationToken)
     {
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
         var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
-        foreach (DirectSchemaCandidate candidate in candidates
+        foreach (DirectSchemaCandidate candidate in schemaCandidates
                      .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.TargetType), StringComparer.Ordinal))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -314,6 +269,9 @@ internal static partial class Discovery
                 AddOrUpdateSchema(schemas, itemType, attribute, explicitProviderName: null, explicitConfiguration: true);
             }
         }
+
+        ApplyDirectOwnerSchemaRequests(viewModelCandidates, schemas, isController: false, diagnostics, cancellationToken);
+        ApplyDirectOwnerSchemaRequests(controllerCandidates, schemas, isController: true, diagnostics, cancellationToken);
 
         ResolveProviderCollisions(schemas.Values);
         var sources = ImmutableArray.CreateBuilder<GeneratedSource>();
@@ -368,12 +326,77 @@ internal static partial class Discovery
         return new DirectSchemaGenerationResult(sources.ToImmutable(), diagnostics.ToImmutable());
     }
 
+    private static void ApplyDirectOwnerSchemaRequests(
+        ImmutableArray<DirectSchemaCandidate> candidates,
+        Dictionary<INamedTypeSymbol, SchemaModel> schemas,
+        bool isController,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        CancellationToken cancellationToken)
+    {
+        foreach (DirectSchemaCandidate candidate in candidates
+                     .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.TargetType), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (AttributeData attribute in candidate.Attributes)
+            {
+                INamedTypeSymbol? itemType = GetConstructorType(attribute, 0);
+                if (itemType == null)
+                {
+                    continue;
+                }
+
+                Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+                string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");
+                if (!schemas.ContainsKey(itemType) && itemType.GetMembers()
+                    .OfType<IPropertySymbol>()
+                    .Any(static property => GeneratorUtilities.HasAttribute(
+                        property,
+                        ProDataGridGenerator.ColumnAttributeName)))
+                {
+                    schemas.Add(itemType, CreateDefaultSchema(itemType, GetLocation(attribute), attributedOnly: true));
+                }
+
+                SchemaModel schema = EnsureSchema(schemas, itemType, attribute, providerName);
+                ApplyFastOptions(schema, arguments);
+                if (!isController)
+                {
+                    continue;
+                }
+
+                string? keyMember = GeneratorUtilities.GetString(arguments, "KeyMember");
+                if (!string.IsNullOrWhiteSpace(keyMember))
+                {
+                    if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) &&
+                        !string.Equals(schema.ExplicitKeyMemberName, keyMember, StringComparison.Ordinal))
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            GeneratorDiagnostics.InvalidItemKey,
+                            GetLocation(attribute),
+                            keyMember,
+                            "controllers sharing a schema must use the same key member"));
+                    }
+                    else
+                    {
+                        schema.ExplicitKeyMemberName = keyMember;
+                    }
+                }
+
+                int sourceKind = GetEnumValue(arguments, "SourceKind", 0);
+                if (sourceKind == 4 || sourceKind == 5)
+                {
+                    schema.Streaming = true;
+                }
+            }
+        }
+    }
+
     private static bool HasGlobalSchemaPolicies(ImmutableArray<AttributeData> assemblyAttributes)
     {
         foreach (AttributeData attribute in assemblyAttributes)
         {
             if (IsAttribute(attribute, ProDataGridGenerator.GenerateColumnsAttributeName) ||
-                IsAttribute(attribute, ProDataGridGenerator.GenerateColumnsForNamespaceAttributeName))
+                IsAttribute(attribute, ProDataGridGenerator.GenerateColumnsForNamespaceAttributeName) ||
+                IsAttribute(attribute, ProDataGridGenerator.GenerateRegistryAttributeName))
             {
                 return true;
             }
@@ -655,7 +678,8 @@ internal static partial class Discovery
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
         Dictionary<string, PendingViewModel> viewModels,
         ImmutableArray<Diagnostic>.Builder diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool enableDirectIncremental)
     {
         foreach (INamedTypeSymbol viewModelType in sourceTypes)
         {
@@ -681,8 +705,276 @@ internal static partial class Discovery
                 Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
                 string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");
                 SchemaModel schema = EnsureSchema(schemas, itemType, attribute, providerName);
+                if (enableDirectIncremental)
+                {
+                    schema.IsDirectIncremental = true;
+                }
                 ApplyFastOptions(schema, arguments);
-                AddPendingViewModel(viewModels, CreatePendingViewModel(viewModelType, itemType, attribute, arguments));
+                PendingViewModel pending = CreatePendingViewModel(viewModelType, itemType, attribute, arguments);
+                pending.IsDirectIncremental = enableDirectIncremental;
+                AddPendingViewModel(viewModels, pending);
+            }
+        }
+    }
+
+    public static DirectViewModelCandidate? CreateDirectViewModelCandidate(GeneratorAttributeSyntaxContext context)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol viewModelType ||
+            viewModelType.TypeKind != TypeKind.Class)
+        {
+            return null;
+        }
+
+        ImmutableArray<AttributeData> assemblyAttributes = viewModelType.ContainingAssembly.GetAttributes();
+        if (HasGlobalSchemaPolicies(assemblyAttributes) || HasGlobalViewModelPolicies(assemblyAttributes))
+        {
+            return null;
+        }
+
+        return new DirectViewModelCandidate
+        {
+            ViewModelType = viewModelType,
+            Attributes = context.Attributes,
+            CacheKey = CreateDirectSchemaCacheKey(viewModelType, context.Attributes)
+        };
+    }
+
+    public static DirectViewModelGenerationResult BuildDirectViewModels(
+        ImmutableArray<DirectViewModelCandidate> candidates,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+        var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
+        var pendingViewModels = new Dictionary<string, PendingViewModel>(StringComparer.Ordinal);
+        INamedTypeSymbol[] itemTypes = candidates
+            .SelectMany(static candidate => candidate.Attributes)
+            .Select(static attribute => GetConstructorType(attribute, 0))
+            .Where(static itemType => itemType != null)
+            .Select(static itemType => itemType!)
+            .GroupBy(GeneratorUtilities.GetMetadataName, StringComparer.Ordinal)
+            .Select(static group => group.First())
+            .ToArray();
+        DiscoverTypeAndPropertySchemas(
+            itemTypes,
+            schemas,
+            diagnostics,
+            cancellationToken,
+            enableDirectIncremental: false);
+        INamedTypeSymbol[] viewModelTypes = candidates
+            .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.ViewModelType), StringComparer.Ordinal)
+            .Select(static candidate => candidate.ViewModelType)
+            .ToArray();
+        DiscoverTypeViewModels(
+            viewModelTypes,
+            schemas,
+            pendingViewModels,
+            diagnostics,
+            cancellationToken,
+            enableDirectIncremental: false);
+        ResolveProviderCollisions(schemas.Values);
+
+        ImmutableArray<GeneratedSource> sources = ResolveViewModels(
+                schemas,
+                pendingViewModels,
+                diagnostics,
+                cancellationToken,
+                suppressDirectDiagnostics: false)
+            .Where(static model => model.GenerateColumnDefinitionsProperty ||
+                                   model.GenerateSchemaProperty ||
+                                   model.GenerateFastPathOptionsProperty)
+            .Select(Emitter.EmitViewModelSource)
+            .ToImmutableArray();
+
+        return new DirectViewModelGenerationResult(sources, diagnostics.ToImmutable());
+    }
+
+    private static ImmutableArray<ViewModelModel> ResolveViewModels(
+        Dictionary<INamedTypeSymbol, SchemaModel> schemas,
+        Dictionary<string, PendingViewModel> pendingViewModels,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        CancellationToken cancellationToken,
+        bool suppressDirectDiagnostics)
+    {
+        var resolved = ImmutableArray.CreateBuilder<ViewModelModel>();
+        var generatedMembers = new Dictionary<INamedTypeSymbol, HashSet<string>>(SymbolEqualityComparer.Default);
+        foreach (PendingViewModel pending in pendingViewModels.Values
+                     .OrderBy(static model => GeneratorUtilities.GetMetadataName(model.ViewModelType), StringComparer.Ordinal)
+                     .ThenBy(static model => model.ColumnDefinitionsPropertyName, StringComparer.Ordinal)
+                     .ThenBy(static model => GeneratorUtilities.GetMetadataName(model.ItemType), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ImmutableArray<Diagnostic>.Builder viewModelDiagnostics = suppressDirectDiagnostics && pending.IsDirectIncremental
+                ? ImmutableArray.CreateBuilder<Diagnostic>()
+                : diagnostics;
+            if (!AllContainingTypesArePartial(pending.ViewModelType))
+            {
+                viewModelDiagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.ViewModelMustBePartial,
+                    pending.Location,
+                    pending.ViewModelType.ToDisplayString()));
+                continue;
+            }
+
+            if (pending.ViewModelType.TypeParameters.Length != 0)
+            {
+                viewModelDiagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidTarget,
+                    pending.Location,
+                    pending.ViewModelType.ToDisplayString(),
+                    "open generic view models are not supported"));
+                continue;
+            }
+
+            var model = new ViewModelModel
+            {
+                ViewModelType = pending.ViewModelType,
+                Schema = schemas[pending.ItemType],
+                ColumnDefinitionsPropertyName = pending.ColumnDefinitionsPropertyName,
+                SchemaPropertyName = pending.SchemaPropertyName,
+                FastPathOptionsPropertyName = pending.FastPathOptionsPropertyName,
+                Location = pending.Location,
+                IsDirectIncremental = pending.IsDirectIncremental
+            };
+            model.GenerateColumnDefinitionsProperty = ValidateGeneratedViewModelMember(
+                pending.ViewModelType,
+                model.ColumnDefinitionsPropertyName,
+                generatedMembers,
+                viewModelDiagnostics,
+                pending.Location);
+            model.GenerateSchemaProperty = ValidateGeneratedViewModelMember(
+                pending.ViewModelType,
+                model.SchemaPropertyName,
+                generatedMembers,
+                viewModelDiagnostics,
+                pending.Location);
+            model.GenerateFastPathOptionsProperty = ValidateGeneratedViewModelMember(
+                pending.ViewModelType,
+                model.FastPathOptionsPropertyName,
+                generatedMembers,
+                viewModelDiagnostics,
+                pending.Location);
+            resolved.Add(model);
+        }
+
+        return resolved.ToImmutable();
+    }
+
+    private static bool HasGlobalViewModelPolicies(ImmutableArray<AttributeData> assemblyAttributes)
+    {
+        foreach (AttributeData attribute in assemblyAttributes)
+        {
+            if (IsAttribute(attribute, ProDataGridGenerator.GenerateViewModelAttributeName) ||
+                IsAttribute(attribute, ProDataGridGenerator.GenerateViewModelsForNamespaceAttributeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static DirectControllerCandidate? CreateDirectControllerCandidate(GeneratorAttributeSyntaxContext context)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol viewModelType ||
+            viewModelType.TypeKind != TypeKind.Class ||
+            HasGlobalSchemaPolicies(viewModelType.ContainingAssembly.GetAttributes()))
+        {
+            return null;
+        }
+
+        return new DirectControllerCandidate
+        {
+            ViewModelType = viewModelType,
+            Attributes = context.Attributes,
+            CacheKey = CreateDirectSchemaCacheKey(viewModelType, context.Attributes)
+        };
+    }
+
+    public static DirectControllerGenerationResult BuildDirectControllers(
+        ImmutableArray<DirectControllerCandidate> candidates,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+        var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
+        var controllers = new List<ControllerModel>();
+        INamedTypeSymbol[] itemTypes = candidates
+            .SelectMany(static candidate => candidate.Attributes)
+            .Select(static attribute => GetConstructorType(attribute, 0))
+            .Where(static itemType => itemType != null)
+            .Select(static itemType => itemType!)
+            .GroupBy(GeneratorUtilities.GetMetadataName, StringComparer.Ordinal)
+            .Select(static group => group.First())
+            .ToArray();
+        DiscoverTypeAndPropertySchemas(
+            itemTypes,
+            schemas,
+            diagnostics,
+            cancellationToken,
+            enableDirectIncremental: false);
+        INamedTypeSymbol[] viewModelTypes = candidates
+            .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.ViewModelType), StringComparer.Ordinal)
+            .Select(static candidate => candidate.ViewModelType)
+            .ToArray();
+        DiscoverTypeControllers(
+            viewModelTypes,
+            schemas,
+            controllers,
+            diagnostics,
+            cancellationToken,
+            enableDirectIncremental: false);
+        ResolveProviderCollisions(schemas.Values);
+
+        foreach (SchemaModel schema in schemas.Values)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!ValidateSchemaTarget(schema, diagnostics))
+            {
+                continue;
+            }
+
+            schema.Columns = DiscoverColumns(schema, ImmutableArray.CreateBuilder<Diagnostic>(), cancellationToken);
+            schema.KeyMember = DiscoverKeyMember(schema, ImmutableArray.CreateBuilder<Diagnostic>(), cancellationToken);
+        }
+
+        ValidateControllerKeys(controllers, diagnostics);
+        ImmutableArray<GeneratedSource> sources = controllers
+            .OrderBy(static controller => GeneratorUtilities.GetMetadataName(controller.ViewModelType), StringComparer.Ordinal)
+            .ThenBy(static controller => controller.Name, StringComparer.Ordinal)
+            .Select(Emitter.EmitControllerSource)
+            .ToImmutableArray();
+        return new DirectControllerGenerationResult(sources, diagnostics.ToImmutable());
+    }
+
+    private static void ValidateControllerKeys(
+        List<ControllerModel> controllers,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        for (int index = controllers.Count - 1; index >= 0; index--)
+        {
+            ControllerModel controller = controllers[index];
+            bool requiresKey = controller.SourceKind == 3 || controller.SourceKind == 4 ||
+                controller.SourceKind == 5 || controller.SourceKind == 6 ||
+                (controller.Features & ((1 << 4) | (1 << 5) | (1 << 13))) != 0;
+            if (requiresKey && controller.Schema.KeyMember == null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    controller.Location,
+                    controller.Name,
+                    "the selected source or controller features require a stable [DataGridKey] or KeyMember"));
+                controllers.RemoveAt(index);
+                continue;
+            }
+
+            if (controller.SourceKeyType != null && controller.Schema.KeyMember != null &&
+                !SymbolEqualityComparer.Default.Equals(controller.SourceKeyType, controller.Schema.KeyMember.Type))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    controller.Location,
+                    controller.Name,
+                    "the SourceCache key type does not match the generated schema key type"));
+                controllers.RemoveAt(index);
             }
         }
     }
@@ -692,7 +984,8 @@ internal static partial class Discovery
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
         List<ControllerModel> controllers,
         ImmutableArray<Diagnostic>.Builder diagnostics,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool enableDirectIncremental)
     {
         foreach (INamedTypeSymbol viewModelType in sourceTypes)
         {
@@ -754,6 +1047,10 @@ internal static partial class Discovery
                 Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
                 string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");
                 SchemaModel schema = EnsureSchema(schemas, itemType, attribute, providerName);
+                if (enableDirectIncremental)
+                {
+                    schema.IsDirectIncremental = true;
+                }
                 ApplyFastOptions(schema, arguments);
                 string? keyMember = GeneratorUtilities.GetString(arguments, "KeyMember");
                 if (!string.IsNullOrWhiteSpace(keyMember))
@@ -767,22 +1064,6 @@ internal static partial class Discovery
                             keyMember,
                             "controllers sharing a schema must use the same key member"));
                         continue;
-                    }
-
-                    if (schema.IsDirectIncremental)
-                    {
-                        ISymbol? directKeyMember = EnumerateMembers(schema.ItemType, schema.IncludeInherited)
-                            .FirstOrDefault(member => string.Equals(member.Name, keyMember, StringComparison.Ordinal));
-                        if (directKeyMember == null ||
-                            !GeneratorUtilities.HasAttribute(directKeyMember, ProDataGridGenerator.KeyAttributeName))
-                        {
-                            diagnostics.Add(Diagnostic.Create(
-                                GeneratorDiagnostics.InvalidItemKey,
-                                GetLocation(attribute),
-                                keyMember,
-                                "a directly generated schema requires the configured member to also have [DataGridKey]"));
-                            continue;
-                        }
                     }
 
                     schema.ExplicitKeyMemberName = keyMember;
@@ -903,6 +1184,7 @@ internal static partial class Discovery
                     OperationExecution = operationExecution,
                     ImplementationType = implementationType,
                     ConfigureMethod = configureMethod,
+                    IsDirectIncremental = enableDirectIncremental,
                     Location = GetLocation(attribute)
                 });
             }
@@ -2605,6 +2887,8 @@ internal static partial class Discovery
         public string SchemaPropertyName { get; set; } = "DataGridSchema";
 
         public string FastPathOptionsPropertyName { get; set; } = "FastPathOptions";
+
+        public bool IsDirectIncremental { get; set; }
 
         public Location Location { get; set; } = Location.None;
     }

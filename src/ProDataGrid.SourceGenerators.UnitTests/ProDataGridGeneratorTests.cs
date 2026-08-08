@@ -990,6 +990,201 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Unrelated_type_edit_does_not_invalidate_direct_view_composition()
+    {
+        const string viewSource = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), Title = "Rows")]
+            public sealed partial class RowsViewModel { public Row[] Items { get; } = []; }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { public int Value { get; set; } }
+            """;
+        const string unrelatedAfter = """
+            namespace Demo;
+            public sealed class Unrelated { public string Value { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { viewSource, unrelatedBefore },
+            new[] { viewSource, unrelatedAfter },
+            "DirectViewComposition");
+
+        Assert.DoesNotContain(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(IncrementalStepRunReason.New, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
+    public void Direct_view_candidate_is_invalidated_when_target_view_type_appears()
+    {
+        const string viewSource = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), Title = "Rows")]
+            public sealed partial class RowsViewModel { public Row[] Items { get; } = []; }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { }
+            """;
+        const string conflictingAfter = """
+            namespace Demo;
+            public sealed class RowsView : Avalonia.Controls.UserControl { }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { viewSource, unrelatedBefore },
+            new[] { viewSource, conflictingAfter },
+            "DirectViewCandidates");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(result.Sources, static source => source.Contains("partial class RowsView :", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Unrelated_type_edit_does_not_invalidate_direct_view_model_composition()
+    {
+        const string viewModelSource = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            public sealed partial class RowsViewModel { }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { public int Value { get; set; } }
+            """;
+        const string unrelatedAfter = """
+            namespace Demo;
+            public sealed class Unrelated { public string Value { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { viewModelSource, unrelatedBefore },
+            new[] { viewModelSource, unrelatedAfter },
+            "DirectViewModelComposition");
+
+        Assert.DoesNotContain(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(IncrementalStepRunReason.New, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
+    public void Direct_view_model_candidate_tracks_referenced_item_changes()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            public sealed partial class RowsViewModel { }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public string Id { get; set; } = ""; }
+            [GenerateDataGridViewModel(typeof(Row))]
+            public sealed partial class RowsViewModel { }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectViewModelCandidates");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+    }
+
+    [Fact]
+    public void Direct_view_model_uses_referenced_schema_provider_configuration()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(ProviderName = "ConfiguredRowSchema")]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            public sealed partial class RowsViewModel { }
+            """);
+
+        Assert.Empty(result.Errors);
+        Assert.Contains("global::Demo.ConfiguredRowSchema.Instance.CreateColumnDefinitions()", result.CombinedSource);
+        Assert.Contains("global::Demo.ConfiguredRowSchema.Instance.CreateFastPathOptions()", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Unrelated_type_edit_does_not_invalidate_direct_controller_composition()
+    {
+        const string controllerSource = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridController(typeof(Row), "Rows")]
+            public sealed partial class RowsViewModel { }
+            """;
+        const string unrelatedBefore = """
+            namespace Demo;
+            public sealed class Unrelated { public int Value { get; set; } }
+            """;
+        const string unrelatedAfter = """
+            namespace Demo;
+            public sealed class Unrelated { public string Value { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { controllerSource, unrelatedBefore },
+            new[] { controllerSource, unrelatedAfter },
+            "DirectControllerComposition");
+
+        Assert.DoesNotContain(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(IncrementalStepRunReason.New, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
+    public void Direct_controller_candidate_tracks_referenced_item_changes()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridController(typeof(Row), "Rows")]
+            public sealed partial class RowsViewModel { }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public string Id { get; set; } = ""; }
+            [GenerateDataGridController(typeof(Row), "Rows")]
+            public sealed partial class RowsViewModel { }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectControllerCandidates");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+    }
+
+    [Fact]
     public void Indexed_column_family_generates_typed_method_backed_factories()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -1430,7 +1625,7 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
-    public void Direct_schema_controller_key_must_use_data_grid_key_attribute()
+    public void Direct_schema_controller_key_member_is_composed_into_canonical_schema()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
             using ProDataGrid.SourceGeneration;
@@ -1441,7 +1636,9 @@ public sealed class ProDataGridGeneratorTests
             public sealed partial class RowsViewModel { }
             """);
 
-        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG101");
+        AssertNoErrors(result);
+        Assert.Contains("IDataGridItemKey<global::Demo.Row, int>", result.CombinedSource);
+        Assert.Contains("public int GetKey(global::Demo.Row item)", result.CombinedSource);
     }
 
     [Fact]
