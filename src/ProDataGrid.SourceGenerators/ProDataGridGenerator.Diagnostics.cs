@@ -170,6 +170,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated view conditional-formatting integration",
         "Generated conditional-formatting integration for view '{0}' is invalid: {1}");
 
+    public static readonly DiagnosticDescriptor AmbiguousInterfaceProperty = Create(
+        "PDGSG132",
+        "Ambiguous inherited interface property",
+        "Interface schema '{0}' inherits unrelated properties named '{1}' from '{2}' and '{3}'; redeclare the property on the schema interface to select one contract");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

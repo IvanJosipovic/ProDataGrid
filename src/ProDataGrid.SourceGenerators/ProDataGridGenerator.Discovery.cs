@@ -140,7 +140,9 @@ internal static partial class Discovery
     public static DirectSchemaCandidate? CreateDirectSchemaCandidate(GeneratorAttributeSyntaxContext context)
     {
         if (context.TargetSymbol is not INamedTypeSymbol targetType ||
-            (targetType.TypeKind != TypeKind.Class && targetType.TypeKind != TypeKind.Struct) ||
+            (targetType.TypeKind != TypeKind.Class &&
+             targetType.TypeKind != TypeKind.Struct &&
+             targetType.TypeKind != TypeKind.Interface) ||
             HasGlobalSchemaPolicies(targetType.ContainingAssembly.GetAttributes()))
         {
             return null;
@@ -159,7 +161,9 @@ internal static partial class Discovery
     {
         if (context.TargetSymbol is not IPropertySymbol property ||
             property.ContainingType is not { } targetType ||
-            (targetType.TypeKind != TypeKind.Class && targetType.TypeKind != TypeKind.Struct) ||
+            (targetType.TypeKind != TypeKind.Class &&
+             targetType.TypeKind != TypeKind.Struct &&
+             targetType.TypeKind != TypeKind.Interface) ||
             HasGlobalSchemaPolicies(targetType.ContainingAssembly.GetAttributes()))
         {
             return null;
@@ -229,6 +233,12 @@ internal static partial class Discovery
         if (type.BaseType != null && type.BaseType.SpecialType != SpecialType.System_Object)
         {
             AppendTypeFingerprint(builder, type.BaseType, visitedTypes);
+        }
+
+        foreach (INamedTypeSymbol implementedInterface in type.Interfaces
+                     .OrderBy(GeneratorUtilities.GetMetadataName, StringComparer.Ordinal))
+        {
+            AppendTypeFingerprint(builder, implementedInterface, visitedTypes);
         }
     }
 
@@ -1543,18 +1553,45 @@ internal static partial class Discovery
         CancellationToken cancellationToken)
     {
         var properties = new Dictionary<string, IPropertySymbol>(StringComparer.Ordinal);
-        INamedTypeSymbol? current = schema.ItemType;
-        while (current != null)
+        var ambiguousProperties = new HashSet<string>(StringComparer.Ordinal);
+        foreach (INamedTypeSymbol current in EnumerateSchemaTypes(schema.ItemType, schema.IncludeInherited))
         {
             foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
             {
-                if (!properties.ContainsKey(property.Name))
+                if (ambiguousProperties.Contains(property.Name))
+                {
+                    continue;
+                }
+
+                if (!properties.TryGetValue(property.Name, out IPropertySymbol? existing))
                 {
                     properties.Add(property.Name, property);
+                    continue;
                 }
+
+                if (schema.ItemType.TypeKind != TypeKind.Interface ||
+                    IsInterfaceDerivedFrom(existing.ContainingType, property.ContainingType))
+                {
+                    continue;
+                }
+
+                if (IsInterfaceDerivedFrom(property.ContainingType, existing.ContainingType))
+                {
+                    properties[property.Name] = property;
+                    continue;
+                }
+
+                properties.Remove(property.Name);
+                ambiguousProperties.Add(property.Name);
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.AmbiguousInterfaceProperty,
+                    schema.Location,
+                    schema.ItemType.ToDisplayString(),
+                    property.Name,
+                    existing.ContainingType.ToDisplayString(),
+                    property.ContainingType.ToDisplayString()));
             }
 
-            current = schema.IncludeInherited ? current.BaseType : null;
         }
 
         var columns = ImmutableArray.CreateBuilder<ColumnModel>();
@@ -1762,8 +1799,7 @@ internal static partial class Discovery
         }
 
         var candidates = new List<KeyMemberModel>();
-        INamedTypeSymbol? current = schema.ItemType;
-        while (current != null)
+        foreach (INamedTypeSymbol current in EnumerateSchemaTypes(schema.ItemType, schema.IncludeInherited))
         {
             foreach (ISymbol member in current.GetMembers())
             {
@@ -1786,7 +1822,6 @@ internal static partial class Discovery
                 candidates.Add(keyMember!);
             }
 
-            current = schema.IncludeInherited ? current.BaseType : null;
         }
 
         if (candidates.Count <= 1)
@@ -1849,16 +1884,73 @@ internal static partial class Discovery
 
     private static IEnumerable<ISymbol> EnumerateMembers(INamedTypeSymbol type, bool includeInherited)
     {
-        INamedTypeSymbol? current = type;
-        while (current != null)
+        foreach (INamedTypeSymbol current in EnumerateSchemaTypes(type, includeInherited))
         {
             foreach (ISymbol member in current.GetMembers())
             {
                 yield return member;
             }
-
-            current = includeInherited ? current.BaseType : null;
         }
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateSchemaTypes(
+        INamedTypeSymbol type,
+        bool includeInherited)
+    {
+        yield return type;
+        if (!includeInherited)
+        {
+            yield break;
+        }
+
+        if (type.TypeKind != TypeKind.Interface)
+        {
+            INamedTypeSymbol? current = type.BaseType;
+            while (current != null)
+            {
+                yield return current;
+                current = current.BaseType;
+            }
+
+            yield break;
+        }
+
+        var visited = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default) { type };
+        foreach (INamedTypeSymbol inherited in EnumerateInheritedInterfaces(type, visited))
+        {
+            yield return inherited;
+        }
+    }
+
+    private static IEnumerable<INamedTypeSymbol> EnumerateInheritedInterfaces(
+        INamedTypeSymbol type,
+        HashSet<INamedTypeSymbol> visited)
+    {
+        foreach (INamedTypeSymbol inherited in type.Interfaces
+                     .OrderBy(GeneratorUtilities.GetMetadataName, StringComparer.Ordinal))
+        {
+            if (!visited.Add(inherited))
+            {
+                continue;
+            }
+
+            yield return inherited;
+            foreach (INamedTypeSymbol nested in EnumerateInheritedInterfaces(inherited, visited))
+            {
+                yield return nested;
+            }
+        }
+    }
+
+    private static bool IsInterfaceDerivedFrom(INamedTypeSymbol candidate, INamedTypeSymbol possibleBase)
+    {
+        if (SymbolEqualityComparer.Default.Equals(candidate, possibleBase))
+        {
+            return true;
+        }
+
+        return candidate.AllInterfaces.Any(
+            inherited => SymbolEqualityComparer.Default.Equals(inherited, possibleBase));
     }
 
     private static bool IsNullableKeyType(ITypeSymbol type)
@@ -2080,9 +2172,11 @@ internal static partial class Discovery
         }
 
         string? reason = null;
-        if (type.TypeKind != TypeKind.Class && type.TypeKind != TypeKind.Struct)
+        if (type.TypeKind != TypeKind.Class &&
+            type.TypeKind != TypeKind.Struct &&
+            type.TypeKind != TypeKind.Interface)
         {
-            reason = "only classes and structs are supported";
+            reason = "only classes, structs, and interfaces are supported";
         }
         else if (type.IsUnboundGenericType || type.TypeArguments.Any(static argument => argument.TypeKind == TypeKind.TypeParameter))
         {
@@ -3163,7 +3257,9 @@ internal static partial class Discovery
 
     private static bool IsEligibleItemType(INamedTypeSymbol type)
     {
-        return (type.TypeKind == TypeKind.Class || type.TypeKind == TypeKind.Struct) &&
+        return (type.TypeKind == TypeKind.Class ||
+                type.TypeKind == TypeKind.Struct ||
+                type.TypeKind == TypeKind.Interface) &&
                !type.IsStatic &&
                type.TypeParameters.Length == 0 &&
                GeneratorUtilities.IsAccessibleFromGeneratedCode(type);

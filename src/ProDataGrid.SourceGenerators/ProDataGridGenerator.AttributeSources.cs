@@ -150,7 +150,7 @@ public sealed partial class ProDataGridGenerator
                 public bool GenerateSlotConstants { get; set; } = true;
             }
 
-            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
+            [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Interface | AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
             internal sealed class GenerateDataGridColumnsAttribute : Attribute
             {
                 public GenerateDataGridColumnsAttribute() { }

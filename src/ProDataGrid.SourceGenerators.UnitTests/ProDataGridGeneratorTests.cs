@@ -62,6 +62,121 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Interface_schema_generates_typed_inherited_accessors()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IEntity
+            {
+                [DataGridKey]
+                int Id { get; }
+            }
+
+            [GenerateDataGridColumns]
+            public interface ITrade : IEntity
+            {
+                string Symbol { get; set; }
+                decimal Price { get; }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("IDataGridGeneratedSchema<global::Demo.ITrade>", result.CombinedSource);
+        Assert.Contains("DataGridColumnValueAccessor<global::Demo.ITrade, int>", result.CombinedSource);
+        Assert.Contains("static item => item.Id", result.CombinedSource);
+        Assert.Contains("static (item, value) => item.Symbol = value", result.CombinedSource);
+        Assert.Contains("IDataGridItemKey<global::Demo.ITrade, int>", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Interface_schema_can_exclude_inherited_properties()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IBaseRow
+            {
+                int BaseValue { get; }
+            }
+
+            [GenerateDataGridColumns(IncludeInherited = false)]
+            public interface IRow : IBaseRow
+            {
+                int OwnValue { get; }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("CreateOwnValueColumn", result.CombinedSource);
+        Assert.DoesNotContain("CreateBaseValueColumn", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Namespace_policy_includes_interface_item_types()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridColumnsForNamespace("Demo.Contracts")]
+            namespace Demo.Contracts
+            {
+                public interface IRow { int Id { get; } }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class IRowDataGridSchema", result.CombinedSource);
+        Assert.Contains("IDataGridGeneratedSchema<global::Demo.Contracts.IRow>", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Interface_schema_reports_unrelated_inherited_property_ambiguity()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface ITextValue { string Value { get; } }
+            public interface INumericValue { int Value { get; } }
+
+            [GenerateDataGridColumns]
+            public interface IRow : ITextValue, INumericValue
+            {
+                int Id { get; }
+            }
+            """);
+
+        Diagnostic diagnostic = Assert.Single(
+            result.GeneratorDiagnostics.Where(static value => value.Id == "PDGSG132"));
+        Assert.Contains("redeclare the property", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Contains("CreateIdColumn", result.CombinedSource);
+        Assert.DoesNotContain("CreateValueColumn", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Interface_schema_redeclaration_resolves_inherited_property_ambiguity()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IFirstValue { string Value { get; } }
+            public interface ISecondValue { string Value { get; } }
+
+            [GenerateDataGridColumns]
+            public interface IRow : IFirstValue, ISecondValue
+            {
+                new string Value { get; }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("CreateValueColumn", result.CombinedSource);
+    }
+
+    [Fact]
     public void Assembly_attribute_targets_item_type()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -2032,6 +2147,34 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
         Assert.Contains(result.Reasons, static reason =>
             reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
+    public void Interface_schema_semantic_build_tracks_inherited_contract_changes()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public interface IEntity { int Id { get; } }
+            [GenerateDataGridColumns]
+            public interface IRow : IEntity { string Name { get; } }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public interface IEntity { long Id { get; } }
+            [GenerateDataGridColumns]
+            public interface IRow : IEntity { string Name { get; } }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectSchemaGeneration");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.Contains(result.Sources, static source =>
+            source.Contains("DataGridColumnValueAccessor<global::Demo.IRow, long>", StringComparison.Ordinal));
     }
 
     [Fact]

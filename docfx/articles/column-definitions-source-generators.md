@@ -46,6 +46,25 @@ public sealed class Trade
 
 `PublicProperties` discovery includes eligible public properties. Use `Discovery = DataGridColumnDiscovery.AttributedOnly` when the model must opt in property by property, and `[DataGridIgnoreColumn]` to exclude a property.
 
+The item contract may also be an interface. The generator walks inherited interfaces deterministically and emits the same typed columns, key/index services, operation compilers, controllers, and generated-view integration against that interface type:
+
+```csharp
+public interface IEntity
+{
+    [DataGridKey]
+    int Id { get; }
+}
+
+[GenerateDataGridColumns(ProviderName = "TradeContractSchema")]
+public interface ITrade : IEntity
+{
+    string Symbol { get; set; }
+    decimal Price { get; }
+}
+```
+
+Set `IncludeInherited = false` to restrict discovery to members declared directly on the annotated interface. If unrelated parent interfaces expose the same property name, redeclare that property on the annotated interface to select the contract; otherwise `PDGSG132` reports the ambiguity instead of emitting uncompilable accessors. Assembly and namespace policies include eligible interface item types as well as classes and structs.
+
 The generated provider implements `IDataGridGeneratedSchema<TItem>`, which is composed from five focused contracts:
 
 - `IDataGridColumnDefinitionProvider<TItem>` creates a new mutable definition list for each grid.

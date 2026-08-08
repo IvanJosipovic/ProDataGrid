@@ -34,3 +34,4 @@ PDGSG128 | ProDataGrid.SourceGeneration | Error | Invalid generated view perform
 PDGSG129 | ProDataGrid.SourceGeneration | Error | Invalid generated view transfer integration
 PDGSG130 | ProDataGrid.SourceGeneration | Error | Invalid generated view formula integration
 PDGSG131 | ProDataGrid.SourceGeneration | Error | Invalid generated view conditional-formatting integration
+PDGSG132 | ProDataGrid.SourceGeneration | Error | Ambiguous inherited interface property
