@@ -351,16 +351,60 @@ internal sealed class DirectSchemaCandidateComparer : IEqualityComparer<DirectSc
 internal sealed class DirectSchemaGenerationResult
 {
     public DirectSchemaGenerationResult(
+        string cacheKey,
         ImmutableArray<GeneratedSource> sources,
         ImmutableArray<Diagnostic> diagnostics)
     {
+        CacheKey = cacheKey;
         Sources = sources;
         Diagnostics = diagnostics;
     }
 
+    public string CacheKey { get; }
+
     public ImmutableArray<GeneratedSource> Sources { get; }
 
     public ImmutableArray<Diagnostic> Diagnostics { get; }
+}
+
+internal sealed class DirectSchemaCompositionResult
+{
+    public DirectSchemaCompositionResult(
+        ImmutableArray<DirectSchemaBuildCandidate> schemas,
+        ImmutableArray<Diagnostic> diagnostics)
+    {
+        Schemas = schemas;
+        Diagnostics = diagnostics;
+    }
+
+    public ImmutableArray<DirectSchemaBuildCandidate> Schemas { get; }
+
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
+}
+
+internal sealed class DirectSchemaBuildCandidate
+{
+    public DirectSchemaBuildCandidate(SchemaModel schema, string cacheKey)
+    {
+        Schema = schema;
+        CacheKey = cacheKey;
+    }
+
+    public SchemaModel Schema { get; }
+
+    public string CacheKey { get; }
+}
+
+internal sealed class DirectSchemaBuildCandidateComparer : IEqualityComparer<DirectSchemaBuildCandidate>
+{
+    public static readonly DirectSchemaBuildCandidateComparer Instance = new();
+
+    public bool Equals(DirectSchemaBuildCandidate? x, DirectSchemaBuildCandidate? y) =>
+        ReferenceEquals(x, y) ||
+        (x != null && y != null && string.Equals(x.CacheKey, y.CacheKey, StringComparison.Ordinal));
+
+    public int GetHashCode(DirectSchemaBuildCandidate candidate) =>
+        StringComparer.Ordinal.GetHashCode(candidate.CacheKey);
 }
 
 internal sealed class IndexedColumnsCandidate

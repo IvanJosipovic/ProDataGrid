@@ -275,7 +275,7 @@ internal static partial class Discovery
         builder.Append('|').Append(constant.Value?.ToString() ?? "null");
     }
 
-    public static DirectSchemaGenerationResult BuildDirectSchemas(
+    public static DirectSchemaCompositionResult ComposeDirectSchemas(
         ImmutableArray<DirectSchemaCandidate> schemaCandidates,
         ImmutableArray<DirectSchemaCandidate> propertyCandidates,
         ImmutableArray<DirectSchemaCandidate> viewModelCandidates,
@@ -284,6 +284,7 @@ internal static partial class Discovery
     {
         var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
         var schemas = new Dictionary<INamedTypeSymbol, SchemaModel>(SymbolEqualityComparer.Default);
+        var contributors = new Dictionary<INamedTypeSymbol, List<string>>(SymbolEqualityComparer.Default);
         foreach (DirectSchemaCandidate candidate in schemaCandidates
                      .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.TargetType), StringComparer.Ordinal))
         {
@@ -292,6 +293,7 @@ internal static partial class Discovery
             {
                 INamedTypeSymbol itemType = GetConstructorType(attribute, 0) ?? candidate.TargetType;
                 AddOrUpdateSchema(schemas, itemType, attribute, explicitProviderName: null, explicitConfiguration: true);
+                AddDirectSchemaContributor(contributors, itemType, candidate.CacheKey);
             }
         }
 
@@ -308,67 +310,132 @@ internal static partial class Discovery
                         GeneratorUtilities.GetLocation(candidate.TargetType),
                         attributedOnly: true));
             }
+
+            AddDirectSchemaContributor(contributors, candidate.TargetType, candidate.CacheKey);
         }
 
-        ApplyDirectOwnerSchemaRequests(viewModelCandidates, schemas, isController: false, diagnostics, cancellationToken);
-        ApplyDirectOwnerSchemaRequests(controllerCandidates, schemas, isController: true, diagnostics, cancellationToken);
+        ApplyDirectOwnerSchemaRequests(
+            viewModelCandidates,
+            schemas,
+            contributors,
+            isController: false,
+            diagnostics,
+            cancellationToken);
+        ApplyDirectOwnerSchemaRequests(
+            controllerCandidates,
+            schemas,
+            contributors,
+            isController: true,
+            diagnostics,
+            cancellationToken);
 
         ResolveProviderCollisions(schemas.Values);
-        var sources = ImmutableArray.CreateBuilder<GeneratedSource>();
-        foreach (SchemaModel schema in schemas.Values
-                     .OrderBy(static schema => schema.ProviderNamespace, StringComparer.Ordinal)
-                     .ThenBy(static schema => schema.ProviderName, StringComparer.Ordinal))
+        ImmutableArray<DirectSchemaBuildCandidate> buildCandidates = schemas.Values
+            .OrderBy(static schema => schema.ProviderNamespace, StringComparer.Ordinal)
+            .ThenBy(static schema => schema.ProviderName, StringComparer.Ordinal)
+            .Select(schema => new DirectSchemaBuildCandidate(
+                schema,
+                CreateDirectSchemaBuildCacheKey(schema, contributors)))
+            .ToImmutableArray();
+        return new DirectSchemaCompositionResult(buildCandidates, diagnostics.ToImmutable());
+    }
+
+    public static DirectSchemaGenerationResult BuildDirectSchema(
+        DirectSchemaBuildCandidate candidate,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+        SchemaModel schema = candidate.Schema;
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!ValidateSchemaTarget(schema, diagnostics))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!ValidateSchemaTarget(schema, diagnostics))
-            {
-                continue;
-            }
-
-            if (schema.ImplementationType != null &&
-                !ValidateImplementation(schema.ItemType, schema.ImplementationType))
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.InvalidImplementation,
-                    schema.Location,
-                    schema.ImplementationType.ToDisplayString(),
-                    schema.ItemType.ToDisplayString()));
-                schema.ImplementationType = null;
-            }
-
-            schema.Columns = DiscoverColumns(schema, diagnostics, cancellationToken);
-            ValidateFormulaMetadata(schema, diagnostics);
-            schema.KeyMember = DiscoverKeyMember(schema, diagnostics, cancellationToken);
-            schema.Hierarchy = DiscoverHierarchy(schema, diagnostics, cancellationToken);
-            if (schema.Columns.Length == 0 && schema.ImplementationType == null)
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.NoColumns,
-                    schema.Location,
-                    schema.ItemType.ToDisplayString()));
-                continue;
-            }
-
-            if (!string.IsNullOrEmpty(schema.ConfigureMethod) &&
-                !HasGlobalConfigureMethod(schema.ItemType, schema.ConfigureMethod!))
-            {
-                diagnostics.Add(Diagnostic.Create(
-                    GeneratorDiagnostics.InvalidCustomizationMethod,
-                    schema.Location,
-                    schema.ConfigureMethod,
-                    schema.ItemType.ToDisplayString()));
-                schema.ConfigureMethod = null;
-            }
-
-            sources.Add(Emitter.EmitSchemaSource(schema));
+            return new DirectSchemaGenerationResult(
+                candidate.CacheKey,
+                ImmutableArray<GeneratedSource>.Empty,
+                diagnostics.ToImmutable());
         }
 
-        return new DirectSchemaGenerationResult(sources.ToImmutable(), diagnostics.ToImmutable());
+        if (schema.ImplementationType != null &&
+            !ValidateImplementation(schema.ItemType, schema.ImplementationType))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidImplementation,
+                schema.Location,
+                schema.ImplementationType.ToDisplayString(),
+                schema.ItemType.ToDisplayString()));
+            schema.ImplementationType = null;
+        }
+
+        schema.Columns = DiscoverColumns(schema, diagnostics, cancellationToken);
+        ValidateFormulaMetadata(schema, diagnostics);
+        schema.KeyMember = DiscoverKeyMember(schema, diagnostics, cancellationToken);
+        schema.Hierarchy = DiscoverHierarchy(schema, diagnostics, cancellationToken);
+        if (schema.Columns.Length == 0 && schema.ImplementationType == null)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.NoColumns,
+                schema.Location,
+                schema.ItemType.ToDisplayString()));
+            return new DirectSchemaGenerationResult(
+                candidate.CacheKey,
+                ImmutableArray<GeneratedSource>.Empty,
+                diagnostics.ToImmutable());
+        }
+
+        if (!string.IsNullOrEmpty(schema.ConfigureMethod) &&
+            !HasGlobalConfigureMethod(schema.ItemType, schema.ConfigureMethod!))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidCustomizationMethod,
+                schema.Location,
+                schema.ConfigureMethod,
+                schema.ItemType.ToDisplayString()));
+            schema.ConfigureMethod = null;
+        }
+
+        return new DirectSchemaGenerationResult(
+            candidate.CacheKey,
+            ImmutableArray.Create(Emitter.EmitSchemaSource(schema)),
+            diagnostics.ToImmutable());
+    }
+
+    private static string CreateDirectSchemaBuildCacheKey(
+        SchemaModel schema,
+        Dictionary<INamedTypeSymbol, List<string>> contributors)
+    {
+        var builder = new StringBuilder();
+        builder.Append(GeneratorUtilities.GetMetadataName(schema.ItemType))
+            .Append('|').Append(schema.ProviderNamespace)
+            .Append('|').Append(schema.ProviderName);
+        if (contributors.TryGetValue(schema.ItemType, out List<string>? keys))
+        {
+            foreach (string key in keys.Distinct(StringComparer.Ordinal).OrderBy(static key => key, StringComparer.Ordinal))
+            {
+                builder.Append('|').Append(key);
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static void AddDirectSchemaContributor(
+        Dictionary<INamedTypeSymbol, List<string>> contributors,
+        INamedTypeSymbol itemType,
+        string cacheKey)
+    {
+        if (!contributors.TryGetValue(itemType, out List<string>? keys))
+        {
+            keys = new List<string>();
+            contributors.Add(itemType, keys);
+        }
+
+        keys.Add(cacheKey);
     }
 
     private static void ApplyDirectOwnerSchemaRequests(
         ImmutableArray<DirectSchemaCandidate> candidates,
         Dictionary<INamedTypeSymbol, SchemaModel> schemas,
+        Dictionary<INamedTypeSymbol, List<string>> contributors,
         bool isController,
         ImmutableArray<Diagnostic>.Builder diagnostics,
         CancellationToken cancellationToken)
@@ -384,6 +451,8 @@ internal static partial class Discovery
                 {
                     continue;
                 }
+
+                AddDirectSchemaContributor(contributors, itemType, candidate.CacheKey);
 
                 Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
                 string? providerName = GeneratorUtilities.GetString(arguments, "ProviderName");

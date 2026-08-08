@@ -54,6 +54,9 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore -p:VersionSuffix="${{ steps.version.outputs.version-suffix }}"
 
+      - name: Validate source-generation benchmark semantics
+        run: dotnet run -c Release --no-build --no-restore --project tests/ProDataGrid.SourceGeneration.Benchmarks/ProDataGrid.SourceGeneration.Benchmarks.csproj -- --validate
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

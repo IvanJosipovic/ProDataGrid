@@ -1,6 +1,8 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -99,12 +101,12 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
             .WithComparer(DirectSchemaCandidateComparer.Instance)
             .WithTrackingName("DirectControllerSchemaCandidates");
 
-        IncrementalValueProvider<DirectSchemaGenerationResult> directSchemas = directSchemaCandidates
+        IncrementalValueProvider<DirectSchemaCompositionResult> directSchemaComposition = directSchemaCandidates
             .Collect()
             .Combine(directPropertySchemaCandidates.Collect())
             .Combine(directViewModelSchemaCandidates.Collect())
             .Combine(directControllerSchemaCandidates.Collect())
-            .Select(static (input, cancellationToken) => Discovery.BuildDirectSchemas(
+            .Select(static (input, cancellationToken) => Discovery.ComposeDirectSchemas(
                 input.Left.Left.Left,
                 input.Left.Left.Right,
                 input.Left.Right,
@@ -112,18 +114,60 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
                 cancellationToken))
             .WithTrackingName("DirectSchemaComposition");
 
-        IncrementalValuesProvider<Diagnostic> directDiagnostics = directSchemas
-            .SelectMany(static (result, _) => result.Diagnostics)
-            .WithTrackingName("DirectSchemaDiagnostics");
-        context.RegisterSourceOutput(directDiagnostics, static (productionContext, diagnostic) =>
-            productionContext.ReportDiagnostic(diagnostic));
+        context.RegisterSourceOutput(
+            directSchemaComposition.SelectMany(static (result, _) => result.Diagnostics),
+            static (productionContext, diagnostic) => productionContext.ReportDiagnostic(diagnostic));
 
-        IncrementalValuesProvider<GeneratedSource> directSources = directSchemas
-            .SelectMany(static (result, _) => result.Sources)
-            .WithComparer(GeneratedSourceComparer.Instance)
-            .WithTrackingName("DirectSchemaSources");
-        context.RegisterSourceOutput(directSources, static (productionContext, source) =>
-            productionContext.AddSource(source.HintName, source.Source));
+        IncrementalValuesProvider<DirectSchemaBuildCandidate> directSchemaBuildCandidates = directSchemaComposition
+            .SelectMany(static (result, _) => result.Schemas)
+            .WithComparer(DirectSchemaBuildCandidateComparer.Instance)
+            .WithTrackingName("DirectSchemaBuildCandidates");
+
+        IncrementalValuesProvider<DirectSchemaGenerationResult> directSchemas = directSchemaBuildCandidates
+            .Select(static (candidate, cancellationToken) =>
+                Discovery.BuildDirectSchema(candidate, cancellationToken))
+            .WithTrackingName("DirectSchemaGeneration");
+
+        IncrementalValueProvider<(ImmutableArray<DirectSchemaGenerationResult> Results, DirectSchemaCompositionResult Composition)>
+            directSchemaOutputs = directSchemas
+                .Collect()
+                .Combine(directSchemaComposition);
+        context.RegisterSourceOutput(directSchemaOutputs, static (productionContext, output) =>
+        {
+            var currentCacheKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (DirectSchemaBuildCandidate candidate in output.Composition.Schemas)
+            {
+                currentCacheKeys.Add(candidate.CacheKey);
+            }
+
+            var currentSources = new Dictionary<string, GeneratedSource>(StringComparer.Ordinal);
+            var processedCacheKeys = new HashSet<string>(StringComparer.Ordinal);
+            foreach (DirectSchemaGenerationResult result in output.Results)
+            {
+                if (!currentCacheKeys.Contains(result.CacheKey) ||
+                    !processedCacheKeys.Add(result.CacheKey))
+                {
+                    continue;
+                }
+
+                foreach (Diagnostic diagnostic in result.Diagnostics)
+                {
+                    productionContext.ReportDiagnostic(diagnostic);
+                }
+
+                foreach (GeneratedSource source in result.Sources)
+                {
+                    currentSources[source.HintName] = source;
+                }
+            }
+
+            var orderedHintNames = new List<string>(currentSources.Keys);
+            orderedHintNames.Sort(StringComparer.Ordinal);
+            foreach (string hintName in orderedHintNames)
+            {
+                productionContext.AddSource(hintName, currentSources[hintName].Source);
+            }
+        });
 
         IncrementalValuesProvider<DirectViewCandidate> directViewCandidates = context.SyntaxProvider
             .ForAttributeWithMetadataName(

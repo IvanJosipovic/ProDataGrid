@@ -1152,6 +1152,23 @@ dotnet publish tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGen
 ./tests/ProDataGrid.SourceGeneration.AotSmoke/bin/Release/net10.0/osx-arm64/publish/ProDataGrid.SourceGeneration.AotSmoke
 ```
 
+### Performance validation
+
+`tests/ProDataGrid.SourceGeneration.Benchmarks` is the dedicated BenchmarkDotNet suite for generated integration and generator execution. Runtime benchmarks use an equivalent handwritten compiled provider as the regression baseline, then compare generated column creation, typed accessors, sorting, filtering, and searching. The expression-based compatibility provider is retained as a separate integration-cost reference rather than being presented as the existing fast path.
+
+The generator benchmarks separate cold execution, an unchanged compilation, and a one-schema semantic edit for one- and 32-schema compilations. The benchmark executable also provides deterministic correctness guards; CI runs those guards but intentionally does not gate timing on shared runners.
+
+Direct schemas are globally composed only to resolve ownership and provider-name collisions. Expensive column/key/hierarchy discovery and source emission then run as isolated per-schema incremental nodes. A local default-job reference on .NET 10 Arm64 measured a 32-schema edit at 3.55 ms and 2.80 MB versus 6.98 ms and 8.44 MB cold; generated runtime operations remained within 0.98–1.03x of the equivalent handwritten compiled paths. The benchmark README records the complete environment, distributions, allocations, data shapes, and limitations.
+
+```bash
+dotnet run -c Release --project tests/ProDataGrid.SourceGeneration.Benchmarks -- --validate
+dotnet run -c Release --project tests/ProDataGrid.SourceGeneration.Benchmarks -- --list flat
+dotnet run -c Release --project tests/ProDataGrid.SourceGeneration.Benchmarks -- --anyCategories Runtime
+dotnet run -c Release --project tests/ProDataGrid.SourceGeneration.Benchmarks -- --anyCategories Generator
+```
+
+Before comparing results, record the commit and dirty state, SDK/runtime, OS, architecture, hardware, power state, exact command, BenchmarkDotNet version, distributions, and allocation columns. Keep raw `BenchmarkDotNet.Artifacts` output; use stable or dedicated hardware for regression thresholds.
+
 ### Custom base classes and view customization
 
 Set `BaseType = typeof(MyGridViewBase)` to use an accessible, non-sealed `UserControl` base with a parameterless constructor. This supports shared styling, activation, services, and application-specific view infrastructure. A ReactiveUI custom base used with routed-event or interaction activation must also implement `IActivatableView`; an incompatible base reports `PDGSG013` at compile time.

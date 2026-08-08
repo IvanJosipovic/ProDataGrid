@@ -1972,7 +1972,7 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
-    public void Unchanged_schema_output_is_reused_when_another_schema_changes()
+    public void Unchanged_schema_generation_is_reused_when_another_schema_changes()
     {
         const string firstSource = """
             using ProDataGrid.SourceGeneration;
@@ -1994,11 +1994,136 @@ public sealed class ProDataGridGeneratorTests
         IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
             firstSource,
             secondSource,
-            "DirectSchemaSources");
+            "DirectSchemaGeneration");
 
         Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
-        Assert.Contains(IncrementalStepRunReason.Unchanged, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
         Assert.Equal(3, result.Sources.Count); // injected attributes plus two schemas
+    }
+
+    [Fact]
+    public void Unchanged_schema_semantic_build_is_reused_when_another_schema_changes()
+    {
+        const string firstBefore = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class First { public int Id { get; set; } }
+            """;
+        const string firstAfter = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class First { public int Id { get; set; } public decimal Amount { get; set; } }
+            """;
+        const string unchangedSecond = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Second { public string Name { get; set; } = ""; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { firstBefore, unchangedSecond },
+            new[] { firstAfter, unchangedSecond },
+            "DirectSchemaGeneration");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.Contains(result.Reasons, static reason =>
+            reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
+    }
+
+    [Fact]
+    public void Direct_schema_semantic_build_is_invalidated_when_owner_options_change()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row), Strict = true)]
+            public sealed partial class RowsViewModel { }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row), Strict = false)]
+            public sealed partial class RowsViewModel { }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectSchemaGeneration");
+
+        Assert.Contains(result.Sources, static source =>
+            source.Contains("UseAccessorsOnly = false", StringComparison.Ordinal));
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+    }
+
+    [Fact]
+    public void Direct_schema_semantic_build_is_invalidated_when_provider_collision_appears()
+    {
+        const string first = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(ProviderName = "SharedSchema")]
+            public sealed class First { public int Id { get; set; } }
+            """;
+        const string secondBefore = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(ProviderName = "SecondSchema")]
+            public sealed class Second { public int Id { get; set; } }
+            """;
+        const string secondAfter = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(ProviderName = "SharedSchema")]
+            public sealed class Second { public int Id { get; set; } }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { first, secondBefore },
+            new[] { first, secondAfter },
+            "DirectSchemaGeneration");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.DoesNotContain(result.Sources, static source =>
+            source.Contains("class SharedSchema :", StringComparison.Ordinal));
+        Assert.Equal(2, result.Sources.Count(static source =>
+            source.Contains("class SharedSchema_", StringComparison.Ordinal)));
+    }
+
+    [Fact]
+    public void Property_only_schema_semantic_build_is_invalidated_when_property_changes()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn] public int Id { get; set; }
+            }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn] public long Id { get; set; }
+            }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectSchemaGeneration");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
     }
 
     [Fact]
