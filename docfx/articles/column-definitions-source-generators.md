@@ -461,6 +461,7 @@ public sealed class Sale
 
     [DataGridColumn(Header = "Region", ColumnKey = "region")]
     [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotRow, Order = 0)]
+    [DataGridOutlineField(DataGridGeneratedAnalyticsRole.OutlineGroup, Order = 0)]
     public string Region { get; init; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Revenue", ColumnKey = "revenue")]
@@ -469,6 +470,12 @@ public sealed class Sale
         DataGridGeneratedAnalyticsRole.ChartValue,
         Order = 0,
         Series = "Revenue",
+        Format = "C0",
+        Aggregate = DataGridAggregateType.Sum)]
+    [DataGridOutlineField(
+        DataGridGeneratedAnalyticsRole.OutlineDetail,
+        Order = 0,
+        Name = "Revenue",
         Format = "C0",
         Aggregate = DataGridAggregateType.Sum)]
     public double Revenue { get; init; }
@@ -489,6 +496,22 @@ PivotTableModel pivot = SalesSchema.CreatePivotTableModel(
 ```
 
 No pivot field receives a property path. Each selector calls the generated field accessor directly. The callback remains the customization boundary for layout, sorting, subtotal policy, filters, calculated fields, and application-specific pivot behavior.
+
+Outline roles use the same ordered direct selectors. Group roles create `OutlineGroupField` instances; detail roles create aggregated `OutlineValueField` instances with explicit `DataGridAggregateType` mapping. The generated provider exposes `CreateOutlineGroupFields`, `CreateOutlineValueFields`, and a customizable model factory:
+
+```csharp
+OutlineReportModel outline = SalesSchema.CreateOutlineReportModel(
+    items,
+    static report =>
+    {
+        report.Layout.ShowSubtotals = true;
+        report.Layout.ShowGrandTotal = true;
+        report.Layout.ShowDetailRows = true;
+        report.Layout.DetailLabelSelector = static item => ((Sale)item).Period;
+    });
+```
+
+Every generated outline field leaves `PropertyPath` unset. `DataGridGeneratedOutlineAdapter` is also public for custom manifests, while the callback remains the boundary for comparers, custom aggregators, detail labels, layout, culture, and expansion policy.
 
 Projects that reference `ProDataGrid.Charting` can create a direct chart projection from the same manifest:
 
@@ -549,7 +572,7 @@ var longFormModel = new ChartModel { DataSource = longForm };
 
 The source walks input once, invokes cached numeric selectors directly, preserves first category/discriminator order, aggregates duplicate category/series pairs according to each generated field, honors exact chart windows, observes collection and item changes, and bounds both input rows and emitted series. One value role names series by discriminator; multiple value roles use `discriminator · value`. Custom sources can implement `IChartDataSource` and consume the same manifest.
 
-`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, ordered row/column/filter/value fields, a configurable generated `PivotTableModel`, a chart driven by the pivot result, a bounded range chart, generated long-form Region series, incremental stable-key selection synchronization, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage.
+`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, ordered row/column/filter/value fields, a configurable generated `PivotTableModel`, a chart driven by the pivot result, a bounded range chart, generated long-form Region series, incremental stable-key selection synchronization, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage. `GeneratedOutlineDragDropPage` demonstrates ordered generated outline groups/values beside a generated ReactiveUI source grid and domain-owned keyed Move/Copy handling with rejection, revision state, and automatic outline refresh.
 
 ## Column coverage and customization
 

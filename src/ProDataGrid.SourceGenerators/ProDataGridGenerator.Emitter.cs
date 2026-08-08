@@ -1320,7 +1320,18 @@ internal static class Emitter
             .AppendLine("        public static global::Avalonia.Controls.DataGridPivoting.PivotTableModel CreatePivotTableModel(")
             .AppendLine("            global::System.Collections.IEnumerable items,")
             .AppendLine("            global::System.Action<global::Avalonia.Controls.DataGridPivoting.PivotTableModel>? configure = null)")
-            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure);");
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure);")
+            .AppendLine()
+            .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridReporting.OutlineGroupField> CreateOutlineGroupFields()")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedOutlineAdapter.CreateGroupFields(AnalyticsFields);")
+            .AppendLine()
+            .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridReporting.OutlineValueField> CreateOutlineValueFields()")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedOutlineAdapter.CreateValueFields(AnalyticsFields);")
+            .AppendLine()
+            .AppendLine("        public static global::Avalonia.Controls.DataGridReporting.OutlineReportModel CreateOutlineReportModel(")
+            .AppendLine("            global::System.Collections.IEnumerable items,")
+            .AppendLine("            global::System.Action<global::Avalonia.Controls.DataGridReporting.OutlineReportModel>? configure = null)")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedOutlineAdapter.CreateModel(items, AnalyticsFields, configure);");
     }
 
     private static void EmitCollectionMutationFactories(StringBuilder builder, SchemaModel schema, string itemType)

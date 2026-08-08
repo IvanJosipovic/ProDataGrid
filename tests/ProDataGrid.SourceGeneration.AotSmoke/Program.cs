@@ -48,6 +48,13 @@ using DataGridGeneratedLongFormChartDataSource longFormSource =
         maximumItems: 8,
         maximumSeries: 8);
 using var longFormModel = new ChartModel { DataSource = longFormSource };
+using var outline = AotTradeRowSchema.CreateOutlineReportModel(viewModel.Items);
+var dropHandler = new AotTradeDropHandler();
+using DataGridGeneratedDragDropController<int> dragDrop = AotTradeRowSchema.CreateDragDropController(dropHandler);
+bool dropApplied = await dragDrop.DropAsync(
+    new[] { 1 },
+    2,
+    DataGridGeneratedDropPosition.Before);
 
 if (!AotGeneratedRegistry.TryGetSchema(typeof(AotTradeRow), out IDataGridGeneratedSchemaManifestProvider schema) ||
     schema.Manifest.SchemaId != AotTradeRowSchema.SchemaId ||
@@ -57,7 +64,12 @@ if (!AotGeneratedRegistry.TryGetSchema(typeof(AotTradeRow), out IDataGridGenerat
     chartProjection.Model.Snapshot.Series.Count != 1 ||
     chartProjection.Model.Interaction.CrosshairCategoryIndex != 1 ||
     longFormModel.Snapshot.Categories.Count != 2 ||
-    longFormModel.Snapshot.Series.Count != 2)
+    longFormModel.Snapshot.Series.Count != 2 ||
+    outline.GroupFields.Count != 1 ||
+    outline.ValueFields.Count != 1 ||
+    outline.Rows.Count == 0 ||
+    !dropApplied ||
+    dropHandler.ApplyCount != 1)
 {
     return 1;
 }

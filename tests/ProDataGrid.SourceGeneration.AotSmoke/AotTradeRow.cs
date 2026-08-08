@@ -31,10 +31,17 @@ internal sealed class AotTradeRow
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Desk", ColumnKey = "desk", Order = 2, Width = "*")]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartSeries, Order = 0)]
+    [DataGridOutlineField(DataGridGeneratedAnalyticsRole.OutlineGroup, Order = 0, Name = "Desk")]
     public string Desk { get; init; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Price", ColumnKey = "price", Order = 3, FormatString = "N2")]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartValue, Order = 0, Series = "Price")]
+    [DataGridOutlineField(
+        DataGridGeneratedAnalyticsRole.OutlineDetail,
+        Order = 0,
+        Name = "Price",
+        Format = "N2",
+        Aggregate = DataGridAggregateType.Sum)]
     public decimal Price { get; init; }
 
     [DataGridColumn(DataGridColumnKind.DatePicker, Header = "Timestamp", ColumnKey = "timestamp", Order = 4, FormatString = "HH:mm:ss")]
@@ -74,4 +81,18 @@ internal sealed class AotTradeNewRowFactory : IDataGridGeneratedNewRowFactory<Ao
 {
     public ValueTask<AotTradeRow> CreateAsync(CancellationToken cancellationToken) =>
         ValueTask.FromResult(new AotTradeRow { Id = 42, Symbol = "NEW" });
+}
+
+internal sealed class AotTradeDropHandler : IDataGridGeneratedDropHandler<int>
+{
+    public int ApplyCount { get; private set; }
+
+    public ValueTask ApplyAsync(
+        DataGridGeneratedDropRequest<int> request,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ApplyCount++;
+        return ValueTask.CompletedTask;
+    }
 }

@@ -3250,6 +3250,8 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("CreatePivotValueFields", result.CombinedSource);
         Assert.Contains("CreatePivotTableModel", result.CombinedSource);
         Assert.Contains("DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure)", result.CombinedSource);
+        Assert.Contains("CreateOutlineReportModel", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedOutlineAdapter.CreateModel(items, AnalyticsFields, configure)", result.CombinedSource);
         Assert.Contains("item is global::Demo.Row typed ? (double?)typed.Amount : null", result.CombinedSource);
         Assert.Contains("DataGridGeneratedDiagnosticsManifest Diagnostics", result.CombinedSource);
         Assert.Contains("DataGridGeneratedAnalyticsRole)2120", result.CombinedSource);

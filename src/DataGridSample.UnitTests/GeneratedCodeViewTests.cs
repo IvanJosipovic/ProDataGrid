@@ -1053,6 +1053,50 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public async Task Generated_outline_drag_drop_page_binds_both_generated_projection_families()
+    {
+        using var viewModel = new GeneratedOutlineDragDropViewModel();
+        var view = new GeneratedOutlineDragDropPage { DataContext = viewModel };
+        var window = new Window { Width = 1180, Height = 760, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid outlineGrid = view.GetVisualDescendants().OfType<DataGrid>().Single();
+            Assert.Equal("generated-outline-report-grid", AutomationProperties.GetAutomationId(outlineGrid));
+            Assert.Same(viewModel.Outline.HierarchicalModel, outlineGrid.HierarchicalModel);
+            Assert.Equal(viewModel.Outline.ColumnDefinitions.Count, outlineGrid.Columns.Count);
+
+            TabControl tabs = view.GetLogicalDescendants().OfType<TabControl>().Single();
+            tabs.SelectedIndex = 1;
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+
+            DataGrid sourceGrid = view.GetVisualDescendants().OfType<DataGrid>().Single();
+            Assert.Equal("generated-outline-drag-drop-grid", AutomationProperties.GetAutomationId(sourceGrid));
+            Assert.Same(viewModel.Items, sourceGrid.ItemsSource);
+            Assert.True(sourceGrid.FastPathOptions.StrictMode);
+            Assert.Equal(8, sourceGrid.Columns.Count(static column => column.ColumnKey != null));
+
+            bool moved = await viewModel.DropAsync(
+                [1005],
+                1001,
+                DataGridGeneratedDropPosition.Before,
+                cancellationToken: TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(moved);
+            Assert.Equal(1005, viewModel.Items[0].Id);
+            Assert.Contains("stable keys", viewModel.Status, StringComparison.Ordinal);
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Generated_reactive_view_recipes_expose_distinct_layout_slots_and_shared_bindings()
     {
         using var viewModel = new GeneratedReactiveViewRecipesViewModel();

@@ -48,6 +48,14 @@ public class GeneratedChartRangeProjectionBenchmarks
         ProCharts.ChartDataSnapshot snapshot = source.BuildSnapshot(new ProCharts.ChartDataRequest());
         return snapshot.Categories.Count + snapshot.Series.Count;
     }
+
+    [Benchmark]
+    public int BuildGeneratedOutline()
+    {
+        using Avalonia.Controls.DataGridReporting.OutlineReportModel outline =
+            BenchmarkTradeSchema.CreateOutlineReportModel(_rows);
+        return outline.GroupFields.Count + outline.ValueFields.Count;
+    }
 }
 
 [MemoryDiagnoser]

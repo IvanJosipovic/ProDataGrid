@@ -4,7 +4,7 @@ This dedicated BenchmarkDotNet project measures three boundaries:
 
 - generated runtime integration against an equivalent handwritten compiled fast path, with the expression-based compatibility path retained as an integration-cost reference;
 - cold generation, incremental no-op reuse, and a single-schema semantic edit across representative compilation sizes.
-- capability-gated analytics range construction and generated stable-key chart lookup.
+- capability-gated analytics range/long-form chart construction, generated outline construction, and stable-key chart lookup.
 
 Every runtime comparison uses the same five-column schema, stable keys, typed accessors, descriptors, rows, and result semantics. `HandwrittenCompiledFastPath` is the regression baseline. The expression benchmark includes expression construction and compilation because that work belongs to the compatibility integration path being replaced. It is not used as the fast-path baseline.
 

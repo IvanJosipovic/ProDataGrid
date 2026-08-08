@@ -41,6 +41,10 @@ internal static class BenchmarkCorrectness
         {
             throw new InvalidOperationException("Generated long-form analytics projection returned unexpected output.");
         }
+        if (projection.BuildGeneratedOutline() != 3)
+        {
+            throw new InvalidOperationException("Generated outline analytics projection returned unexpected output.");
+        }
 
         var identity = new GeneratedChartKeyLookupBenchmarks { RowCount = 256 };
         identity.Setup();

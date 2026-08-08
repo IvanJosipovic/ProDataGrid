@@ -585,6 +585,7 @@ public sealed partial class ProDataGridGenerator
                 public int Order { get; set; }
                 public string? Name { get; set; }
                 public string? Format { get; set; }
+                public global::Avalonia.Controls.DataGridAggregateType Aggregate { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]

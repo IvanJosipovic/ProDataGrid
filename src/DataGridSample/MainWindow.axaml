@@ -656,6 +656,13 @@
         </pages:GeneratedPivotChartPage.DataContext>
       </pages:GeneratedPivotChartPage>
     </TabItem>
+    <TabItem Header="Generated Outline + Drag Drop">
+      <pages:GeneratedOutlineDragDropPage>
+        <pages:GeneratedOutlineDragDropPage.DataContext>
+          <viewModels:GeneratedOutlineDragDropViewModel />
+        </pages:GeneratedOutlineDragDropPage.DataContext>
+      </pages:GeneratedOutlineDragDropPage>
+    </TabItem>
     <TabItem Header="Generated View Recipes">
       <pages:GeneratedReactiveViewRecipesPage>
         <pages:GeneratedReactiveViewRecipesPage.DataContext>

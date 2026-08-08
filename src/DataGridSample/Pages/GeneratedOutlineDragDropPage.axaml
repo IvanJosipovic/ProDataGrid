@@ -1,0 +1,52 @@
+<UserControl
+    x:Class="DataGridSample.Pages.GeneratedOutlineDragDropPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:pages="clr-namespace:DataGridSample.Pages"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:GeneratedOutlineDragDropViewModel">
+  <TabControl Margin="12">
+    <TabItem Header="Generated outline">
+      <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="h2" Text="Generated outline report" />
+          <TextBlock TextWrapping="Wrap"
+                     Text="Ordered group and value fields come from the source-generated analytics manifest. Direct selectors build subtotals, grand totals, and detail rows without property paths." />
+        </StackPanel>
+        <WrapPanel Grid.Row="1">
+          <Button Content="Expand all" Command="{Binding ExpandAllCommand}" />
+          <Button Content="Collapse all" Command="{Binding CollapseAllCommand}" />
+        </WrapPanel>
+        <DataGrid Grid.Row="2"
+                  AutomationProperties.AutomationId="generated-outline-report-grid"
+                  AutoGenerateColumns="False"
+                  ColumnDefinitionsSource="{Binding Outline.ColumnDefinitions}"
+                  HierarchicalModel="{Binding Outline.HierarchicalModel}"
+                  HierarchicalRowsEnabled="True"
+                  IsReadOnly="True"
+                  HeadersVisibility="All"
+                  CanUserResizeColumns="True"
+                  RowHeight="28" />
+      </Grid>
+    </TabItem>
+    <TabItem Header="Generated keyed drag/drop">
+      <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+        <StackPanel Spacing="4">
+          <TextBlock Classes="h2" Text="Generated keyed drag/drop controller" />
+          <TextBlock TextWrapping="Wrap"
+                     Text="Move and Copy requests carry stable generated keys into a domain-owned handler. Validation, cancellation, revision state, locked targets, and self-drop rejection stay outside the view." />
+        </StackPanel>
+        <WrapPanel Grid.Row="1">
+          <Button Content="Move last before first" Command="{Binding MoveLastBeforeFirstCommand}" />
+          <Button Content="Copy second after fourth" Command="{Binding CopySecondAfterFourthCommand}" />
+          <Button Content="Reject self-drop" Command="{Binding RejectSelfDropCommand}" />
+          <Button Content="Reset" Command="{Binding ResetCommand}" />
+        </WrapPanel>
+        <Border Grid.Row="2" Padding="8" Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="4">
+          <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        </Border>
+        <pages:GeneratedOutlineDragDropGrid Grid.Row="3" />
+      </Grid>
+    </TabItem>
+  </TabControl>
+</UserControl>

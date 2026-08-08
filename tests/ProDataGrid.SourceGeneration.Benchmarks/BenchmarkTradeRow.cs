@@ -24,13 +24,24 @@ public sealed class BenchmarkTradeRow
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Desk", ColumnKey = "desk", Order = 2)]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartSeries, Order = 0)]
+    [DataGridOutlineField(DataGridGeneratedAnalyticsRole.OutlineGroup, Order = 0, Name = "Desk")]
     public string Desk { get; set; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Price", ColumnKey = "price", Order = 3)]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartValue, Order = 0, Series = "Price")]
+    [DataGridOutlineField(
+        DataGridGeneratedAnalyticsRole.OutlineDetail,
+        Order = 0,
+        Name = "Price",
+        Aggregate = DataGridAggregateType.Sum)]
     public decimal Price { get; set; }
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Quantity", ColumnKey = "quantity", Order = 4)]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartValue, Order = 1, Series = "Quantity")]
+    [DataGridOutlineField(
+        DataGridGeneratedAnalyticsRole.OutlineDetail,
+        Order = 1,
+        Name = "Quantity",
+        Aggregate = DataGridAggregateType.Sum)]
     public long Quantity { get; set; }
 }

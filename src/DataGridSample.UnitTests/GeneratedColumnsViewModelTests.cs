@@ -737,6 +737,59 @@ public sealed class GeneratedColumnsViewModelTests
     }
 
     [Fact]
+    public async Task Generated_outline_and_drag_drop_use_typed_fields_stable_keys_and_domain_handler()
+    {
+        using var viewModel = new GeneratedOutlineDragDropViewModel();
+
+        Assert.Equal(6, viewModel.Items.Count);
+        Assert.Equal(2, viewModel.Outline.GroupFields.Count);
+        Assert.Equal(2, viewModel.Outline.ValueFields.Count);
+        Assert.Equal(new[] { "region", "team" }, viewModel.Outline.GroupFields.Select(static field => field.Key));
+        Assert.Equal(new[] { "planned", "actual" }, viewModel.Outline.ValueFields.Select(static field => field.Key));
+        Assert.All(viewModel.Outline.GroupFields, static field => Assert.Null(field.PropertyPath));
+        Assert.All(viewModel.Outline.ValueFields, static field => Assert.Null(field.PropertyPath));
+        Assert.All(viewModel.Outline.ValueFields, static field => Assert.Equal(PivotAggregateType.Sum, field.AggregateType));
+        Assert.NotEmpty(viewModel.Outline.Rows);
+
+        bool moved = await viewModel.DropAsync(
+            [1005],
+            1001,
+            DataGridGeneratedDropPosition.Before,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(moved);
+        Assert.Equal(1005, viewModel.Items[0].Id);
+        Assert.Equal(DataGridGeneratedDropStatus.Applied, viewModel.DragDrop.Status);
+
+        int countBeforeCopy = viewModel.Items.Count;
+        bool copied = await viewModel.DropAsync(
+            [1002],
+            1004,
+            DataGridGeneratedDropPosition.After,
+            DataGridGeneratedDropOperation.Copy,
+            TestContext.Current.CancellationToken);
+        Assert.True(copied);
+        Assert.Equal(countBeforeCopy + 1, viewModel.Items.Count);
+        Assert.Contains(viewModel.Items, static item => item.Id >= 1100 && item.WorkItem.EndsWith("(copy)", StringComparison.Ordinal));
+
+        bool selfDrop = await viewModel.DropAsync(
+            [1001],
+            1001,
+            DataGridGeneratedDropPosition.Before,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(selfDrop);
+        Assert.Equal(DataGridGeneratedDropStatus.Rejected, viewModel.DragDrop.Status);
+        Assert.Contains("itself", viewModel.DragDrop.Error, StringComparison.Ordinal);
+
+        bool lockedTarget = await viewModel.DropAsync(
+            [1001],
+            1006,
+            DataGridGeneratedDropPosition.After,
+            cancellationToken: TestContext.Current.CancellationToken);
+        Assert.False(lockedTarget);
+        Assert.Contains("locked", viewModel.DragDrop.Error, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Generated_reactive_view_recipes_share_schema_collection_and_compiled_search()
     {
         using var viewModel = new GeneratedReactiveViewRecipesViewModel();
