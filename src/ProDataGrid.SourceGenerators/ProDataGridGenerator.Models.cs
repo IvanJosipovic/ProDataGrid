@@ -471,6 +471,8 @@ internal sealed class KeyMemberModel
     public ISymbol Member { get; set; } = null!;
 
     public ITypeSymbol Type { get; set; } = null!;
+
+    public INamedTypeSymbol? AccessReceiverType { get; set; }
 }
 
 internal sealed class HierarchyModel
@@ -487,6 +489,10 @@ internal sealed class HierarchyModel
 internal sealed class ColumnModel
 {
     public IPropertySymbol Property { get; set; } = null!;
+
+    public IPropertySymbol ConfigurationProperty { get; set; } = null!;
+
+    public INamedTypeSymbol? AccessReceiverType { get; set; }
 
     public string Kind { get; set; } = "Auto";
 

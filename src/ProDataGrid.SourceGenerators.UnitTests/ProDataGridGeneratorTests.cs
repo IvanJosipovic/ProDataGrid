@@ -177,6 +177,167 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Explicit_interface_properties_generate_typed_cast_accessors_and_key()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IRowContract
+            {
+                [DataGridKey]
+                int Id { get; }
+
+                [DataGridColumn(Header = "Contract name", Order = 1)]
+                string Name { get; set; }
+
+                decimal Hidden { get; }
+            }
+
+            [GenerateDataGridColumns(Discovery = DataGridColumnDiscovery.AttributedOnly)]
+            public sealed class Row : IRowContract
+            {
+                int IRowContract.Id => 42;
+                string IRowContract.Name { get; set; } = "Ada";
+                decimal IRowContract.Hidden => 10m;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("static item => ((global::Demo.IRowContract)item).Name", result.CombinedSource);
+        Assert.Contains("static (item, value) => ((global::Demo.IRowContract)item).Name = value", result.CombinedSource);
+        Assert.Contains("=> ((global::Demo.IRowContract)item).Id;", result.CombinedSource);
+        Assert.Contains("Contract name", result.CombinedSource);
+        Assert.DoesNotContain("CreateHiddenColumn", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Explicit_interface_implementation_metadata_drives_edit_field()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.ComponentModel.DataAnnotations;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IRowContract { string Name { get; set; } }
+
+            [GenerateDataGridColumns(Discovery = DataGridColumnDiscovery.AttributedOnly)]
+            public sealed class Row : IRowContract
+            {
+                [Required]
+                [DataGridColumn]
+                string IRowContract.Name { get; set; } = "";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGridGeneratedEditField<global::Demo.Row, string>", result.CombinedSource);
+        Assert.Contains("String.IsNullOrWhiteSpace(value)", result.CombinedSource);
+        Assert.Contains("((global::Demo.IRowContract)item).Name", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Explicit_interface_property_attribute_directly_triggers_schema()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IRowContract { string Name { get; } }
+            public sealed class Row : IRowContract
+            {
+                [DataGridColumn]
+                string IRowContract.Name => "Direct";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class RowDataGridSchema", result.CombinedSource);
+        Assert.Contains("static item => ((global::Demo.IRowContract)item).Name", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Explicit_interface_property_reuses_cast_accessor_for_advanced_metadata()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridConditionalFormatting;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IRowContract { decimal Value { get; } }
+
+            [GenerateDataGridColumns]
+            public sealed class Row : IRowContract
+            {
+                [DataGridColumn(HeaderProviderMethod = nameof(GetHeader), DescriptionProviderMethod = nameof(GetDescription))]
+                [DataGridGroup]
+                [DataGridSummary(DataGridAggregateType.Sum)]
+                [DataGridConditionalFormat(DataGridCondition.GreaterThan, Operand = "10")]
+                decimal IRowContract.Value => 20m;
+
+                public static string GetHeader(IFormatProvider provider) => "Value";
+                public static string GetDescription() => "Contract value";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("global::Demo.Row.GetHeader(provider)", result.CombinedSource);
+        Assert.Contains("global::Demo.Row.GetDescription()", result.CombinedSource);
+        Assert.Contains("static item => ((global::Demo.IRowContract)item).Value", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedGroupField<global::Demo.Row, decimal>", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedSummary<global::Demo.Row, decimal>", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedConditionalRule<global::Demo.Row, decimal>", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Public_property_wins_over_same_name_explicit_interface_property()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IRowContract { string Name { get; } }
+
+            [GenerateDataGridColumns]
+            public sealed class Row : IRowContract
+            {
+                public string Name { get; set; } = "Public";
+                string IRowContract.Name => "Explicit";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("static item => item.Name", result.CombinedSource);
+        Assert.DoesNotContain("((global::Demo.IRowContract)item).Name", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Same_name_explicit_interface_properties_report_ambiguity()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public interface IFirst { string Value { get; } }
+            public interface ISecond { int Value { get; } }
+
+            [GenerateDataGridColumns]
+            public sealed class Row : IFirst, ISecond
+            {
+                string IFirst.Value => "One";
+                int ISecond.Value => 2;
+                public int Id { get; set; }
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG133");
+        Assert.Contains("CreateIdColumn", result.CombinedSource);
+        Assert.DoesNotContain("CreateValueColumn", result.CombinedSource);
+    }
+
+    [Fact]
     public void Assembly_attribute_targets_item_type()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -2175,6 +2336,34 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
         Assert.Contains(result.Sources, static source =>
             source.Contains("DataGridColumnValueAccessor<global::Demo.IRow, long>", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Explicit_interface_schema_semantic_build_tracks_contract_changes()
+    {
+        const string before = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public interface IRowContract { string Value { get; } }
+            [GenerateDataGridColumns]
+            public sealed class Row : IRowContract { string IRowContract.Value => "Before"; }
+            """;
+        const string after = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public interface IRowContract { int Value { get; } }
+            [GenerateDataGridColumns]
+            public sealed class Row : IRowContract { int IRowContract.Value => 42; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            before,
+            after,
+            "DirectSchemaGeneration");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.Contains(result.Sources, static source =>
+            source.Contains("DataGridColumnValueAccessor<global::Demo.Row, int>", StringComparison.Ordinal));
     }
 
     [Fact]

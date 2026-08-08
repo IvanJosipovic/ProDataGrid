@@ -65,6 +65,8 @@ public interface ITrade : IEntity
 
 Set `IncludeInherited = false` to restrict discovery to members declared directly on the annotated interface. If unrelated parent interfaces expose the same property name, redeclare that property on the annotated interface to select the contract; otherwise `PDGSG132` reports the ambiguity instead of emitting uncompilable accessors. Assembly and namespace policies include eligible interface item types as well as classes and structs.
 
+Class schemas also support statically resolvable explicit-interface properties. Attributes may be placed on either the interface contract or its explicit implementation. Generated getters, setters, edit fields, keys, operation delegates, state/selection adapters, and analytics metadata use direct interface casts such as `((ITradeContract)item).Price`; no reflection or dynamic dispatch is introduced beyond the normal interface call. A public property with the same name takes precedence as the canonical schema member. If a type explicitly implements unrelated same-name contracts without a public forwarding property, `PDGSG133` asks the model to expose the intended contract rather than inventing an unstable generated name.
+
 The generated provider implements `IDataGridGeneratedSchema<TItem>`, which is composed from five focused contracts:
 
 - `IDataGridColumnDefinitionProvider<TItem>` creates a new mutable definition list for each grid.

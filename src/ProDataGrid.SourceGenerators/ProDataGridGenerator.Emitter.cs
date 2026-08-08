@@ -386,7 +386,7 @@ internal static class Emitter
                 .Append(fieldName).Append("Accessor, ")
                 .Append(column.IsSearchable ? "true" : "false").AppendLine(",")
                 .Append("            ");
-            EmitFieldMetadata(builder, column);
+            EmitFieldMetadata(builder, column, itemType);
             builder.AppendLine(");");
         }
 
@@ -575,8 +575,8 @@ internal static class Emitter
 
             builder.AppendLine()
                 .AppendLine("        public static global::Avalonia.Controls.DataGridSelection.IdentitySelectionModel CreateIdentitySelectionModel()")
-                .Append("            => new global::Avalonia.Controls.DataGridSelection.IdentitySelectionModel(static item => ((")
-                .Append(itemType).Append(")item).").Append(GeneratorUtilities.EscapeIdentifier(schema.KeyMember.Member.Name)).AppendLine("!);")
+                .Append("            => new global::Avalonia.Controls.DataGridSelection.IdentitySelectionModel(static item => ")
+                .Append(GetKeyAccessExpression(schema, "((" + itemType + ")item)")).AppendLine("!);")
                 .AppendLine()
                 .Append("        public static global::Avalonia.Controls.DataGridGeneratedSelectionController<")
                 .Append(itemType).Append(", ").Append(keyType).AppendLine("> CreateSelectionController(")
@@ -592,8 +592,8 @@ internal static class Emitter
                 .AppendLine("            {")
                 .AppendLine("                ColumnKeySelector = static column => column.ColumnKey,")
                 .AppendLine("                ColumnKeyResolver = columnKeyResolver,")
-                .Append("                ItemKeySelector = static item => ((").Append(itemType).Append(")item).")
-                .Append(GeneratorUtilities.EscapeIdentifier(schema.KeyMember.Member.Name)).AppendLine("!,")
+                .Append("                ItemKeySelector = static item => ")
+                .Append(GetKeyAccessExpression(schema, "((" + itemType + ")item)")).AppendLine("!,")
                 .Append("                ItemKeyResolver = itemKeyResolver is null ? null : key => itemKeyResolver((")
                 .Append(keyType).AppendLine(")key)")
                 .AppendLine("            };")
@@ -626,7 +626,7 @@ internal static class Emitter
                 .AppendLine()
                 .Append("        public ").Append(keyType).Append(" GetKey(").Append(itemType).Append(" item)")
                 .AppendLine()
-                .Append("            => item.").Append(GeneratorUtilities.EscapeIdentifier(schema.KeyMember.Member.Name)).AppendLine(";");
+                .Append("            => ").Append(GetKeyAccessExpression(schema, "item")).AppendLine(";");
         }
 
         builder.AppendLine();
@@ -690,8 +690,8 @@ internal static class Emitter
         if (schema.KeyMember != null)
         {
             builder.AppendLine("                ExpandedStateKeyMode = global::Avalonia.Controls.DataGridHierarchical.ExpandedStateKeyMode.Custom,")
-                .Append("                ExpandedStateKeySelector = static item => item.")
-                .Append(GeneratorUtilities.EscapeIdentifier(schema.KeyMember.Member.Name)).AppendLine(",");
+                .Append("                ExpandedStateKeySelector = static item => ")
+                .Append(GetKeyAccessExpression(schema, "item")).AppendLine(",");
         }
 
         builder.AppendLine("            };")
@@ -833,7 +833,7 @@ internal static class Emitter
         }
     }
 
-    private static void EmitFieldMetadata(StringBuilder builder, ColumnModel column)
+    private static void EmitFieldMetadata(StringBuilder builder, ColumnModel column, string itemType)
     {
         int filterEditor = 0;
         if (column.Options.TryGetValue("FilterEditor", out TypedConstant filterEditorConstant) &&
@@ -858,13 +858,13 @@ internal static class Emitter
             .Append("                header: ").Append(GeneratorUtilities.EscapeString(column.Header)).AppendLine(",")
             .Append("                description: ").Append(GeneratorUtilities.EscapeString(GetStringOption(column.Options, "Description"))).AppendLine(",")
             .Append("                headerProvider: ").Append(GetLocalizationProviderExpression(
-                column, column.HeaderProviderMethod, column.HeaderProviderAcceptsFormatProvider)).AppendLine(",")
+                itemType, column.HeaderProviderMethod, column.HeaderProviderAcceptsFormatProvider)).AppendLine(",")
             .Append("                descriptionProvider: ").Append(GetLocalizationProviderExpression(
-                column, column.DescriptionProviderMethod, column.DescriptionProviderAcceptsFormatProvider)).Append(')');
+                itemType, column.DescriptionProviderMethod, column.DescriptionProviderAcceptsFormatProvider)).Append(')');
     }
 
     private static string GetLocalizationProviderExpression(
-        ColumnModel column,
+        string itemType,
         string? method,
         bool acceptsFormatProvider)
     {
@@ -873,7 +873,6 @@ internal static class Emitter
             return "null";
         }
 
-        string itemType = column.Property.ContainingType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string escapedMethod = GeneratorUtilities.EscapeIdentifier(method!);
         return acceptsFormatProvider
             ? "static provider => " + itemType + "." + escapedMethod + "(provider)"
@@ -881,7 +880,7 @@ internal static class Emitter
     }
 
     private static string GetLocalizedTextExpression(
-        ColumnModel column,
+        string itemType,
         string? method,
         bool acceptsFormatProvider,
         string fallback)
@@ -891,7 +890,6 @@ internal static class Emitter
             return GeneratorUtilities.EscapeString(fallback);
         }
 
-        string itemType = column.Property.ContainingType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string escapedMethod = GeneratorUtilities.EscapeIdentifier(method!);
         return acceptsFormatProvider
             ? itemType + "." + escapedMethod + "(global::System.Globalization.CultureInfo.CurrentUICulture)"
@@ -919,23 +917,24 @@ internal static class Emitter
         IPropertySymbol property = column.Property;
         string valueType = property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string runtimeValueType = UnwrapNullable(property.Type).ToDisplayString(GeneratorUtilities.FullyQualifiedFormat);
-        string propertyName = GeneratorUtilities.EscapeIdentifier(property.Name);
         string fieldName = GetFieldName(property);
         bool canWrite = CanWrite(property);
+        string itemAccess = GetColumnAccessExpression(column, "item");
+        string nodeItemAccess = GetColumnAccessExpression(column, "((" + itemType + ")node.Item)");
 
         builder.Append("        private static readonly global::Avalonia.Data.Core.IPropertyInfo ")
             .Append(fieldName).AppendLine("Property =")
             .AppendLine("            new global::Avalonia.Data.Core.ClrPropertyInfo(")
             .Append("                ").Append(GeneratorUtilities.EscapeString(property.Name)).AppendLine(",")
-            .Append("                static target => target is ").Append(itemType).Append(" item ? item.")
-            .Append(propertyName).Append(" : default(").Append(valueType).AppendLine("),");
+            .Append("                static target => target is ").Append(itemType).Append(" item ? ")
+            .Append(itemAccess).Append(" : default(").Append(valueType).AppendLine("),");
         if (canWrite)
         {
             builder.AppendLine("                static (target, value) =>")
                 .AppendLine("                {")
                 .Append("                    if (target is ").Append(itemType).AppendLine(" item)")
                 .AppendLine("                    {")
-                .Append("                        item.").Append(propertyName).Append(" = value is null ? default! : (")
+                .Append("                        ").Append(itemAccess).Append(" = value is null ? default! : (")
                 .Append(valueType).AppendLine(")value;")
                 .AppendLine("                    }")
                 .AppendLine("                },");
@@ -951,11 +950,11 @@ internal static class Emitter
             .Append(itemType).Append(", ").Append(valueType).Append("> ").Append(fieldName).AppendLine("Accessor =")
             .Append("            new global::Avalonia.Controls.DataGridColumnValueAccessor<")
             .Append(itemType).Append(", ").Append(valueType).AppendLine(">(")
-            .Append("                static item => item.").Append(propertyName);
+            .Append("                static item => ").Append(itemAccess);
         if (canWrite)
         {
             builder.AppendLine(",")
-                .Append("                static (item, value) => item.").Append(propertyName).AppendLine(" = value);");
+                .Append("                static (item, value) => ").Append(itemAccess).AppendLine(" = value);");
         }
         else
         {
@@ -971,7 +970,7 @@ internal static class Emitter
                 .AppendLine("            new global::Avalonia.Data.Core.ClrPropertyInfo(")
                 .Append("                ").Append(GeneratorUtilities.EscapeString(property.Name)).AppendLine(",")
                 .Append("                static target => target is ").Append(nodeType).Append(" node && node.Item is ")
-                .Append(itemType).Append(" item ? item.").Append(propertyName).Append(" : default(")
+                .Append(itemType).Append(" item ? ").Append(itemAccess).Append(" : default(")
                 .Append(valueType).AppendLine("),");
             if (canWrite)
             {
@@ -980,7 +979,7 @@ internal static class Emitter
                     .Append("                    if (target is ").Append(nodeType).Append(" node && node.Item is ")
                     .Append(itemType).AppendLine(" item)")
                     .AppendLine("                    {")
-                    .Append("                        item.").Append(propertyName).Append(" = value is null ? default! : (")
+                    .Append("                        ").Append(itemAccess).Append(" = value is null ? default! : (")
                     .Append(valueType).AppendLine(")value;")
                     .AppendLine("                    }")
                     .AppendLine("                },");
@@ -996,13 +995,12 @@ internal static class Emitter
                 .Append(nodeType).Append(", ").Append(valueType).Append("> ").Append(fieldName).AppendLine("HierarchicalAccessor =")
                 .Append("            new global::Avalonia.Controls.DataGridColumnValueAccessor<")
                 .Append(nodeType).Append(", ").Append(valueType).AppendLine(">(")
-                .Append("                static node => node.Item is ").Append(itemType).Append(" item ? item.")
-                .Append(propertyName).Append(" : default!");
+                .Append("                static node => node.Item is ").Append(itemType).Append(" item ? ")
+                .Append(itemAccess).Append(" : default!");
             if (canWrite)
             {
                 builder.AppendLine(",")
-                    .Append("                static (node, value) => ((").Append(itemType)
-                    .Append(")node.Item).").Append(propertyName).AppendLine(" = value);");
+                    .Append("                static (node, value) => ").Append(nodeItemAccess).AppendLine(" = value);");
             }
             else
             {
@@ -1015,13 +1013,12 @@ internal static class Emitter
                 .Append("            global::Avalonia.Controls.DataGridBindingDefinition.CreateCached<")
                 .Append(nodeType).Append(", ").Append(valueType).AppendLine(">(")
                 .Append("                ").Append(fieldName).AppendLine("HierarchicalProperty,")
-                .Append("                static node => node.Item is ").Append(itemType).Append(" item ? item.")
-                .Append(propertyName).Append(" : default!");
+                .Append("                static node => node.Item is ").Append(itemType).Append(" item ? ")
+                .Append(itemAccess).Append(" : default!");
             if (canWrite)
             {
                 builder.AppendLine(",")
-                    .Append("                static (node, value) => ((").Append(itemType)
-                    .Append(")node.Item).").Append(propertyName).AppendLine(" = value);");
+                    .Append("                static (node, value) => ").Append(nodeItemAccess).AppendLine(" = value);");
             }
             else
             {
@@ -1086,14 +1083,14 @@ internal static class Emitter
         }
 
         string valueType = property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
-        string propertyName = GeneratorUtilities.EscapeIdentifier(property.Name);
+        string itemAccess = GetColumnAccessExpression(column, "item");
         builder.Append("        private static readonly global::Avalonia.Controls.DataGridGeneratedEditField<")
             .Append(itemType).Append(", ").Append(valueType).Append("> ").Append(GetEditFieldName(property)).AppendLine(" =")
             .Append("            new global::Avalonia.Controls.DataGridGeneratedEditField<")
             .Append(itemType).Append(", ").Append(valueType).AppendLine(">(")
             .Append("                ").Append(GeneratorUtilities.EscapeString(column.ColumnKey)).AppendLine(",")
-            .Append("                static item => item.").Append(propertyName).AppendLine(",")
-            .Append("                static (item, value) => item.").Append(propertyName).AppendLine(" = value,")
+            .Append("                static item => ").Append(itemAccess).AppendLine(",")
+            .Append("                static (item, value) => ").Append(itemAccess).AppendLine(" = value,")
             .Append("                ");
         EmitParser(builder, schema, column);
         builder.AppendLine(",")
@@ -1136,13 +1133,14 @@ internal static class Emitter
         {
             string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
             string suffix = GetMethodSuffix(column.Property);
+            string itemAccess = GetColumnAccessExpression(column, "item");
             builder.AppendLine()
                 .Append("        public static global::Avalonia.Controls.DataGridGeneratedDistinctValueProvider<")
                 .Append(itemType).Append(", ").Append(valueType).Append("> ").Append(suffix).AppendLine("DistinctValues { get; } =")
                 .Append("            new global::Avalonia.Controls.DataGridGeneratedDistinctValueProvider<")
                 .Append(itemType).Append(", ").Append(valueType).Append(">(")
-                .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", static item => item.")
-                .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).AppendLine(");")
+                .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", static item => ")
+                .Append(itemAccess).AppendLine(");")
                 .AppendLine()
                 .Append("        public static global::Avalonia.Controls.DataGridGeneratedRemoteDistinctValueController<")
                 .Append(valueType).Append("> Create").Append(suffix).AppendLine("RemoteDistinctValues(")
@@ -1162,12 +1160,13 @@ internal static class Emitter
         foreach (ColumnModel column in groups)
         {
             string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string itemAccess = GetColumnAccessExpression(column, "item");
             builder.Append("                new global::Avalonia.Controls.DataGridGeneratedGroupField<")
                 .Append(itemType).Append(", ").Append(valueType).Append(">(")
                 .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", ")
                 .Append(column.Group!.Order.ToString(CultureInfo.InvariantCulture)).Append(", (global::System.ComponentModel.ListSortDirection)")
-                .Append(column.Group.Direction.ToString(CultureInfo.InvariantCulture)).Append(", static item => item.")
-                .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(", ")
+                .Append(column.Group.Direction.ToString(CultureInfo.InvariantCulture)).Append(", static item => ")
+                .Append(itemAccess).Append(", ")
                 .Append(EmitOptionalMethod(schema, column.Group.FormatterMethod)).AppendLine("),");
         }
         builder.AppendLine("            };")
@@ -1280,16 +1279,18 @@ internal static class Emitter
     {
         string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         bool hasNumericSelector = IsNumericType(UnwrapNullable(column.Property.Type));
+        string itemAccess = GetColumnAccessExpression(column, "item");
+        string typedAccess = GetColumnAccessExpression(column, "typed");
         builder.Append("                new global::Avalonia.Controls.DataGridGeneratedAnalyticsField<")
             .Append(itemType).Append(", ").Append(valueType).Append(">(")
             .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", (global::Avalonia.Controls.DataGridGeneratedAnalyticsRole)")
             .Append(role.Role.ToString(CultureInfo.InvariantCulture)).Append(", ")
-            .Append(role.Order.ToString(CultureInfo.InvariantCulture)).Append(", static item => item.")
-            .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(", ");
+            .Append(role.Order.ToString(CultureInfo.InvariantCulture)).Append(", static item => ")
+            .Append(itemAccess).Append(", ");
         if (hasNumericSelector)
         {
-            builder.Append("static item => item is ").Append(itemType).Append(" typed ? (double?)typed.")
-                .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(" : null");
+            builder.Append("static item => item is ").Append(itemType).Append(" typed ? (double?)")
+                .Append(typedAccess).Append(" : null");
         }
         else
         {
@@ -1370,12 +1371,13 @@ internal static class Emitter
         string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         ITypeSymbol effectiveType = UnwrapNullable(column.Property.Type);
         bool numeric = IsNumeric(effectiveType) && SymbolEqualityComparer.Default.Equals(effectiveType, column.Property.Type);
+        string itemAccess = GetColumnAccessExpression(column, "item");
         builder.Append("                new global::Avalonia.Controls.DataGridGeneratedSummary<")
             .Append(itemType).Append(", ").Append(valueType).Append(">(")
             .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", (global::Avalonia.Controls.DataGridAggregateType)")
             .Append(summary.Aggregate.ToString(CultureInfo.InvariantCulture)).Append(", (global::Avalonia.Controls.DataGridSummaryScope)")
-            .Append(summary.Scope.ToString(CultureInfo.InvariantCulture)).Append(", static item => item.")
-            .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name));
+            .Append(summary.Scope.ToString(CultureInfo.InvariantCulture)).Append(", static item => ")
+            .Append(itemAccess);
         if (numeric)
         {
             builder.Append(", default, static (left, right) => left + right, static (left, right) => left - right, ");
@@ -1399,11 +1401,12 @@ internal static class Emitter
         string itemType)
     {
         string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string itemAccess = GetColumnAccessExpression(column, "item");
         builder.Append("                new global::Avalonia.Controls.DataGridGeneratedConditionalRule<")
             .Append(itemType).Append(", ").Append(valueType).Append(">(")
             .Append(GeneratorUtilities.EscapeString(rule.RuleId)).Append(", ")
-            .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", static item => item.")
-            .Append(GeneratorUtilities.EscapeIdentifier(column.Property.Name)).Append(", ");
+            .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", static item => ")
+            .Append(itemAccess).Append(", ");
         if (!string.IsNullOrEmpty(rule.PredicateMethod))
         {
             builder.Append(EmitOptionalMethod(schema, rule.PredicateMethod));
@@ -1562,11 +1565,11 @@ internal static class Emitter
             return;
         }
 
-        AttributeData? required = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.RequiredAttribute");
-        AttributeData? stringLength = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.StringLengthAttribute");
-        AttributeData? minLength = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.MinLengthAttribute");
-        AttributeData? maxLength = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.MaxLengthAttribute");
-        AttributeData? range = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.RangeAttribute");
+        AttributeData? required = FindColumnAttribute(column, "System.ComponentModel.DataAnnotations.RequiredAttribute");
+        AttributeData? stringLength = FindColumnAttribute(column, "System.ComponentModel.DataAnnotations.StringLengthAttribute");
+        AttributeData? minLength = FindColumnAttribute(column, "System.ComponentModel.DataAnnotations.MinLengthAttribute");
+        AttributeData? maxLength = FindColumnAttribute(column, "System.ComponentModel.DataAnnotations.MaxLengthAttribute");
+        AttributeData? range = FindColumnAttribute(column, "System.ComponentModel.DataAnnotations.RangeAttribute");
         bool isString = UnwrapNullable(column.Property.Type).SpecialType == SpecialType.System_String;
         string? minimumRange = null;
         string? maximumRange = null;
@@ -1642,6 +1645,12 @@ internal static class Emitter
         return null;
     }
 
+    private static AttributeData? FindColumnAttribute(ColumnModel column, string metadataName)
+    {
+        return FindAttribute(column.ConfigurationProperty, metadataName) ??
+               FindAttribute(column.Property, metadataName);
+    }
+
     private static int GetAttributeInt32(AttributeData attribute, int index, int fallback) =>
         attribute.ConstructorArguments.Length > index && attribute.ConstructorArguments[index].Value is int value ? value : fallback;
 
@@ -1704,7 +1713,6 @@ internal static class Emitter
     {
         string definitionTypeName = GetDefinitionTypeName(column.Kind);
         string definitionType = "global::Avalonia.Controls." + definitionTypeName;
-        string propertyName = GeneratorUtilities.EscapeIdentifier(column.Property.Name);
         string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string runtimeValueType = UnwrapNullable(column.Property.Type).ToDisplayString(GeneratorUtilities.FullyQualifiedFormat);
         string fieldName = GetFieldName(column.Property);
@@ -1724,7 +1732,7 @@ internal static class Emitter
         }
         else
         {
-            EmitBuilderCall(builder, column, itemType, valueType, propertyName, fieldName, canWrite);
+            EmitBuilderCall(builder, column, itemType, valueType, fieldName, canWrite);
         }
 
         builder.Append("            column.ColumnKey = ").Append(GeneratorUtilities.EscapeString(column.ColumnKey)).AppendLine(";")
@@ -1764,15 +1772,15 @@ internal static class Emitter
         ColumnModel column,
         string itemType,
         string valueType,
-        string propertyName,
         string fieldName,
         bool canWrite)
     {
         string header = GetLocalizedTextExpression(
-            column,
+            itemType,
             column.HeaderProviderMethod,
             column.HeaderProviderAcceptsFormatProvider,
             column.Header);
+        string itemAccess = GetColumnAccessExpression(column, "item");
         switch (column.Kind)
         {
             case "Template":
@@ -1797,10 +1805,10 @@ internal static class Emitter
         builder.Append("builder.").Append(builderMethod).Append('<').Append(valueType).AppendLine(">(")
             .Append("                ").Append(header).AppendLine(",")
             .Append("                ").Append(fieldName).AppendLine("Property,")
-            .Append("                static item => item.").Append(propertyName).AppendLine(",");
+            .Append("                static item => ").Append(itemAccess).AppendLine(",");
         if (canWrite)
         {
-            builder.Append("                static (item, value) => item.").Append(propertyName).AppendLine(" = value);");
+            builder.Append("                static (item, value) => ").Append(itemAccess).AppendLine(" = value);");
         }
         else
         {
@@ -4073,6 +4081,28 @@ internal static class Emitter
         return property.SetMethod != null &&
                !property.SetMethod.IsInitOnly &&
                GeneratorUtilities.IsAccessibleFromGeneratedCode(property.SetMethod);
+    }
+
+    private static string GetColumnAccessExpression(ColumnModel column, string receiver)
+    {
+        return GetMemberAccessExpression(column.Property, column.AccessReceiverType, receiver);
+    }
+
+    private static string GetKeyAccessExpression(SchemaModel schema, string receiver)
+    {
+        KeyMemberModel key = schema.KeyMember!;
+        return GetMemberAccessExpression(key.Member, key.AccessReceiverType, receiver);
+    }
+
+    private static string GetMemberAccessExpression(
+        ISymbol member,
+        INamedTypeSymbol? accessReceiverType,
+        string receiver)
+    {
+        string target = accessReceiverType == null
+            ? receiver
+            : "((" + accessReceiverType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat) + ")" + receiver + ")";
+        return target + "." + GeneratorUtilities.EscapeIdentifier(member.Name);
     }
 
     private static bool CanEdit(ColumnModel column)

@@ -1552,32 +1552,64 @@ internal static partial class Discovery
         ImmutableArray<Diagnostic>.Builder diagnostics,
         CancellationToken cancellationToken)
     {
-        var properties = new Dictionary<string, IPropertySymbol>(StringComparer.Ordinal);
+        var properties = new Dictionary<string, (IPropertySymbol Source, IPropertySymbol Access, INamedTypeSymbol? Receiver)>(StringComparer.Ordinal);
         var ambiguousProperties = new HashSet<string>(StringComparer.Ordinal);
         foreach (INamedTypeSymbol current in EnumerateSchemaTypes(schema.ItemType, schema.IncludeInherited))
         {
-            foreach (IPropertySymbol property in current.GetMembers().OfType<IPropertySymbol>())
+            foreach (IPropertySymbol sourceProperty in current.GetMembers().OfType<IPropertySymbol>())
             {
+                IPropertySymbol property = GetAccessProperty(sourceProperty, out INamedTypeSymbol? receiverType);
                 if (ambiguousProperties.Contains(property.Name))
                 {
                     continue;
                 }
 
-                if (!properties.TryGetValue(property.Name, out IPropertySymbol? existing))
+                if (!properties.TryGetValue(property.Name, out var existing))
                 {
-                    properties.Add(property.Name, property);
+                    properties.Add(property.Name, (sourceProperty, property, receiverType));
                     continue;
                 }
 
-                if (schema.ItemType.TypeKind != TypeKind.Interface ||
-                    IsInterfaceDerivedFrom(existing.ContainingType, property.ContainingType))
+                if (schema.ItemType.TypeKind != TypeKind.Interface)
+                {
+                    bool existingExplicit = existing.Receiver != null;
+                    bool currentExplicit = receiverType != null;
+                    if (existingExplicit != currentExplicit)
+                    {
+                        if (!existingExplicit)
+                        {
+                            continue;
+                        }
+
+                        properties[property.Name] = (sourceProperty, property, receiverType);
+                        continue;
+                    }
+
+                    if (!existingExplicit || SymbolEqualityComparer.Default.Equals(existing.Receiver, receiverType))
+                    {
+                        continue;
+                    }
+
+                    properties.Remove(property.Name);
+                    ambiguousProperties.Add(property.Name);
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.AmbiguousExplicitInterfaceProperty,
+                        GeneratorUtilities.GetLocation(sourceProperty),
+                        schema.ItemType.ToDisplayString(),
+                        property.Name,
+                        existing.Receiver!.ToDisplayString(),
+                        receiverType!.ToDisplayString()));
+                    continue;
+                }
+
+                if (IsInterfaceDerivedFrom(existing.Access.ContainingType, property.ContainingType))
                 {
                     continue;
                 }
 
-                if (IsInterfaceDerivedFrom(property.ContainingType, existing.ContainingType))
+                if (IsInterfaceDerivedFrom(property.ContainingType, existing.Access.ContainingType))
                 {
-                    properties[property.Name] = property;
+                    properties[property.Name] = (sourceProperty, property, receiverType);
                     continue;
                 }
 
@@ -1588,7 +1620,7 @@ internal static partial class Discovery
                     schema.Location,
                     schema.ItemType.ToDisplayString(),
                     property.Name,
-                    existing.ContainingType.ToDisplayString(),
+                    existing.Access.ContainingType.ToDisplayString(),
                     property.ContainingType.ToDisplayString()));
             }
 
@@ -1596,11 +1628,13 @@ internal static partial class Discovery
 
         var columns = ImmutableArray.CreateBuilder<ColumnModel>();
         var columnKeys = new HashSet<string>(StringComparer.Ordinal);
-        foreach (IPropertySymbol property in properties.Values)
+        foreach ((IPropertySymbol sourceProperty, IPropertySymbol property, INamedTypeSymbol? receiverType) in properties.Values)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            AttributeData? columnAttribute = GeneratorUtilities.FindAttribute(property, ProDataGridGenerator.ColumnAttributeName);
-            if (GeneratorUtilities.HasAttribute(property, ProDataGridGenerator.IgnoreColumnAttributeName) ||
+            AttributeData? columnAttribute = GeneratorUtilities.FindAttribute(sourceProperty, ProDataGridGenerator.ColumnAttributeName) ??
+                                             GeneratorUtilities.FindAttribute(property, ProDataGridGenerator.ColumnAttributeName);
+            if (GeneratorUtilities.HasAttribute(sourceProperty, ProDataGridGenerator.IgnoreColumnAttributeName) ||
+                GeneratorUtilities.HasAttribute(property, ProDataGridGenerator.IgnoreColumnAttributeName) ||
                 (schema.AttributedOnly && columnAttribute == null))
             {
                 continue;
@@ -1613,8 +1647,8 @@ internal static partial class Discovery
                 {
                     diagnostics.Add(Diagnostic.Create(
                         GeneratorDiagnostics.UnsupportedProperty,
-                        GeneratorUtilities.GetLocation(property),
-                        property.ToDisplayString(),
+                        GeneratorUtilities.GetLocation(sourceProperty),
+                        sourceProperty.ToDisplayString(),
                         unsupportedReason));
                 }
 
@@ -1655,46 +1689,46 @@ internal static partial class Discovery
             ImmutableArray<string> previousColumnKeys = validAliases.ToImmutable();
             string? configureMethod = GeneratorUtilities.GetString(options, "ConfigureMethod");
             string? factoryMethod = GeneratorUtilities.GetString(options, "FactoryMethod");
-            string? parserMethod = ValidateEditMethod(schema.ItemType, property, options, "ParserMethod", EditMethodKind.Parser, diagnostics);
-            string? formatterMethod = ValidateEditMethod(schema.ItemType, property, options, "FormatterMethod", EditMethodKind.Formatter, diagnostics);
-            string? validatorMethod = ValidateEditMethod(schema.ItemType, property, options, "ValidatorMethod", EditMethodKind.Validator, diagnostics);
-            string? asyncValidatorMethod = ValidateEditMethod(schema.ItemType, property, options, "AsyncValidatorMethod", EditMethodKind.AsyncValidator, diagnostics);
-            string? coerceMethod = ValidateEditMethod(schema.ItemType, property, options, "CoerceMethod", EditMethodKind.Coerce, diagnostics);
-            string? canEditMethod = ValidateEditMethod(schema.ItemType, property, options, "CanEditMethod", EditMethodKind.CanEdit, diagnostics);
-            string? templateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "TemplateFactoryMethod", diagnostics);
-            string? editingTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "EditingTemplateFactoryMethod", diagnostics);
-            string? newRowTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, property, options, "NewRowTemplateFactoryMethod", diagnostics);
+            string? parserMethod = ValidateEditMethod(schema.ItemType, sourceProperty, options, "ParserMethod", EditMethodKind.Parser, diagnostics);
+            string? formatterMethod = ValidateEditMethod(schema.ItemType, sourceProperty, options, "FormatterMethod", EditMethodKind.Formatter, diagnostics);
+            string? validatorMethod = ValidateEditMethod(schema.ItemType, sourceProperty, options, "ValidatorMethod", EditMethodKind.Validator, diagnostics);
+            string? asyncValidatorMethod = ValidateEditMethod(schema.ItemType, sourceProperty, options, "AsyncValidatorMethod", EditMethodKind.AsyncValidator, diagnostics);
+            string? coerceMethod = ValidateEditMethod(schema.ItemType, sourceProperty, options, "CoerceMethod", EditMethodKind.Coerce, diagnostics);
+            string? canEditMethod = ValidateEditMethod(schema.ItemType, sourceProperty, options, "CanEditMethod", EditMethodKind.CanEdit, diagnostics);
+            string? templateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, sourceProperty, options, "TemplateFactoryMethod", diagnostics);
+            string? editingTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, sourceProperty, options, "EditingTemplateFactoryMethod", diagnostics);
+            string? newRowTemplateFactoryMethod = ValidateTemplateFactoryMethod(schema.ItemType, sourceProperty, options, "NewRowTemplateFactoryMethod", diagnostics);
             ValidateDrawOperationFactory(
                 schema.ItemType,
-                property,
+                sourceProperty,
                 kind,
                 options,
                 diagnostics,
                 out INamedTypeSymbol? drawOperationFactoryType,
                 out string? drawOperationFactoryMethod);
             IPropertySymbol? contentMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "ContentMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "ContentMember", diagnostics);
             IPropertySymbol? checkedContentMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "CheckedContentMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "CheckedContentMember", diagnostics);
             IPropertySymbol? uncheckedContentMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "UncheckedContentMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "UncheckedContentMember", diagnostics);
             IPropertySymbol? onContentMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "OnContentMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "OnContentMember", diagnostics);
             IPropertySymbol? offContentMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "OffContentMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "OffContentMember", diagnostics);
             IPropertySymbol? commandMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "CommandMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "CommandMember", diagnostics);
             IPropertySymbol? commandParameterMember = ValidateAuxiliaryColumnBinding(
-                schema.ItemType, property, kind, options, "CommandParameterMember", diagnostics);
+                schema.ItemType, sourceProperty, kind, options, "CommandParameterMember", diagnostics);
             string? headerProviderMethod = ValidateLocalizationMethod(
-                schema.ItemType, property, options, "HeaderProviderMethod", diagnostics, out bool headerProviderAcceptsFormatProvider);
+                schema.ItemType, sourceProperty, options, "HeaderProviderMethod", diagnostics, out bool headerProviderAcceptsFormatProvider);
             string? descriptionProviderMethod = ValidateLocalizationMethod(
-                schema.ItemType, property, options, "DescriptionProviderMethod", diagnostics, out bool descriptionProviderAcceptsFormatProvider);
-            GroupModel? group = DiscoverGroup(schema.ItemType, property, diagnostics);
-            ImmutableArray<SummaryModel> summaries = DiscoverSummaries(property);
-            ImmutableArray<ConditionalRuleModel> conditionalRules = DiscoverConditionalRules(schema.ItemType, property, columnKey, diagnostics);
-            ImmutableArray<BandModel> bands = DiscoverBands(property, diagnostics);
-            ImmutableArray<AnalyticsRoleModel> analyticsRoles = DiscoverAnalyticsRoles(property, diagnostics);
+                schema.ItemType, sourceProperty, options, "DescriptionProviderMethod", diagnostics, out bool descriptionProviderAcceptsFormatProvider);
+            GroupModel? group = DiscoverGroup(schema.ItemType, sourceProperty, diagnostics);
+            ImmutableArray<SummaryModel> summaries = DiscoverSummaries(sourceProperty);
+            ImmutableArray<ConditionalRuleModel> conditionalRules = DiscoverConditionalRules(schema.ItemType, sourceProperty, columnKey, diagnostics);
+            ImmutableArray<BandModel> bands = DiscoverBands(sourceProperty, diagnostics);
+            ImmutableArray<AnalyticsRoleModel> analyticsRoles = DiscoverAnalyticsRoles(sourceProperty, diagnostics);
             bool searchable = GeneratorUtilities.GetBoolean(options, "IsSearchable", true);
 
             if (!string.IsNullOrEmpty(configureMethod) &&
@@ -1719,12 +1753,14 @@ internal static partial class Discovery
                 factoryMethod = null;
             }
 
-            ValidateRequiredKindOptions(property, kind, options, diagnostics);
+            ValidateRequiredKindOptions(sourceProperty, kind, options, diagnostics);
 
-            int sourceOrder = property.Locations.FirstOrDefault(static location => location.IsInSource)?.SourceSpan.Start ?? int.MaxValue;
+            int sourceOrder = sourceProperty.Locations.FirstOrDefault(static location => location.IsInSource)?.SourceSpan.Start ?? int.MaxValue;
             columns.Add(new ColumnModel
             {
                 Property = property,
+                ConfigurationProperty = sourceProperty,
+                AccessReceiverType = receiverType,
                 Kind = kind,
                 Header = header ?? GeneratorUtilities.ToHeader(property.Name),
                 HeaderProviderMethod = headerProviderMethod,
@@ -1780,7 +1816,7 @@ internal static partial class Discovery
         if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName))
         {
             ISymbol[] explicitMembers = EnumerateMembers(schema.ItemType, schema.IncludeInherited)
-                .Where(member => string.Equals(member.Name, schema.ExplicitKeyMemberName, StringComparison.Ordinal))
+                .Where(member => string.Equals(GetSchemaMemberName(member), schema.ExplicitKeyMemberName, StringComparison.Ordinal))
                 .ToArray();
             string? reason = null;
             KeyMemberModel? explicitKey = null;
@@ -1804,7 +1840,11 @@ internal static partial class Discovery
             foreach (ISymbol member in current.GetMembers())
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!GeneratorUtilities.HasAttribute(member, ProDataGridGenerator.KeyAttributeName))
+                ISymbol accessMember = member is IPropertySymbol property
+                    ? GetAccessProperty(property, out _)
+                    : member;
+                if (!GeneratorUtilities.HasAttribute(member, ProDataGridGenerator.KeyAttributeName) &&
+                    !GeneratorUtilities.HasAttribute(accessMember, ProDataGridGenerator.KeyAttributeName))
                 {
                     continue;
                 }
@@ -1844,9 +1884,12 @@ internal static partial class Discovery
     private static bool TryCreateKeyMember(ISymbol? member, out KeyMemberModel? keyMember, out string? reason)
     {
         ITypeSymbol? memberType = null;
+        INamedTypeSymbol? receiverType = null;
         reason = null;
         if (member is IPropertySymbol property)
         {
+            property = GetAccessProperty(property, out receiverType);
+            member = property;
             memberType = property.Type;
             reason = GetUnsupportedPropertyReason(property);
         }
@@ -1878,8 +1921,20 @@ internal static partial class Discovery
             return false;
         }
 
-        keyMember = new KeyMemberModel { Member = member, Type = memberType };
+        keyMember = new KeyMemberModel
+        {
+            Member = member,
+            Type = memberType,
+            AccessReceiverType = receiverType
+        };
         return true;
+    }
+
+    private static string GetSchemaMemberName(ISymbol member)
+    {
+        return member is IPropertySymbol property
+            ? GetAccessProperty(property, out _).Name
+            : member.Name;
     }
 
     private static IEnumerable<ISymbol> EnumerateMembers(INamedTypeSymbol type, bool includeInherited)
@@ -1951,6 +2006,24 @@ internal static partial class Discovery
 
         return candidate.AllInterfaces.Any(
             inherited => SymbolEqualityComparer.Default.Equals(inherited, possibleBase));
+    }
+
+    private static IPropertySymbol GetAccessProperty(
+        IPropertySymbol property,
+        out INamedTypeSymbol? receiverType)
+    {
+        if (property.ExplicitInterfaceImplementations.Length == 0)
+        {
+            receiverType = null;
+            return property;
+        }
+
+        IPropertySymbol contract = property.ExplicitInterfaceImplementations
+            .OrderBy(static candidate => GeneratorUtilities.GetMetadataName(candidate.ContainingType), StringComparer.Ordinal)
+            .ThenBy(static candidate => candidate.Name, StringComparer.Ordinal)
+            .First();
+        receiverType = contract.ContainingType;
+        return contract;
     }
 
     private static bool IsNullableKeyType(ITypeSymbol type)

@@ -175,6 +175,11 @@ internal static class GeneratorDiagnostics
         "Ambiguous inherited interface property",
         "Interface schema '{0}' inherits unrelated properties named '{1}' from '{2}' and '{3}'; redeclare the property on the schema interface to select one contract");
 
+    public static readonly DiagnosticDescriptor AmbiguousExplicitInterfaceProperty = Create(
+        "PDGSG133",
+        "Ambiguous explicit interface property",
+        "Type schema '{0}' explicitly implements same-name property '{1}' from both '{2}' and '{3}'; expose one public forwarding property to select a contract");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

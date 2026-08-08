@@ -34,7 +34,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F18 analytics | Core implemented | Typed pivot fields, globally ordered axis/value factories, generated configurable pivot-model construction, neutral chart/outline/formula roles, direct numeric chart selectors, compile-time formula dependency validation, runtime indexed formula definitions, and an optional reflection-free chart adapter are available. The formal pivot/chart sample validates pivot-derived and direct chart projections; optional formula-parser analyzers, relative-reference fill, keyed chart synchronization, and spreadsheet range projection remain. |
 | F19 generated views | Implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, hierarchical and formula-model bindings, retry-command bindings, typed routed-event command bridges, typed ReactiveUI interaction responses, activation/DataContext-scoped subscriptions, protected handler factories, and `[DataGridViewRegistration]` mappings for existing XAML views are available. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
-| F21 collection views/dynamic shapes | Partial | Typed collection-view factories, range-aware generated services, interface item schemas, inherited-interface discovery, and deterministic ambiguity diagnostics are available; explicit class implementations and unknown runtime shapes still require explicit user adapters. |
+| F21 collection views/dynamic shapes | Partial | Typed collection-view factories, range-aware generated services, interface item schemas, inherited-interface discovery, explicit-interface property/key access, and deterministic ambiguity diagnostics are available; unknown runtime shapes still require explicit user adapters. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
 | F23 performance/input diagnostics | Implemented | Explicit performance profiles, platform-aware keyboard maps, typed input-command feedback, compile-time high-frequency/details compatibility validation, stable-key current-cell and XY navigation, scroll-state interactions, diagnostics metric-name manifests, replaceable renderer metric sinks, and ReactiveUI/Avalonia lifetime management are available. |
 
@@ -1053,7 +1053,7 @@ Requirements:
 - Preserve current item and selection by stable key when pages or sources change.
 - Convert runtime auto-generation into a build-time schema when the item type is statically known.
 - Generate the `AutoGeneratingColumn` customization as schema metadata rather than a view event handler.
-- Support interfaces and explicit-interface properties when the target member can be resolved statically. Interface item schemas and inherited-interface members are implemented, including `IncludeInherited`, namespace policy coverage, key discovery, and `PDGSG132` for unrelated same-name contracts; explicit class implementations remain.
+- Support interfaces and explicit-interface properties when the target member can be resolved statically. Implemented for interface item schemas, inherited-interface members, and class/struct explicit implementations, including `IncludeInherited`, namespace policy coverage, key discovery, contract- or implementation-side attributes, public-forwarder precedence, and direct cast access throughout columns, operations, editing, analytics, state, and selection. `PDGSG132` and `PDGSG133` reject ambiguous contracts deterministically.
 - Detect `DataTable`, `ICustomTypeDescriptor`, dictionaries, and runtime property bags as dynamic shapes and require an explicit runtime accessor provider.
 - Generate range-aware adapters for add/remove/replace/move/reset so bulk updates are not expanded into avoidable per-item work.
 
@@ -1448,6 +1448,7 @@ Proposed diagnostic range for expansion work:
 | `PDGSG130` | Error | Generated formula-model binding is missing or does not implement `IDataGridFormulaModel`. |
 | `PDGSG131` | Error | Generated conditional-formatting-model binding is missing or does not implement `IConditionalFormattingModel`. |
 | `PDGSG132` | Error | Interface schema inherits unrelated same-name property contracts without a resolving redeclaration. |
+| `PDGSG133` | Error | Type schema explicitly implements unrelated same-name properties without a public forwarding property. |
 
 Strict mode promotes applicable fallback warnings to errors. Diagnostics should point to the smallest relevant attribute argument or member declaration and include the expected signature/type.
 
