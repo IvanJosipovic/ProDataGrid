@@ -26,12 +26,15 @@ internal sealed class AotTradeRow
     public int Id { get; init; }
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Symbol", ColumnKey = "symbol", Order = 1, Width = "*")]
+    [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartCategory, Order = 0)]
     public string Symbol { get; set; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Desk", ColumnKey = "desk", Order = 2, Width = "*")]
+    [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartSeries, Order = 0)]
     public string Desk { get; init; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Price", ColumnKey = "price", Order = 3, FormatString = "N2")]
+    [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartValue, Order = 0, Series = "Price")]
     public decimal Price { get; init; }
 
     [DataGridColumn(DataGridColumnKind.DatePicker, Header = "Timestamp", ColumnKey = "timestamp", Order = 4, FormatString = "HH:mm:ss")]

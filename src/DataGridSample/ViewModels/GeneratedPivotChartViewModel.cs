@@ -7,6 +7,8 @@ using System.ComponentModel;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridPivoting;
+using Avalonia.Controls.DataGridSelection;
+using Avalonia.Controls.Selection;
 using DataGridSample.Models;
 using ProCharts;
 using ProCharts.Skia;
@@ -26,13 +28,15 @@ namespace DataGridSample.ViewModels;
     Framework = DataGridViewFramework.ReactiveUI,
     Recipe = DataGridViewRecipe.Analytics,
     Title = "Generated analytics source",
-    AutomationId = "generated-pivot-chart-grid")]
+    AutomationId = "generated-pivot-chart-grid",
+    SelectionModelPropertyName = nameof(SelectionModel))]
 public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisposable
 {
     private readonly ObservableCollection<GeneratedPivotChartRow> _source = [];
     private int _nextId = 9001;
     private int _nextPeriod = 5;
     private int _metricIndex;
+    private bool _synchronizingSelection;
     private bool _disposed;
 
     [Reactive]
@@ -74,13 +78,39 @@ public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisp
         };
         PivotChartModel = new ChartModel { DataSource = PivotChartSource };
 
-        DirectChartSource = DataGridGeneratedChartAdapter.CreateModel(
+        SelectionController = GeneratedPivotChartRowSchema.CreateSelectionController(
+            new DataGridGeneratedSelectionProfile { Mode = DataGridSelectionMode.Single });
+        SelectionController.ResetSource(_source);
+        SelectionModel = SelectionController.CreateIdentitySelectionModel(Items);
+        SelectionModel.SelectionChanged += SelectionModelOnSelectionChanged;
+        SelectionController.SelectionChanged += SelectionControllerOnSelectionChanged;
+
+        RangeChartProjection = DataGridGeneratedChartAdapter.CreateRangeProjection(
             Items,
-            GeneratedPivotChartRowSchema.AnalyticsFields);
-        DirectChartSource.GroupMode = DataGridChartGroupMode.TopLevel;
+            GeneratedPivotChartRowSchema.AnalyticsFields,
+            ColumnDefinitions,
+            new DataGridCellRange(0, 7, 1, 5),
+            maximumRows: 64);
+        DirectChartSource = RangeChartProjection.DataSource;
         DirectChartSource.Series[0].Kind = ChartSeriesKind.Column;
         DirectChartSource.Series[1].Kind = ChartSeriesKind.Line;
-        DirectChartModel = new ChartModel { DataSource = DirectChartSource };
+        DirectChartModel = RangeChartProjection.Model;
+        ChartKeyMap = new DataGridGeneratedListChartKeyMap<GeneratedPivotChartRow, int>(
+            Items,
+            GeneratedPivotChartRowSchema.Instance);
+        ChartSelection = new DataGridGeneratedChartSelectionSynchronizer<GeneratedPivotChartRow, int>(
+            ChartKeyMap,
+            SelectionController,
+            DirectChartModel.Interaction,
+            categoryToSourceIndex: index => RangeChartProjection.Range.StartRow + index,
+            sourceToCategoryIndex: index => ToRangeCategoryIndex(index, RangeChartProjection.Range));
+        LongFormChartSource = DataGridGeneratedChartAdapter.CreateLongFormSource(
+            Items,
+            GeneratedPivotChartRowSchema.AnalyticsFields,
+            maximumItems: 256,
+            maximumSeries: 16);
+        LongFormChartSource.SeriesKind = ChartSeriesKind.Line;
+        LongFormChartModel = new ChartModel { DataSource = LongFormChartSource };
 
         ChartStyle = new SkiaChartStyle
         {
@@ -113,6 +143,20 @@ public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisp
 
     public ChartModel DirectChartModel { get; }
 
+    public DataGridGeneratedChartRangeProjection RangeChartProjection { get; }
+
+    public DataGridGeneratedListChartKeyMap<GeneratedPivotChartRow, int> ChartKeyMap { get; }
+
+    public DataGridGeneratedChartSelectionSynchronizer<GeneratedPivotChartRow, int> ChartSelection { get; }
+
+    public DataGridGeneratedLongFormChartDataSource LongFormChartSource { get; }
+
+    public ChartModel LongFormChartModel { get; }
+
+    public DataGridGeneratedSelectionController<GeneratedPivotChartRow, int> SelectionController { get; }
+
+    public IdentitySelectionModel SelectionModel { get; }
+
     public SkiaChartStyle ChartStyle { get; }
 
     public ReactiveCommand<RxVoid, RxVoid> AddPeriodCommand { get; }
@@ -133,8 +177,14 @@ public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisp
         }
 
         _disposed = true;
-        DirectChartModel.Dispose();
-        DirectChartSource.Dispose();
+        SelectionModel.SelectionChanged -= SelectionModelOnSelectionChanged;
+        SelectionController.SelectionChanged -= SelectionControllerOnSelectionChanged;
+        ChartSelection.Dispose();
+        ChartKeyMap.Dispose();
+        RangeChartProjection.Dispose();
+        SelectionModel.Source = Array.Empty<GeneratedPivotChartRow>();
+        LongFormChartModel.Dispose();
+        LongFormChartSource.Dispose();
         PivotChartModel.Dispose();
         PivotChartSource.Dispose();
         PivotChart.Dispose();
@@ -246,7 +296,53 @@ public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisp
         Pivot.Refresh();
         PivotChart.Refresh();
         PivotChartModel.Refresh();
+        int lastRow = Items.Count - 1;
+        int firstRow = Math.Max(0, lastRow - 7);
+        RangeChartProjection.UpdateRange(new DataGridCellRange(firstRow, lastRow, 1, 5));
         DirectChartModel.Refresh();
+        LongFormChartModel.Refresh();
+    }
+
+    private void SelectionModelOnSelectionChanged(object? sender, SelectionModelSelectionChangedEventArgs e)
+    {
+        if (_synchronizingSelection)
+        {
+            return;
+        }
+
+        _synchronizingSelection = true;
+        try
+        {
+            SelectionController.CaptureFrom(SelectionModel, DataGridGeneratedSelectionOrigin.Model);
+        }
+        finally
+        {
+            _synchronizingSelection = false;
+        }
+    }
+
+    private void SelectionControllerOnSelectionChanged(object? sender, DataGridGeneratedSelectionChangedEventArgs e)
+    {
+        if (_synchronizingSelection)
+        {
+            return;
+        }
+
+        _synchronizingSelection = true;
+        try
+        {
+            SelectionController.ApplyTo(SelectionModel);
+        }
+        finally
+        {
+            _synchronizingSelection = false;
+        }
+    }
+
+    private static int ToRangeCategoryIndex(int sourceIndex, DataGridCellRange range)
+    {
+        int categoryIndex = sourceIndex - range.StartRow;
+        return categoryIndex >= 0 && categoryIndex < range.RowCount ? categoryIndex : -1;
     }
 
     private void Publish(string message)

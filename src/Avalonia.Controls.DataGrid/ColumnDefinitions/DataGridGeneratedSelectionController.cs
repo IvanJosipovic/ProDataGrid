@@ -265,6 +265,25 @@ namespace Avalonia.Controls
             return true;
         }
 
+        /// <summary>
+        /// Replaces row selection with one stable key and publishes at most one change.
+        /// Column, cell, and current-cell state are preserved.
+        /// </summary>
+        public bool SelectOnlyKey(TKey key, DataGridGeneratedSelectionOrigin origin = DataGridGeneratedSelectionOrigin.Programmatic)
+        {
+            if (_selectedItemKeys.Count == 1 && _keyComparer.Equals(_selectedItemKeys[0], key))
+            {
+                return false;
+            }
+
+            _selectedItemKeys.Clear();
+            _selectedItemSet.Clear();
+            _selectedItemKeys.Add(key);
+            _selectedItemSet.Add(key);
+            Publish(origin);
+            return true;
+        }
+
         /// <summary>Deselects an item by stable key.</summary>
         public bool DeselectKey(TKey key, DataGridGeneratedSelectionOrigin origin = DataGridGeneratedSelectionOrigin.Programmatic)
         {

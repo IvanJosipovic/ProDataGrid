@@ -34,11 +34,73 @@ namespace ProDataGrid.Charting
         public static void Configure(
             DataGridChartModel model,
             IReadOnlyList<IDataGridGeneratedAnalyticsField> fields)
+            => ConfigureCore(model, fields, null);
+
+        /// <summary>
+        /// Configures a chart from the generated analytics fields whose stable column keys
+        /// fall inside an inclusive spreadsheet selection.
+        /// </summary>
+        public static void ConfigureRange(
+            DataGridChartModel model,
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            IReadOnlyList<DataGridColumnDefinition> columns,
+            DataGridCellRange range)
+        {
+            ArgumentNullException.ThrowIfNull(model);
+            ArgumentNullException.ThrowIfNull(fields);
+            ArgumentNullException.ThrowIfNull(columns);
+            ValidateColumnRange(columns, range);
+
+            var selectedKeys = new HashSet<string>(StringComparer.Ordinal);
+            for (int columnIndex = range.StartColumn; columnIndex <= range.EndColumn; columnIndex++)
+            {
+                string? key = columns[columnIndex].ColumnKey?.ToString();
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    selectedKeys.Add(key);
+                }
+            }
+
+            ConfigureCore(model, fields, selectedKeys);
+            if (model.Series.Count == 0)
+            {
+                throw new ArgumentException("The selected range does not contain a generated chart value field.", nameof(range));
+            }
+        }
+
+        /// <summary>Creates an owned, bounded spreadsheet-range chart projection.</summary>
+        public static DataGridGeneratedChartRangeProjection CreateRangeProjection(
+            IEnumerable items,
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            IReadOnlyList<DataGridColumnDefinition> columns,
+            DataGridCellRange range,
+            int maximumRows = 65536) =>
+            new(items, fields, columns, range, maximumRows);
+
+        /// <summary>
+        /// Creates a bounded long-form chart source whose generated chart-series field
+        /// partitions rows into series and whose category field aligns their values.
+        /// </summary>
+        public static DataGridGeneratedLongFormChartDataSource CreateLongFormSource(
+            IEnumerable items,
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            int maximumItems = 65536,
+            int maximumSeries = 256) =>
+            new(items, fields, maximumItems, maximumSeries);
+
+        private static void ConfigureCore(
+            DataGridChartModel model,
+            IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
+            HashSet<string>? selectedKeys)
         {
             ArgumentNullException.ThrowIfNull(model);
             ArgumentNullException.ThrowIfNull(fields);
 
-            IDataGridGeneratedAnalyticsField? category = FindFirst(fields, DataGridGeneratedAnalyticsRole.ChartCategory);
+            IDataGridGeneratedAnalyticsField? category = FindFirst(
+                fields,
+                DataGridGeneratedAnalyticsRole.ChartCategory,
+                selectedKeys);
+            category ??= FindFirst(fields, DataGridGeneratedAnalyticsRole.ChartCategory, null);
             model.CategoryPath = null;
             model.CategorySelector = category == null
                 ? null
@@ -49,7 +111,8 @@ namespace ProDataGrid.Charting
             for (int index = 0; index < fields.Count; index++)
             {
                 IDataGridGeneratedAnalyticsField field = fields[index];
-                if ((field.Role & DataGridGeneratedAnalyticsRole.ChartValue) != 0)
+                if ((field.Role & DataGridGeneratedAnalyticsRole.ChartValue) != 0 &&
+                    (selectedKeys == null || selectedKeys.Contains(field.ColumnKey)))
                 {
                     values.Add(field);
                 }
@@ -89,13 +152,15 @@ namespace ProDataGrid.Charting
 
         private static IDataGridGeneratedAnalyticsField? FindFirst(
             IReadOnlyList<IDataGridGeneratedAnalyticsField> fields,
-            DataGridGeneratedAnalyticsRole role)
+            DataGridGeneratedAnalyticsRole role,
+            HashSet<string>? selectedKeys)
         {
             IDataGridGeneratedAnalyticsField? result = null;
             for (int index = 0; index < fields.Count; index++)
             {
                 IDataGridGeneratedAnalyticsField candidate = fields[index];
-                if ((candidate.Role & role) == 0)
+                if ((candidate.Role & role) == 0 ||
+                    (selectedKeys != null && !selectedKeys.Contains(candidate.ColumnKey)))
                 {
                     continue;
                 }
@@ -108,6 +173,21 @@ namespace ProDataGrid.Charting
             }
 
             return result;
+        }
+
+        private static void ValidateColumnRange(
+            IReadOnlyList<DataGridColumnDefinition> columns,
+            DataGridCellRange range)
+        {
+            if (range.StartRow < 0 || range.EndRow < range.StartRow)
+            {
+                throw new ArgumentOutOfRangeException(nameof(range), "The row range must be non-negative and ordered.");
+            }
+
+            if (range.StartColumn < 0 || range.EndColumn < range.StartColumn || range.EndColumn >= columns.Count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(range), "The column range must be ordered and inside the generated column set.");
+            }
         }
 
         private static Func<object, double?>? GetNumericSelector(IDataGridGeneratedAnalyticsField? field) =>

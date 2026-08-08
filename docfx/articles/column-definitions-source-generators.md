@@ -488,7 +488,56 @@ DataGridChartModel chart = DataGridGeneratedChartAdapter.CreateModel(
 
 The adapter orders chart values deterministically and clears every runtime category/value/X/size property path. For numeric CLR properties, generated metadata implements `IDataGridGeneratedNumericAnalyticsField` and supplies a cached `Func<object, double?>`; the chart hot path therefore avoids the base interface's boxed value getter and runtime numeric conversion. Non-numeric or user-supplied fields retain the compatible conversion fallback. `IDataGridGeneratedAnalyticsField` and the original `DataGridGeneratedAnalyticsField<TItem, TValue>` constructor remain unchanged, preserving existing source and binary consumers.
 
-`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, ordered row/column/filter/value fields, a configurable generated `PivotTableModel`, a chart driven by the pivot result, a direct chart driven by generated numeric selectors, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage.
+Spreadsheet selections can project only the generated value columns inside a bounded inclusive range. The projection owns both the typed data source and render-ready `ChartModel`; row changes update the request window, while a changed column span rebuilds the selected series:
+
+```csharp
+DataGridGeneratedChartRangeProjection rangeChart =
+    DataGridGeneratedChartAdapter.CreateRangeProjection(
+        items,
+        SalesSchema.AnalyticsFields,
+        ColumnDefinitions,
+        new DataGridCellRange(20, 99, 1, 4),
+        maximumRows: 4096);
+
+rangeChart.UpdateRange(new DataGridCellRange(100, 179, 1, 4));
+```
+
+The range adapter includes only `[DataGridChartField(ChartValue)]` columns in the selected stable-key span, prefers a selected category and otherwise uses the schema's first ordered category, disables downsampling so indexes remain exact, and rejects ranges over the configured bound. Stable-key chart/grid coordination is split into an incremental key map and a disposable synchronizer:
+
+```csharp
+var selection = SalesSchema.CreateSelectionController();
+var keyMap = new DataGridGeneratedListChartKeyMap<Sale, int>(
+    items,
+    SalesSchema.Instance);
+var synchronization =
+    new DataGridGeneratedChartSelectionSynchronizer<Sale, int>(
+        keyMap,
+        selection,
+        rangeChart.Model.Interaction,
+        categoryToSourceIndex: index => rangeChart.Range.StartRow + index,
+        sourceToCategoryIndex: index =>
+            index >= rangeChart.Range.StartRow && index <= rangeChart.Range.EndRow
+                ? index - rangeChart.Range.StartRow
+                : -1);
+```
+
+`DataGridGeneratedListChartKeyMap<TItem,TKey>` applies observable Add/Remove/Replace/single-Move notifications directly to `DataGridGeneratedItemIndex`; malformed or coalesced notifications fall back to an atomic reset. `IDataGridGeneratedChartKeyMap<TKey>` plus the index-projection delegates are the customization boundary for grouped, downsampled, remote, or user-defined sources. `SelectOnlyKey` publishes one row-selection change while preserving column/cell state, and origin tagging prevents chart/grid feedback loops.
+
+Long-form data uses the generated `ChartSeries` discriminator to partition one row stream into aligned category/value series:
+
+```csharp
+using DataGridGeneratedLongFormChartDataSource longForm =
+    DataGridGeneratedChartAdapter.CreateLongFormSource(
+        items,
+        SalesSchema.AnalyticsFields,
+        maximumItems: 65536,
+        maximumSeries: 256);
+var longFormModel = new ChartModel { DataSource = longForm };
+```
+
+The source walks input once, invokes cached numeric selectors directly, preserves first category/discriminator order, aggregates duplicate category/series pairs according to each generated field, honors exact chart windows, observes collection and item changes, and bounds both input rows and emitted series. One value role names series by discriminator; multiple value roles use `discriminator · value`. Custom sources can implement `IChartDataSource` and consume the same manifest.
+
+`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, ordered row/column/filter/value fields, a configurable generated `PivotTableModel`, a chart driven by the pivot result, a bounded range chart, generated long-form Region series, incremental stable-key selection synchronization, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage.
 
 ## Column coverage and customization
 

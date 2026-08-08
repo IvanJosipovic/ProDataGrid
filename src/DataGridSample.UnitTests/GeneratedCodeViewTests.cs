@@ -1002,6 +1002,7 @@ public sealed class GeneratedCodeViewTests
             DataGrid sourceGrid = view.GetVisualDescendants().OfType<DataGrid>().Single();
             Assert.Equal("generated-pivot-chart-grid", AutomationProperties.GetAutomationId(sourceGrid));
             Assert.Same(viewModel.Items, sourceGrid.ItemsSource);
+            Assert.Same(viewModel.SelectionModel, sourceGrid.Selection);
             Assert.True(sourceGrid.FastPathOptions.StrictMode);
             Assert.Equal(7, viewModel.ColumnDefinitions.Count);
             Assert.Equal(7, sourceGrid.Columns.Count(static column => column.ColumnKey != null));
@@ -1024,6 +1025,13 @@ public sealed class GeneratedCodeViewTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(15, viewModel.SourceRowCount);
             Assert.NotEmpty(viewModel.Pivot.Rows);
+
+            tabs.SelectedIndex = 2;
+            Dispatcher.UIThread.RunJobs();
+            view.UpdateLayout();
+            ProChartView longFormChart = view.GetVisualDescendants().OfType<ProChartView>().Single();
+            Assert.Same(viewModel.LongFormChartModel, longFormChart.ChartModel);
+            Assert.Equal(6, viewModel.LongFormChartModel.Snapshot.Series.Count);
 
             string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
             if (!string.IsNullOrWhiteSpace(screenshotDirectory))

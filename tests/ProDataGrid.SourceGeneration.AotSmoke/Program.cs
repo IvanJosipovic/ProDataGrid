@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using ProDataGrid.SourceGeneration.AotSmoke;
 using ProDataGrid.SourceGeneration.AotSmoke.Generated;
 using ProDataGrid.SourceGeneration.AotSmoke.Views;
+using ProDataGrid.Charting;
+using ProCharts;
 using ReactiveUI.Avalonia;
 using ReactiveUI.Builder;
 
@@ -23,12 +25,39 @@ DataGridGeneratedFillModel<AotTradeRow, int> formulaFill =
     AotTradeRowSchema.CreateConfiguredFormulaFillModel(edits);
 AotTradeRow newRow = await newRows.CreateAsync();
 await mutations.AddAsync(0, new[] { newRow });
+using DataGridGeneratedChartRangeProjection chartProjection = DataGridGeneratedChartAdapter.CreateRangeProjection(
+    viewModel.Items,
+    AotTradeRowSchema.AnalyticsFields,
+    viewModel.ColumnDefinitions,
+    new DataGridCellRange(0, 1, 1, 3),
+    maximumRows: 8);
+using var chartKeyMap = new DataGridGeneratedListChartKeyMap<AotTradeRow, int>(
+    viewModel.Items,
+    AotTradeRowSchema.Instance);
+var chartSelection = AotTradeRowSchema.CreateSelectionController();
+chartSelection.ResetSource(viewModel.Items);
+using var chartSynchronization = new DataGridGeneratedChartSelectionSynchronizer<AotTradeRow, int>(
+    chartKeyMap,
+    chartSelection,
+    chartProjection.Model.Interaction);
+chartSelection.SelectOnlyKey(2);
+using DataGridGeneratedLongFormChartDataSource longFormSource =
+    DataGridGeneratedChartAdapter.CreateLongFormSource(
+        viewModel.Items,
+        AotTradeRowSchema.AnalyticsFields,
+        maximumItems: 8,
+        maximumSeries: 8);
+using var longFormModel = new ChartModel { DataSource = longFormSource };
 
 if (!AotGeneratedRegistry.TryGetSchema(typeof(AotTradeRow), out IDataGridGeneratedSchemaManifestProvider schema) ||
     schema.Manifest.SchemaId != AotTradeRowSchema.SchemaId ||
     viewModel.ColumnDefinitions.Count != 5 ||
     !viewModel.FastPathOptions.StrictMode ||
-    newRow.Id != 42)
+    newRow.Id != 42 ||
+    chartProjection.Model.Snapshot.Series.Count != 1 ||
+    chartProjection.Model.Interaction.CrosshairCategoryIndex != 1 ||
+    longFormModel.Snapshot.Categories.Count != 2 ||
+    longFormModel.Snapshot.Series.Count != 2)
 {
     return 1;
 }

@@ -23,9 +23,38 @@ internal static class BenchmarkCorrectness
         }
 
         ValidateOperations();
+        ValidateAnalytics();
 
         var generatorBenchmarks = new SourceGeneratorBenchmarks { SchemaCount = 4 };
         generatorBenchmarks.Validate();
+    }
+
+    private static void ValidateAnalytics()
+    {
+        var projection = new GeneratedChartRangeProjectionBenchmarks { RowCount = 256 };
+        projection.Setup();
+        if (projection.CreateBoundedGeneratedRange() != 258)
+        {
+            throw new InvalidOperationException("Generated analytics range projection returned unexpected output.");
+        }
+        if (projection.BuildGeneratedLongFormSeries() != 16)
+        {
+            throw new InvalidOperationException("Generated long-form analytics projection returned unexpected output.");
+        }
+
+        var identity = new GeneratedChartKeyLookupBenchmarks { RowCount = 256 };
+        identity.Setup();
+        try
+        {
+            if (identity.LinearSourceScan() != identity.GeneratedStableKeyIndex())
+            {
+                throw new InvalidOperationException("Generated analytics stable-key lookup differs from the source scan.");
+            }
+        }
+        finally
+        {
+            identity.Cleanup();
+        }
     }
 
     private static void ValidateColumns(

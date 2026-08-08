@@ -699,14 +699,28 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.All(viewModel.Pivot.ValueFields, static field => Assert.Null(field.PropertyPath));
         Assert.Equal(2, viewModel.DirectChartSource.Series.Count);
         Assert.All(viewModel.DirectChartSource.Series, static series => Assert.Null(series.ValuePath));
+        Assert.Equal(8, viewModel.RangeChartProjection.Range.RowCount);
+        Assert.Equal(8, viewModel.DirectChartModel.Request.WindowCount);
+        Assert.Equal(ChartDownsampleMode.None, viewModel.DirectChartModel.Request.DownsampleMode);
         Assert.NotEmpty(viewModel.DirectChartModel.Snapshot.Categories);
         Assert.Equal(2, viewModel.DirectChartModel.Snapshot.Series.Count);
         Assert.NotEmpty(viewModel.PivotChartModel.Snapshot.Series);
+        Assert.Equal(new[] { "P1", "P2", "P3", "P4" }, viewModel.LongFormChartModel.Snapshot.Categories);
+        Assert.Equal(6, viewModel.LongFormChartModel.Snapshot.Series.Count);
+
+        GeneratedPivotChartRow selected = Assert.IsType<GeneratedPivotChartRow>(viewModel.Items[3]);
+        viewModel.SelectionController.SelectOnlyKey(selected.Id);
+        Assert.Equal(3, viewModel.DirectChartModel.Interaction.CrosshairCategoryIndex);
+        viewModel.DirectChartModel.Interaction.SetCrosshair(5, null, null, 0.5d, 0.5d);
+        GeneratedPivotChartRow chartSelected = Assert.IsType<GeneratedPivotChartRow>(viewModel.Items[5]);
+        Assert.Equal(new[] { chartSelected.Id }, viewModel.SelectionController.SelectedItemKeys);
 
         viewModel.AddPeriodCommand.Execute().Subscribe();
         Assert.Equal(15, viewModel.SourceRowCount);
+        Assert.Equal(7, viewModel.RangeChartProjection.Range.StartRow);
         Assert.Contains("Added P5", viewModel.Status, StringComparison.Ordinal);
         Assert.Contains("P5", viewModel.DirectChartModel.Snapshot.Categories);
+        Assert.Contains("P5", viewModel.LongFormChartModel.Snapshot.Categories);
 
         viewModel.ToggleMetricCommand.Execute().Subscribe();
         Assert.Equal("Profit", viewModel.SelectedMetric);
