@@ -65,6 +65,14 @@ namespace ProDataGrid.FormulaEngine.Benchmarks
         }
 
         [Benchmark]
+        public bool Validate_ComplexFormula()
+        {
+            return ExcelFormulaSyntaxValidator.TryValidate(
+                "IF(SUM(A1:A1000)>1000,AVERAGE(B1:B1000),MAX(C1:C1000))",
+                out _);
+        }
+
+        [Benchmark]
         public FormulaValue Evaluate_LargeRangeSum()
         {
             var evaluator = new FormulaEvaluator();

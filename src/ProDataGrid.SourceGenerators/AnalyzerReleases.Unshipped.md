@@ -40,3 +40,4 @@ PDGSG134 | ProDataGrid.SourceGeneration | Error | Runtime-defined shape requires
 PDGSG135 | ProDataGrid.SourceGeneration | Error | Invalid collection mutation handler
 PDGSG136 | ProDataGrid.SourceGeneration | Error | Invalid new-row factory
 PDGSG137 | ProDataGrid.SourceGeneration | Error | Invalid formula fill translator
+PDGSG138 | ProDataGrid.SourceGeneration | Error | Invalid generated formula syntax

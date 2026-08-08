@@ -431,6 +431,18 @@ public sealed partial class SpreadsheetViewModel : ReactiveObject
 
 `DataGridSample.Pages.GeneratedIndexedSpreadsheetPage` demonstrates a replaceable 7–12 column family, typed slot notifications, strict fast-path options, structured/chained formulas, a row-local cell formula, and generated ReactiveUI view composition.
 
+Literal formulas on generated formula columns are validated during compilation by the source-generator package. Diagnostic `PDGSG138` reports the source property, zero-based formula position, and parser message before an invalid definition reaches the runtime model:
+
+```csharp
+[DataGridColumn(
+    DataGridColumnKind.Formula,
+    Header = "Total",
+    Formula = "=SUM([@Amount], [@Tax])")]
+public decimal Total { get; set; }
+```
+
+The analyzer and `ExcelFormulaSyntaxValidator` share the production `ExcelFormulaTokenizer`, and the validator parses expression structure without constructing an expression tree. It supports functions and empty arguments, unary/binary/range/union/intersection operators, arrays, A1/R1C1 names, sheet ranges, external references, and structured references. Dynamic formulas remain a runtime responsibility. Applications and editor tooling can call `ExcelFormulaSyntaxValidator.TryValidate` directly with default or custom `FormulaParseOptions`.
+
 ## Generated pivot and chart projections
 
 Assign analytics roles to the same attributed properties that define the grid schema. Pivot axes and values, chart categories and values, outline fields, and formula dependencies then share the canonical column key and generated getter:

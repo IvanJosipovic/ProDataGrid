@@ -207,5 +207,28 @@ namespace ProDataGrid.FormulaEngine.Tests
             Assert.Equal(FormulaValueKind.Blank, first.Value.Kind);
             Assert.Equal(FormulaValueKind.Blank, last.Value.Kind);
         }
+
+        [Theory]
+        [InlineData("=([@B]*[@C])*(1-[@D])")]
+        [InlineData("=SUM(A1:A10,IF(B1>0,B1,0))")]
+        [InlineData("=Table1[[#Totals],[Amount]]+Sheet1!A1")]
+        [InlineData("={1,2;3,4}")]
+        [InlineData("=Sheet1:Sheet3!A1")]
+        public void Syntax_validator_accepts_runtime_formula_shapes(string formula)
+        {
+            Assert.True(ExcelFormulaSyntaxValidator.TryValidate(formula, out ExcelFormulaSyntaxError error), error.Message);
+        }
+
+        [Theory]
+        [InlineData("=1+")]
+        [InlineData("=SUM(1,")]
+        [InlineData("={1,2;3}")]
+        [InlineData("=#WHAT?")]
+        public void Syntax_validator_reports_invalid_formula_shapes(string formula)
+        {
+            Assert.False(ExcelFormulaSyntaxValidator.TryValidate(formula, out ExcelFormulaSyntaxError error));
+            Assert.NotEmpty(error.Message);
+            Assert.InRange(error.Position, 0, formula.Length);
+        }
     }
 }

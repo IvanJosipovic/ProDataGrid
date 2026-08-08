@@ -2463,6 +2463,22 @@ internal static partial class Discovery
             required = "Formula";
         }
 
+        if (kind == "Formula" && required == null)
+        {
+            string formula = GeneratorUtilities.GetString(options, "Formula")!;
+            if (!global::ProDataGrid.FormulaEngine.Excel.ExcelFormulaSyntaxValidator.TryValidate(
+                formula,
+                out global::ProDataGrid.FormulaEngine.Excel.ExcelFormulaSyntaxError syntaxError))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidFormulaSyntax,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    syntaxError.Position,
+                    syntaxError.Message));
+            }
+        }
+
         if (required != null)
         {
             diagnostics.Add(Diagnostic.Create(

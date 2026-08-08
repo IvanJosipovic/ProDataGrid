@@ -200,6 +200,11 @@ internal static class GeneratorDiagnostics
         "Invalid formula fill translator",
         "Formula fill translator type '{0}' must be accessible, non-abstract, have an accessible parameterless constructor, and implement IFormulaFillTranslator");
 
+    public static readonly DiagnosticDescriptor InvalidFormulaSyntax = Create(
+        "PDGSG138",
+        "Invalid generated formula syntax",
+        "Formula column '{0}' contains invalid formula syntax at position {1}: {2}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

@@ -28,6 +28,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Share the production lexer and allocation-light syntax validator with the analyzer. -->
+    <Compile Include="..\ProDataGrid.FormulaEngine\FormulaParseSyntax.cs" Link="FormulaSyntax\FormulaParseSyntax.cs" />
+    <Compile Include="..\ProDataGrid.FormulaEngine\FormulaTokens.cs" Link="FormulaSyntax\FormulaTokens.cs" />
+    <Compile Include="..\ProDataGrid.FormulaEngine.Excel\ExcelFormulaTokenizer.cs" Link="FormulaSyntax\ExcelFormulaTokenizer.cs" />
+    <Compile Include="..\ProDataGrid.FormulaEngine.Excel\ExcelFormulaSyntaxValidator.cs" Link="FormulaSyntax\ExcelFormulaSyntaxValidator.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="$(TargetPath)" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
     <None Include="$(TargetDir)$(AssemblyName).pdb"
           Pack="true"

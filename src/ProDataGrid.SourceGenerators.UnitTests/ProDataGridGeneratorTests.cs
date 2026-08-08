@@ -3279,6 +3279,40 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Formula_column_uses_shared_compile_time_syntax_validation()
+    {
+        GeneratorTestResult valid = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class ValidRow
+            {
+                [DataGridColumn(DataGridColumnKind.Formula, Formula = "=SUM([@Amount], 1)")]
+                public decimal Total { get; set; }
+
+                public decimal Amount { get; set; }
+            }
+            """);
+        GeneratorTestResult invalid = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class InvalidRow
+            {
+                [DataGridColumn(DataGridColumnKind.Formula, Formula = "=SUM([@Amount],")]
+                public decimal Total { get; set; }
+
+                public decimal Amount { get; set; }
+            }
+            """);
+
+        Assert.DoesNotContain(valid.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG138");
+        Diagnostic diagnostic = Assert.Single(invalid.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG138");
+        Assert.Contains("position", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Empty(valid.Errors);
+    }
+
+    [Fact]
     public void Invalid_indexed_column_method_reports_diagnostic()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
