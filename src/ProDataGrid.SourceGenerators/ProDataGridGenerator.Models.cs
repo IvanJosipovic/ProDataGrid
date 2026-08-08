@@ -97,6 +97,42 @@ internal sealed class ViewModelViewModel
     public Location Location { get; set; } = Location.None;
 }
 
+internal sealed class DirectViewCandidate
+{
+    public INamedTypeSymbol ViewModelType { get; set; } = null!;
+
+    public ImmutableArray<AttributeData> Attributes { get; set; } = ImmutableArray<AttributeData>.Empty;
+
+    public string CacheKey { get; set; } = string.Empty;
+}
+
+internal sealed class DirectViewCandidateComparer : IEqualityComparer<DirectViewCandidate>
+{
+    public static readonly DirectViewCandidateComparer Instance = new();
+
+    public bool Equals(DirectViewCandidate? x, DirectViewCandidate? y) =>
+        ReferenceEquals(x, y) ||
+        (x != null && y != null && string.Equals(x.CacheKey, y.CacheKey, StringComparison.Ordinal));
+
+    public int GetHashCode(DirectViewCandidate candidate) =>
+        StringComparer.Ordinal.GetHashCode(candidate.CacheKey);
+}
+
+internal sealed class DirectViewGenerationResult
+{
+    public DirectViewGenerationResult(
+        ImmutableArray<GeneratedSource> sources,
+        ImmutableArray<Diagnostic> diagnostics)
+    {
+        Sources = sources;
+        Diagnostics = diagnostics;
+    }
+
+    public ImmutableArray<GeneratedSource> Sources { get; }
+
+    public ImmutableArray<Diagnostic> Diagnostics { get; }
+}
+
 internal sealed class ViewBindingModel
 {
     public string PropertyName { get; set; } = string.Empty;

@@ -116,6 +116,16 @@ namespace Avalonia.Controls
         /// <summary>Gets immutable root band nodes.</summary>
         public IReadOnlyList<DataGridGeneratedBandNode> Bands { get; }
 
+        /// <summary>Gets whether a column is currently visible.</summary>
+        public bool IsVisible(string columnKey) => GetEntry(columnKey).Definition.IsVisible ?? true;
+
+        /// <summary>Gets whether the generated visibility policy allows the requested value.</summary>
+        public bool CanSetVisible(string columnKey, bool visible)
+        {
+            Entry entry = GetEntry(columnKey);
+            return visible || entry.Definition.CanUserHide != false;
+        }
+
         /// <summary>Sets visibility by stable key.</summary>
         public void SetVisible(string columnKey, bool visible)
         {

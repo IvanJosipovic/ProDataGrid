@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridFiltering;
+using Avalonia.Controls.DataGridSorting;
 using DataGridSample.Models;
 using ProDataGrid.SourceGeneration;
 using ReactiveUI;
@@ -36,6 +38,15 @@ public sealed partial class GeneratedSourceFeaturesViewModel : ReactiveObject, I
         EditController = GeneratedFeatureRowSchema.CreateEditController(key => _byId[key]);
         ClipboardController = GeneratedFeatureRowSchema.CreateClipboardController(EditController);
         FillController = GeneratedFeatureRowSchema.CreateFillController(EditController);
+        OperationController = GeneratedFeatureRowSchema.CreateController();
+        ColumnLayoutController = new DataGridGeneratedColumnLayoutController(
+            ColumnDefinitions,
+            GeneratedFeatureRowSchema.BandFields);
+        HeaderCommandController = new DataGridGeneratedHeaderCommandController<GeneratedFeatureRow>(
+            GeneratedFeatureRowSchema.Instance.Manifest,
+            OperationController,
+            ColumnLayoutController);
+        AmountHeaderCommands = HeaderCommandController.ForField("amount");
         _summaries = GeneratedFeatureRowSchema.CreateSummaries();
         ResetSummaries();
 
@@ -51,6 +62,12 @@ public sealed partial class GeneratedSourceFeaturesViewModel : ReactiveObject, I
     public DataGridGeneratedEditController<GeneratedFeatureRow, int> EditController { get; }
     public DataGridGeneratedClipboardController<GeneratedFeatureRow, int> ClipboardController { get; }
     public DataGridGeneratedFillController<GeneratedFeatureRow, int> FillController { get; }
+    public DataGridGeneratedOperationController<GeneratedFeatureRow> OperationController { get; }
+    public DataGridGeneratedColumnLayoutController ColumnLayoutController { get; }
+    public DataGridGeneratedHeaderCommandController<GeneratedFeatureRow> HeaderCommandController { get; }
+    public DataGridGeneratedHeaderCommandSet AmountHeaderCommands { get; }
+    public SortingModel SortingModel => OperationController.SortingModel;
+    public FilteringModel FilteringModel => OperationController.FilteringModel;
     public ReactiveCommand<RxVoid, RxVoid> AddCommand { get; }
     public ReactiveCommand<RxVoid, RxVoid> FillCommand { get; }
     public ReactiveCommand<RxVoid, RxVoid> UndoCommand { get; }
@@ -109,5 +126,11 @@ public sealed partial class GeneratedSourceFeaturesViewModel : ReactiveObject, I
         for (int index = 0; index < _summaries.Count; index++) _summaries[index].Reset(Items);
     }
 
-    public void Dispose() => EditController.Dispose();
+    public void Dispose()
+    {
+        HeaderCommandController.Dispose();
+        ColumnLayoutController.Dispose();
+        OperationController.Dispose();
+        EditController.Dispose();
+    }
 }

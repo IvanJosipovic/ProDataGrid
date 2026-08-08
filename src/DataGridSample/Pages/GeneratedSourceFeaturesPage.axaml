@@ -16,6 +16,10 @@
       <Button Content="Undo" Command="{Binding UndoCommand}" />
       <Button Content="Export CSV" Command="{Binding ExportCommand}" />
       <Button Content="Summaries" Command="{Binding SummarizeCommand}" />
+      <Button Content="Amount descending" Command="{Binding AmountHeaderCommands.SortDescending}" />
+      <Button Content="Clear amount sort" Command="{Binding AmountHeaderCommands.ClearSort}" />
+      <Button Content="Hide amount" Command="{Binding AmountHeaderCommands.HideColumn}" />
+      <Button Content="Reset layout" Command="{Binding AmountHeaderCommands.ResetLayout}" />
     </WrapPanel>
     <Border Grid.Row="2" Padding="8" Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="4">
       <TextBlock TextWrapping="Wrap" Text="{Binding Status}" />
@@ -25,6 +29,8 @@
               ItemsSource="{Binding ItemsView}"
               ColumnDefinitionsSource="{Binding ColumnDefinitions}"
               FastPathOptions="{Binding FastPathOptions}"
+              SortingModel="{Binding SortingModel}"
+              FilteringModel="{Binding FilteringModel}"
               CanUserSortColumns="True"
               GridLinesVisibility="Horizontal" />
   </Grid>

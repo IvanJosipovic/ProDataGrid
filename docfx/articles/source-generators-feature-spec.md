@@ -24,18 +24,18 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 
 | Feature | Status | Implemented boundary / remaining work |
 |---|---|---|
-| F01 incremental foundation | Partial | Direct type schemas and indexed-column triggers use isolated attributed pipelines with stable output reuse; assembly/namespace policy, controller, and view composition still share the compilation-wide policy lane. |
+| F01 incremental foundation | Partial | Direct type schemas, indexed-column triggers, and type-level generated views use isolated attributed pipelines with stable semantic/output reuse; assembly/namespace policy, ViewModel, and controller composition still share the compilation-wide policy lane. |
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. |
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, and reset preservation are available; broader conversion of legacy sample trees remains. |
 | F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. |
-| F15 layout/indexed columns | Core implemented | Nested band trees, chooser visibility/order/reset, layout state, and method-backed indexed column families are available; generated pin/freeze commands remain. |
+| F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
 | F16 templates/drawing | Partial | Typed recycling cell/edit/new-row templates are available; row-details and custom-drawing cache generation remain. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
 | F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
 | F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, and state bridges are available; richer command/event bridges and loading/error/empty projections remain. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
 | F21 collection views/dynamic shapes | Partial | Typed collection-view factories and range-aware generated services are available; unknown runtime shapes still require explicit user adapters. |
-| F22 header filtering/distinct values | Core implemented | Typed editor metadata plus bounded local/remote distinct-value providers are available; a complete generated header-command surface remains. |
+| F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
 | F23 performance/input diagnostics | Partial | Explicit performance profiles and generated runtime diagnostics are available; generated keyboard maps and renderer metric bridges remain. |
 
 ## 2. Existing baseline
@@ -863,6 +863,36 @@ Requirements:
 - Keep all visual styling in Avalonia resources/templates.
 
 Distinct-value generation must be bounded and should not scan an unbounded live source on the UI thread.
+
+Implemented command API:
+
+```csharp
+using DataGridGeneratedOperationController<Trade> operations =
+    TradeGridSchema.CreateController();
+using DataGridGeneratedColumnLayoutController layout =
+    TradeGridSchema.CreateColumnLayoutController();
+using DataGridGeneratedHeaderCommandController<Trade> headers =
+    TradeGridSchema.CreateHeaderCommandController(
+        operations,
+        layout,
+        interaction: new TradeGridHeaderInteraction());
+
+DataGridGeneratedHeaderCommandSet price = headers.ForField("price");
+price.SortDescending.Execute(null);
+price.ClearFilter.Execute(null);
+price.HideColumn.Execute(null);
+price.PinLeft.Execute(null);
+price.FreezeThrough.Execute(null);
+price.AutoSize.Execute(null);
+price.ResetLayout.Execute(null);
+```
+
+`IDataGridGeneratedHeaderInteraction` is the UI boundary for pin, freeze, autosize,
+and any grid-instance behavior. Applications may replace that small interface or the
+complete `IDataGridGeneratedHeaderCommandHandler`. Sort, filter, visibility, and
+layout-reset operations use generated field IDs and existing typed controllers. No
+reflection, expression compilation, or DataGrid reference is introduced in the
+ViewModel.
 
 ### F23. Virtualization, scrolling, input, and diagnostics profiles — P2
 

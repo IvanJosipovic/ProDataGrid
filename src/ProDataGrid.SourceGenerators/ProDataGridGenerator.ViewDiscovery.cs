@@ -47,28 +47,32 @@ internal static partial class Discovery
             }
         }
 
-        foreach (INamedTypeSymbol viewModelType in sourceTypes)
+        bool hasGlobalViewPolicies = HasGlobalViewPolicies(assemblyAttributes);
+        if (hasGlobalViewPolicies)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            foreach (AttributeData attribute in viewModelType.GetAttributes())
+            foreach (INamedTypeSymbol viewModelType in sourceTypes)
             {
-                if (!IsAttribute(attribute, ProDataGridGenerator.GenerateViewAttributeName))
+                cancellationToken.ThrowIfCancellationRequested();
+                foreach (AttributeData attribute in viewModelType.GetAttributes())
                 {
-                    continue;
-                }
+                    if (!IsAttribute(attribute, ProDataGridGenerator.GenerateViewAttributeName))
+                    {
+                        continue;
+                    }
 
-                INamedTypeSymbol? itemType = GetConstructorType(attribute, 0);
-                if (itemType == null)
-                {
-                    diagnostics.Add(Diagnostic.Create(
-                        GeneratorDiagnostics.InvalidTarget,
-                        GetLocation(attribute),
-                        viewModelType.ToDisplayString(),
-                        "view generation requires an item type"));
-                    continue;
-                }
+                    INamedTypeSymbol? itemType = GetConstructorType(attribute, 0);
+                    if (itemType == null)
+                    {
+                        diagnostics.Add(Diagnostic.Create(
+                            GeneratorDiagnostics.InvalidTarget,
+                            GetLocation(attribute),
+                            viewModelType.ToDisplayString(),
+                            "view generation requires an item type"));
+                        continue;
+                    }
 
-                requests.Add(CreateViewRequest(viewModelType, itemType, attribute));
+                    requests.Add(CreateViewRequest(viewModelType, itemType, attribute));
+                }
             }
         }
 
@@ -90,6 +94,125 @@ internal static partial class Discovery
         }
 
         return views.ToImmutable();
+    }
+
+    public static DirectViewCandidate? CreateDirectViewCandidate(GeneratorAttributeSyntaxContext context)
+    {
+        if (context.TargetSymbol is not INamedTypeSymbol viewModelType ||
+            viewModelType.TypeKind != TypeKind.Class ||
+            HasGlobalViewPolicies(viewModelType.ContainingAssembly.GetAttributes()))
+        {
+            return null;
+        }
+
+        return new DirectViewCandidate
+        {
+            ViewModelType = viewModelType,
+            Attributes = context.Attributes,
+            CacheKey = CreateDirectSchemaCacheKey(viewModelType, context.Attributes)
+        };
+    }
+
+    public static DirectViewGenerationResult BuildDirectViews(
+        ImmutableArray<DirectViewCandidate> candidates,
+        Compilation compilation,
+        CancellationToken cancellationToken)
+    {
+        var diagnostics = ImmutableArray.CreateBuilder<Diagnostic>();
+        var requests = new List<ViewRequest>();
+        var generatedViewModels = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+        ImmutableArray<AttributeData> assemblyAttributes = compilation.Assembly.GetAttributes();
+
+        foreach (DirectViewCandidate candidate in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (IsGeneratedViewModel(candidate.ViewModelType, assemblyAttributes))
+            {
+                generatedViewModels.Add(candidate.ViewModelType);
+            }
+
+            foreach (AttributeData attribute in candidate.Attributes)
+            {
+                INamedTypeSymbol? itemType = GetConstructorType(attribute, 0);
+                if (itemType == null)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidTarget,
+                        GetLocation(attribute),
+                        candidate.ViewModelType.ToDisplayString(),
+                        "view generation requires an item type"));
+                    continue;
+                }
+
+                requests.Add(CreateViewRequest(candidate.ViewModelType, itemType, attribute));
+            }
+        }
+
+        var sources = ImmutableArray.CreateBuilder<GeneratedSource>();
+        foreach (ViewRequest request in requests
+                     .GroupBy(static request => request.ViewNamespace + "." + request.ViewName, StringComparer.Ordinal)
+                     .Select(static group => group.Last())
+                     .OrderBy(static request => GeneratorUtilities.GetMetadataName(request.ViewModelType), StringComparer.Ordinal))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ViewModelViewModel? view = ResolveView(compilation, request, generatedViewModels, diagnostics);
+            if (view != null)
+            {
+                sources.Add(Emitter.EmitViewSource(view));
+            }
+        }
+
+        return new DirectViewGenerationResult(sources.ToImmutable(), diagnostics.ToImmutable());
+    }
+
+    private static bool HasGlobalViewPolicies(ImmutableArray<AttributeData> assemblyAttributes)
+    {
+        foreach (AttributeData attribute in assemblyAttributes)
+        {
+            if (IsAttribute(attribute, ProDataGridGenerator.GenerateViewAttributeName) ||
+                IsAttribute(attribute, ProDataGridGenerator.GenerateViewsForNamespaceAttributeName))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsGeneratedViewModel(
+        INamedTypeSymbol viewModelType,
+        ImmutableArray<AttributeData> assemblyAttributes)
+    {
+        if (viewModelType.GetAttributes().Any(static attribute =>
+                IsAttribute(attribute, ProDataGridGenerator.GenerateViewModelAttributeName)))
+        {
+            return true;
+        }
+
+        foreach (AttributeData attribute in assemblyAttributes)
+        {
+            if (IsAttribute(attribute, ProDataGridGenerator.GenerateViewModelAttributeName) &&
+                SymbolEqualityComparer.Default.Equals(GetConstructorType(attribute, 0), viewModelType))
+            {
+                return true;
+            }
+
+            if (!IsAttribute(attribute, ProDataGridGenerator.GenerateViewModelsForNamespaceAttributeName))
+            {
+                continue;
+            }
+
+            string? namespaceName = GetConstructorString(attribute, 0);
+            Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            bool includeNested = GeneratorUtilities.GetBoolean(arguments, "IncludeNestedNamespaces", true);
+            if (!string.IsNullOrWhiteSpace(namespaceName) &&
+                NamespaceMatches(viewModelType, namespaceName!, includeNested))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void DiscoverNamespaceViewRequests(

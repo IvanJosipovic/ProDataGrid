@@ -818,6 +818,81 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Unchanged_generated_view_output_is_reused_when_another_view_changes()
+    {
+        const string firstBefore = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class FirstRow { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(FirstRow))]
+            [GenerateDataGridView(typeof(FirstRow), Title = "First")]
+            public sealed partial class FirstViewModel { public FirstRow[] Items { get; } = []; }
+            """;
+        const string firstAfter = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class FirstRow { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(FirstRow))]
+            [GenerateDataGridView(typeof(FirstRow), Title = "Updated first")]
+            public sealed partial class FirstViewModel { public FirstRow[] Items { get; } = []; }
+            """;
+        const string unchangedSecond = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class SecondRow { public string Name { get; set; } = ""; }
+            [GenerateDataGridViewModel(typeof(SecondRow))]
+            [GenerateDataGridView(typeof(SecondRow), Title = "Second")]
+            public sealed partial class SecondViewModel { public SecondRow[] Items { get; } = []; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { firstBefore, unchangedSecond },
+            new[] { firstAfter, unchangedSecond },
+            "DirectViewSources");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.Contains(IncrementalStepRunReason.Unchanged, result.Reasons);
+        Assert.Equal(7, result.Sources.Count); // injected attributes, two schemas, two view-models, and two views.
+    }
+
+    [Fact]
+    public void Unchanged_direct_view_semantic_candidate_is_reused()
+    {
+        const string firstBefore = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class FirstRow { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(FirstRow))]
+            [GenerateDataGridView(typeof(FirstRow), Title = "First")]
+            public sealed partial class FirstViewModel { public FirstRow[] Items { get; } = []; }
+            """;
+        const string firstAfter = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class FirstRow { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(FirstRow))]
+            [GenerateDataGridView(typeof(FirstRow), Title = "Updated first")]
+            public sealed partial class FirstViewModel { public FirstRow[] Items { get; } = []; }
+            """;
+        const string unchangedSecond = """
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class SecondRow { public string Name { get; set; } = ""; }
+            [GenerateDataGridViewModel(typeof(SecondRow))]
+            [GenerateDataGridView(typeof(SecondRow), Title = "Second")]
+            public sealed partial class SecondViewModel { public SecondRow[] Items { get; } = []; }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { firstBefore, unchangedSecond },
+            new[] { firstAfter, unchangedSecond },
+            "DirectViewCandidates");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+        Assert.Contains(IncrementalStepRunReason.Unchanged, result.Reasons);
+    }
+
+    [Fact]
     public void Indexed_column_family_generates_typed_method_backed_factories()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -953,6 +1028,7 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("DataGridGeneratedDiagnosticsManifest Diagnostics", result.CombinedSource);
         Assert.Contains("DataGridGeneratedAnalyticsRole)2120", result.CombinedSource);
         Assert.Contains("CreateColumnLayoutController", result.CombinedSource);
+        Assert.Contains("CreateHeaderCommandController", result.CombinedSource);
         Assert.Empty(result.Errors);
     }
 

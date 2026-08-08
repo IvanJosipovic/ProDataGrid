@@ -60,9 +60,7 @@ internal static class Emitter
         foreach (ViewModelViewModel view in model.Views)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            yield return new GeneratedSource(
-                CreateHintName(view.ViewNamespace, view.ViewName, "View"),
-                EmitView(view));
+            yield return EmitViewSource(view);
         }
 
         if (model.Registry != null)
@@ -77,6 +75,11 @@ internal static class Emitter
         new(
             CreateHintName(schema.ProviderNamespace, schema.ProviderName, "Schema"),
             EmitSchema(schema));
+
+    internal static GeneratedSource EmitViewSource(ViewModelViewModel view) =>
+        new(
+            CreateHintName(view.ViewNamespace, view.ViewName, "View"),
+            EmitView(view));
 
     private static string EmitRegistry(GenerationModel model, RegistryModel registry)
     {
@@ -400,7 +403,13 @@ internal static class Emitter
 
         builder.AppendLine()
             .AppendLine("        public static global::Avalonia.Controls.DataGridGeneratedColumnLayoutController CreateColumnLayoutController()")
-            .AppendLine("            => new global::Avalonia.Controls.DataGridGeneratedColumnLayoutController(Instance.CreateColumnDefinitions(), BandFields);");
+            .AppendLine("            => new global::Avalonia.Controls.DataGridGeneratedColumnLayoutController(Instance.CreateColumnDefinitions(), BandFields);")
+            .AppendLine()
+            .Append("        public static global::Avalonia.Controls.DataGridGeneratedHeaderCommandController<").Append(itemType).AppendLine("> CreateHeaderCommandController(")
+            .Append("            global::Avalonia.Controls.DataGridGeneratedOperationController<").Append(itemType).AppendLine("> operations,")
+            .AppendLine("            global::Avalonia.Controls.DataGridGeneratedColumnLayoutController layout,")
+            .AppendLine("            global::Avalonia.Controls.IDataGridGeneratedHeaderInteraction? interaction = null)")
+            .Append("            => new global::Avalonia.Controls.DataGridGeneratedHeaderCommandController<").Append(itemType).AppendLine(">(Instance.Manifest, operations, layout, interaction);");
 
         builder.AppendLine()
             .AppendLine("        public static bool TryGetField(string key, out global::Avalonia.Controls.DataGridGeneratedField field)")

@@ -63,6 +63,34 @@ public sealed partial class ProDataGridGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(directSources, static (productionContext, source) =>
             productionContext.AddSource(source.HintName, source.Source));
 
+        IncrementalValuesProvider<DirectViewCandidate> directViewCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                GenerateViewAttributeName,
+                static (node, _) => node is ClassDeclarationSyntax,
+                static (attributeContext, _) => Discovery.CreateDirectViewCandidate(attributeContext))
+            .Where(static candidate => candidate != null)
+            .Select(static (candidate, _) => candidate!)
+            .WithComparer(DirectViewCandidateComparer.Instance)
+            .WithTrackingName("DirectViewCandidates");
+
+        IncrementalValueProvider<DirectViewGenerationResult> directViews = directViewCandidates
+            .Collect()
+            .Combine(context.CompilationProvider)
+            .Select(static (input, cancellationToken) =>
+                Discovery.BuildDirectViews(input.Left, input.Right, cancellationToken))
+            .WithTrackingName("DirectViewComposition");
+
+        context.RegisterSourceOutput(
+            directViews.SelectMany(static (result, _) => result.Diagnostics),
+            static (productionContext, diagnostic) => productionContext.ReportDiagnostic(diagnostic));
+
+        IncrementalValuesProvider<GeneratedSource> directViewSources = directViews
+            .SelectMany(static (result, _) => result.Sources)
+            .WithComparer(GeneratedSourceComparer.Instance)
+            .WithTrackingName("DirectViewSources");
+        context.RegisterSourceOutput(directViewSources, static (productionContext, source) =>
+            productionContext.AddSource(source.HintName, source.Source));
+
         IncrementalValueProvider<GenerationModel> model = context.CompilationProvider
             .Select(static (compilation, cancellationToken) => Discovery.Build(compilation, cancellationToken))
             .WithTrackingName("SemanticModel");
