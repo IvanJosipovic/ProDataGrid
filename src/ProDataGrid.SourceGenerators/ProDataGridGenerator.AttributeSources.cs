@@ -279,6 +279,7 @@ public sealed partial class ProDataGridGenerator
                 public string? ClipboardImportModelPropertyName { get; set; }
                 public string? FillModelPropertyName { get; set; }
                 public string? FormulaModelPropertyName { get; set; }
+                public string? ConditionalFormattingModelPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
                     global::Avalonia.Controls.DataGridEditTriggers.Default;
                 public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
@@ -351,6 +352,7 @@ public sealed partial class ProDataGridGenerator
                 public string? ClipboardImportModelPropertyName { get; set; }
                 public string? FillModelPropertyName { get; set; }
                 public string? FormulaModelPropertyName { get; set; }
+                public string? ConditionalFormattingModelPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
                     global::Avalonia.Controls.DataGridEditTriggers.Default;
                 public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
@@ -528,6 +530,8 @@ public sealed partial class ProDataGridGenerator
                 public int Priority { get; set; }
                 public bool StopIfTrue { get; set; } = true;
                 public string? PredicateMethod { get; set; }
+                public global::Avalonia.Controls.DataGridConditionalFormatting.ConditionalFormattingTarget Target { get; set; } =
+                    global::Avalonia.Controls.DataGridConditionalFormatting.ConditionalFormattingTarget.Cell;
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]

@@ -127,6 +127,8 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? FormulaModel { get; set; }
 
+    public ViewBindingModel? ConditionalFormattingModel { get; set; }
+
     public int EditTriggers { get; set; }
 
     public int ClipboardCopyMode { get; set; }
@@ -552,6 +554,7 @@ internal sealed class ConditionalRuleModel
     public int Priority { get; set; }
     public bool StopIfTrue { get; set; }
     public string? PredicateMethod { get; set; }
+    public int Target { get; set; }
 }
 
 internal sealed class BandModel

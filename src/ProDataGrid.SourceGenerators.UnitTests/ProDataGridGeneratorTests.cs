@@ -696,25 +696,28 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
-    public void Assembly_and_namespace_view_policies_share_typed_interaction_options()
+    public void Assembly_and_namespace_view_policies_share_typed_interaction_and_conditional_formatting_options()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
             using System;
             using System.Collections.Generic;
             using System.Threading.Tasks;
             using Avalonia.Controls;
+            using Avalonia.Controls.DataGridConditionalFormatting;
             using ProDataGrid.SourceGeneration;
             [assembly: GenerateDataGridView(
                 typeof(Demo.AssemblyRowsViewModel),
                 typeof(Demo.Models.Row),
                 ViewName = "AssemblyRowsView",
                 Framework = DataGridViewFramework.ReactiveUI,
+                ConditionalFormattingModelPropertyName = "Formatting",
                 NavigationInteractionPropertyName = "Navigation",
                 InteractionPropertyNames = new[] { "Confirm" },
                 InteractionHandlerTypes = new[] { typeof(Demo.Handlers.ConfirmHandler) })]
             [assembly: GenerateDataGridViewsForNamespace(
                 "Demo.NamespaceViewModels",
                 Framework = DataGridViewFramework.ReactiveUI,
+                ConditionalFormattingModelPropertyName = "Formatting",
                 NavigationInteractionPropertyName = "Navigation",
                 InteractionPropertyNames = new[] { "Confirm" },
                 InteractionHandlerTypes = new[] { typeof(Demo.Handlers.ConfirmHandler) })]
@@ -756,6 +759,7 @@ public sealed class ProDataGridGeneratorTests
                 public sealed partial class AssemblyRowsViewModel
                 {
                     public IReadOnlyList<Models.Row> Items { get; } = new List<Models.Row>();
+                    public IConditionalFormattingModel Formatting { get; } = new ConditionalFormattingModel();
                     public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
                     public global::ReactiveUI.IInteraction<
                         DataGridGeneratedNavigationRequest<Models.Row>,
@@ -768,6 +772,7 @@ public sealed class ProDataGridGeneratorTests
                 public sealed partial class PolicyRowsViewModel
                 {
                     public IReadOnlyList<global::Demo.Models.Row> Items { get; } = new List<global::Demo.Models.Row>();
+                    public IConditionalFormattingModel Formatting { get; } = new ConditionalFormattingModel();
                     public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
                     public global::ReactiveUI.IInteraction<
                         DataGridGeneratedNavigationRequest<global::Demo.Models.Row>,
@@ -788,6 +793,11 @@ public sealed class ProDataGridGeneratorTests
             2,
             result.CombinedSource.Split(
                 "DataGridGeneratedNavigationHandler<global::Demo.Models.Row>()",
+                StringSplitOptions.None).Length - 1);
+        Assert.Equal(
+            2,
+            result.CombinedSource.Split(
+                "DataGrid.ConditionalFormattingModelProperty",
                 StringSplitOptions.None).Length - 1);
     }
 
@@ -3359,6 +3369,7 @@ public sealed class ProDataGridGeneratorTests
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
             using Avalonia.Controls;
+            using Avalonia.Controls.DataGridConditionalFormatting;
             using ProDataGrid.SourceGeneration;
             namespace Demo;
             [GenerateDataGridColumns]
@@ -3366,7 +3377,11 @@ public sealed class ProDataGridGeneratorTests
             {
                 [DataGridGroup(Order = 1)]
                 [DataGridSummary(DataGridAggregateType.Sum, Scope = DataGridSummaryScope.Both, Format = "N2", Title = "Total: ")]
-                [DataGridConditionalFormat(DataGridCondition.GreaterThan, Operand = "100", CellThemeKey = "LargeValue")]
+                [DataGridConditionalFormat(
+                    DataGridCondition.GreaterThan,
+                    Operand = "100",
+                    CellThemeKey = "LargeValue",
+                    Target = ConditionalFormattingTarget.Row)]
                 [DataGridBand("Trading/Risk", Order = 2)]
                 public decimal Value { get; set; }
             }
@@ -3379,6 +3394,9 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("column.SummaryDefinitions = new global::Avalonia.Controls.DataGridSummaryDefinition[]", result.CombinedSource);
         Assert.Contains("DataGridSummaryDefinition((global::Avalonia.Controls.DataGridAggregateType)1, (global::Avalonia.Controls.DataGridSummaryScope)2, \"N2\", \"Total: \")", result.CombinedSource);
         Assert.Contains("Comparer<decimal>.Default.Compare(value, (decimal)100m) > 0", result.CombinedSource);
+        Assert.Contains("IReadOnlyList<global::Avalonia.Controls.IDataGridGeneratedConditionalRule> ConditionalRules", result.CombinedSource);
+        Assert.Contains("CreateConditionalFormattingModel()", result.CombinedSource);
+        Assert.Contains("(global::Avalonia.Controls.DataGridConditionalFormatting.ConditionalFormattingTarget)1", result.CombinedSource);
         Assert.Contains("DataGridGeneratedBandField(\"Value\", new string[] { \"Trading\", \"Risk\" }, 2)", result.CombinedSource);
     }
 
@@ -3486,6 +3504,48 @@ public sealed class ProDataGridGeneratorTests
             """);
 
         Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG130");
+    }
+
+    [Fact]
+    public void Generated_view_binds_a_typed_conditional_formatting_model()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls.DataGridConditionalFormatting;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), ConditionalFormattingModelPropertyName = nameof(Formatting))]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+                public IConditionalFormattingModel Formatting { get; } = new ConditionalFormattingModel();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGrid.ConditionalFormattingModelProperty", result.CombinedSource);
+        Assert.Contains("s_conditionalFormattingModelProperty", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_rejects_an_incompatible_conditional_formatting_model_member()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), ConditionalFormattingModelPropertyName = nameof(Formatting))]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+                public object Formatting { get; } = new();
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG131");
     }
 
     [Fact]

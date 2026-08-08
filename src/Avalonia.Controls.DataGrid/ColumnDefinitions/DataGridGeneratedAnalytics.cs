@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using Avalonia.Collections;
+using Avalonia.Controls.DataGridConditionalFormatting;
 
 namespace Avalonia.Controls
 {
@@ -315,6 +316,32 @@ namespace Avalonia.Controls
         }
     }
 
+    /// <summary>Provides a non-generic reflection-free conditional-format rule contract.</summary>
+#if !DATAGRID_INTERNAL
+    public
+#else
+    internal
+#endif
+    interface IDataGridGeneratedConditionalRule
+    {
+        /// <summary>Gets the stable rule ID.</summary>
+        string RuleId { get; }
+        /// <summary>Gets the stable column key.</summary>
+        string ColumnKey { get; }
+        /// <summary>Gets the resource theme key.</summary>
+        string ThemeKey { get; }
+        /// <summary>Gets whether the rule targets a cell or its row.</summary>
+        ConditionalFormattingTarget Target { get; }
+        /// <summary>Gets rule precedence.</summary>
+        int Priority { get; }
+        /// <summary>Gets whether evaluation stops after a match.</summary>
+        bool StopIfTrue { get; }
+        /// <summary>Evaluates the rule for an untyped item without reflection.</summary>
+        bool IsMatch(object item);
+        /// <summary>Creates the runtime conditional-formatting descriptor.</summary>
+        ConditionalFormattingDescriptor CreateDescriptor();
+    }
+
     /// <summary>Represents a generated conditional-format predicate and style metadata.</summary>
     /// <typeparam name="TItem">The row item type.</typeparam>
     /// <typeparam name="TValue">The tested value type.</typeparam>
@@ -323,8 +350,10 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    sealed class DataGridGeneratedConditionalRule<TItem, TValue>
+    sealed class DataGridGeneratedConditionalRule<TItem, TValue> : IDataGridGeneratedConditionalRule
     {
+        private readonly Func<ConditionalFormattingContext, bool> _contextPredicate;
+
         /// <summary>Initializes a typed generated rule.</summary>
         public DataGridGeneratedConditionalRule(
             string ruleId,
@@ -333,7 +362,8 @@ namespace Avalonia.Controls
             Func<TItem, TValue, bool> predicate,
             string themeKey,
             int priority = 0,
-            bool stopIfTrue = true)
+            bool stopIfTrue = true,
+            ConditionalFormattingTarget target = ConditionalFormattingTarget.Cell)
         {
             RuleId = ruleId ?? throw new ArgumentNullException(nameof(ruleId));
             ColumnKey = columnKey ?? throw new ArgumentNullException(nameof(columnKey));
@@ -342,6 +372,8 @@ namespace Avalonia.Controls
             ThemeKey = themeKey;
             Priority = priority;
             StopIfTrue = stopIfTrue;
+            Target = target;
+            _contextPredicate = context => context.Item is TItem item && IsMatch(item);
         }
 
         /// <summary>Gets the stable rule ID.</summary>
@@ -354,12 +386,55 @@ namespace Avalonia.Controls
         public Func<TItem, TValue, bool> Predicate { get; }
         /// <summary>Gets the resource theme key.</summary>
         public string ThemeKey { get; }
+        /// <summary>Gets whether the rule targets a cell or its row.</summary>
+        public ConditionalFormattingTarget Target { get; }
         /// <summary>Gets rule precedence.</summary>
         public int Priority { get; }
         /// <summary>Gets whether evaluation stops after a match.</summary>
         public bool StopIfTrue { get; }
         /// <summary>Evaluates the rule for an item.</summary>
         public bool IsMatch(TItem item) => Predicate(item, Getter(item));
+        /// <inheritdoc />
+        bool IDataGridGeneratedConditionalRule.IsMatch(object item) => item is TItem typed && IsMatch(typed);
+        /// <inheritdoc />
+        public ConditionalFormattingDescriptor CreateDescriptor() =>
+            new ConditionalFormattingDescriptor(
+                RuleId,
+                ConditionalFormattingOperator.Custom,
+                columnId: ColumnKey,
+                predicate: _contextPredicate,
+                themeKey: ThemeKey,
+                target: Target,
+                valueSource: ConditionalFormattingValueSource.Item,
+                stopIfTrue: StopIfTrue,
+                priority: Priority);
+    }
+
+    /// <summary>Creates runtime conditional-formatting models from generated typed rules.</summary>
+#if !DATAGRID_INTERNAL
+    public
+#else
+    internal
+#endif
+    static class DataGridGeneratedConditionalFormatting
+    {
+        /// <summary>Creates and populates a mutable runtime model without property reflection.</summary>
+        public static IConditionalFormattingModel CreateModel(
+            IReadOnlyList<IDataGridGeneratedConditionalRule> rules)
+        {
+            ArgumentNullException.ThrowIfNull(rules);
+            var descriptors = new ConditionalFormattingDescriptor[rules.Count];
+            for (int index = 0; index < rules.Count; index++)
+            {
+                IDataGridGeneratedConditionalRule rule = rules[index] ??
+                    throw new ArgumentException("Generated conditional-formatting rules cannot contain null entries.", nameof(rules));
+                descriptors[index] = rule.CreateDescriptor();
+            }
+
+            var model = new ConditionalFormattingModel();
+            model.Apply(descriptors);
+            return model;
+        }
     }
 
     /// <summary>Describes one generated leaf in a stable column-band path.</summary>

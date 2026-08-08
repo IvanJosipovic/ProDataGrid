@@ -5,6 +5,7 @@ using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridConditionalFormatting;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using DataGridSample.Models;
@@ -546,6 +547,35 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.Dispose();
 
         Assert.True(viewModel.IsDisposed);
+    }
+
+    [AvaloniaFact]
+    public void Generated_conditional_formatting_view_model_uses_typed_rules_and_runtime_model_factory()
+    {
+        var viewModel = new GeneratedConditionalFormattingViewModel();
+
+        Assert.Equal(7, GeneratedConditionalFormattingRowSchema.ConditionalRules.Count);
+        Assert.Equal(7, viewModel.ConditionalFormatting.Descriptors.Count);
+        Assert.Equal(2, viewModel.ConditionalFormatting.Descriptors.Count(
+            static descriptor => descriptor.Target == ConditionalFormattingTarget.Row));
+        IDataGridGeneratedConditionalRule belowTarget = Assert.Single(
+            GeneratedConditionalFormattingRowSchema.ConditionalRules,
+            static rule => rule.RuleId == "score-below-target");
+        Assert.True(belowTarget.IsMatch(viewModel.Items[0]));
+        Assert.True(viewModel.BelowTargetCount > 0);
+        Assert.True(viewModel.AtRiskCount > 0);
+
+        viewModel.ToggleRulesCommand.Execute().Subscribe();
+        Assert.False(viewModel.RulesEnabled);
+        Assert.Empty(viewModel.ConditionalFormatting.Descriptors);
+
+        viewModel.ToggleRulesCommand.Execute().Subscribe();
+        Assert.True(viewModel.RulesEnabled);
+        Assert.Equal(7, viewModel.ConditionalFormatting.Descriptors.Count);
+
+        viewModel.RandomizeCommand.Execute().Subscribe();
+        Assert.Equal(16, viewModel.Items.Count);
+        Assert.Contains("generated predicates", viewModel.Status, StringComparison.Ordinal);
     }
 
     [AvaloniaFact]

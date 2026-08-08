@@ -343,6 +343,7 @@ internal static partial class Discovery
             ClipboardImportModelPropertyName = GeneratorUtilities.GetString(arguments, "ClipboardImportModelPropertyName"),
             FillModelPropertyName = GeneratorUtilities.GetString(arguments, "FillModelPropertyName"),
             FormulaModelPropertyName = GeneratorUtilities.GetString(arguments, "FormulaModelPropertyName"),
+            ConditionalFormattingModelPropertyName = GeneratorUtilities.GetString(arguments, "ConditionalFormattingModelPropertyName"),
             EditTriggers = GetEnumValue(arguments, "EditTriggers", 9),
             ClipboardCopyMode = GetEnumValue(arguments, "ClipboardCopyMode", 1),
             IsReadOnly = GeneratorUtilities.GetBoolean(arguments, "IsReadOnly", false),
@@ -675,6 +676,7 @@ internal static partial class Discovery
                 "IDataGridFillModel",
                 diagnostics),
             FormulaModel = ResolveFormulaViewBinding(request, diagnostics),
+            ConditionalFormattingModel = ResolveConditionalFormattingViewBinding(request, diagnostics),
             EditTriggers = request.EditTriggers,
             ClipboardCopyMode = request.ClipboardCopyMode,
             IsReadOnly = request.IsReadOnly,
@@ -1272,6 +1274,42 @@ internal static partial class Discovery
         return null;
     }
 
+    private static ViewBindingModel? ResolveConditionalFormattingViewBinding(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        ViewBindingModel? binding = ResolveOptionalViewBinding(
+            request,
+            request.ConditionalFormattingModelPropertyName,
+            diagnostics);
+        if (binding == null || string.IsNullOrWhiteSpace(request.ConditionalFormattingModelPropertyName))
+        {
+            return binding;
+        }
+
+        const string interfaceMetadataName =
+            "Avalonia.Controls.DataGridConditionalFormatting.IConditionalFormattingModel";
+        ITypeSymbol? propertyType = FindViewBindingMemberType(
+            request.ViewModelType,
+            request.ConditionalFormattingModelPropertyName!);
+        if (propertyType is INamedTypeSymbol namedType &&
+            (string.Equals(GeneratorUtilities.GetMetadataName(namedType), interfaceMetadataName, StringComparison.Ordinal) ||
+             namedType.AllInterfaces.Any(implemented => string.Equals(
+                 GeneratorUtilities.GetMetadataName(implemented),
+                 interfaceMetadataName,
+                 StringComparison.Ordinal))))
+        {
+            return binding;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewConditionalFormattingIntegration,
+            request.Location,
+            request.ViewName,
+            $"member '{request.ConditionalFormattingModelPropertyName}' must implement IConditionalFormattingModel"));
+        return null;
+    }
+
     private static ViewBindingModel? ResolveViewBinding(
         ViewRequest request,
         string propertyName,
@@ -1436,6 +1474,7 @@ internal static partial class Discovery
         public string? ClipboardImportModelPropertyName { get; set; }
         public string? FillModelPropertyName { get; set; }
         public string? FormulaModelPropertyName { get; set; }
+        public string? ConditionalFormattingModelPropertyName { get; set; }
         public int EditTriggers { get; set; } = 9;
         public int ClipboardCopyMode { get; set; } = 1;
         public bool IsReadOnly { get; set; }

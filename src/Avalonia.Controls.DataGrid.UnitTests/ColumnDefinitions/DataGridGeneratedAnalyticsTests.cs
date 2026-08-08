@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridConditionalFormatting;
 using Avalonia.Controls.DataGridPivoting;
 using Xunit;
 
@@ -93,11 +94,28 @@ public sealed class DataGridGeneratedAnalyticsTests
     public void Conditional_rule_evaluates_typed_predicate_and_metadata()
     {
         var rule = new DataGridGeneratedConditionalRule<Row, decimal>(
-            "large", "amount", static row => row.Amount, static (_, value) => value > 100m, "LargeCell", 5);
+            "large",
+            "amount",
+            static row => row.Amount,
+            static (_, value) => value > 100m,
+            "LargeCell",
+            5,
+            target: ConditionalFormattingTarget.Row);
 
         Assert.True(rule.IsMatch(new Row("A", 101m)));
         Assert.False(rule.IsMatch(new Row("A", 99m)));
         Assert.Equal("LargeCell", rule.ThemeKey);
+        Assert.Equal(ConditionalFormattingTarget.Row, rule.Target);
+
+        ConditionalFormattingDescriptor descriptor = rule.CreateDescriptor();
+        Assert.Equal(ConditionalFormattingOperator.Custom, descriptor.Operator);
+        Assert.Equal(ConditionalFormattingValueSource.Item, descriptor.ValueSource);
+        Assert.True(descriptor.Predicate(new ConditionalFormattingContext(
+            new Row("A", 101m), 0, null!, null!, null!, null!, ConditionalFormattingValueSource.Item)));
+
+        IConditionalFormattingModel model = DataGridGeneratedConditionalFormatting.CreateModel([rule]);
+        Assert.Single(model.Descriptors);
+        Assert.Same(descriptor.Predicate, model.Descriptors[0].Predicate);
     }
 
     [Fact]

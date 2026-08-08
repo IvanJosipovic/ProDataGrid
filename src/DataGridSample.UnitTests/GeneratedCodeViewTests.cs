@@ -9,6 +9,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridClipboard;
 using Avalonia.Controls.DataGridFilling;
+using Avalonia.Controls.DataGridConditionalFormatting;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -16,6 +17,7 @@ using Avalonia.LogicalTree;
 using Avalonia.Interactivity;
 using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using DataGridSample.Models;
 using DataGridSample.Pages;
@@ -910,6 +912,66 @@ public sealed class GeneratedCodeViewTests
                 Assert.NotNull(frame);
                 Directory.CreateDirectory(screenshotDirectory);
                 string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-indexed-spreadsheet.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_conditional_formatting_page_binds_and_renders_typed_cell_and_row_rules()
+    {
+        var viewModel = new GeneratedConditionalFormattingViewModel();
+        var view = new GeneratedConditionalFormattingPage { DataContext = viewModel };
+        var window = new Window { Width = 1160, Height = 720, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            grid.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Same(viewModel.ConditionalFormatting, grid.ConditionalFormattingModel);
+            Assert.Equal(7, grid.ConditionalFormattingModel.Descriptors.Count);
+            Assert.True(grid.FastPathOptions.StrictMode);
+
+            GeneratedConditionalFormattingRow first = viewModel.Items[0];
+            DataGridRow row = grid.GetVisualDescendants().OfType<DataGridRow>()
+                .Single(candidate => ReferenceEquals(candidate.DataContext, first));
+            DataGridColumn scoreColumn = grid.Columns.Single(column => Equals(column.ColumnKey, "score"));
+            DataGridCell scoreCell = row.GetVisualDescendants().OfType<DataGridCell>()
+                .Single(cell => ReferenceEquals(cell.OwningColumn, scoreColumn));
+            ControlTheme alertTheme = Assert.IsType<ControlTheme>(view.Resources["GeneratedRowAlertTheme"]);
+            ControlTheme lowScoreTheme = Assert.IsType<ControlTheme>(view.Resources["GeneratedScoreLowCellTheme"]);
+            Assert.Same(alertTheme, row.Theme);
+            Assert.Same(lowScoreTheme, scoreCell.Theme);
+
+            first.Score = 96d;
+            first.Change = 4d;
+            first.Target = 80d;
+            first.Status = "On Track";
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+            ControlTheme highScoreTheme = Assert.IsType<ControlTheme>(view.Resources["GeneratedScoreHighCellTheme"]);
+            Assert.Same(highScoreTheme, scoreCell.Theme);
+            Assert.NotSame(alertTheme, row.Theme);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-conditional-formatting.png"));
                 using FileStream stream = File.Create(path);
                 frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 Assert.True(new FileInfo(path).Length > 0);

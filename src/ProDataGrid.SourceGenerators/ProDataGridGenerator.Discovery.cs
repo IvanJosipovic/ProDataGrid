@@ -2410,7 +2410,8 @@ internal static partial class Discovery
                 ThemeKey = GeneratorUtilities.GetString(arguments, "CellThemeKey"),
                 Priority = GeneratorUtilities.GetInt32(arguments, "Priority", 0),
                 StopIfTrue = GeneratorUtilities.GetBoolean(arguments, "StopIfTrue", true),
-                PredicateMethod = predicate
+                PredicateMethod = predicate,
+                Target = GetEnumValue(arguments, "Target", 0)
             });
             index++;
         }

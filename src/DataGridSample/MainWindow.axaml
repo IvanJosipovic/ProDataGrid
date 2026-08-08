@@ -642,6 +642,13 @@
         </pages:GeneratedIndexedSpreadsheetPage.DataContext>
       </pages:GeneratedIndexedSpreadsheetPage>
     </TabItem>
+    <TabItem Header="Generated Conditional Formatting">
+      <pages:GeneratedConditionalFormattingPage>
+        <pages:GeneratedConditionalFormattingPage.DataContext>
+          <viewModels:GeneratedConditionalFormattingViewModel />
+        </pages:GeneratedConditionalFormattingPage.DataContext>
+      </pages:GeneratedConditionalFormattingPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

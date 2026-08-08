@@ -1213,8 +1213,8 @@ internal static class Emitter
             .AppendLine("        }")
             .AppendLine();
 
-        builder.AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<object> ConditionalRules { get; } =")
-            .AppendLine("            global::System.Array.AsReadOnly(new object[]")
+        builder.AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.IDataGridGeneratedConditionalRule> ConditionalRules { get; } =")
+            .AppendLine("            global::System.Array.AsReadOnly(new global::Avalonia.Controls.IDataGridGeneratedConditionalRule[]")
             .AppendLine("            {");
         foreach (ColumnModel column in schema.Columns)
         {
@@ -1224,6 +1224,9 @@ internal static class Emitter
             }
         }
         builder.AppendLine("            });")
+            .AppendLine()
+            .AppendLine("        public static global::Avalonia.Controls.DataGridConditionalFormatting.IConditionalFormattingModel CreateConditionalFormattingModel()")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedConditionalFormatting.CreateModel(ConditionalRules);")
             .AppendLine()
             .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedBandField> BandFields { get; } =")
             .AppendLine("            global::System.Array.AsReadOnly(new global::Avalonia.Controls.DataGridGeneratedBandField[]")
@@ -1408,7 +1411,8 @@ internal static class Emitter
         }
         builder.Append(", ").Append(GeneratorUtilities.EscapeString(rule.ThemeKey)).Append(", ")
             .Append(rule.Priority.ToString(CultureInfo.InvariantCulture)).Append(", ")
-            .Append(rule.StopIfTrue ? "true" : "false").AppendLine("),");
+            .Append(rule.StopIfTrue ? "true" : "false").Append(", (global::Avalonia.Controls.DataGridConditionalFormatting.ConditionalFormattingTarget)")
+            .Append(rule.Target.ToString(CultureInfo.InvariantCulture)).AppendLine("),");
     }
 
     private static void EmitConditionalPredicate(StringBuilder builder, ITypeSymbol type, ConditionalRuleModel rule)
@@ -2617,6 +2621,10 @@ internal static class Emitter
         {
             EmitViewPropertyInfo(builder, model.FormulaModel, viewModelType, "FormulaModel");
         }
+        if (model.ConditionalFormattingModel != null)
+        {
+            EmitViewPropertyInfo(builder, model.ConditionalFormattingModel, viewModelType, "ConditionalFormattingModel");
+        }
         if (model.HierarchicalModel != null)
         {
             EmitViewPropertyInfo(builder, model.HierarchicalModel, viewModelType, "HierarchicalModel");
@@ -2816,6 +2824,11 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.ClipboardImportModel, "ClipboardImportModel", "s_clipboardImportModelProperty");
         EmitOptionalGridBinding(builder, model.FillModel, "FillModel", "s_fillModelProperty");
         EmitOptionalGridBinding(builder, model.FormulaModel, "FormulaModel", "s_formulaModelProperty");
+        EmitOptionalGridBinding(
+            builder,
+            model.ConditionalFormattingModel,
+            "ConditionalFormattingModel",
+            "s_conditionalFormattingModelProperty");
         EmitOptionalGridBinding(builder, model.HierarchicalModel, "HierarchicalModel", "s_hierarchicalModelProperty");
         if (model.HierarchicalModel != null)
         {

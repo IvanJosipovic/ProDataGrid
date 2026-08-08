@@ -165,6 +165,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated view formula integration",
         "Generated formula integration for view '{0}' is invalid: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidViewConditionalFormattingIntegration = Create(
+        "PDGSG131",
+        "Invalid generated view conditional-formatting integration",
+        "Generated conditional-formatting integration for view '{0}' is invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

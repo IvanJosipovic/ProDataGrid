@@ -479,6 +479,64 @@ For a custom calculator, a column `ConfigureMethod` can assign `DataGridSummaryD
 
 `DataGridSample.Pages.GeneratedGroupingSummariesPage` demonstrates two typed group levels, rendered group footers and total summaries, five incremental aggregates, and deterministic Add/Replace/Remove/Reset updates in a passive compiled-binding ReactiveUI page.
 
+### Typed conditional formatting
+
+`DataGridConditionalFormat` compiles comparisons and custom predicates against the same typed accessor used by generated columns, sorting, summaries, export, and editing. Each rule has a stable ID and column key plus priority, stop behavior, a resource theme key, and a cell or row target:
+
+```csharp
+[DataGridColumn(
+    DataGridColumnKind.Numeric,
+    Header = "Score",
+    ColumnKey = "score")]
+[DataGridConditionalFormat(
+    DataGridCondition.GreaterThanOrEqual,
+    RuleId = "score-high",
+    Operand = "90",
+    CellThemeKey = "ScoreHighCellTheme",
+    Priority = 0)]
+[DataGridConditionalFormat(
+    DataGridCondition.Custom,
+    RuleId = "score-below-target",
+    PredicateMethod = nameof(IsBelowTarget),
+    CellThemeKey = "ScoreBelowTargetCellTheme",
+    Priority = 1)]
+public double Score { get; set; }
+
+[DataGridColumn(Header = "Status", ColumnKey = "status")]
+[DataGridConditionalFormat(
+    DataGridCondition.Equals,
+    RuleId = "row-overdue",
+    Operand = "Overdue",
+    CellThemeKey = "RowAlertTheme",
+    Target = ConditionalFormattingTarget.Row)]
+public string Status { get; set; } = string.Empty;
+
+public static bool IsBelowTarget(Order item, double score) =>
+    score < item.Target;
+```
+
+Built-in rules convert `Operand` at compile time and emit a direct typed predicate. A custom predicate must be an accessible static `bool (TItem, TValue)` method. Generated predicates do not allocate while evaluating cells, and `ConditionalFormattingValueSource.Item` prevents the runtime adapter from resolving a property path.
+
+The schema exposes `IReadOnlyList<IDataGridGeneratedConditionalRule> ConditionalRules` for inspection or custom composition and `CreateConditionalFormattingModel()` for the normal runtime model. The factory creates `ConditionalFormattingDescriptor` instances whose cached predicates call the generated getter directly; rule ordering, `StopIfTrue`, theme keys, stable column keys, and cell/row targets are preserved.
+
+A generated view can bind an application-owned model without a runtime binding path:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Order),
+    Framework = DataGridViewFramework.ReactiveUI,
+    ConditionalFormattingModelPropertyName = nameof(ConditionalFormatting))]
+public sealed partial class OrdersViewModel : ReactiveObject
+{
+    public IConditionalFormattingModel ConditionalFormatting { get; } =
+        OrderGridSchema.CreateConditionalFormattingModel();
+}
+```
+
+`ConditionalFormattingModelPropertyName` is supported by type-, assembly-, and namespace-level generated-view requests. The member is compile-time validated as `IConditionalFormattingModel`; a missing or incompatible member reports `PDGSG131` instead of silently introducing reflection binding. Applications can enable, disable, replace, or merge rules by mutating the bound model while retaining the immutable generated metadata.
+
+`DataGridSample.Pages.GeneratedConditionalFormattingPage` demonstrates five cell rules and two row rules, typed custom predicates, priorities, runtime rule toggling, reactive value changes, passive compiled XAML, and Avalonia Headless verification of the applied cell and row themes.
+
 ### Row commands and dynamic button/toggle content
 
 Button, toggle-button, and toggle-switch definitions can resolve commands, parameters, and state labels directly from each row. Name accessible row properties with the member options; the generator emits cached `ClrPropertyInfo` and `DataGridBindingDefinition` instances with typed static delegates:
@@ -678,6 +736,9 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG126` | A generated routed-event bridge uses unsupported flags or an incompatible command member. |
 | `PDGSG127` | A generated ReactiveUI interaction or typed navigation-interaction declaration has mismatched metadata, an incompatible property, or an invalid handler implementation. |
 | `PDGSG128` | A generated-view performance profile, input map, input command, diagnostics sink, or provably incompatible high-frequency setting is invalid. |
+| `PDGSG129` | A generated clipboard-import or fill-model binding is missing or incompatible. |
+| `PDGSG130` | A generated formula-model binding is missing or does not implement `IDataGridFormulaModel`. |
+| `PDGSG131` | A generated conditional-formatting-model binding is missing or does not implement `IConditionalFormattingModel`. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
