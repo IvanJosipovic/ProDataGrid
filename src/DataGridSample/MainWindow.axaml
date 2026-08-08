@@ -565,6 +565,13 @@
         </pages:GeneratedReactiveViewStatesPage.DataContext>
       </pages:GeneratedReactiveViewStatesPage>
     </TabItem>
+    <TabItem Header="Generated C# View - Event Commands">
+      <pages:GeneratedReactiveEventCommandsPage>
+        <pages:GeneratedReactiveEventCommandsPage.DataContext>
+          <viewModels:GeneratedReactiveEventCommandsViewModel />
+        </pages:GeneratedReactiveEventCommandsPage.DataContext>
+      </pages:GeneratedReactiveEventCommandsPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

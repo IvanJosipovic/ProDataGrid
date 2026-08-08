@@ -1,6 +1,9 @@
 using System;
+using System.Collections;
 using System.Linq;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using DataGridSample.Models;
 using DataGridSample.ViewModels;
 using Xunit;
 
@@ -59,5 +62,45 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.SortPriceDescendingCommand.Execute().Subscribe();
         decimal[] prices = viewModel.Items.Select(static trade => trade.Price).ToArray();
         Assert.Equal(prices.OrderByDescending(static price => price), prices);
+    }
+
+    [Fact]
+    public void Reactive_event_command_updates_state_and_returns_routed_event_feedback()
+    {
+        var viewModel = new GeneratedReactiveEventCommandsViewModel
+        {
+            CancelPendingEdits = true,
+            HandleSortingRequests = true
+        };
+        var addedItems = new ArrayList { viewModel.Items[1] };
+        DataGridGeneratedViewEvent<GeneratedEventCommandRow> selection =
+            DataGridGeneratedViewEvent<GeneratedEventCommandRow>.CreateSelectionChanged(
+                addedItems,
+                new ArrayList(),
+                DataGridSelectionChangeSource.Keyboard,
+                isUserInitiated: true);
+
+        viewModel.GridEventCommand.Execute(selection).Subscribe();
+
+        Assert.Equal(1, viewModel.EventCount);
+        Assert.Equal("SelectionChanged", viewModel.LastEvent);
+        Assert.Same(selection, viewModel.LastEventData);
+        Assert.Equal("SelectionChanged #1", viewModel.Items[1].LastEvent);
+
+        DataGridGeneratedViewEvent<GeneratedEventCommandRow> sorting =
+            DataGridGeneratedViewEvent<GeneratedEventCommandRow>.CreateSorting("symbol");
+        viewModel.GridEventCommand.Execute(sorting).Subscribe();
+        Assert.True(sorting.Handled);
+
+        DataGridGeneratedViewEvent<GeneratedEventCommandRow> edit =
+            DataGridGeneratedViewEvent<GeneratedEventCommandRow>.CreateEdit(
+                DataGridGeneratedViewEventKinds.BeginningEdit,
+                viewModel.Items[0],
+                rowIndex: 0,
+                columnKey: "symbol",
+                editAction: null,
+                cancel: false);
+        viewModel.GridEventCommand.Execute(edit).Subscribe();
+        Assert.True(edit.Cancel);
     }
 }

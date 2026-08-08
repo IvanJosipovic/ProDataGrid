@@ -111,6 +111,10 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? RetryCommand { get; set; }
 
+    public ViewBindingModel? RoutedEventCommand { get; set; }
+
+    public int RoutedEvents { get; set; }
+
     public string LoadingText { get; set; } = string.Empty;
 
     public string EmptyText { get; set; } = string.Empty;

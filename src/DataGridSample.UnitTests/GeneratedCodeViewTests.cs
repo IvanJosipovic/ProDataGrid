@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using Avalonia.Automation;
@@ -6,7 +7,9 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
+using DataGridSample.Models;
 using DataGridSample.Pages;
 using DataGridSample.ViewModels;
 using ReactiveUI.Avalonia;
@@ -112,6 +115,82 @@ public sealed class GeneratedCodeViewTests
             Assert.True(grid.IsVisible);
             Assert.False(empty.IsVisible);
             Assert.Equal(3, viewModel.Items.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_routed_event_bridge_executes_typed_reactive_command_and_propagates_feedback()
+    {
+        var viewModel = new GeneratedReactiveEventCommandsViewModel();
+        var view = new GeneratedReactiveEventCommandsPage(viewModel);
+        var window = new Window { Width = 900, Height = 560, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            GeneratedEventCommandRow first = viewModel.Items[0];
+            GeneratedEventCommandRow second = viewModel.Items[1];
+            DataGridColumn firstColumn = grid.Columns[0];
+            DataGridColumn secondColumn = grid.Columns[1];
+
+            int eventCount = viewModel.EventCount;
+            var selection = new DataGridSelectionChangedEventArgs(
+                DataGrid.SelectionChangedEvent,
+                new ArrayList(),
+                new ArrayList { first },
+                DataGridSelectionChangeSource.Pointer,
+                new RoutedEventArgs());
+            grid.RaiseEvent(selection);
+
+            Assert.Equal(eventCount + 1, viewModel.EventCount);
+            Assert.NotNull(viewModel.LastEventData);
+            Assert.Equal(DataGridGeneratedViewEventKinds.SelectionChanged, viewModel.LastEventData.Kind);
+            Assert.Same(first, viewModel.LastEventData.AddedItems[0]);
+            Assert.Equal(DataGridSelectionChangeSource.Pointer, viewModel.LastEventData.SelectionSource);
+            Assert.True(viewModel.LastEventData.IsUserInitiated);
+            Assert.StartsWith("SelectionChanged #", first.LastEvent);
+
+            var current = new DataGridCurrentCellChangedEventArgs(
+                firstColumn,
+                first,
+                secondColumn,
+                second,
+                DataGrid.CurrentCellChangedEvent,
+                grid);
+            grid.RaiseEvent(current);
+
+            Assert.Equal(DataGridGeneratedViewEventKinds.CurrentCellChanged, viewModel.LastEventData.Kind);
+            Assert.Same(first, viewModel.LastEventData.OldItem);
+            Assert.Same(second, viewModel.LastEventData.NewItem);
+            Assert.Equal(firstColumn.ColumnKey?.ToString(), viewModel.LastEventData.OldColumnKey);
+            Assert.Equal(secondColumn.ColumnKey?.ToString(), viewModel.LastEventData.NewColumnKey);
+
+            viewModel.HandleSortingRequests = true;
+            var sorting = new DataGridColumnEventArgs(firstColumn, DataGrid.SortingEvent, grid);
+            grid.RaiseEvent(sorting);
+            Assert.True(sorting.Handled);
+            Assert.Equal(DataGridGeneratedViewEventKinds.Sorting, viewModel.LastEventData.Kind);
+            Assert.Equal(firstColumn.ColumnKey?.ToString(), viewModel.LastEventData.ColumnKey);
+
+            viewModel.CancelPendingEdits = true;
+            var row = new DataGridRow { DataContext = first };
+            var beginningEdit = new DataGridBeginningEditEventArgs(
+                firstColumn,
+                row,
+                new RoutedEventArgs(),
+                DataGrid.BeginningEditEvent,
+                grid);
+            grid.RaiseEvent(beginningEdit);
+
+            Assert.True(beginningEdit.Cancel);
+            Assert.Equal(DataGridGeneratedViewEventKinds.BeginningEdit, viewModel.LastEventData.Kind);
+            Assert.Same(first, viewModel.LastEventData.Item);
         }
         finally
         {

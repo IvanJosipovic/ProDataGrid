@@ -28,3 +28,4 @@ PDGSG122 | ProDataGrid.SourceGeneration | Error | Invalid custom drawing factory
 PDGSG123 | ProDataGrid.SourceGeneration | Error | Invalid generated row details
 PDGSG124 | ProDataGrid.SourceGeneration | Error | Invalid generated column binding
 PDGSG125 | ProDataGrid.SourceGeneration | Error | Invalid generated view state
+PDGSG126 | ProDataGrid.SourceGeneration | Error | Invalid generated view event bridge

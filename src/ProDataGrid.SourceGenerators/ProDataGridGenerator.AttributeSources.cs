@@ -276,6 +276,8 @@ public sealed partial class ProDataGridGenerator
                 public string? ViewStatePropertyName { get; set; }
                 public string? ErrorMessagePropertyName { get; set; }
                 public string? RetryCommandPropertyName { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedViewEventKinds RoutedEvents { get; set; }
+                public string? RoutedEventCommandPropertyName { get; set; }
                 public string LoadingText { get; set; } = "Loading data…";
                 public string EmptyText { get; set; } = "No items to display.";
                 public string ErrorText { get; set; } = "Unable to load data.";
@@ -318,6 +320,8 @@ public sealed partial class ProDataGridGenerator
                 public string? ViewStatePropertyName { get; set; }
                 public string? ErrorMessagePropertyName { get; set; }
                 public string? RetryCommandPropertyName { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedViewEventKinds RoutedEvents { get; set; }
+                public string? RoutedEventCommandPropertyName { get; set; }
                 public string LoadingText { get; set; } = "Loading data…";
                 public string EmptyText { get; set; } = "No items to display.";
                 public string ErrorText { get; set; } = "Unable to load data.";

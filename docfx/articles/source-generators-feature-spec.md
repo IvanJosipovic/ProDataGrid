@@ -6,7 +6,7 @@ Target: reflection-free source generation for complex reactive, streaming, remot
 
 Last updated: 2026-08-08
 
-Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, and Avalonia/ReactiveUI view recipes are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
+Implementation checkpoint (2026-08-08): the canonical manifest and typed field API, direct attribute-scoped incremental schema, ViewModel, controller, indexed-column, generated cell-draw-cache, and generated-view pipelines, assembly registry with optional Microsoft DI registration and explicit reflection-free XAML view mappings, stable item index, typed operation builders, named operation controller, controller factory/options customization, DynamicData `SourceList`/`SourceCache` ownership, bounded async/channel streaming, keyed snapshot reconciliation, remote queries, hierarchy loading and wrapper-aware compiled column bindings, keyed selection/state, grouping/summaries, editing/validation/undo, clipboard/fill, conditional rules, drag/drop, bands/chooser/layout, indexed columns, recycling cell templates, typed/recycling row details with direct nested-schema references, custom-drawing factories/options and bounded per-item caches, compiled row command/parameter/content accessors for button and toggle columns, distinct values, performance profiles, pivot/chart/formula/outline metadata, localized providers, diagnostics, Avalonia/ReactiveUI view recipes, typed view-state projections, and routed-event command bridges are implemented with focused tests. ProDiagnostics and its streaming viewer now serve as validation applications with eight generated schemas and no inline DataGrid columns or disabled compiled-binding scopes. Generated views also have Avalonia Headless coverage and deterministic screenshot verification. Assembly/namespace policy and registry discovery intentionally remain in the compilation-wide coordination lane; eliminating the residual scan when no such policy is present and the advanced items explicitly marked partial below remain tracked work.
 
 ## 1. Purpose
 
@@ -32,7 +32,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
 | F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
-| F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, retry-command bindings, and `[DataGridViewRegistration]` mappings for existing XAML views are available; richer routed-event/interaction bridges remain. |
+| F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, retry-command bindings, typed routed-event command bridges, and `[DataGridViewRegistration]` mappings for existing XAML views are available; framework-specific interaction responses and activation-scoped external subscriptions remain. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
 | F21 collection views/dynamic shapes | Partial | Typed collection-view factories and range-aware generated services are available; unknown runtime shapes still require explicit user adapters. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
@@ -963,6 +963,26 @@ public sealed partial class TradeBlotterViewModel : ReactiveObject
 
 The generated state host preserves the DataGrid instance and switches four projections with compiled bindings. State, optional error text, and retry command members are resolved and type-checked at compile time. `PDGSG125` rejects incomplete or incompatible contracts. Loading, empty, error, and retry controls have stable automation IDs and replaceable protected factory hooks. Type-, assembly-, and namespace-level view policies share the same options.
 
+Implemented routed-event bridge API:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged |
+                   DataGridGeneratedViewEventKinds.Sorting |
+                   DataGridGeneratedViewEventKinds.Editing,
+    RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+public sealed partial class TradeBlotterViewModel : ReactiveObject
+{
+    public ReactiveCommand<DataGridGeneratedViewEvent<Trade>, RxVoid> GridEventCommand { get; }
+}
+```
+
+The generated view emits direct subscriptions only for requested events and executes the validated `ICommand` property with `DataGridGeneratedViewEvent<TItem>`. The snapshot carries typed row/current items, stable column keys, row index, edit action, selection origin, and zero-copy added/removed item projections. Mutable `Cancel` and `Handled` feedback is copied back to the routed event. The supported event set covers selection, current cell, sorting, and the cell/row editing lifecycle. `PDGSG126` rejects zero/unknown flags, missing commands, and command members that do not implement `ICommand`. Type, assembly, and namespace policies share the contract, and derived views can extend the wiring through `ConfigureGeneratedRoutedEventCommands(DataGrid)`.
+
+ReactiveUI `Interaction<TInput, TOutput>` response adapters and activation-scoped subscriptions to external event sources remain extension work; the implemented DataGrid event bridge has generated-view ownership and does not require activation lifetime management.
+
 Custom frameworks cannot be loaded as arbitrary compiler plugins from user code. A new framework strategy should be delivered as a compatible generator package/strategy. User customization within an existing strategy uses base types, runtime adapters, named partial hooks, and implementation types.
 
 ### F20. Localization, accessibility, diagnostics, and test metadata — P3
@@ -1357,6 +1377,7 @@ Proposed diagnostic range for expansion work:
 | `PDGSG119` | Error | Namespace convention produces an ambiguous ViewModel/item/view match. |
 | `PDGSG120` | Warning | Hierarchical compiled-binding projection is unavailable and runtime binding would be required. |
 | `PDGSG125` | Error | Generated view-state projection is incomplete or has an incompatible state, message, or retry-command member. |
+| `PDGSG126` | Error | Generated routed-event bridge uses zero/unknown flags, omits its command, or targets a member that does not implement `ICommand`. |
 
 Strict mode promotes applicable fallback warnings to errors. Diagnostics should point to the smallest relevant attribute argument or member declaration and include the expected signature/type.
 
@@ -1579,6 +1600,7 @@ Add focused pages rather than one overloaded showcase:
 15. `GeneratedHeaderFiltersPage` — typed editors, local/remote distinct values, and header commands.
 16. `GeneratedVirtualizationProfilePage` — variable-height estimates, recycling metrics, keyboard maps, and state-safe scrolling.
 17. `GeneratedReactiveViewStatesPage` — ReactiveUI-owned loading, empty, error, retry, and content transitions through a generated code-only view.
+18. `GeneratedReactiveEventCommandsPage` — typed selection, current-cell, sorting, and editing event snapshots with command-driven handled/cancel feedback.
 
 Each sample needs a ViewModel unit test. Interaction samples also need Avalonia Headless tests. Streaming samples need deterministic virtual-time tests and exposed metrics.
 

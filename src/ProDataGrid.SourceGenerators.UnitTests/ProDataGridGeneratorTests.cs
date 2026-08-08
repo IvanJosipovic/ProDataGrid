@@ -731,6 +731,114 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Generated_view_emits_only_selected_typed_routed_event_command_bridges()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged |
+                               DataGridGeneratedViewEventKinds.BeginningEdit |
+                               DataGridGeneratedViewEventKinds.RowEditEnded,
+                RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public ICommand GridEventCommand { get; } = null!;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("ConfigureGeneratedRoutedEventCommands", result.CombinedSource);
+        Assert.Contains("dataGrid.SelectionChanged += OnGeneratedSelectionChanged", result.CombinedSource);
+        Assert.Contains("dataGrid.BeginningEdit += OnGeneratedBeginningEdit", result.CombinedSource);
+        Assert.Contains("dataGrid.RowEditEnded += OnGeneratedRowEditEnded", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedViewEvent<global::Demo.Row>", result.CombinedSource);
+        Assert.Contains("viewModel.GridEventCommand", result.CombinedSource);
+        Assert.Contains("e.Cancel = eventData.Cancel", result.CombinedSource);
+        Assert.DoesNotContain("OnGeneratedCurrentCellChanged", result.CombinedSource);
+        Assert.DoesNotContain("OnGeneratedCellEditEnding", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_generated_view_routed_event_contracts_report_PDGSG126()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "MissingCommandView",
+                RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged)]
+            public sealed partial class MissingCommandViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+            }
+
+            [GenerateDataGridViewModel(typeof(Row), ColumnDefinitionsPropertyName = "Columns2", FastPathOptionsPropertyName = "Fast2")]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "MissingEventsView",
+                ColumnDefinitionsPropertyName = "Columns2",
+                FastPathOptionsPropertyName = "Fast2",
+                RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+            public sealed partial class MissingEventsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public object GridEventCommand { get; } = new object();
+            }
+
+            [GenerateDataGridViewModel(typeof(Row), ColumnDefinitionsPropertyName = "Columns3", FastPathOptionsPropertyName = "Fast3")]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "InvalidCommandView",
+                ColumnDefinitionsPropertyName = "Columns3",
+                FastPathOptionsPropertyName = "Fast3",
+                RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged,
+                RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+            public sealed partial class InvalidCommandViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public object GridEventCommand { get; } = new object();
+            }
+
+            [GenerateDataGridViewModel(typeof(Row), ColumnDefinitionsPropertyName = "Columns4", FastPathOptionsPropertyName = "Fast4")]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "InvalidFlagsView",
+                ColumnDefinitionsPropertyName = "Columns4",
+                FastPathOptionsPropertyName = "Fast4",
+                RoutedEvents = (DataGridGeneratedViewEventKinds)512,
+                RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+            public sealed partial class InvalidFlagsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public object GridEventCommand { get; } = new object();
+            }
+            """);
+
+        Diagnostic[] diagnostics = result.GeneratorDiagnostics
+            .Where(static diagnostic => diagnostic.Id == "PDGSG126")
+            .ToArray();
+        Assert.Equal(4, diagnostics.Length);
+        Assert.DoesNotContain("class MissingCommandView :", result.CombinedSource);
+        Assert.DoesNotContain("class MissingEventsView :", result.CombinedSource);
+        Assert.DoesNotContain("class InvalidCommandView :", result.CombinedSource);
+        Assert.DoesNotContain("class InvalidFlagsView :", result.CombinedSource);
+    }
+
+    [Fact]
     public void Generated_view_emits_typed_nested_grid_row_details()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -1034,6 +1142,43 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("class RowsView", result.CombinedSource);
         Assert.Contains("CreateGeneratedViewStateHost", result.CombinedSource);
         Assert.Contains("\"No namespace rows\"", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Namespace_view_policy_applies_routed_event_command_bridge_options()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridViewsForNamespace(
+                "Demo.ViewModels",
+                IncludeNestedNamespaces = false,
+                RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged |
+                               DataGridGeneratedViewEventKinds.CurrentCellChanged,
+                RoutedEventCommandPropertyName = "GridEventCommand")]
+            namespace Demo.Models
+            {
+                public sealed class Row { public int Id { get; set; } }
+            }
+            namespace Demo.ViewModels
+            {
+                public sealed class RowsViewModel
+                {
+                    public IReadOnlyList<Demo.Models.Row> Items { get; } = new List<Demo.Models.Row>();
+                    public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public DataGridFastPathOptions FastPathOptions { get; } = new();
+                    public ICommand GridEventCommand { get; } = null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class RowsView", result.CombinedSource);
+        Assert.Contains("OnGeneratedSelectionChanged", result.CombinedSource);
+        Assert.Contains("OnGeneratedCurrentCellChanged", result.CombinedSource);
+        Assert.DoesNotContain("OnGeneratedSorting", result.CombinedSource);
     }
 
     [Fact]

@@ -340,6 +340,10 @@ internal static partial class Discovery
             ViewStatePropertyName = GeneratorUtilities.GetString(arguments, "ViewStatePropertyName"),
             ErrorMessagePropertyName = GeneratorUtilities.GetString(arguments, "ErrorMessagePropertyName"),
             RetryCommandPropertyName = GeneratorUtilities.GetString(arguments, "RetryCommandPropertyName"),
+            RoutedEvents = GetEnumValue(arguments, "RoutedEvents", 0),
+            RoutedEventCommandPropertyName = GeneratorUtilities.GetString(arguments, "RoutedEventCommandPropertyName"),
+            HasRoutedEventConfiguration = arguments.Keys.Any(static key =>
+                key is "RoutedEvents" or "RoutedEventCommandPropertyName"),
             LoadingText = GeneratorUtilities.GetString(arguments, "LoadingText") ?? "Loading data…",
             EmptyText = GeneratorUtilities.GetString(arguments, "EmptyText") ?? "No items to display.",
             ErrorText = GeneratorUtilities.GetString(arguments, "ErrorText") ?? "Unable to load data.",
@@ -441,6 +445,7 @@ internal static partial class Discovery
         ViewBindingModel? viewState = null;
         ViewBindingModel? errorMessage = null;
         ViewBindingModel? retryCommand = null;
+        ViewBindingModel? routedEventCommand = null;
         if (request.HasViewStateConfiguration)
         {
             if (string.IsNullOrWhiteSpace(request.ViewStatePropertyName))
@@ -482,6 +487,49 @@ internal static partial class Discovery
             }
         }
 
+        if (request.HasRoutedEventConfiguration)
+        {
+            const int allRoutedEvents = (1 << 8) - 1;
+            if (request.RoutedEvents == 0)
+            {
+                ReportInvalidViewEventBridge(request, diagnostics, "RoutedEvents must select at least one supported event");
+                return null;
+            }
+            if ((request.RoutedEvents & ~allRoutedEvents) != 0)
+            {
+                ReportInvalidViewEventBridge(request, diagnostics, "RoutedEvents contains unsupported flags");
+                return null;
+            }
+            if (string.IsNullOrWhiteSpace(request.RoutedEventCommandPropertyName))
+            {
+                ReportInvalidViewEventBridge(request, diagnostics, "RoutedEventCommandPropertyName is required when RoutedEvents is configured");
+                return null;
+            }
+
+            routedEventCommand = ResolveViewBinding(
+                request,
+                request.RoutedEventCommandPropertyName!,
+                null,
+                false,
+                diagnostics);
+            if (routedEventCommand == null)
+            {
+                return null;
+            }
+
+            ITypeSymbol? commandType = FindViewBindingMemberType(
+                request.ViewModelType,
+                request.RoutedEventCommandPropertyName!);
+            if (commandType == null || !ImplementsMetadataName(commandType, "System.Windows.Input.ICommand"))
+            {
+                ReportInvalidViewEventBridge(
+                    request,
+                    diagnostics,
+                    $"member '{request.RoutedEventCommandPropertyName}' must be an accessible readable property implementing System.Windows.Input.ICommand");
+                return null;
+            }
+        }
+
         RowDetailsViewModel? rowDetails = ResolveRowDetails(request, diagnostics);
         if (request.HasRowDetailsConfiguration && rowDetails == null)
         {
@@ -512,6 +560,8 @@ internal static partial class Discovery
             ViewState = viewState,
             ErrorMessage = errorMessage,
             RetryCommand = retryCommand,
+            RoutedEventCommand = routedEventCommand,
+            RoutedEvents = request.RoutedEvents,
             LoadingText = request.LoadingText,
             EmptyText = request.EmptyText,
             ErrorText = request.ErrorText,
@@ -709,6 +759,16 @@ internal static partial class Discovery
         string reason) =>
         diagnostics.Add(Diagnostic.Create(
             GeneratorDiagnostics.InvalidViewState,
+            request.Location,
+            request.ViewName,
+            reason));
+
+    private static void ReportInvalidViewEventBridge(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string reason) =>
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewEventBridge,
             request.Location,
             request.ViewName,
             reason));
@@ -968,6 +1028,9 @@ internal static partial class Discovery
         public string? ViewStatePropertyName { get; set; }
         public string? ErrorMessagePropertyName { get; set; }
         public string? RetryCommandPropertyName { get; set; }
+        public int RoutedEvents { get; set; }
+        public string? RoutedEventCommandPropertyName { get; set; }
+        public bool HasRoutedEventConfiguration { get; set; }
         public string LoadingText { get; set; } = "Loading data…";
         public string EmptyText { get; set; } = "No items to display.";
         public string ErrorText { get; set; } = "Unable to load data.";

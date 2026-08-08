@@ -140,6 +140,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated view state",
         "Generated state projection for view '{0}' is invalid: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidViewEventBridge = Create(
+        "PDGSG126",
+        "Invalid generated view event bridge",
+        "Generated routed-event bridge for view '{0}' is invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

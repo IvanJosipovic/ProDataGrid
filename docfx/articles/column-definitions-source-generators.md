@@ -407,6 +407,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG123` | Generated row-details sources or typed nested-grid members are conflicting or incompatible. |
 | `PDGSG124` | A button/toggle member binding is unsupported, conflicting, inaccessible, missing, or has an invalid command type. |
 | `PDGSG125` | A generated view-state projection is incomplete or uses an incompatible state, message, or command member. |
+| `PDGSG126` | A generated routed-event bridge uses unsupported flags or an incompatible command member. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable.
 
@@ -468,6 +469,29 @@ public sealed partial class TradesViewModel : ReactiveObject
 `ViewStatePropertyName` must resolve to `DataGridGeneratedViewState`. `ErrorMessagePropertyName`, when present, must be `string`; `RetryCommandPropertyName` must implement `ICommand`. ReactiveUI.SourceGenerators `[Reactive]` fields are resolved directly from their declared field types. Missing or incompatible members report `PDGSG012` or `PDGSG125`; the generator never falls back to a reflection binding.
 
 The generated state host keeps the DataGrid alive while hiding it, so loaded rows, column layout, selection, and scroll state survive temporary loading or error projections. Each surface receives stable IDs ending in `-loading`, `-empty`, `-error`, or `-retry`. Applications can replace `CreateGeneratedViewStateHost`, `CreateGeneratedLoadingContent`, `CreateGeneratedEmptyContent`, or `CreateGeneratedErrorContent` in a derived generated view. A non-null error-message property overrides `ErrorText`; a null value restores that static fallback. The same options are available on type-, assembly-, and namespace-level view attributes.
+
+### Routed-event command bridges
+
+Generated views can forward selected DataGrid routed events to one compile-time validated ViewModel command. The generated view subscribes directly to only the requested CLR events and creates a typed snapshot; it does not use reflection, runtime binding paths, or user code-behind.
+
+```csharp
+[GenerateDataGridViewModel(typeof(Trade), ProviderName = "TradeGridSchema")]
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged |
+                   DataGridGeneratedViewEventKinds.Sorting |
+                   DataGridGeneratedViewEventKinds.Editing,
+    RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+public sealed partial class TradesViewModel : ReactiveObject
+{
+    public ReactiveCommand<DataGridGeneratedViewEvent<Trade>, RxVoid> GridEventCommand { get; }
+}
+```
+
+The supported flags are `SelectionChanged`, `CurrentCellChanged`, `Sorting`, `BeginningEdit`, `CellEditEnding`, `CellEditEnded`, `RowEditEnding`, and `RowEditEnded`; `Editing` and `All` are convenience combinations. `DataGridGeneratedViewEvent<TItem>` exposes the typed row/current items, stable column keys, row index, edit action, selection origin, and zero-copy typed views of added and removed selection items. A command can synchronously set `Cancel` for cancellable edit events or `Handled` for any routed event; generated code copies those values back before routing continues.
+
+`RoutedEventCommandPropertyName` must identify an accessible property implementing `ICommand`; ReactiveUI.SourceGenerators `[Reactive]` command fields are also resolved from their declared type. Invalid flag combinations or incompatible command members report `PDGSG126`. Assembly and namespace view policies support the same options. A derived generated view can override `ConfigureGeneratedRoutedEventCommands(DataGrid)` to add application-specific wiring while retaining the generated bridge.
 
 ### Typed row details and nested grids
 
@@ -537,6 +561,7 @@ Generated views are inheritable and expose these hooks:
 protected virtual Control CreateGeneratedContent();
 protected virtual DataGrid CreateGeneratedDataGrid();
 protected virtual void ConfigureGeneratedDataGrid(DataGrid dataGrid);
+protected virtual void ConfigureGeneratedRoutedEventCommands(DataGrid dataGrid);
 protected virtual Control CreateGeneratedViewStateHost(DataGrid dataGrid);
 protected virtual Control CreateGeneratedLoadingContent();
 protected virtual Control CreateGeneratedEmptyContent();
