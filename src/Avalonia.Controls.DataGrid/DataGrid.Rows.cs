@@ -1775,6 +1775,7 @@ internal
 #endif
         virtual void OnUnloadingRow(DataGridRowEventArgs e)
         {
+            NotifyCellsClearing(e.Row);
             LoadingOrUnloadingRow = true;
             e.RoutedEvent ??= UnloadingRowEvent;
             e.Source ??= this;

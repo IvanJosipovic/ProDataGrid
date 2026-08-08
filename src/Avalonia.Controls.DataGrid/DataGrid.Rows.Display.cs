@@ -233,7 +233,9 @@ namespace Avalonia.Controls
 
         private void ResetDisplayedRows()
         {
-            if (UnloadingRowEvent.HasRaisedSubscriptions || UnloadingRowGroupEvent.HasRaisedSubscriptions)
+            if (UnloadingRowEvent.HasRaisedSubscriptions ||
+                UnloadingRowGroupEvent.HasRaisedSubscriptions ||
+                HasCellClearingHandlers)
             {
                 foreach (Control element in DisplayData.GetScrollingElements())
                 {

@@ -195,6 +195,7 @@ internal
         {
             DataGridDiagnostics.RecordRowPrepared();
             PrepareContainerForItemOverride(row, item);
+            NotifyCellsPrepared(row);
         }
 
         /// <summary>
