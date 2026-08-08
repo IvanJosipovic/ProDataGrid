@@ -101,6 +101,20 @@ namespace Avalonia.Controls.DataGridSelection
         public void SelectAll() => _inner.SelectAll();
         public void Clear() => _inner.Clear();
 
+        /// <summary>
+        /// Cancels a queued identity restoration so that the next explicit selection update becomes authoritative.
+        /// </summary>
+        public void SupersedePendingIdentityRestore()
+        {
+            if (_sourceMutationInProgress)
+            {
+                _sourceMutationInProgress = false;
+                _sourceChangeVersion++;
+            }
+
+            UpdateSelectionSnapshot();
+        }
+
         private void InnerSelectionChanged(object sender, SelectionModelSelectionChangedEventArgs e)
         {
             if (!_sourceMutationInProgress && !_suppressSnapshotUpdates)

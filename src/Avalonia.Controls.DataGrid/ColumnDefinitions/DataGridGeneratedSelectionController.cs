@@ -416,15 +416,21 @@ namespace Avalonia.Controls
             {
                 throw new ArgumentNullException(nameof(model));
             }
+            model.SupersedePendingIdentityRestore();
             model.BeginBatchUpdate();
             try
             {
                 model.Clear();
-                for (int index = 0; index < _selectedItemKeys.Count; index++)
+                int sourceIndex = 0;
+                if (model.Source != null)
                 {
-                    if (_index.TryGetIndex(_selectedItemKeys[index], out int selectedIndex))
+                    foreach (object candidate in model.Source)
                     {
-                        model.Select(selectedIndex);
+                        if (candidate is TItem item && _selectedItemSet.Contains(_keyAccessor.GetKey(item)))
+                        {
+                            model.Select(sourceIndex);
+                        }
+                        sourceIndex++;
                     }
                 }
             }

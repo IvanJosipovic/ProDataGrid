@@ -693,6 +693,99 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public async Task Generated_selection_state_page_round_trips_all_sections_and_legacy_aliases()
+    {
+        using var viewModel = new GeneratedSelectionStateViewModel();
+        var view = new GeneratedSelectionStatePage { DataContext = viewModel };
+        var window = new Window { Width = 1100, Height = 680, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            DataGridColumn idColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "id"));
+            DataGridColumn symbolColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "symbol"));
+            DataGridColumn deskColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "desk"));
+            DataGridLength originalDeskWidth = deskColumn.Width;
+
+            Assert.Same(viewModel.SelectionModel, grid.Selection);
+            Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+            Assert.Equal(DataGridSelectionUnit.FullRow, grid.SelectionUnit);
+            Assert.False(viewModel.SelectionModel.SingleSelect);
+            Assert.Equal(viewModel.ColumnDefinitions.Count, grid.Columns.Count);
+
+            await viewModel.PrepareStateCommand.Execute().ToTask();
+            Assert.Equal(
+                new[] { 4, 1 },
+                viewModel.SelectionModel.SelectedItems.Cast<GeneratedFeatureRow>().Select(static item => item.Id));
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, viewModel.SortingModel.Descriptors.Count);
+            Assert.Single(viewModel.FilteringModel.Descriptors);
+            Assert.Equal(2, viewModel.SearchModel.Descriptors.Count);
+            Assert.False(viewModel.SelectionModel.SingleSelect);
+            Assert.Contains(
+                4,
+                viewModel.SelectionModel.Source.Cast<GeneratedFeatureRow>().Select(static item => item.Id));
+            Assert.Equal(
+                new[] { 4, 1 },
+                viewModel.SelectionModel.SelectedItems.Cast<GeneratedFeatureRow>().Select(static item => item.Id));
+            Assert.Equal(
+                new[] { 4, 1 },
+                grid.SelectedItems.Cast<GeneratedFeatureRow>().Select(static item => item.Id));
+            Assert.Equal(new[] { 1, 4 }, viewModel.SelectionController.SelectedItemKeys.Order());
+
+            await viewModel.CaptureStateCommand.Execute().ToTask();
+            Assert.NotNull(viewModel.StatePayload);
+            Assert.True(viewModel.StatePayloadLength > 100);
+            Assert.Contains("sample/generated-feature-row/v2", viewModel.StatePayload, StringComparison.Ordinal);
+
+            await viewModel.ScrambleStateCommand.Execute().ToTask();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(viewModel.SortingModel.Descriptors);
+            Assert.Empty(viewModel.FilteringModel.Descriptors);
+            Assert.Empty(viewModel.SearchModel.Descriptors);
+            Assert.Empty(viewModel.SelectionController.SelectedItemKeys);
+            Assert.Equal(grid.Columns.Count - 1, idColumn.DisplayIndex);
+            Assert.False(symbolColumn.IsVisible);
+            Assert.Equal(new DataGridLength(240), deskColumn.Width);
+
+            await viewModel.RestoreStateCommand.Execute().ToTask();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(2, viewModel.SortingModel.Descriptors.Count);
+            Assert.Single(viewModel.FilteringModel.Descriptors);
+            Assert.Equal(2, viewModel.SearchModel.Descriptors.Count);
+            Assert.Equal(new[] { 1, 4 }, viewModel.SelectionController.SelectedItemKeys.Order());
+            Assert.Equal(0, idColumn.DisplayIndex);
+            Assert.True(symbolColumn.IsVisible);
+            Assert.Equal(originalDeskWidth, deskColumn.Width);
+
+            await viewModel.LegacyRoundTripCommand.Execute().ToTask();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(1, viewModel.MigrationCount);
+            Assert.Contains("Migrated version 1", viewModel.Status, StringComparison.Ordinal);
+            Assert.Equal(new[] { 1, 4 }, viewModel.SelectionController.SelectedItemKeys.Order());
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-selection-state.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

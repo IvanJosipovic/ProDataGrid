@@ -386,4 +386,48 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.True(viewModel.IsDisposed);
         Assert.Throws<InvalidOperationException>(() => _ = viewModel.OrdersRemoteQuery);
     }
+
+    [AvaloniaFact]
+    public async Task Generated_selection_controller_preserves_keys_across_pages_and_replacements()
+    {
+        using var viewModel = new GeneratedSelectionStateViewModel();
+
+        Assert.Equal(8, viewModel.Items.Count);
+        Assert.Equal(2, GeneratedFeatureRowSchema.StateVersion);
+        Assert.Equal("symbol", GeneratedFeatureRowSchema.CreateStateDescriptor().ColumnAliases["ticker"]);
+
+        await viewModel.SelectStableKeysCommand.Execute().ToTask();
+        Assert.Equal(new[] { 1, 4 }, viewModel.SelectionController.SelectedItemKeys);
+        Assert.Equal(2, viewModel.LoadedSelectedCount);
+        Assert.Equal(2, viewModel.SelectionModel.SelectedItems.Count);
+
+        await viewModel.NextPageCommand.Execute().ToTask();
+        Assert.Equal(2, viewModel.PageNumber);
+        Assert.Equal(new[] { 1, 4 }, viewModel.SelectionController.SelectedItemKeys);
+        Assert.Equal(0, viewModel.LoadedSelectedCount);
+        Assert.Empty(viewModel.SelectionModel.SelectedItems);
+
+        await viewModel.FirstPageCommand.Execute().ToTask();
+        Assert.Equal(2, viewModel.LoadedSelectedCount);
+        Assert.Equal(2, viewModel.SelectionModel.SelectedItems.Count);
+
+        await viewModel.ReplaceAndReorderCommand.Execute().ToTask();
+        Assert.Equal(new[] { 1, 4 }, viewModel.SelectionController.SelectedItemKeys);
+        Assert.All(
+            viewModel.SelectionController.GetSelectedItems(),
+            static row => Assert.EndsWith("*", row.Symbol, StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public void Generated_selection_state_view_model_disposes_idempotently()
+    {
+        var viewModel = new GeneratedSelectionStateViewModel();
+
+        viewModel.Dispose();
+        viewModel.Dispose();
+
+        Assert.True(viewModel.IsDisposed);
+        Assert.Empty(viewModel.SelectionModel.SelectedItems);
+        Assert.Throws<InvalidOperationException>(() => _ = viewModel.StatefulRows);
+    }
 }

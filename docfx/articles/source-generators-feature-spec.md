@@ -27,7 +27,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F01 incremental foundation | Implemented | Direct type and property-triggered schemas, ViewModels, controllers, indexed-column triggers, cell-draw caches, and generated views use equatable attributed candidates with isolated composition and stable semantic/output reuse. View framework/collision facts and owner-driven schema options are part of the candidate graph. Assembly/namespace policy and registry coordination remain compilation-wide only when requested; an empty-policy gate prevents global model construction and source-type enumeration for direct-only consumers. |
 | F02–F07 identity and data operations | Implemented | Typed fields/builders, key/index services, operation ownership, DynamicData list/cache pipelines, bounded streams, snapshot reconciliation, and revisioned remote queries are available. The remote-query sample validates offset paging, bounded cache reuse, field translation, cancellation, stale-response suppression, observable state, and retry. |
 | F08 hierarchy | Core implemented | Typed hierarchy delegates, async loading, expansion/key operations, reset preservation, and `HierarchicalRows` wrapper-aware compiled bindings are available; broader conversion of legacy sample trees remains. |
-| F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. |
+| F09–F14 data workflows | Implemented | Grouping, summaries, selection, versioned state/migration, editing/validation/undo, clipboard/fill/export, and conditional rules share canonical accessors. The selection/state sample validates filtered/reordered identity projection, paging and replacement preservation, all-section JSON round-trips, column aliases, and migration. |
 | F15 layout/indexed columns | Implemented | Nested band trees, chooser visibility/order/reset, layout state, method-backed indexed column families, and replaceable pin/freeze command bridges are available. |
 | F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
@@ -670,6 +670,8 @@ Requirements:
 
 Selection state must be stored by key, not only by row index.
 
+Implemented selection API: keyed schemas emit an allocation-conscious `DataGridGeneratedSelectionController<TItem,TKey>`, an `IdentitySelectionModel`, selection profiles, immutable snapshots, origin/version notifications, current-cell keys, and adapters in both directions. Generated views accept explicit `SelectionMode` and `SelectionUnit` values when binding a shared model. Projection scans the model's active filtered/reordered source rather than using raw-source indexes. Controller and state-restore updates supersede stale queued identity restoration without disabling replacement preservation, and `PreserveUnloadedKeys` keeps off-page keys across source resets.
+
 ### F11. State persistence and migration — P1
 
 Requirements:
@@ -693,6 +695,8 @@ static partial bool TryMigrateTradesState(
 - Never persist delegates, controls, templates, or arbitrary runtime objects.
 
 ReactiveUI generated views should use an `Interaction` or generated view adapter to execute capture/restore against the actual DataGrid.
+
+Implemented state API: keyed schemas emit stable descriptors, item/column key options, alias maps from `PreviousColumnKeys`, generated state controllers, migration delegates, serializer injection, and default source-generated JSON metadata. Generated views expose all-section and section-selective capture/restore methods. Typed interaction handlers receive the generated view and its owned DataGrid, keeping UI state access out of the ViewModel. Scroll-state capture filters non-item placeholders before invoking generated typed key selectors.
 
 ### F12. Editing, conversion, validation, and undo — P2
 
@@ -1567,6 +1571,8 @@ Exit criteria: all eight DynamicData sample ViewModels use generated pipelines; 
 
 Exit criteria: representative hierarchy, grouped selection, paging selection, selection fast-index, and full-state pages run without reflection binding or view-owned state logic.
 
+Current status: core implementation is available. Formal hierarchy and paging/full-state samples are complete; broader grouped/shared-control selection sample conversion remains.
+
 ### Phase 4 — editing workflows
 
 1. Generate edit/conversion/validation policies.
@@ -1627,7 +1633,7 @@ Add focused pages rather than one overloaded showcase:
 3. `GeneratedDynamicDataSourceCachePage` — implemented with a generated keyed `SourceCache` pipeline, replace-aware upstream sorting, filtering and search, a generated identity selection model and ReactiveUI view binding, deterministic cache batches, error counters, idempotent disposal, and runtime plus Avalonia Headless proof that a selected replacement instance keeps the same stable key after moving rows.
 4. `GeneratedHierarchicalDynamicDataPage` — implemented with a generated keyed `SourceCache` root pipeline, typed children/parent/key/expansion metadata, generated hierarchy validation and expansion restoration, upstream root sorting/filtering/searching, a generated ReactiveUI view whose `HierarchicalModel` exclusively owns the flattened wrapper source, passive compiled XAML, and ViewModel plus Avalonia Headless screenshot coverage proving `HierarchicalNode.Item` column bindings.
 5. `GeneratedRemoteQueryPage` — implemented with immutable generated sort/filter/search descriptors, offset paging, bounded page-cache reuse, stable-to-backend field translation, cancellation and stale-response suppression, generated loading/error/content projection, retry, deterministic provider failures, passive compiled XAML, and ViewModel plus Avalonia Headless screenshot coverage.
-6. `GeneratedSelectionStatePage` — key/index cache and full state round-trip.
+6. `GeneratedSelectionStatePage` — implemented with one generated key accessor shared by the fast index, extended identity selection, filtered/reordered projection, paging and replacement preservation, generated view selection-mode/unit wiring, every-section state capture/restore, source-generated JSON, stable schema metadata, a `ticker` to `symbol` alias, version-one migration, a typed ReactiveUI interaction handler, passive compiled XAML, and runtime, ViewModel, generator, and Avalonia Headless coverage.
 7. `GeneratedGroupingSummariesPage` — incremental grouped aggregates.
 8. `GeneratedEditingClipboardFillPage` — typed validation, paste, and fill.
 9. `GeneratedIndexedSpreadsheetPage` — runtime slot columns and formulas.

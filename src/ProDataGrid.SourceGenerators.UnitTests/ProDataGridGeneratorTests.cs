@@ -1472,6 +1472,8 @@ public sealed class ProDataGridGeneratorTests
             [GenerateDataGridView(
                 typeof(Row),
                 SelectionModelPropertyName = nameof(Selection),
+                SelectionMode = DataGridSelectionMode.Extended,
+                SelectionUnit = DataGridSelectionUnit.CellOrRowHeader,
                 StateControllerPropertyName = nameof(GridState))]
             public sealed partial class RowsViewModel
             {
@@ -1483,9 +1485,15 @@ public sealed class ProDataGridGeneratorTests
 
         AssertNoErrors(result);
         Assert.Contains("DataGrid.SelectionProperty", result.CombinedSource);
+        Assert.Contains("dataGrid.SelectionMode = (global::Avalonia.Controls.DataGridSelectionMode)0", result.CombinedSource);
+        Assert.Contains("dataGrid.SelectionUnit = (global::Avalonia.Controls.DataGridSelectionUnit)2", result.CombinedSource);
         Assert.Contains("CaptureGeneratedState(", result.CombinedSource);
         Assert.Contains("RestoreGeneratedState(", result.CombinedSource);
         Assert.Contains("GridState).Capture(GeneratedDataGrid", result.CombinedSource);
+        string viewSource = result.Sources.Single(static source => source.Contains("class RowsView :", StringComparison.Ordinal));
+        Assert.True(
+            viewSource.IndexOf("dataGrid.SelectionMode =", StringComparison.Ordinal) <
+            viewSource.IndexOf("dataGrid[!global::Avalonia.Controls.DataGrid.SelectionProperty]", StringComparison.Ordinal));
     }
 
     [Fact]

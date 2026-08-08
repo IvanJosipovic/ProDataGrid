@@ -76,6 +76,24 @@ public sealed class DataGridGeneratedSelectionControllerTests
     }
 
     [Fact]
+    public void Identity_model_projection_uses_the_models_filtered_and_reordered_source()
+    {
+        Row one = new(1, "one");
+        Row two = new(2, "two");
+        Row three = new(3, "three");
+        DataGridGeneratedSelectionController<Row, int> controller = CreateController();
+        controller.ResetSource(new[] { one, two, three });
+        controller.SelectKey(2);
+        controller.SelectKey(3);
+
+        DataGridSelection.IdentitySelectionModel model =
+            controller.CreateIdentitySelectionModel(new[] { three, two });
+
+        Assert.Equal(new[] { three, two }, model.SelectedItems);
+        Assert.Equal(new[] { 0, 1 }, model.SelectedIndexes);
+    }
+
+    [Fact]
     public void Selection_change_reports_explicit_origin_and_monotonic_version()
     {
         DataGridGeneratedSelectionController<Row, int> controller = CreateController();

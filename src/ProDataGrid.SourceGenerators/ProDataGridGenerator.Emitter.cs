@@ -2680,6 +2680,13 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.SortingModel, "SortingModel", "s_sortingModelProperty");
         EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
         EmitOptionalGridBinding(builder, model.SearchModel, "SearchModel", "s_searchModelProperty");
+        if (model.SelectionModel != null)
+        {
+            builder.Append("            dataGrid.SelectionMode = (global::Avalonia.Controls.DataGridSelectionMode)")
+                .Append(model.SelectionMode.ToString(CultureInfo.InvariantCulture)).AppendLine(";")
+                .Append("            dataGrid.SelectionUnit = (global::Avalonia.Controls.DataGridSelectionUnit)")
+                .Append(model.SelectionUnit.ToString(CultureInfo.InvariantCulture)).AppendLine(";");
+        }
         EmitOptionalGridBinding(builder, model.SelectionModel, "Selection", "s_selectionModelProperty");
         EmitOptionalGridBinding(builder, model.HierarchicalModel, "HierarchicalModel", "s_hierarchicalModelProperty");
         if (model.HierarchicalModel != null)

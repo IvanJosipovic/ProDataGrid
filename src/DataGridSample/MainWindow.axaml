@@ -614,6 +614,13 @@
         </pages:GeneratedRemoteQueryPage.DataContext>
       </pages:GeneratedRemoteQueryPage>
     </TabItem>
+    <TabItem Header="Generated Selection + State">
+      <pages:GeneratedSelectionStatePage>
+        <pages:GeneratedSelectionStatePage.DataContext>
+          <viewModels:GeneratedSelectionStateViewModel />
+        </pages:GeneratedSelectionStatePage.DataContext>
+      </pages:GeneratedSelectionStatePage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

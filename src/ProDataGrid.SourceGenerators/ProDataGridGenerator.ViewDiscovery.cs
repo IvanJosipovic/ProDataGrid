@@ -336,6 +336,8 @@ internal static partial class Discovery
             SearchModelPropertyName = GeneratorUtilities.GetString(arguments, "SearchModelPropertyName"),
             SearchTextPropertyName = GeneratorUtilities.GetString(arguments, "SearchTextPropertyName"),
             SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
+            SelectionMode = GetEnumValue(arguments, "SelectionMode", 1),
+            SelectionUnit = GetEnumValue(arguments, "SelectionUnit", 0),
             HierarchicalModelPropertyName = GeneratorUtilities.GetString(arguments, "HierarchicalModelPropertyName"),
             StateControllerPropertyName = GeneratorUtilities.GetString(arguments, "StateControllerPropertyName"),
             ViewStatePropertyName = GeneratorUtilities.GetString(arguments, "ViewStatePropertyName"),
@@ -643,6 +645,8 @@ internal static partial class Discovery
             SearchModel = ResolveOptionalViewBinding(request, request.SearchModelPropertyName, diagnostics),
             SearchText = ResolveOptionalViewBinding(request, request.SearchTextPropertyName, diagnostics, requireSetter: true),
             SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
+            SelectionMode = request.SelectionMode,
+            SelectionUnit = request.SelectionUnit,
             HierarchicalModel = ResolveOptionalViewBinding(request, request.HierarchicalModelPropertyName, diagnostics),
             StateController = ResolveOptionalViewBinding(request, request.StateControllerPropertyName, diagnostics),
             ViewState = viewState,
@@ -1327,6 +1331,8 @@ internal static partial class Discovery
         public string? SearchModelPropertyName { get; set; }
         public string? SearchTextPropertyName { get; set; }
         public string? SelectionModelPropertyName { get; set; }
+        public int SelectionMode { get; set; } = 1;
+        public int SelectionUnit { get; set; }
         public string? HierarchicalModelPropertyName { get; set; }
         public string? StateControllerPropertyName { get; set; }
         public string? ViewStatePropertyName { get; set; }

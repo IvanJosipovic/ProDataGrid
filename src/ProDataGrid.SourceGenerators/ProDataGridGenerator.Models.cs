@@ -115,6 +115,10 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? SelectionModel { get; set; }
 
+    public int SelectionMode { get; set; }
+
+    public int SelectionUnit { get; set; }
+
     public ViewBindingModel? HierarchicalModel { get; set; }
 
     public ViewBindingModel? StateController { get; set; }

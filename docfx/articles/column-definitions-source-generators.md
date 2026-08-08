@@ -443,6 +443,47 @@ Set `HierarchicalRows = true` on `[GenerateDataGridColumns]` when the schema's c
 
 A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptions(...)`. Both reuse the same typed identity selector as the item index, streams, snapshot reconciliation, and `SourceCache`; persisted state and selection therefore cannot drift onto a different property-key convention.
 
+Set a stable schema ID and increment `StateVersion` whenever persisted state needs a migration. `PreviousColumnKeys` declares compile-time-validated aliases for renamed columns:
+
+```csharp
+[GenerateDataGridColumns(
+    ProviderName = "TradeSchema",
+    SchemaId = "sample/trade/v2",
+    StateVersion = 2)]
+public sealed class Trade
+{
+    [DataGridKey]
+    [DataGridColumn(ColumnKey = "id")]
+    public int Id { get; init; }
+
+    [DataGridColumn(ColumnKey = "symbol", PreviousColumnKeys = ["ticker"])]
+    public string Symbol { get; set; } = string.Empty;
+}
+```
+
+The keyed provider emits `CreateSelectionController`, `CreateIdentitySelectionModel`, `CreateStateDescriptor`, `CreateStateOptions`, and `CreateStateController`. Configure a generated view with the same selection model and state controller:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    SelectionModelPropertyName = nameof(SelectionModel),
+    SelectionMode = DataGridSelectionMode.Extended,
+    SelectionUnit = DataGridSelectionUnit.FullRow,
+    StateControllerPropertyName = nameof(StateController),
+    InteractionPropertyNames = [nameof(ManageGridState)],
+    InteractionHandlerTypes = [typeof(TradeStateInteractionHandler)])]
+public sealed partial class TradesViewModel : ReactiveObject
+{
+}
+```
+
+`DataGridGeneratedSelectionController<TItem,TKey>` stores row, column, cell, and current-cell selection by stable keys. `PreserveUnloadedKeys` retains selections across paging. Its identity-model projection scans the model's current filtered and sorted source, so selected indexes never come from a stale raw-source position. Controller-driven selection and generated state restoration explicitly supersede any older identity restore queued by a collection-view reset, while ordinary source replacement still preserves the prior identity snapshot.
+
+`DataGridGeneratedStateController` captures the configured DataGrid sections into an envelope containing the schema ID, deterministic shape hash, and state version. It validates the envelope, applies column aliases, calls the optional migration delegate, and serializes through `IDataGridStateSerializer`; the default serializer uses generated JSON metadata. Generated ReactiveUI views expose `CaptureGeneratedState` and `RestoreGeneratedState`, allowing a typed `Interaction` handler to access the owned DataGrid while the ViewModel remains UI-framework agnostic. Scroll-state sampling excludes the new-item placeholder before invoking the typed item-key selector.
+
+`DataGridSample.Pages.GeneratedSelectionStatePage` demonstrates extended selection across paging and item replacement, filtered/reordered identity projection, every persisted state section, JSON capture, deliberate state scrambling, restoration, a `ticker` to `symbol` alias, and a version-one-to-version-two migration. ViewModel, runtime, generator, and Avalonia Headless tests cover the complete flow.
+
 ## Diagnostics
 
 | Code | Meaning |
