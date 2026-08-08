@@ -412,6 +412,53 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_operations_page_binds_named_controller_models_and_generated_search_box()
+    {
+        using var viewModel = new GeneratedOperationsControllerViewModel();
+        var view = new GeneratedOperationsControllerPage { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 640, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            TextBox searchBox = view.GetLogicalDescendants().OfType<TextBox>()
+                .Single(static textBox => textBox.Name == "GeneratedSearchBox");
+
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Same(viewModel.SortingModel, grid.SortingModel);
+            Assert.Same(viewModel.FilteringModel, grid.FilteringModel);
+            Assert.Same(viewModel.SearchModel, grid.SearchModel);
+            Assert.Equal(viewModel.ColumnDefinitions.Count, grid.Columns.Count);
+
+            searchBox.Text = "Warsaw";
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal("Warsaw", viewModel.Query);
+            Assert.Equal(2, viewModel.SearchModel.Descriptors.Count);
+            Assert.True(viewModel.Operations.SearchPredicate(viewModel.Items[0]));
+            Assert.False(viewModel.Operations.SearchPredicate(viewModel.Items[1]));
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-operations-controller.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

@@ -103,4 +103,41 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.GridEventCommand.Execute(edit).Subscribe();
         Assert.True(edit.Cancel);
     }
+
+    [Fact]
+    public void Generated_operations_controller_compiles_search_filter_sort_and_presets()
+    {
+        using var viewModel = new GeneratedOperationsControllerViewModel();
+
+        Assert.Equal(6, viewModel.Items.Count);
+        Assert.Equal(
+            DataGridGeneratedFeatures.Columns |
+            DataGridGeneratedFeatures.Sorting |
+            DataGridGeneratedFeatures.Filtering |
+            DataGridGeneratedFeatures.Searching,
+            viewModel.Operations.Features);
+        Assert.True(viewModel.SortingModel.OwnsViewSorts);
+        Assert.True(viewModel.FilteringModel.OwnsViewFilter);
+
+        viewModel.Query = "rxui";
+        Assert.True(viewModel.Operations.SearchPredicate(viewModel.Items[1]));
+        Assert.False(viewModel.Operations.SearchPredicate(viewModel.Items[0]));
+
+        viewModel.ApplyRiskPresetCommand.Execute().Subscribe();
+        Assert.Single(viewModel.SortingModel.Descriptors);
+        Assert.Equal(2, viewModel.FilteringModel.Descriptors.Count);
+        Assert.True(viewModel.Operations.FilterPredicate(viewModel.Items[0]));
+        Assert.False(viewModel.Operations.FilterPredicate(viewModel.Items[2]));
+        Assert.True(viewModel.Operations.FilterPredicate(viewModel.Items[4]));
+        Assert.True(viewModel.Operations.SortComparer.Compare(viewModel.Items[4], viewModel.Items[0]) < 0);
+
+        int count = viewModel.Items.Count;
+        viewModel.AddRowCommand.Execute().Subscribe();
+        Assert.Equal(count + 1, viewModel.Items.Count);
+
+        viewModel.ClearOperationsCommand.Execute().Subscribe();
+        Assert.Empty(viewModel.SortingModel.Descriptors);
+        Assert.Empty(viewModel.FilteringModel.Descriptors);
+        Assert.Empty(viewModel.SearchModel.Descriptors);
+    }
 }

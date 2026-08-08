@@ -150,6 +150,23 @@ public sealed partial class TradesViewModel : ReactiveObject, IDisposable
 
 The generated group contains `Trades`, `InitializeTrades`, `CreateTradesController`, and `DisposeTrades`. A DynamicData source additionally gets a one-owner `ConnectTradesPipeline`/`DisconnectTradesPipeline` pair plus `TradesErrors` and `TradesCompletion`. The generated pipeline applies compiled predicates/comparers upstream, uses `UseReplaceForUpdates`, and performs the optional scheduler hop at the final binding boundary.
 
+Local controllers can apply a reusable sort/filter/search preset as one revision while retaining compile-time field types:
+
+```csharp
+DataGridGeneratedOperationPreset riskPreset = new(
+    "AVLN high value",
+    sorting: [TradeGridSchema.Price.Descending()],
+    filtering:
+    [
+        TradeGridSchema.Symbol.EqualTo("AVLN"),
+        TradeGridSchema.Price.GreaterThanOrEqual(100m)
+    ]);
+
+Trades.ApplyPreset(riskPreset);
+```
+
+`DataGridSample.Pages.GeneratedOperationsControllerPage` combines this named-controller pattern with a generated ReactiveUI grid and search view. Its passive compiled-binding shell supplies only application-specific commands and status presentation.
+
 `ImplementationType` accepts an `IDataGridGeneratedControllerFactory<TItem>`. `ConfigureMethod` names a static method on the partial ViewModel with a `ref DataGridGeneratedControllerOptions<TItem>` parameter. Both shapes are validated before emission.
 
 ## Augment a view model
