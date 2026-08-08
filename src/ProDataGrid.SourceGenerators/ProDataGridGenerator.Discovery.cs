@@ -79,6 +79,22 @@ internal static partial class Discovery
                 schema.ImplementationType = null;
             }
 
+            if (IsRuntimeDefinedShape(schema.ItemType))
+            {
+                schema.Columns = ImmutableArray<ColumnModel>.Empty;
+                schema.KeyMember = null;
+                schema.Hierarchy = null;
+                if (schema.ImplementationType == null)
+                {
+                    schemaDiagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.RuntimeShapeRequiresProvider,
+                        schema.Location,
+                        schema.ItemType.ToDisplayString()));
+                }
+
+                continue;
+            }
+
             schema.Columns = DiscoverColumns(schema, schemaDiagnostics, cancellationToken);
             ValidateFormulaMetadata(schema, schemaDiagnostics);
             schema.KeyMember = DiscoverKeyMember(schema, schemaDiagnostics, cancellationToken);
@@ -374,6 +390,30 @@ internal static partial class Discovery
                 schema.ImplementationType.ToDisplayString(),
                 schema.ItemType.ToDisplayString()));
             schema.ImplementationType = null;
+        }
+
+        if (IsRuntimeDefinedShape(schema.ItemType))
+        {
+            schema.Columns = ImmutableArray<ColumnModel>.Empty;
+            schema.KeyMember = null;
+            schema.Hierarchy = null;
+            if (schema.ImplementationType == null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.RuntimeShapeRequiresProvider,
+                    schema.Location,
+                    schema.ItemType.ToDisplayString()));
+                return new DirectSchemaGenerationResult(
+                    candidate.CacheKey,
+                    ImmutableArray<GeneratedSource>.Empty,
+                    diagnostics.ToImmutable());
+            }
+
+            GeneratedSource runtimeSource = Emitter.EmitSchemaSource(schema);
+            return new DirectSchemaGenerationResult(
+                candidate.CacheKey,
+                ImmutableArray.Create(runtimeSource),
+                diagnostics.ToImmutable());
         }
 
         schema.Columns = DiscoverColumns(schema, diagnostics, cancellationToken);
@@ -3336,6 +3376,39 @@ internal static partial class Discovery
                !type.IsStatic &&
                type.TypeParameters.Length == 0 &&
                GeneratorUtilities.IsAccessibleFromGeneratedCode(type);
+    }
+
+    private static bool IsRuntimeDefinedShape(INamedTypeSymbol type)
+    {
+        if (IsRuntimeDefinedShapeContract(type))
+        {
+            return true;
+        }
+
+        foreach (INamedTypeSymbol contract in type.AllInterfaces)
+        {
+            if (IsRuntimeDefinedShapeContract(contract))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsRuntimeDefinedShapeContract(INamedTypeSymbol type)
+    {
+        string metadataName = GeneratorUtilities.GetMetadataName(type.OriginalDefinition);
+        return metadataName is
+            "System.Data.DataTable" or
+            "System.Data.DataRow" or
+            "System.Data.DataRowView" or
+            "System.Data.IDataRecord" or
+            "System.Collections.IDictionary" or
+            "System.Collections.Generic.IDictionary`2" or
+            "System.Collections.Generic.IReadOnlyDictionary`2" or
+            "System.ComponentModel.ICustomTypeDescriptor" or
+            "System.Dynamic.IDynamicMetaObjectProvider";
     }
 
     private static bool IsAttribute(AttributeData attribute, string metadataName)

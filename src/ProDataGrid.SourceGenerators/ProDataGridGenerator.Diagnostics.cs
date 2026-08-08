@@ -180,6 +180,11 @@ internal static class GeneratorDiagnostics
         "Ambiguous explicit interface property",
         "Type schema '{0}' explicitly implements same-name property '{1}' from both '{2}' and '{3}'; expose one public forwarding property to select a contract");
 
+    public static readonly DiagnosticDescriptor RuntimeShapeRequiresProvider = Create(
+        "PDGSG134",
+        "Runtime-defined shape requires an explicit provider",
+        "Type '{0}' has a runtime-defined field shape; configure ImplementationType with an explicit IDataGridGeneratedSchema<{0}> implementation, typically based on DataGridRuntimeSchemaAdapter<{0}>");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

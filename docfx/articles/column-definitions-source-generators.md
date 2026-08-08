@@ -67,6 +67,49 @@ Set `IncludeInherited = false` to restrict discovery to members declared directl
 
 Class schemas also support statically resolvable explicit-interface properties. Attributes may be placed on either the interface contract or its explicit implementation. Generated getters, setters, edit fields, keys, operation delegates, state/selection adapters, and analytics metadata use direct interface casts such as `((ITradeContract)item).Price`; no reflection or dynamic dispatch is introduced beyond the normal interface call. A public property with the same name takes precedence as the canonical schema member. If a type explicitly implements unrelated same-name contracts without a public forwarding property, `PDGSG133` asks the model to expose the intended contract rather than inventing an unstable generated name.
 
+## Runtime-defined shapes
+
+Dictionary/property-bag rows, `DataRow`/`DataRowView`, `IDataRecord`, `ICustomTypeDescriptor`, and dynamic meta-object shapes cannot truthfully become compile-time property schemas. `PDGSG134` therefore requires an explicit `ImplementationType`. Derive that implementation from `DataGridRuntimeSchemaAdapter<TItem>` and supply a small `IDataGridRuntimeSchemaProvider<TItem>`:
+
+```csharp
+[GenerateDataGridColumns(
+    Discovery = DataGridColumnDiscovery.AttributedOnly,
+    ImplementationType = typeof(RuntimeRowSchema),
+    ProviderName = "RuntimeRowFacade",
+    SchemaId = "orders/runtime/v1")]
+public sealed class RuntimeRow : Dictionary<string, object?> { }
+
+public sealed class RuntimeRowSchema : DataGridRuntimeSchemaAdapter<RuntimeRow>
+{
+    public RuntimeRowSchema() : base(new Provider()) { }
+
+    private sealed class Provider : IDataGridRuntimeSchemaProvider<RuntimeRow>
+    {
+        public string SchemaId => "orders/runtime/v1";
+
+        public IReadOnlyList<DataGridRuntimeSchemaField<RuntimeRow>> CreateFields() =>
+        [
+            new(
+                "symbol",
+                "Symbol",
+                new DataGridColumnValueAccessor<RuntimeRow, string>(
+                    static row => (string)row["Symbol"]!,
+                    static (row, value) => row["Symbol"] = value),
+                static () => new DataGridTextColumnDefinition { Header = "Symbol" })
+        ];
+
+        public DataGridFastPathOptions CreateFastPathOptions() => new()
+        {
+            UseAccessorsOnly = true,
+            ThrowOnMissingAccessor = true,
+            EnableHighPerformanceSearching = true
+        };
+    }
+}
+```
+
+The adapter materializes and validates the field shape once, rejects duplicate keys and mismatched accessor item types, creates fresh column definitions per grid, computes an immutable runtime manifest, and reuses the standard accessor-based sort/filter/search engine. The generated facade forwards the implementation manifest and implements `IDataGridRuntimeDefinedSchema`; use `RuntimeRowFacade.Instance.Manifest` for runtime field identity. Any reflection needed to discover an external shape belongs inside the explicit provider. Dictionary and other known-key providers can stay completely reflection-free and NativeAOT-safe.
+
 The generated provider implements `IDataGridGeneratedSchema<TItem>`, which is composed from five focused contracts:
 
 - `IDataGridColumnDefinitionProvider<TItem>` creates a new mutable definition list for each grid.

@@ -220,6 +220,10 @@ internal static class Emitter
             .Append(" : global::Avalonia.Controls.IDataGridGeneratedSchema<").Append(itemType).Append(">,")
             .AppendLine()
             .AppendLine("        global::Avalonia.Controls.IDataGridGeneratedSchemaManifestProvider");
+        if (IsRuntimeDefinedImplementation(schema))
+        {
+            builder.AppendLine("        , global::Avalonia.Controls.IDataGridRuntimeDefinedSchema");
+        }
         if (schema.KeyMember != null)
         {
             string keyType = schema.KeyMember.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
@@ -258,8 +262,8 @@ internal static class Emitter
     private static void EmitImplementationForwarder(StringBuilder builder, SchemaModel schema, string itemType)
     {
         string implementationType = schema.ImplementationType!.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
-        builder.Append("        private readonly global::Avalonia.Controls.IDataGridGeneratedSchema<")
-            .Append(itemType).Append("> _implementation = new ").Append(implementationType).AppendLine("();")
+        builder.Append("        private readonly ").Append(implementationType).Append(" _implementation = new ")
+            .Append(implementationType).AppendLine("();")
             .AppendLine()
             .Append("        private ").Append(schema.ProviderName).AppendLine("()")
             .AppendLine("        {")
@@ -286,6 +290,24 @@ internal static class Emitter
             .AppendLine("        public static global::Avalonia.Controls.DataGridGeneratedPerformanceOptions CreatePerformanceOptions()")
             .Append("            => global::Avalonia.Controls.DataGridGeneratedPerformanceOptions.Create((global::Avalonia.Controls.DataGridGeneratedPerformanceProfile)")
             .Append(schema.PerformanceProfile.ToString(CultureInfo.InvariantCulture)).AppendLine(");");
+
+        if (ImplementsInterface(schema.ImplementationType!, "Avalonia.Controls.IDataGridGeneratedSchemaManifestProvider"))
+        {
+            builder.AppendLine()
+                .AppendLine("        public global::Avalonia.Controls.DataGridGeneratedSchemaManifest Manifest => _implementation.Manifest;");
+        }
+        else
+        {
+            builder.AppendLine()
+                .AppendLine("        public global::Avalonia.Controls.DataGridGeneratedSchemaManifest Manifest => s_manifest;");
+        }
+
+        if (IsRuntimeDefinedImplementation(schema))
+        {
+            builder.AppendLine()
+                .AppendLine("        public global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.IDataGridRuntimeSchemaField> RuntimeFields")
+                .AppendLine("            => _implementation.RuntimeFields;");
+        }
     }
 
     private static void EmitGeneratedSchemaBody(StringBuilder builder, SchemaModel schema, string itemType)
@@ -426,10 +448,14 @@ internal static class Emitter
                 .AppendLine("                keyType: null);");
         }
 
+        if (schema.ImplementationType == null)
+        {
+            builder.AppendLine()
+                .AppendLine("        public global::Avalonia.Controls.DataGridGeneratedSchemaManifest Manifest => s_manifest;");
+        }
+
         builder.AppendLine()
-            .AppendLine("        public global::Avalonia.Controls.DataGridGeneratedSchemaManifest Manifest => s_manifest;")
-            .AppendLine()
-            .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedField> Fields => s_readOnlyFields;");
+            .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedField> Fields => Instance.Manifest.Fields;");
 
         EmitEditFieldCollection(builder, schema, itemType);
         EmitAnalyticsMetadata(builder, schema, itemType);
@@ -447,7 +473,7 @@ internal static class Emitter
 
         builder.AppendLine()
             .AppendLine("        public static bool TryGetField(string key, out global::Avalonia.Controls.DataGridGeneratedField field)")
-            .AppendLine("            => s_manifest.TryGetField(key, out field);")
+            .AppendLine("            => Instance.Manifest.TryGetField(key, out field);")
             .AppendLine()
             .Append("        public static global::Avalonia.Controls.DataGridGeneratedOperationController<").Append(itemType)
             .AppendLine("> CreateController(global::Avalonia.Controls.DataGridOperationExecution execution = global::Avalonia.Controls.DataGridOperationExecution.View)")
@@ -4103,6 +4129,18 @@ internal static class Emitter
             ? receiver
             : "((" + accessReceiverType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat) + ")" + receiver + ")";
         return target + "." + GeneratorUtilities.EscapeIdentifier(member.Name);
+    }
+
+    private static bool IsRuntimeDefinedImplementation(SchemaModel schema)
+    {
+        return schema.ImplementationType != null &&
+               ImplementsInterface(schema.ImplementationType, "Avalonia.Controls.IDataGridRuntimeDefinedSchema");
+    }
+
+    private static bool ImplementsInterface(INamedTypeSymbol type, string metadataName)
+    {
+        return type.AllInterfaces.Any(candidate =>
+            string.Equals(GeneratorUtilities.GetMetadataName(candidate), metadataName, StringComparison.Ordinal));
     }
 
     private static bool CanEdit(ColumnModel column)

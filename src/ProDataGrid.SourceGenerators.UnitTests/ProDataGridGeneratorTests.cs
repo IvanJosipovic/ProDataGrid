@@ -840,6 +840,69 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Runtime_defined_schema_implementation_forwards_manifest_and_marker()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridColumns(
+                Discovery = DataGridColumnDiscovery.AttributedOnly,
+                ImplementationType = typeof(RuntimeSchema),
+                ProviderName = "GeneratedRuntimeFacade")]
+            public sealed class RuntimeRow : Dictionary<string, object?> { }
+
+            public sealed class RuntimeSchema : DataGridRuntimeSchemaAdapter<RuntimeRow>
+            {
+                public RuntimeSchema() : base(new Provider()) { }
+
+                private sealed class Provider : IDataGridRuntimeSchemaProvider<RuntimeRow>
+                {
+                    public string SchemaId => "demo/runtime/v1";
+                    public IReadOnlyList<DataGridRuntimeSchemaField<RuntimeRow>> CreateFields() =>
+                    [
+                        new(
+                            "value",
+                            "Value",
+                            new DataGridColumnValueAccessor<RuntimeRow, object?>(static row => row.TryGetValue("Value", out object? value) ? value : null),
+                            static () => new DataGridTextColumnDefinition())
+                    ];
+                    public DataGridFastPathOptions CreateFastPathOptions() =>
+                        new() { UseAccessorsOnly = true, ThrowOnMissingAccessor = true };
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("global::Avalonia.Controls.IDataGridRuntimeDefinedSchema", result.CombinedSource);
+        Assert.Contains("Manifest => _implementation.Manifest", result.CombinedSource);
+        Assert.Contains("=> _implementation.RuntimeFields", result.CombinedSource);
+        Assert.Contains("Fields => Instance.Manifest.Fields", result.CombinedSource);
+        Assert.DoesNotContain(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG002");
+    }
+
+    [Fact]
+    public void Runtime_defined_shape_without_provider_reports_PDGSG134()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridColumns]
+            public sealed class RuntimeBag : Dictionary<string, object?> { }
+            """);
+
+        Diagnostic diagnostic = Assert.Single(
+            result.GeneratorDiagnostics.Where(static value => value.Id == "PDGSG134"));
+        Assert.Contains("ImplementationType", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("class RuntimeBagDataGridSchema", result.CombinedSource);
+        Assert.DoesNotContain(result.GeneratorDiagnostics, static value => value.Id == "PDGSG002");
+    }
+
+    [Fact]
     public void Inherited_public_properties_are_included_by_default()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

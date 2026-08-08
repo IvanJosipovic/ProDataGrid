@@ -36,3 +36,4 @@ PDGSG130 | ProDataGrid.SourceGeneration | Error | Invalid generated view formula
 PDGSG131 | ProDataGrid.SourceGeneration | Error | Invalid generated view conditional-formatting integration
 PDGSG132 | ProDataGrid.SourceGeneration | Error | Ambiguous inherited interface property
 PDGSG133 | ProDataGrid.SourceGeneration | Error | Ambiguous explicit interface property
+PDGSG134 | ProDataGrid.SourceGeneration | Error | Runtime-defined shape requires an explicit provider
