@@ -75,6 +75,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.EditingInteractionModelPage", static () => new global::DataGridSample.Pages.EditingInteractionModelPage()),
             ("DataGridSample.Pages.GeneratedAllColumnKindsPage", static () => new global::DataGridSample.Pages.GeneratedAllColumnKindsPage()),
             ("DataGridSample.Pages.GeneratedAssemblyNamespacePolicyPage", static () => new global::DataGridSample.Pages.GeneratedAssemblyNamespacePolicyPage()),
+            ("DataGridSample.Pages.GeneratedHeaderFiltersPage", static () => new global::DataGridSample.Pages.GeneratedHeaderFiltersPage()),
             ("DataGridSample.Pages.GeneratedColumnsAssemblyPage", static () => new global::DataGridSample.Pages.GeneratedColumnsAssemblyPage()),
             ("DataGridSample.Pages.GeneratedColumnsAttributesPage", static () => new global::DataGridSample.Pages.GeneratedColumnsAttributesPage()),
             ("DataGridSample.Pages.GeneratedColumnsCustomPage", static () => new global::DataGridSample.Pages.GeneratedColumnsCustomPage()),

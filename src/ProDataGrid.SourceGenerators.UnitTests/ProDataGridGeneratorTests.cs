@@ -4015,6 +4015,99 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("new global::Demo.RootView { DataContext = typedViewModel0 }", result.CombinedSource);
     }
 
+    [Fact]
+    public void Header_filter_sample_surface_generates_typed_editors_distinct_values_commands_and_interaction()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteractionContext<out TInput, in TOutput>
+                {
+                    TInput Input { get; }
+                    void SetOutput(TOutput output);
+                }
+                public interface IInteraction<TInput, TOutput>
+                {
+                    IDisposable RegisterHandler(Func<IInteractionContext<TInput, TOutput>, Task> handler);
+                }
+                public static class ViewForMixins
+                {
+                    public static void WhenActivated(IActivatableView view, Action<Action<IDisposable>> block) { }
+                }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo
+            {
+                [GenerateDataGridColumns(Discovery = DataGridColumnDiscovery.AttributedOnly, Strict = true)]
+                public sealed class Row
+                {
+                    [DataGridColumn(
+                        ColumnKey = "desk",
+                        FilterEditor = DataGridGeneratedFilterEditorKind.Distinct,
+                        FilterFlyoutKey = "DeskDistinctFlyout")]
+                    public string Desk { get; set; } = "";
+
+                    [DataGridColumn(
+                        DataGridColumnKind.Numeric,
+                        ColumnKey = "price",
+                        FilterEditor = DataGridGeneratedFilterEditorKind.Range)]
+                    public decimal Price { get; set; }
+                }
+
+                public sealed class HeaderHandler :
+                    IDataGridGeneratedViewInteractionHandler<DataGridGeneratedHeaderCommandRequest, bool>
+                {
+                    public ValueTask<bool> HandleAsync(
+                        DataGridGeneratedViewInteractionContext<DataGridGeneratedHeaderCommandRequest> context) =>
+                        new(true);
+                }
+
+                [GenerateDataGridViewModel(typeof(Row))]
+                [GenerateDataGridController(
+                    typeof(Row),
+                    "Rows",
+                    Features = DataGridGeneratedFeatures.Columns |
+                               DataGridGeneratedFeatures.Sorting |
+                               DataGridGeneratedFeatures.Filtering,
+                    OperationExecution = DataGridOperationExecution.View)]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    ControllerName = "Rows",
+                    SortingModelPropertyName = nameof(SortingModel),
+                    FilteringModelPropertyName = nameof(FilteringModel),
+                    InteractionPropertyNames = new[] { nameof(HeaderInteraction) },
+                    InteractionHandlerTypes = new[] { typeof(HeaderHandler) })]
+                public sealed partial class RowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+                    public global::Avalonia.Controls.DataGridSorting.SortingModel SortingModel => Rows.SortingModel;
+                    public global::Avalonia.Controls.DataGridFiltering.FilteringModel FilteringModel => Rows.FilteringModel;
+                    public global::ReactiveUI.IInteraction<DataGridGeneratedHeaderCommandRequest, bool> HeaderInteraction { get; } = null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGridGeneratedDistinctValueProvider<global::Demo.Row, string> DeskDistinctValues", result.CombinedSource);
+        Assert.Contains("CreateDeskRemoteDistinctValues", result.CombinedSource);
+        Assert.Contains("filterEditor: (global::Avalonia.Controls.DataGridGeneratedFilterEditorKind)7", result.CombinedSource);
+        Assert.Contains("filterEditor: (global::Avalonia.Controls.DataGridGeneratedFilterEditorKind)6", result.CombinedSource);
+        Assert.Contains("FilterFlyoutKey = \"DeskDistinctFlyout\"", result.CombinedSource);
+        Assert.Contains("CreateHeaderCommandController", result.CombinedSource);
+        Assert.Contains("viewModel.HeaderInteraction.RegisterHandler", result.CombinedSource);
+        Assert.Contains("new global::Demo.HeaderHandler()", result.CombinedSource);
+    }
+
     private static void AssertNoErrors(GeneratorTestResult result)
     {
         Assert.True(

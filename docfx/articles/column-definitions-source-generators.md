@@ -476,6 +476,16 @@ public static string GetAmountDescription() =>
 
 The generated metadata exposes `ResolveHeader` and `ResolveDescription`; generated column creation calls the provider directly with `CurrentUICulture`.
 
+### Typed header filters, distinct values, and commands
+
+Set `FilterEditor` to `Text`, `Numeric`, `DateTime`, `Boolean`, `Enum`, `Range`, `Distinct`, or `Custom` when automatic type inference is not the desired editor contract. `FilterFlyoutKey` remains the visual resource boundary, so the schema owns stable metadata while Avalonia resources own styling and editor composition.
+
+Every generated field exposes a bounded typed local distinct-value provider and a factory for a cancellable remote controller. Local scans take explicit source/result limits. Remote controllers carry the stable column key and monotonic revision, cancel prior work, reject cancellation-resistant stale responses, and publish values, loading, and error state without reflection.
+
+`CreateHeaderCommandController` returns one cached command set per stable field. Sort, clear-sort, clear-filter, visibility, and layout reset operate directly on generated models and definitions. Show-filter requests flow through `IFilteringModelInteraction`. Pin, freeze, autosize, and other grid-instance operations use `IDataGridGeneratedHeaderInteraction`; a generated ReactiveUI interaction handler can receive the owned `DataGrid` without exposing it to the ViewModel. Command availability now follows sorting, filtering, and live generated layout changes even when another controller initiated the change.
+
+`DataGridSample.Pages.GeneratedHeaderFiltersPage` demonstrates all seven standard editor profiles, a real distinct-value header flyout, bounded local and remote Desk values, stale-response suppression, cached command groups, typed filter/search operations, visibility changes, and generated view-scoped pin/freeze/autosize handling. ViewModel, runtime, generator, and Avalonia Headless tests cover the complete path.
+
 Typed template columns may name static `(TItem, Control?) -> Control` factories for display, edit, and new-row cells. The generator validates every signature and creates recycling templates without runtime XAML loading or reflection.
 
 Custom-drawing columns can create a validated factory by accessible parameterless type or static method and configure the hot-path options directly:

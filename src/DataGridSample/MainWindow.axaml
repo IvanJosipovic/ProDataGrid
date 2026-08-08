@@ -677,6 +677,13 @@
         </pages:GeneratedAssemblyNamespacePolicyPage.DataContext>
       </pages:GeneratedAssemblyNamespacePolicyPage>
     </TabItem>
+    <TabItem Header="Generated Header Filters">
+      <pages:GeneratedHeaderFiltersPage>
+        <pages:GeneratedHeaderFiltersPage.DataContext>
+          <viewModels:GeneratedHeaderFiltersViewModel />
+        </pages:GeneratedHeaderFiltersPage.DataContext>
+      </pages:GeneratedHeaderFiltersPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

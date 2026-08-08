@@ -249,6 +249,12 @@ namespace Avalonia.Controls
             _operations = operations ?? throw new ArgumentNullException(nameof(operations));
             _layout = layout ?? throw new ArgumentNullException(nameof(layout));
             _interaction = interaction;
+            _operations.SortingModel.SortingChanged += SortingModelChanged;
+            _operations.FilteringModel.FilteringChanged += FilteringModelChanged;
+            for (int index = 0; index < _layout.Choices.Count; index++)
+            {
+                _layout.Choices[index].PropertyChanged += LayoutChoiceChanged;
+            }
         }
 
         /// <inheritdoc />
@@ -345,9 +351,30 @@ namespace Avalonia.Controls
         {
             if (_disposed) return;
             _disposed = true;
+            _operations.SortingModel.SortingChanged -= SortingModelChanged;
+            _operations.FilteringModel.FilteringChanged -= FilteringModelChanged;
+            for (int index = 0; index < _layout.Choices.Count; index++)
+            {
+                _layout.Choices[index].PropertyChanged -= LayoutChoiceChanged;
+            }
             foreach (DataGridGeneratedHeaderCommandSet commands in _commands.Values) commands.Dispose();
             StateChanged = null;
             _commands.Clear();
+        }
+
+        private void SortingModelChanged(object sender, SortingChangedEventArgs eventArgs) =>
+            StateChanged?.Invoke(this, EventArgs.Empty);
+
+        private void FilteringModelChanged(object sender, FilteringChangedEventArgs eventArgs) =>
+            StateChanged?.Invoke(this, EventArgs.Empty);
+
+        private void LayoutChoiceChanged(object sender, PropertyChangedEventArgs eventArgs)
+        {
+            if (eventArgs.PropertyName == nameof(DataGridGeneratedColumnChoice.IsVisible) ||
+                eventArgs.PropertyName == nameof(DataGridGeneratedColumnChoice.CanHide))
+            {
+                StateChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         private bool HasFeature(DataGridGeneratedFeatures feature) => (_operations.Features & feature) == feature;

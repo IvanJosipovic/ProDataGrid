@@ -73,6 +73,41 @@ public sealed class DataGridGeneratedHeaderCommandTests
             interaction.Executed);
     }
 
+    [Fact]
+    public void External_model_and_layout_changes_refresh_cached_command_availability()
+    {
+        var schema = new RowSchema();
+        var definition = new DataGridTextColumnDefinition
+        {
+            ColumnKey = "name",
+            IsVisible = true
+        };
+        using var operations = new DataGridGeneratedOperationController<Row>(schema);
+        using var layout = new DataGridGeneratedColumnLayoutController([definition]);
+        using var controller = new DataGridGeneratedHeaderCommandController<Row>(
+            RowSchema.Manifest,
+            operations,
+            layout);
+        DataGridGeneratedHeaderCommandSet commands = controller.ForField("name");
+        int sortChanges = 0;
+        int filterChanges = 0;
+        int visibilityChanges = 0;
+        commands.ClearSort.CanExecuteChanged += (_, _) => sortChanges++;
+        commands.ClearFilter.CanExecuteChanged += (_, _) => filterChanges++;
+        commands.ShowColumn.CanExecuteChanged += (_, _) => visibilityChanges++;
+
+        operations.SortingModel.SetOrUpdate(RowSchema.Name.Ascending());
+        operations.FilteringModel.SetOrUpdate(RowSchema.Name.EqualTo("Ada"));
+        layout.SetVisible("name", false);
+
+        Assert.True(sortChanges > 0);
+        Assert.True(filterChanges > 0);
+        Assert.True(visibilityChanges > 0);
+        Assert.True(commands.ClearSort.CanExecute(null));
+        Assert.True(commands.ClearFilter.CanExecute(null));
+        Assert.True(commands.ShowColumn.CanExecute(null));
+    }
+
     private sealed record Row(string Name);
 
     private sealed class RowSchema : IDataGridGeneratedSchema<Row>

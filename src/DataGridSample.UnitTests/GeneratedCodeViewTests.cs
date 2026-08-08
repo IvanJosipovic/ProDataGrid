@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.DataGridClipboard;
 using Avalonia.Controls.DataGridFilling;
 using Avalonia.Controls.DataGridConditionalFormatting;
+using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -1225,6 +1226,84 @@ public sealed class GeneratedCodeViewTests
         }
         finally
         {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task Generated_header_filters_page_drives_distinct_flyout_and_grid_interactions()
+    {
+        using var viewModel = new GeneratedHeaderFiltersViewModel();
+        var view = new GeneratedHeaderFiltersPage { DataContext = viewModel };
+        var window = new Window { Width = 1240, Height = 760, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        DataGridDistinctValueFilterFlyout flyout = Assert.IsType<DataGridDistinctValueFilterFlyout>(
+            view.Resources["GeneratedHeaderDeskDistinctFilterFlyout"]);
+        try
+        {
+            GeneratedHeaderFiltersGrid generatedView = Assert.Single(
+                view.GetVisualDescendants().OfType<GeneratedHeaderFiltersGrid>());
+            DataGrid grid = Assert.Single(generatedView.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Equal(7, grid.Columns.Count);
+            Assert.True(grid.FastPathOptions.StrictMode);
+            Assert.Equal("generated-header-filters-grid", AutomationProperties.GetAutomationId(grid));
+
+            viewModel.DeskHeaderCommands.ShowFilter.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(flyout.IsOpen);
+            DataGridDistinctValueFilterContext context = Assert.IsType<DataGridDistinctValueFilterContext>(flyout.Content);
+            Assert.Equal(4, context.Options.Count);
+            IFilterDistinctValueOption london = Assert.Single(
+                context.Options,
+                static option => option.Display == "London");
+            Assert.Equal(5, london.Count);
+            london.IsSelected = true;
+            Dispatcher.UIThread.RunJobs();
+            FilteringDescriptor descriptor = Assert.Single(viewModel.FilteringModel.Descriptors);
+            Assert.Equal(FilteringOperator.In, descriptor.Operator);
+            Assert.Equal("London", Assert.Single(descriptor.Values));
+            viewModel.DeskHeaderCommands.ClearFilter.Execute(null);
+            Assert.Empty(viewModel.FilteringModel.Descriptors);
+
+            DataGridColumn priceColumn = Assert.Single(
+                grid.Columns,
+                static column => Equals(column.ColumnKey, "price"));
+            viewModel.PriceHeaderCommands.PinLeft.Execute(null);
+            await viewModel.HeaderInteractionCompletion;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, priceColumn.DisplayIndex);
+            Assert.Equal(1, grid.FrozenColumnCount);
+
+            viewModel.PriceHeaderCommands.AutoSize.Execute(null);
+            await viewModel.HeaderInteractionCompletion;
+            Assert.True(priceColumn.Width.IsAuto);
+
+            viewModel.PriceHeaderCommands.ResetLayout.Execute(null);
+            await viewModel.HeaderInteractionCompletion;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, grid.FrozenColumnCount);
+
+            await viewModel.LoadRemoteDeskValuesAsync();
+            Assert.Equal(["London", "New York", "Singapore"], viewModel.RemoteDeskValues);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-header-filters.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            flyout.Hide();
             window.Close();
             Dispatcher.UIThread.RunJobs();
         }

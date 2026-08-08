@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridConditionalFormatting;
+using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridPivoting;
+using Avalonia.Controls.DataGridSorting;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using DataGridSample.Generated;
@@ -80,6 +82,60 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(DataGridGeneratedPerformanceProfile.HighFrequencyStreaming, NamespacePolicyRowsView.GeneratedPerformanceProfile);
         Assert.Equal(4, ExplicitPolicyRowsView.GeneratedRecipe);
         Assert.Equal(DataGridGeneratedPerformanceProfile.Spreadsheet, ExplicitPolicyRowsView.GeneratedPerformanceProfile);
+    }
+
+    [Fact]
+    public async Task Generated_header_filters_use_typed_metadata_local_remote_values_and_cached_commands()
+    {
+        using var viewModel = new GeneratedHeaderFiltersViewModel();
+
+        Assert.Equal(7, viewModel.ColumnDefinitions.Count);
+        Assert.True(viewModel.FastPathOptions.StrictMode);
+        Assert.Equal(["Warsaw", "London", "New York", "Singapore"], viewModel.LocalDeskValues);
+        Assert.Same(
+            viewModel.DeskHeaderCommands,
+            viewModel.HeaderCommandController.ForField("desk"));
+
+        Assert.True(GeneratedHeaderFilterRowSchema.TryGetField("symbol", out DataGridGeneratedField symbol));
+        Assert.True(GeneratedHeaderFilterRowSchema.TryGetField("desk", out DataGridGeneratedField desk));
+        Assert.True(GeneratedHeaderFilterRowSchema.TryGetField("side", out DataGridGeneratedField side));
+        Assert.True(GeneratedHeaderFilterRowSchema.TryGetField("price", out DataGridGeneratedField price));
+        Assert.True(GeneratedHeaderFilterRowSchema.TryGetField("timestamp", out DataGridGeneratedField timestamp));
+        Assert.True(GeneratedHeaderFilterRowSchema.TryGetField("active", out DataGridGeneratedField active));
+        Assert.Equal(DataGridGeneratedFilterEditorKind.Text, symbol.Metadata.FilterEditor);
+        Assert.Equal(DataGridGeneratedFilterEditorKind.Distinct, desk.Metadata.FilterEditor);
+        Assert.Equal(DataGridGeneratedFilterEditorKind.Enum, side.Metadata.FilterEditor);
+        Assert.Equal(DataGridGeneratedFilterEditorKind.Range, price.Metadata.FilterEditor);
+        Assert.Equal(DataGridGeneratedFilterEditorKind.DateTime, timestamp.Metadata.FilterEditor);
+        Assert.Equal(DataGridGeneratedFilterEditorKind.Boolean, active.Metadata.FilterEditor);
+
+        await viewModel.ApplyPriceRangeCommand.Execute().ToTask();
+        FilteringDescriptor range = Assert.Single(viewModel.FilteringModel.Descriptors);
+        Assert.Equal(FilteringOperator.Between, range.Operator);
+        Assert.Equal("price", range.ColumnId);
+        Assert.True(viewModel.PriceHeaderCommands.ClearFilter.CanExecute(null));
+
+        viewModel.PriceHeaderCommands.SortDescending.Execute(null);
+        SortingDescriptor sorting = Assert.Single(viewModel.SortingModel.Descriptors);
+        Assert.Equal("price", sorting.ColumnId);
+        Assert.Equal(System.ComponentModel.ListSortDirection.Descending, sorting.Direction);
+
+        viewModel.SideHeaderCommands.HideColumn.Execute(null);
+        Assert.False(viewModel.ColumnLayoutController.IsVisible("side"));
+        Assert.True(viewModel.SideHeaderCommands.ShowColumn.CanExecute(null));
+        viewModel.SideHeaderCommands.ShowColumn.Execute(null);
+        Assert.True(viewModel.ColumnLayoutController.IsVisible("side"));
+
+        viewModel.RemoteQuery = "o";
+        await viewModel.LoadRemoteDeskValuesAsync();
+        Assert.Equal(["London", "New York", "Singapore"], viewModel.RemoteDeskValues);
+        Assert.Equal(1, viewModel.RemoteRevision);
+
+        viewModel.RemoteQuery = "on";
+        await viewModel.RunStaleRemoteRequestAsync();
+        Assert.False(viewModel.LastSlowRequestAccepted);
+        Assert.Equal(["London"], viewModel.RemoteDeskValues);
+        Assert.Equal(3, viewModel.RemoteRevision);
     }
 
     [AvaloniaFact]
