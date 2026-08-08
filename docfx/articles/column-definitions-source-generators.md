@@ -408,8 +408,8 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG124` | A button/toggle member binding is unsupported, conflicting, inaccessible, missing, or has an invalid command type. |
 | `PDGSG125` | A generated view-state projection is incomplete or uses an incompatible state, message, or command member. |
 | `PDGSG126` | A generated routed-event bridge uses unsupported flags or an incompatible command member. |
-| `PDGSG127` | A generated ReactiveUI interaction declaration has mismatched metadata, an incompatible property, or an invalid handler implementation. |
-| `PDGSG128` | A generated-view performance profile, input map, input command, or diagnostics sink is invalid. |
+| `PDGSG127` | A generated ReactiveUI interaction or typed navigation-interaction declaration has mismatched metadata, an incompatible property, or an invalid handler implementation. |
+| `PDGSG128` | A generated-view performance profile, input map, input command, diagnostics sink, or provably incompatible high-frequency setting is invalid. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
@@ -559,6 +559,43 @@ public sealed partial class TradesViewModel : ReactiveObject
 Built-in renderer instruments are opt-in. Set the `ProDataGrid.Diagnostics.IsEnabled` AppContext switch before DataGrid initialization as described in [Metrics and Activities](metrics-and-activities.md). The current meter is process-wide, so a generated subscription supplies its view's schema/profile context but cannot infer which individual DataGrid instance produced a built-in sample.
 
 The generated `CreateGeneratedInputMap()` and `CreateGeneratedMetricsSink()` factories are protected and virtual. Applications can therefore use a configured parameterless implementation directly or override the factories in a derived generated view to resolve DI-backed implementations. Invalid profiles, command properties, input maps, sinks, or activation-incompatible ReactiveUI custom bases report `PDGSG128` or `PDGSG013` at compile time. Type-, assembly-, and namespace-level view attributes expose the same options.
+
+### Typed current-cell and scroll interactions
+
+ReactiveUI generated views can expose a dedicated UI-to-ViewModel-neutral navigation boundary:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    NavigationInteractionPropertyName = nameof(GridNavigation))]
+public sealed partial class TradeViewModel : ReactiveObject
+{
+    public Interaction<
+        DataGridGeneratedNavigationRequest<Trade>,
+        DataGridGeneratedNavigationResult<Trade>> GridNavigation { get; } = new();
+}
+
+DataGridGeneratedNavigationResult<Trade> selected = await GridNavigation
+    .Handle(DataGridGeneratedNavigationRequest<Trade>.SetCurrentCell(
+        selectedTrade,
+        "trade-price"))
+    .ToTask();
+
+DataGridGeneratedNavigationResult<Trade> moved = await GridNavigation
+    .Handle(DataGridGeneratedNavigationRequest<Trade>.MoveCurrentCell(
+        columnOffset: 1,
+        rowOffset: 0))
+    .ToTask();
+
+DataGridGeneratedNavigationResult<Trade> captured = await GridNavigation
+    .Handle(DataGridGeneratedNavigationRequest<Trade>.CaptureScrollState())
+    .ToTask();
+```
+
+The property must implement the exact `IInteraction<DataGridGeneratedNavigationRequest<TItem>, DataGridGeneratedNavigationResult<TItem>>` contract. The generated view registers its built-in `DataGridGeneratedNavigationHandler<TItem>` only while activated and reconnects it when `DataContext` changes. Requests support current-cell query/set, stable-key bring-into-view, XY movement over visible columns and active-view rows, and scroll-state capture/restore. Results return a non-allocating status enum plus typed item, row, display-column, stable column key, and optional scroll state. A derived view can override `CreateGeneratedNavigationInteractionHandler()` for DI or application-specific navigation policy.
+
+`PDGSG127` rejects non-ReactiveUI use and item-type or input/output mismatches. `PDGSG128` rejects `HighFrequencyStreaming` combined with `RowDetailsVisibilityMode.Visible`, because that setting realizes details for every row and contradicts the bounded high-frequency profile.
 
 ### Typed row details and nested grids
 

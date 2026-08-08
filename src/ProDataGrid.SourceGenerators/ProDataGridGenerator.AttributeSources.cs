@@ -280,6 +280,7 @@ public sealed partial class ProDataGridGenerator
                 public string? RoutedEventCommandPropertyName { get; set; }
                 public string[]? InteractionPropertyNames { get; set; }
                 public Type[]? InteractionHandlerTypes { get; set; }
+                public string? NavigationInteractionPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public Type? InputMapType { get; set; }
                 public string? InputCommandPropertyName { get; set; }
@@ -330,6 +331,7 @@ public sealed partial class ProDataGridGenerator
                 public string? RoutedEventCommandPropertyName { get; set; }
                 public string[]? InteractionPropertyNames { get; set; }
                 public Type[]? InteractionHandlerTypes { get; set; }
+                public string? NavigationInteractionPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public Type? InputMapType { get; set; }
                 public string? InputCommandPropertyName { get; set; }

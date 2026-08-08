@@ -709,11 +709,13 @@ public sealed class ProDataGridGeneratorTests
                 typeof(Demo.Models.Row),
                 ViewName = "AssemblyRowsView",
                 Framework = DataGridViewFramework.ReactiveUI,
+                NavigationInteractionPropertyName = "Navigation",
                 InteractionPropertyNames = new[] { "Confirm" },
                 InteractionHandlerTypes = new[] { typeof(Demo.Handlers.ConfirmHandler) })]
             [assembly: GenerateDataGridViewsForNamespace(
                 "Demo.NamespaceViewModels",
                 Framework = DataGridViewFramework.ReactiveUI,
+                NavigationInteractionPropertyName = "Navigation",
                 InteractionPropertyNames = new[] { "Confirm" },
                 InteractionHandlerTypes = new[] { typeof(Demo.Handlers.ConfirmHandler) })]
             namespace ReactiveUI
@@ -755,6 +757,9 @@ public sealed class ProDataGridGeneratorTests
                 {
                     public IReadOnlyList<Models.Row> Items { get; } = new List<Models.Row>();
                     public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                    public global::ReactiveUI.IInteraction<
+                        DataGridGeneratedNavigationRequest<Models.Row>,
+                        DataGridGeneratedNavigationResult<Models.Row>> Navigation { get; } = null!;
                 }
             }
             namespace Demo.NamespaceViewModels
@@ -764,6 +769,9 @@ public sealed class ProDataGridGeneratorTests
                 {
                     public IReadOnlyList<global::Demo.Models.Row> Items { get; } = new List<global::Demo.Models.Row>();
                     public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                    public global::ReactiveUI.IInteraction<
+                        DataGridGeneratedNavigationRequest<global::Demo.Models.Row>,
+                        DataGridGeneratedNavigationResult<global::Demo.Models.Row>> Navigation { get; } = null!;
                 }
             }
             """);
@@ -776,6 +784,147 @@ public sealed class ProDataGridGeneratorTests
             result.CombinedSource.Split(
                 "=> new global::Demo.Handlers.ConfirmHandler();",
                 StringSplitOptions.None).Length - 1);
+        Assert.Equal(
+            2,
+            result.CombinedSource.Split(
+                "DataGridGeneratedNavigationHandler<global::Demo.Models.Row>()",
+                StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public void Reactive_ui_view_generates_dedicated_typed_navigation_interaction()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteractionContext<out TInput, in TOutput>
+                {
+                    TInput Input { get; }
+                    void SetOutput(TOutput output);
+                }
+                public interface IInteraction<TInput, TOutput>
+                {
+                    IDisposable RegisterHandler(Func<IInteractionContext<TInput, TOutput>, Task> handler);
+                }
+                public static class ViewForMixins
+                {
+                    public static void WhenActivated(IActivatableView view, Action<Action<IDisposable>> block) { }
+                }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+                [GenerateDataGridViewModel(typeof(Row))]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    NavigationInteractionPropertyName = nameof(Navigation))]
+                public sealed partial class RowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<
+                        DataGridGeneratedNavigationRequest<Row>,
+                        DataGridGeneratedNavigationResult<Row>> Navigation { get; } = null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("CreateGeneratedNavigationInteractionHandler", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedNavigationHandler<global::Demo.Row>()", result.CombinedSource);
+        Assert.Contains("viewModel.Navigation.RegisterHandler", result.CombinedSource);
+        Assert.Contains("GeneratedNavigationInteractionSubscription", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedNavigationRequest<global::Demo.Row>", result.CombinedSource);
+        Assert.Contains("lifetime.Token", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_navigation_contracts_and_unbounded_high_frequency_details_are_rejected()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteraction<TInput, TOutput> { }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+
+                [GenerateDataGridViewModel(typeof(Row))]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    ViewName = "PlainNavigationView",
+                    NavigationInteractionPropertyName = nameof(Navigation))]
+                public sealed partial class PlainViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<
+                        DataGridGeneratedNavigationRequest<Row>,
+                        DataGridGeneratedNavigationResult<Row>> Navigation { get; } = null!;
+                }
+
+                [GenerateDataGridViewModel(
+                    typeof(Row),
+                    ColumnDefinitionsPropertyName = "Columns2",
+                    FastPathOptionsPropertyName = "Fast2")]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    ViewName = "WrongNavigationView",
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    ColumnDefinitionsPropertyName = "Columns2",
+                    FastPathOptionsPropertyName = "Fast2",
+                    NavigationInteractionPropertyName = nameof(Navigation))]
+                public sealed partial class WrongViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<
+                        DataGridGeneratedNavigationRequest<Row>,
+                        bool> Navigation { get; } = null!;
+                }
+
+                [GenerateDataGridViewModel(
+                    typeof(Row),
+                    ColumnDefinitionsPropertyName = "Columns3",
+                    FastPathOptionsPropertyName = "Fast3")]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    ViewName = "UnboundedDetailsView",
+                    ColumnDefinitionsPropertyName = "Columns3",
+                    FastPathOptionsPropertyName = "Fast3",
+                    PerformanceProfile = DataGridGeneratedPerformanceProfile.HighFrequencyStreaming,
+                    RowDetailsTemplateKey = "AlwaysVisibleDetails",
+                    RowDetailsVisibilityMode = DataGridRowDetailsVisibilityMode.Visible)]
+                public sealed partial class UnboundedDetailsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                }
+            }
+            """);
+
+        Assert.Equal(2, result.GeneratorDiagnostics.Count(static diagnostic => diagnostic.Id == "PDGSG127"));
+        Diagnostic performance = Assert.Single(
+            result.GeneratorDiagnostics.Where(static diagnostic => diagnostic.Id == "PDGSG128"));
+        Assert.Contains("RowDetailsVisibilityMode.Visible", performance.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain("class UnboundedDetailsView :", result.CombinedSource);
     }
 
     [Fact]

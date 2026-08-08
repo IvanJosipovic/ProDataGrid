@@ -24,6 +24,7 @@ namespace DataGridSample.ViewModels;
     PerformanceProfile = DataGridGeneratedPerformanceProfile.VariableHeightEstimated,
     InputMapType = typeof(GeneratedVirtualizationInputMap),
     InputCommandPropertyName = nameof(InputCommand),
+    NavigationInteractionPropertyName = nameof(Navigation),
     DiagnosticsSinkType = typeof(GeneratedVirtualizationMetricsSink))]
 public sealed partial class GeneratedVirtualizationProfileViewModel : ReactiveObject
 {
@@ -41,11 +42,18 @@ public sealed partial class GeneratedVirtualizationProfileViewModel : ReactiveOb
             new GeneratedVirtualizationRow { Id = 3, Workload = "Recycling", Description = "Renderer counters are delivered to an activation-scoped typed diagnostics sink.", UpdatesPerSecond = 8_100 }
         ];
         InputCommand = ReactiveCommand.Create<DataGridGeneratedInputEvent<GeneratedVirtualizationRow>>(HandleInput);
+        Navigation = new Interaction<
+            DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>,
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow>>();
     }
 
     public ObservableCollection<GeneratedVirtualizationRow> Items => _items;
 
     public ReactiveCommand<DataGridGeneratedInputEvent<GeneratedVirtualizationRow>, RxVoid> InputCommand { get; }
+
+    public Interaction<
+        DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>,
+        DataGridGeneratedNavigationResult<GeneratedVirtualizationRow>> Navigation { get; }
 
     public DataGridGeneratedInputEvent<GeneratedVirtualizationRow>? LastInput { get; private set; }
 

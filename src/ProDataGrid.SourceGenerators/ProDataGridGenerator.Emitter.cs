@@ -2466,7 +2466,7 @@ internal static class Emitter
         string baseType = ViewGenerationStrategyRegistry.Get(model.Framework).GetBaseType(model);
         bool usesReactiveActivation = model.Framework == ViewFrameworkModel.ReactiveUI &&
             (model.RoutedEventCommand != null || !model.Interactions.IsDefaultOrEmpty ||
-                model.InputCommand != null || model.DiagnosticsSinkType != null);
+                model.NavigationInteraction != null || model.InputCommand != null || model.DiagnosticsSinkType != null);
         var builder = new StringBuilder(12288);
         AppendHeader(builder);
         OpenNamespace(builder, model.ViewNamespace);
@@ -3165,7 +3165,7 @@ internal static class Emitter
     {
         if (model.Framework != ViewFrameworkModel.ReactiveUI ||
             (model.RoutedEventCommand == null && model.Interactions.IsDefaultOrEmpty &&
-                model.InputCommand == null && model.DiagnosticsSinkType == null))
+                model.NavigationInteraction == null && model.InputCommand == null && model.DiagnosticsSinkType == null))
         {
             return;
         }
@@ -3185,6 +3185,10 @@ internal static class Emitter
         {
             builder.AppendLine("                    dispose(new GeneratedInteractionSubscription(this, dataGrid));");
         }
+        if (model.NavigationInteraction != null)
+        {
+            builder.AppendLine("                    dispose(new GeneratedNavigationInteractionSubscription(this, dataGrid));");
+        }
         if (model.InputCommand != null)
         {
             builder.AppendLine("                    ConfigureGeneratedInputCommand(dataGrid);")
@@ -3201,6 +3205,10 @@ internal static class Emitter
         if (!model.Interactions.IsDefaultOrEmpty)
         {
             EmitGeneratedInteractionMembers(builder, model);
+        }
+        if (model.NavigationInteraction != null)
+        {
+            EmitGeneratedNavigationInteractionMembers(builder, model);
         }
 
         if (model.RoutedEventCommand != null)
@@ -3390,6 +3398,97 @@ internal static class Emitter
             .AppendLine()
             .AppendLine("                source.Cancel();")
             .AppendLine("                source.Dispose();")
+            .AppendLine("            }")
+            .AppendLine("        }")
+            .AppendLine();
+    }
+
+    private static void EmitGeneratedNavigationInteractionMembers(StringBuilder builder, ViewModelViewModel model)
+    {
+        string itemType = model.ItemType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string viewModelType = model.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string propertyName = GeneratorUtilities.EscapeIdentifier(model.NavigationInteraction!.PropertyName);
+        string requestType = "global::Avalonia.Controls.DataGridGeneratedNavigationRequest<" + itemType + ">";
+        string resultType = "global::Avalonia.Controls.DataGridGeneratedNavigationResult<" + itemType + ">";
+        string handlerType = "global::Avalonia.Controls.IDataGridGeneratedViewInteractionHandler<" + requestType + ", " + resultType + ">";
+
+        builder.Append("        protected virtual ").Append(handlerType).AppendLine(" CreateGeneratedNavigationInteractionHandler()")
+            .Append("            => new global::Avalonia.Controls.DataGridGeneratedNavigationHandler<").Append(itemType).AppendLine(">();")
+            .AppendLine()
+            .AppendLine("        private sealed class GeneratedNavigationInteractionSubscription : global::System.IObserver<object?>, global::System.IDisposable")
+            .AppendLine("        {")
+            .Append("            private ").Append(model.ViewName).AppendLine("? _view;")
+            .AppendLine("            private global::Avalonia.Controls.DataGrid? _dataGrid;")
+            .AppendLine("            private global::System.IDisposable? _dataContextSubscription;")
+            .AppendLine("            private global::System.IDisposable? _registration;")
+            .Append("            private ").Append(handlerType).AppendLine("? _handler;")
+            .AppendLine("            private global::System.Threading.CancellationTokenSource? _lifetime;")
+            .AppendLine()
+            .Append("            public GeneratedNavigationInteractionSubscription(").Append(model.ViewName)
+            .AppendLine(" view, global::Avalonia.Controls.DataGrid dataGrid)")
+            .AppendLine("            {")
+            .AppendLine("                _view = view;")
+            .AppendLine("                _dataGrid = dataGrid;")
+            .AppendLine("                _dataContextSubscription = global::Avalonia.AvaloniaObjectExtensions")
+            .AppendLine("                    .GetObservable(view, global::Avalonia.StyledElement.DataContextProperty)")
+            .AppendLine("                    .Subscribe(this);")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            public void OnNext(object? value)")
+            .AppendLine("            {")
+            .AppendLine("                DisconnectCurrent();")
+            .AppendLine("                if (_view is not { } view || _dataGrid is not { } dataGrid ||")
+            .Append("                    value is not ").Append(viewModelType).AppendLine(" viewModel)")
+            .AppendLine("                {")
+            .AppendLine("                    return;")
+            .AppendLine("                }")
+            .AppendLine()
+            .AppendLine("                var lifetime = new global::System.Threading.CancellationTokenSource();")
+            .AppendLine("                _lifetime = lifetime;")
+            .AppendLine("                var handler = view.CreateGeneratedNavigationInteractionHandler();")
+            .AppendLine("                _handler = handler;")
+            .Append("                _registration = viewModel.").Append(propertyName).AppendLine(".RegisterHandler(async context =>")
+            .AppendLine("                {")
+            .AppendLine("                    var output = await handler.HandleAsync(")
+            .Append("                        new global::Avalonia.Controls.DataGridGeneratedViewInteractionContext<").Append(requestType).AppendLine(">(")
+            .AppendLine("                            view,")
+            .AppendLine("                            dataGrid,")
+            .AppendLine("                            context.Input,")
+            .AppendLine("                            lifetime.Token));")
+            .AppendLine("                    context.SetOutput(output);")
+            .AppendLine("                });")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            public void OnError(global::System.Exception error) => Dispose();")
+            .AppendLine()
+            .AppendLine("            public void OnCompleted() => Dispose();")
+            .AppendLine()
+            .AppendLine("            public void Dispose()")
+            .AppendLine("            {")
+            .AppendLine("                global::System.IDisposable? subscription = _dataContextSubscription;")
+            .AppendLine("                _dataContextSubscription = null;")
+            .AppendLine("                _view = null;")
+            .AppendLine("                _dataGrid = null;")
+            .AppendLine("                subscription?.Dispose();")
+            .AppendLine("                DisconnectCurrent();")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            private void DisconnectCurrent()")
+            .AppendLine("            {")
+            .AppendLine("                _registration?.Dispose();")
+            .AppendLine("                _registration = null;")
+            .AppendLine("                global::System.Threading.CancellationTokenSource? lifetime = _lifetime;")
+            .AppendLine("                _lifetime = null;")
+            .AppendLine("                if (lifetime is not null)")
+            .AppendLine("                {")
+            .AppendLine("                    lifetime.Cancel();")
+            .AppendLine("                    lifetime.Dispose();")
+            .AppendLine("                }")
+            .AppendLine("                if (_handler is global::System.IDisposable disposableHandler)")
+            .AppendLine("                {")
+            .AppendLine("                    disposableHandler.Dispose();")
+            .AppendLine("                }")
+            .AppendLine("                _handler = null;")
             .AppendLine("            }")
             .AppendLine("        }")
             .AppendLine();

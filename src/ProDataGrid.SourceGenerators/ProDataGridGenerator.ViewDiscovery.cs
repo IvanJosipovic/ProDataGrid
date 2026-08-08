@@ -348,6 +348,8 @@ internal static partial class Discovery
             InteractionHandlerTypes = GeneratorUtilities.GetTypeArray(arguments, "InteractionHandlerTypes"),
             HasInteractionConfiguration = arguments.Keys.Any(static key =>
                 key is "InteractionPropertyNames" or "InteractionHandlerTypes"),
+            NavigationInteractionPropertyName = GeneratorUtilities.GetString(arguments, "NavigationInteractionPropertyName"),
+            HasNavigationInteractionConfiguration = arguments.ContainsKey("NavigationInteractionPropertyName"),
             PerformanceProfile = GetEnumValue(arguments, "PerformanceProfile", 0),
             InputMapType = GeneratorUtilities.GetType(arguments, "InputMapType"),
             InputCommandPropertyName = GeneratorUtilities.GetString(arguments, "InputCommandPropertyName"),
@@ -434,6 +436,7 @@ internal static partial class Discovery
 
         bool needsReactiveActivation = request.Framework == ViewFrameworkModel.ReactiveUI &&
             (request.HasRoutedEventConfiguration || request.HasInteractionConfiguration ||
+                request.HasNavigationInteractionConfiguration ||
                 !string.IsNullOrWhiteSpace(request.InputCommandPropertyName) || request.DiagnosticsSinkType != null);
         if (needsReactiveActivation && request.BaseType != null &&
             !ImplementsMetadataName(request.BaseType, "ReactiveUI.IActivatableView"))
@@ -558,6 +561,12 @@ internal static partial class Discovery
             return null;
         }
 
+        ViewBindingModel? navigationInteraction = ResolveNavigationInteraction(request, diagnostics);
+        if (request.HasNavigationInteractionConfiguration && navigationInteraction == null)
+        {
+            return null;
+        }
+
         if (request.PerformanceProfile < 0 || request.PerformanceProfile > 6)
         {
             ReportInvalidViewPerformanceIntegration(request, diagnostics, "PerformanceProfile contains an unsupported value");
@@ -604,6 +613,14 @@ internal static partial class Discovery
         {
             return null;
         }
+        if (request.PerformanceProfile == 6 && rowDetails?.VisibilityMode == 1)
+        {
+            ReportInvalidViewPerformanceIntegration(
+                request,
+                diagnostics,
+                "HighFrequencyStreaming is incompatible with RowDetailsVisibilityMode.Visible because it realizes details for every row");
+            return null;
+        }
 
         return new ViewModelViewModel
         {
@@ -632,6 +649,7 @@ internal static partial class Discovery
             RoutedEventCommand = routedEventCommand,
             RoutedEvents = request.RoutedEvents,
             Interactions = interactions.IsDefault ? ImmutableArray<ViewInteractionModel>.Empty : interactions,
+            NavigationInteraction = navigationInteraction,
             PerformanceProfile = request.PerformanceProfile,
             InputMapType = request.InputMapType,
             InputCommand = inputCommand,
@@ -713,6 +731,66 @@ internal static partial class Discovery
 
         return result.ToImmutable();
     }
+
+    private static ViewBindingModel? ResolveNavigationInteraction(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        if (!request.HasNavigationInteractionConfiguration)
+        {
+            return null;
+        }
+
+        if (request.Framework != ViewFrameworkModel.ReactiveUI)
+        {
+            ReportInvalidViewInteraction(
+                request,
+                diagnostics,
+                "NavigationInteractionPropertyName requires Framework = DataGridViewFramework.ReactiveUI");
+            return null;
+        }
+
+        if (string.IsNullOrWhiteSpace(request.NavigationInteractionPropertyName))
+        {
+            ReportInvalidViewInteraction(request, diagnostics, "NavigationInteractionPropertyName cannot be empty");
+            return null;
+        }
+
+        string propertyName = request.NavigationInteractionPropertyName!;
+        ViewBindingModel? binding = ResolveViewBinding(request, propertyName, null, false, diagnostics);
+        ITypeSymbol? propertyType = FindViewBindingMemberType(request.ViewModelType, propertyName);
+        INamedTypeSymbol? interactionType = FindConstructedInterface(propertyType, "ReactiveUI.IInteraction`2");
+        if (binding == null || interactionType == null ||
+            !IsConstructedForItem(
+                interactionType.TypeArguments[0],
+                "Avalonia.Controls.DataGridGeneratedNavigationRequest`1",
+                request.ItemType) ||
+            !IsConstructedForItem(
+                interactionType.TypeArguments[1],
+                "Avalonia.Controls.DataGridGeneratedNavigationResult`1",
+                request.ItemType))
+        {
+            ReportInvalidViewInteraction(
+                request,
+                diagnostics,
+                $"member '{propertyName}' must be an accessible readable IInteraction<DataGridGeneratedNavigationRequest<{request.ItemType.ToDisplayString()}>, DataGridGeneratedNavigationResult<{request.ItemType.ToDisplayString()}>> property");
+            return null;
+        }
+
+        return binding;
+    }
+
+    private static bool IsConstructedForItem(
+        ITypeSymbol type,
+        string metadataName,
+        INamedTypeSymbol itemType) =>
+        type is INamedTypeSymbol namedType &&
+        namedType.TypeArguments.Length == 1 &&
+        string.Equals(
+            GeneratorUtilities.GetMetadataName(namedType.OriginalDefinition),
+            metadataName,
+            StringComparison.Ordinal) &&
+        SymbolEqualityComparer.Default.Equals(namedType.TypeArguments[0], itemType);
 
     private static INamedTypeSymbol? FindConstructedInterface(ITypeSymbol? type, string metadataName)
     {
@@ -1257,6 +1335,8 @@ internal static partial class Discovery
         public ImmutableArray<string> InteractionPropertyNames { get; set; } = ImmutableArray<string>.Empty;
         public ImmutableArray<INamedTypeSymbol> InteractionHandlerTypes { get; set; } = ImmutableArray<INamedTypeSymbol>.Empty;
         public bool HasInteractionConfiguration { get; set; }
+        public string? NavigationInteractionPropertyName { get; set; }
+        public bool HasNavigationInteractionConfiguration { get; set; }
         public int PerformanceProfile { get; set; }
         public INamedTypeSymbol? InputMapType { get; set; }
         public string? InputCommandPropertyName { get; set; }

@@ -315,6 +315,103 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public async Task Generated_navigation_interaction_moves_current_cell_and_round_trips_scroll_state()
+    {
+        var viewModel = new GeneratedVirtualizationProfileViewModel();
+        for (int index = 4; index <= 80; index++)
+        {
+            viewModel.Items.Add(new GeneratedVirtualizationRow
+            {
+                Id = index,
+                Workload = $"Generated workload {index}",
+                Description = "Deterministic navigation and scroll-state coverage.",
+                UpdatesPerSecond = index * 100d
+            });
+        }
+        var view = new GeneratedVirtualizationProfilePage(viewModel);
+        var window = new Window { Width = 900, Height = 560, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            GeneratedVirtualizationRow second = viewModel.Items[1];
+
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow> selected = await viewModel.Navigation
+                .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.SetCurrentCell(
+                    second,
+                    "Workload"))
+                .ToTask();
+
+            Assert.True(selected.Succeeded);
+            Assert.Same(second, selected.Item);
+            Assert.Equal("Workload", selected.ColumnKey);
+            Assert.Same(second, grid.CurrentCell.Item);
+
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow> moved = await viewModel.Navigation
+                .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.MoveCurrentCell(
+                    columnOffset: 1,
+                    rowOffset: 1))
+                .ToTask();
+
+            Assert.True(moved.Succeeded);
+            Assert.Same(viewModel.Items[2], moved.Item);
+            Assert.Equal("Description", moved.ColumnKey);
+
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow> far = await viewModel.Navigation
+                .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.SetCurrentCell(
+                    viewModel.Items[60],
+                    "Description"))
+                .ToTask();
+            Assert.True(far.Succeeded);
+            Dispatcher.UIThread.RunJobs();
+
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow> captured = await viewModel.Navigation
+                .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.CaptureScrollState())
+                .ToTask();
+            Assert.True(captured.Succeeded);
+            Assert.NotNull(captured.ScrollState);
+
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow> reset = await viewModel.Navigation
+                .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.SetCurrentCell(
+                    viewModel.Items[0],
+                    "Id"))
+                .ToTask();
+            Assert.True(reset.Succeeded);
+            Dispatcher.UIThread.RunJobs();
+
+            DataGridGeneratedNavigationResult<GeneratedVirtualizationRow> restored = await viewModel.Navigation
+                .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.RestoreScrollState(
+                    captured.ScrollState))
+                .ToTask();
+            Assert.True(restored.Succeeded);
+            Assert.Same(captured.ScrollState, restored.ScrollState);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-navigation-interaction.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+
+        await Assert.ThrowsAnyAsync<Exception>(() => viewModel.Navigation
+            .Handle(DataGridGeneratedNavigationRequest<GeneratedVirtualizationRow>.QueryCurrentCell())
+            .ToTask());
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

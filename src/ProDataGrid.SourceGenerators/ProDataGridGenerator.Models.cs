@@ -129,6 +129,8 @@ internal sealed class ViewModelViewModel
 
     public ImmutableArray<ViewInteractionModel> Interactions { get; set; } = ImmutableArray<ViewInteractionModel>.Empty;
 
+    public ViewBindingModel? NavigationInteraction { get; set; }
+
     public int PerformanceProfile { get; set; }
 
     public INamedTypeSymbol? InputMapType { get; set; }
