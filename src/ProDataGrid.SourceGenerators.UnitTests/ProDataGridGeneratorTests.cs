@@ -505,6 +505,185 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Generated_view_emits_typed_nested_grid_row_details()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(ProviderName = "DetailSchema")]
+            public sealed class Detail { public string Name { get; set; } = ""; }
+            public sealed class Row
+            {
+                public string Summary { get; set; } = "";
+                public IReadOnlyList<Detail> Details { get; } = new List<Detail>();
+            }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                RowDetailsVisibilityMode = DataGridRowDetailsVisibilityMode.VisibleWhenSelected,
+                AreRowDetailsFrozen = true,
+                RowDetailsNestedItemType = typeof(Detail),
+                RowDetailsNestedItemsMember = nameof(Row.Details),
+                RowDetailsNestedProviderName = "DetailSchema",
+                RowDetailsSummaryMember = nameof(Row.Summary),
+                RowDetailsAutomationId = "row-detail-grid")]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGridGeneratedFuncDataTemplate<global::Demo.Row>(CreateGeneratedRowDetails)", result.CombinedSource);
+        Assert.Contains("class GeneratedRowDetailsPresenter", result.CombinedSource);
+        Assert.Contains("global::Demo.DetailSchema.Instance.CreateColumnDefinitions()", result.CombinedSource);
+        Assert.Contains("_nestedGrid.ItemsSource = (global::System.Collections.Generic.IEnumerable<global::Demo.Detail>)item.Details", result.CombinedSource);
+        Assert.Contains("_summary!.Text = item.Summary", result.CombinedSource);
+        Assert.Contains("dataGrid.AreRowDetailsFrozen = true", result.CombinedSource);
+        Assert.Contains("\"row-detail-grid\"", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_supports_row_details_resource_factory_and_implementation_sources()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using Avalonia.Controls.Templates;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                public int Id { get; set; }
+                public static Control CreateDetails(Row item, Control existing) => existing ?? new TextBlock { Text = item.Id.ToString() };
+            }
+            public sealed class DetailsTemplate : IDataTemplate
+            {
+                public Control Build(object data) => new TextBlock();
+                public bool Match(object data) => data is Row;
+            }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), ViewName = "ResourceView", RowDetailsTemplateKey = "RowDetails")]
+            [GenerateDataGridView(typeof(Row), ViewName = "FactoryView", RowDetailsTemplateFactoryMethod = nameof(Row.CreateDetails))]
+            [GenerateDataGridView(typeof(Row), ViewName = "ImplementationView", RowDetailsTemplateImplementationType = typeof(DetailsTemplate))]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DynamicResourceExtension(\"RowDetails\")", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedFuncDataTemplate<global::Demo.Row>(global::Demo.Row.CreateDetails)", result.CombinedSource);
+        Assert.Contains("dataGrid.RowDetailsTemplate = new global::Demo.DetailsTemplate()", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Conflicting_row_details_sources_report_PDGSG123()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Detail { }
+            public sealed class Row { public IReadOnlyList<Detail> Details { get; } = new List<Detail>(); }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                RowDetailsTemplateKey = "Details",
+                RowDetailsNestedItemType = typeof(Detail),
+                RowDetailsNestedItemsMember = nameof(Row.Details))]
+            public sealed partial class RowsViewModel { public IReadOnlyList<Row> Items { get; } = new List<Row>(); }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG123");
+        Assert.DoesNotContain("class RowsView :", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_nested_row_details_member_reports_PDGSG123()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Detail { }
+            public sealed class Row { public string Details { get; } = ""; }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                RowDetailsNestedItemType = typeof(Detail),
+                RowDetailsNestedItemsMember = nameof(Row.Details))]
+            public sealed partial class RowsViewModel { public IReadOnlyList<Row> Items { get; } = new List<Row>(); }
+            """);
+
+        Diagnostic diagnostic = Assert.Single(result.GeneratorDiagnostics.Where(static diagnostic => diagnostic.Id == "PDGSG123"));
+        Assert.Contains("IEnumerable<Demo.Detail>", diagnostic.GetMessage());
+    }
+
+    [Fact]
+    public void Nested_row_type_edit_invalidates_direct_view_composition()
+    {
+        const string before = """
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Detail { public string Name { get; set; } = ""; }
+            public sealed class Row { public IReadOnlyList<Detail> Details { get; } = new List<Detail>(); }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), RowDetailsNestedItemType = typeof(Detail), RowDetailsNestedItemsMember = nameof(Row.Details))]
+            public sealed partial class RowsViewModel { public IReadOnlyList<Row> Items { get; } = new List<Row>(); }
+            """;
+        const string after = """
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Detail { public string Label { get; set; } = ""; }
+            public sealed class Row { public IReadOnlyList<Detail> Details { get; } = new List<Detail>(); }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), RowDetailsNestedItemType = typeof(Detail), RowDetailsNestedItemsMember = nameof(Row.Details))]
+            public sealed partial class RowsViewModel { public IReadOnlyList<Row> Items { get; } = new List<Row>(); }
+            """;
+
+        IncrementalRunResult result = GeneratorTestHelper.RunIncremental(
+            new[] { before },
+            new[] { after },
+            "DirectViewComposition");
+
+        Assert.Contains(IncrementalStepRunReason.Modified, result.Reasons);
+    }
+
+    [Fact]
+    public void Assembly_view_attribute_supports_row_details_metadata()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridView(
+                typeof(Demo.RowsViewModel),
+                typeof(Demo.Row),
+                ViewName = "AssemblyRowsView",
+                RowDetailsTemplateKey = "AssemblyDetails")]
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class RowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public Avalonia.Controls.DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public Avalonia.Controls.DataGridFastPathOptions FastPathOptions { get; } = new();
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class AssemblyRowsView", result.CombinedSource);
+        Assert.Contains("DynamicResourceExtension(\"AssemblyDetails\")", result.CombinedSource);
+    }
+
+    [Fact]
     public void Generated_view_supports_custom_base_and_search_binding()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

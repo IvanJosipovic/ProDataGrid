@@ -125,6 +125,11 @@ internal static class GeneratorDiagnostics
         "Invalid custom drawing factory",
         "Custom drawing factory '{0}' for property '{1}' is invalid: {2}");
 
+    public static readonly DiagnosticDescriptor InvalidRowDetails = Create(
+        "PDGSG123",
+        "Invalid generated row details",
+        "Generated row details for view '{0}' are invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

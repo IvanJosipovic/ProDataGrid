@@ -105,7 +105,44 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? StateController { get; set; }
 
+    public RowDetailsViewModel? RowDetails { get; set; }
+
     public Location Location { get; set; } = Location.None;
+}
+
+internal enum RowDetailsTemplateSourceModel
+{
+    Resource,
+    Implementation,
+    FactoryMethod,
+    NestedGrid
+}
+
+internal sealed class RowDetailsViewModel
+{
+    public RowDetailsTemplateSourceModel Source { get; set; }
+
+    public int VisibilityMode { get; set; }
+
+    public bool AreFrozen { get; set; }
+
+    public string AutomationId { get; set; } = string.Empty;
+
+    public string? ResourceKey { get; set; }
+
+    public INamedTypeSymbol? ImplementationType { get; set; }
+
+    public string? FactoryMethod { get; set; }
+
+    public INamedTypeSymbol? NestedItemType { get; set; }
+
+    public IPropertySymbol? NestedItemsProperty { get; set; }
+
+    public IPropertySymbol? SummaryProperty { get; set; }
+
+    public string? NestedProviderName { get; set; }
+
+    public string? NestedProviderNamespace { get; set; }
 }
 
 internal sealed class DirectViewCandidate

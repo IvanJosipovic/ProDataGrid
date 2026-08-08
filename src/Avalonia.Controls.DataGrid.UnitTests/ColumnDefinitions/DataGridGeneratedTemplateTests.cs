@@ -22,6 +22,20 @@ public sealed class DataGridGeneratedTemplateTests
     }
 
     [Fact]
+    public void Typed_template_ignores_null_measurement_probe()
+    {
+        bool invoked = false;
+        var template = new DataGridGeneratedFuncDataTemplate<Row>((_, existing) =>
+        {
+            invoked = true;
+            return existing ?? new TextBlock();
+        });
+
+        Assert.Null(template.Build(null!));
+        Assert.False(invoked);
+    }
+
+    [Fact]
     public void Template_definition_prefers_direct_generated_template()
     {
         var template = new DataGridGeneratedFuncDataTemplate<Row>(static (_, existing) => existing ?? new TextBlock());

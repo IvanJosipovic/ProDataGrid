@@ -356,6 +356,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG118` | Persisted schema/state metadata is invalid. |
 | `PDGSG121` | Formula names or stable-key dependencies are invalid. |
 | `PDGSG122` | A custom-drawing factory type/method is conflicting or incompatible. |
+| `PDGSG123` | Generated row-details sources or typed nested-grid members are conflicting or incompatible. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable.
 
@@ -385,6 +386,49 @@ public sealed partial class TradesViewModel : ReactiveObject
 The generated view contains a title, an optional two-way search box, and a configured `DataGrid`. It binds items, definitions, fast-path options, and any named sorting, filtering, search, selection, and state models. Recipes add stable toolbar and Explorer, spreadsheet, analytics, or master-detail customization slots. The parameterless constructor supports XAML, DI, and view locators; an overload accepts the typed view model directly.
 
 Every generated control uses stable automation IDs derived from `AutomationId`. The grid also receives an accessible name/help text, and the title is exposed as a level-one automation heading. These identifiers are covered by Avalonia Headless tests and do not require visual-tree reflection for test lookup.
+
+### Typed row details and nested grids
+
+`GenerateDataGridView` can assign a row-details template without reflection-based view lookup. A built-in nested-grid recipe reads the detail collection through a validated typed property, reuses a generated presenter, and references the nested item schema directly:
+
+```csharp
+[GenerateDataGridColumns(
+    ProviderName = "AuthorSchema",
+    Discovery = DataGridColumnDiscovery.AttributedOnly)]
+public sealed class Author
+{
+    [DataGridColumn(DataGridColumnKind.Text, Order = 0, Width = "2*")]
+    public string Name { get; set; } = string.Empty;
+}
+
+[GenerateDataGridViewModel(typeof(Book), ProviderName = "BookSchema")]
+[GenerateDataGridView(
+    typeof(Book),
+    Framework = DataGridViewFramework.ReactiveUI,
+    ItemsPropertyName = nameof(Books),
+    RowDetailsVisibilityMode = DataGridRowDetailsVisibilityMode.VisibleWhenSelected,
+    RowDetailsNestedItemType = typeof(Author),
+    RowDetailsNestedItemsMember = nameof(Book.Authors),
+    RowDetailsNestedProviderName = "AuthorSchema",
+    RowDetailsSummaryMember = nameof(Book.Summary),
+    RowDetailsAutomationId = "book-authors-grid")]
+public sealed partial class BooksViewModel : ReactiveObject
+{
+    public ObservableCollection<Book> Books { get; } = new();
+}
+```
+
+`RowDetailsNestedItemsMember` must be an accessible `IEnumerable<TNested>` property. The optional summary member must be a readable `string`. Generated code creates nested column definitions and fast-path options once per recycled presenter, then updates only the typed summary and items source when the presenter is reused. The detail host, summary, and nested grid receive stable automation metadata.
+
+Three full-customization alternatives are available and are mutually exclusive with the nested recipe:
+
+- `RowDetailsTemplateKey` applies an Avalonia dynamic resource reference, so theme/runtime resource updates remain active.
+- `RowDetailsTemplateImplementationType` constructs a validated, accessible, parameterless `IDataTemplate` implementation.
+- `RowDetailsTemplateFactoryMethod` uses a validated static method on the row type with signature `Control Factory(TItem item, Control? existing)` and wraps it in `DataGridGeneratedFuncDataTemplate<TItem>`.
+
+The same options work on assembly-level `GenerateDataGridView` attributes. `AreRowDetailsFrozen` and `RowDetailsVisibilityMode` configure the owning grid. Custom resource, implementation, and factory templates own their internal accessibility metadata; the built-in nested recipe emits it automatically.
+
+Row-details metadata participates in the existing `DirectViewCandidates` → `DirectViewComposition` → `DirectViewSources` incremental pipeline. Referenced row and nested-item type fingerprints invalidate the affected generated view when their relevant shape changes, while unrelated generated views remain cached.
 
 ### ReactiveUI strategy
 

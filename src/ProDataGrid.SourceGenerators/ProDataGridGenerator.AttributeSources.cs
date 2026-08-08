@@ -273,6 +273,18 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
+                public string? RowDetailsTemplateKey { get; set; }
+                public Type? RowDetailsTemplateImplementationType { get; set; }
+                public string? RowDetailsTemplateFactoryMethod { get; set; }
+                public global::Avalonia.Controls.DataGridRowDetailsVisibilityMode RowDetailsVisibilityMode { get; set; } =
+                    global::Avalonia.Controls.DataGridRowDetailsVisibilityMode.Collapsed;
+                public bool AreRowDetailsFrozen { get; set; }
+                public Type? RowDetailsNestedItemType { get; set; }
+                public string? RowDetailsNestedItemsMember { get; set; }
+                public string? RowDetailsNestedProviderName { get; set; }
+                public string? RowDetailsNestedProviderNamespace { get; set; }
+                public string? RowDetailsSummaryMember { get; set; }
+                public string? RowDetailsAutomationId { get; set; }
                 public DataGridViewRecipe Recipe { get; set; } = DataGridViewRecipe.SearchableGrid;
                 public string? ControllerName { get; set; }
                 public string? AutomationId { get; set; }
@@ -296,6 +308,18 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
+                public string? RowDetailsTemplateKey { get; set; }
+                public Type? RowDetailsTemplateImplementationType { get; set; }
+                public string? RowDetailsTemplateFactoryMethod { get; set; }
+                public global::Avalonia.Controls.DataGridRowDetailsVisibilityMode RowDetailsVisibilityMode { get; set; } =
+                    global::Avalonia.Controls.DataGridRowDetailsVisibilityMode.Collapsed;
+                public bool AreRowDetailsFrozen { get; set; }
+                public Type? RowDetailsNestedItemType { get; set; }
+                public string? RowDetailsNestedItemsMember { get; set; }
+                public string? RowDetailsNestedProviderName { get; set; }
+                public string? RowDetailsNestedProviderNamespace { get; set; }
+                public string? RowDetailsSummaryMember { get; set; }
+                public string? RowDetailsAutomationId { get; set; }
                 public DataGridViewRecipe Recipe { get; set; } = DataGridViewRecipe.SearchableGrid;
                 public string? ControllerName { get; set; }
                 public string? AutomationId { get; set; }

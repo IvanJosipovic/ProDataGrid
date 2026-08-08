@@ -2530,6 +2530,7 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
         EmitOptionalGridBinding(builder, model.SearchModel, "SearchModel", "s_searchModelProperty");
         EmitOptionalGridBinding(builder, model.SelectionModel, "Selection", "s_selectionModelProperty");
+        EmitRowDetailsConfiguration(builder, model);
 
         builder.AppendLine("            ConfigureGeneratedDataGrid(dataGrid);")
             .AppendLine("            return dataGrid;")
@@ -2603,6 +2604,8 @@ internal static class Emitter
                 .AppendLine("        }");
         }
 
+        EmitGeneratedRowDetailsMembers(builder, model);
+
         builder.AppendLine()
             .AppendLine("        private static global::Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindingExtension CreateBinding(")
             .AppendLine("            global::Avalonia.Data.Core.IPropertyInfo property,")
@@ -2620,6 +2623,132 @@ internal static class Emitter
             .AppendLine("    }");
         CloseNamespace(builder, model.ViewNamespace);
         return builder.ToString();
+    }
+
+    private static void EmitRowDetailsConfiguration(StringBuilder builder, ViewModelViewModel model)
+    {
+        RowDetailsViewModel? rowDetails = model.RowDetails;
+        if (rowDetails == null)
+        {
+            return;
+        }
+
+        string itemType = model.ItemType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        switch (rowDetails.Source)
+        {
+            case RowDetailsTemplateSourceModel.Resource:
+                builder.Append("            dataGrid.Bind(global::Avalonia.Controls.DataGrid.RowDetailsTemplateProperty, new global::Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(")
+                    .Append(GeneratorUtilities.EscapeString(rowDetails.ResourceKey)).AppendLine("));");
+                break;
+            case RowDetailsTemplateSourceModel.Implementation:
+                builder.Append("            dataGrid.RowDetailsTemplate = new ")
+                    .Append(rowDetails.ImplementationType!.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat))
+                    .AppendLine("();");
+                break;
+            case RowDetailsTemplateSourceModel.FactoryMethod:
+                builder.Append("            dataGrid.RowDetailsTemplate = new global::Avalonia.Controls.DataGridGeneratedFuncDataTemplate<")
+                    .Append(itemType).Append(">(").Append(itemType).Append('.')
+                    .Append(GeneratorUtilities.EscapeIdentifier(rowDetails.FactoryMethod!)).AppendLine(");");
+                break;
+            case RowDetailsTemplateSourceModel.NestedGrid:
+                builder.Append("            dataGrid.RowDetailsTemplate = new global::Avalonia.Controls.DataGridGeneratedFuncDataTemplate<")
+                    .Append(itemType).AppendLine(">(CreateGeneratedRowDetails);");
+                break;
+        }
+
+        builder.Append("            dataGrid.RowDetailsVisibilityMode = (global::Avalonia.Controls.DataGridRowDetailsVisibilityMode)")
+            .Append(rowDetails.VisibilityMode.ToString(CultureInfo.InvariantCulture)).AppendLine(";")
+            .Append("            dataGrid.AreRowDetailsFrozen = ").Append(rowDetails.AreFrozen ? "true" : "false").AppendLine(";");
+    }
+
+    private static void EmitGeneratedRowDetailsMembers(StringBuilder builder, ViewModelViewModel model)
+    {
+        RowDetailsViewModel? rowDetails = model.RowDetails;
+        if (rowDetails?.Source != RowDetailsTemplateSourceModel.NestedGrid)
+        {
+            return;
+        }
+
+        string itemType = model.ItemType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string nestedItemType = rowDetails.NestedItemType!.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        string nestedProviderType = string.IsNullOrEmpty(rowDetails.NestedProviderNamespace)
+            ? "global::" + rowDetails.NestedProviderName
+            : "global::" + rowDetails.NestedProviderNamespace + "." + rowDetails.NestedProviderName;
+        string nestedItemsProperty = GeneratorUtilities.EscapeIdentifier(rowDetails.NestedItemsProperty!.Name);
+
+        builder.AppendLine()
+            .Append("        private static global::Avalonia.Controls.Control CreateGeneratedRowDetails(")
+            .Append(itemType).AppendLine(" item, global::Avalonia.Controls.Control? existing)")
+            .AppendLine("        {")
+            .AppendLine("            var presenter = existing as GeneratedRowDetailsPresenter ?? new GeneratedRowDetailsPresenter();")
+            .AppendLine("            presenter.Update(item);")
+            .AppendLine("            return presenter;")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        private sealed class GeneratedRowDetailsPresenter : global::Avalonia.Controls.Border")
+            .AppendLine("        {")
+            .AppendLine("            private readonly global::Avalonia.Controls.TextBlock? _summary;")
+            .AppendLine("            private readonly global::Avalonia.Controls.DataGrid _nestedGrid;")
+            .AppendLine()
+            .AppendLine("            public GeneratedRowDetailsPresenter()")
+            .AppendLine("            {")
+            .AppendLine("                Padding = new global::Avalonia.Thickness(10d);")
+            .Append("                global::Avalonia.Automation.AutomationProperties.SetAutomationId(this, ")
+            .Append(GeneratorUtilities.EscapeString(rowDetails.AutomationId + "-host")).AppendLine(");")
+            .AppendLine("                global::Avalonia.Automation.AutomationProperties.SetName(this, \"Row details\");")
+            .AppendLine("                global::Avalonia.Automation.AutomationProperties.SetHelpText(this, \"Generated typed row details.\");")
+            .AppendLine("                var content = new global::Avalonia.Controls.StackPanel { Spacing = 8d };");
+
+        if (rowDetails.SummaryProperty != null)
+        {
+            builder.AppendLine("                _summary = new global::Avalonia.Controls.TextBlock")
+                .AppendLine("                {")
+                .AppendLine("                    Name = \"GeneratedRowDetailsSummary\",")
+                .AppendLine("                    TextWrapping = global::Avalonia.Media.TextWrapping.Wrap")
+                .AppendLine("                };")
+                .AppendLine("                global::Avalonia.Automation.AutomationProperties.SetAutomationId(_summary, GeneratedAutomationId + \"-details-summary\");")
+                .AppendLine("                global::Avalonia.Automation.AutomationProperties.SetName(_summary, \"Row details summary\");")
+                .AppendLine("                content.Children.Add(_summary);");
+        }
+        else
+        {
+            builder.AppendLine("                _summary = null;");
+        }
+
+        builder.AppendLine("                _nestedGrid = new global::Avalonia.Controls.DataGrid")
+            .AppendLine("                {")
+            .AppendLine("                    Name = \"GeneratedNestedDataGrid\",")
+            .AppendLine("                    AutoGenerateColumns = false,")
+            .AppendLine("                    CanUserAddRows = false,")
+            .AppendLine("                    CanUserDeleteRows = false,")
+            .AppendLine("                    CanUserReorderColumns = false,")
+            .AppendLine("                    HeadersVisibility = global::Avalonia.Controls.DataGridHeadersVisibility.Column,")
+            .AppendLine("                    GridLinesVisibility = global::Avalonia.Controls.DataGridGridLinesVisibility.Horizontal,")
+            .AppendLine("                    IsReadOnly = true,")
+            .Append("                    ColumnDefinitionsSource = ").Append(nestedProviderType).AppendLine(".Instance.CreateColumnDefinitions(),")
+            .Append("                    FastPathOptions = ").Append(nestedProviderType).AppendLine(".Instance.CreateFastPathOptions()")
+            .AppendLine("                };")
+            .Append("                global::Avalonia.Automation.AutomationProperties.SetAutomationId(_nestedGrid, ")
+            .Append(GeneratorUtilities.EscapeString(rowDetails.AutomationId)).AppendLine(");")
+            .AppendLine("                global::Avalonia.Automation.AutomationProperties.SetName(_nestedGrid, \"Nested row details\");")
+            .AppendLine("                global::Avalonia.Automation.AutomationProperties.SetHelpText(_nestedGrid, \"Generated reflection-free nested ProDataGrid.\");")
+            .AppendLine("                content.Children.Add(_nestedGrid);")
+            .AppendLine("                Child = content;")
+            .AppendLine("            }")
+            .AppendLine()
+            .Append("            public void Update(").Append(itemType).AppendLine(" item)")
+            .AppendLine("            {");
+
+        if (rowDetails.SummaryProperty != null)
+        {
+            builder.Append("                _summary!.Text = item.")
+                .Append(GeneratorUtilities.EscapeIdentifier(rowDetails.SummaryProperty.Name)).AppendLine(";");
+        }
+
+        builder.Append("                _nestedGrid.ItemsSource = (global::System.Collections.Generic.IEnumerable<")
+            .Append(nestedItemType).Append(">)item.").Append(nestedItemsProperty).AppendLine(";")
+            .AppendLine("            }")
+            .AppendLine("        }");
     }
 
     private static void EmitViewPropertyInfo(

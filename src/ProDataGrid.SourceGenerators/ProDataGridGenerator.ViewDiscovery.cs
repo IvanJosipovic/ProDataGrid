@@ -337,6 +337,7 @@ internal static partial class Discovery
             SearchTextPropertyName = GeneratorUtilities.GetString(arguments, "SearchTextPropertyName"),
             SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
             StateControllerPropertyName = GeneratorUtilities.GetString(arguments, "StateControllerPropertyName"),
+            RowDetailsArguments = arguments,
             Recipe = GetEnumValue(arguments, "Recipe", 1),
             ControllerName = GeneratorUtilities.GetString(arguments, "ControllerName"),
             AutomationId = GeneratorUtilities.GetString(arguments, "AutomationId") ?? defaultName,
@@ -427,6 +428,12 @@ internal static partial class Discovery
             return null;
         }
 
+        RowDetailsViewModel? rowDetails = ResolveRowDetails(request, diagnostics);
+        if (request.HasRowDetailsConfiguration && rowDetails == null)
+        {
+            return null;
+        }
+
         return new ViewModelViewModel
         {
             ViewModelType = request.ViewModelType,
@@ -448,9 +455,220 @@ internal static partial class Discovery
             SearchText = ResolveOptionalViewBinding(request, request.SearchTextPropertyName, diagnostics, requireSetter: true),
             SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
             StateController = ResolveOptionalViewBinding(request, request.StateControllerPropertyName, diagnostics),
+            RowDetails = rowDetails,
             Location = request.Location
         };
     }
+
+    private static RowDetailsViewModel? ResolveRowDetails(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        Dictionary<string, TypedConstant> arguments = request.RowDetailsArguments;
+        string? resourceKey = GeneratorUtilities.GetString(arguments, "RowDetailsTemplateKey");
+        INamedTypeSymbol? implementationType = GeneratorUtilities.GetType(arguments, "RowDetailsTemplateImplementationType");
+        string? factoryMethod = GeneratorUtilities.GetString(arguments, "RowDetailsTemplateFactoryMethod");
+        INamedTypeSymbol? nestedItemType = GeneratorUtilities.GetType(arguments, "RowDetailsNestedItemType");
+        string? nestedItemsMember = GeneratorUtilities.GetString(arguments, "RowDetailsNestedItemsMember");
+        bool hasNestedConfiguration = nestedItemType != null || !string.IsNullOrWhiteSpace(nestedItemsMember);
+        int sourceCount = (!string.IsNullOrWhiteSpace(resourceKey) ? 1 : 0) +
+                          (implementationType != null ? 1 : 0) +
+                          (!string.IsNullOrWhiteSpace(factoryMethod) ? 1 : 0) +
+                          (hasNestedConfiguration ? 1 : 0);
+
+        if (sourceCount == 0)
+        {
+            if (request.HasRowDetailsConfiguration)
+            {
+                ReportInvalidRowDetails(request, diagnostics, "a template key, implementation type, factory method, or complete nested-grid recipe is required");
+            }
+            return null;
+        }
+
+        if (sourceCount != 1)
+        {
+            ReportInvalidRowDetails(request, diagnostics, "template key, implementation type, factory method, and nested-grid recipe are mutually exclusive");
+            return null;
+        }
+
+        var model = new RowDetailsViewModel
+        {
+            VisibilityMode = GetEnumValue(arguments, "RowDetailsVisibilityMode", 2),
+            AreFrozen = GeneratorUtilities.GetBoolean(arguments, "AreRowDetailsFrozen", false),
+            AutomationId = GeneratorUtilities.GetString(arguments, "RowDetailsAutomationId") ?? request.AutomationId + "-details"
+        };
+
+        if (!string.IsNullOrWhiteSpace(resourceKey))
+        {
+            model.Source = RowDetailsTemplateSourceModel.Resource;
+            model.ResourceKey = resourceKey;
+            return model;
+        }
+
+        if (implementationType != null)
+        {
+            if (!ValidateRowDetailsImplementation(implementationType))
+            {
+                ReportInvalidRowDetails(
+                    request,
+                    diagnostics,
+                    $"implementation type '{implementationType.ToDisplayString()}' must be accessible, non-abstract, parameterless, and implement IDataTemplate");
+                return null;
+            }
+
+            model.Source = RowDetailsTemplateSourceModel.Implementation;
+            model.ImplementationType = implementationType;
+            return model;
+        }
+
+        if (!string.IsNullOrWhiteSpace(factoryMethod))
+        {
+            if (!HasRowDetailsFactoryMethod(request.ItemType, factoryMethod!))
+            {
+                ReportInvalidRowDetails(
+                    request,
+                    diagnostics,
+                    $"factory method '{factoryMethod}' must be accessible, static, non-generic, accept ({request.ItemType.Name}, Control), and return Control");
+                return null;
+            }
+
+            model.Source = RowDetailsTemplateSourceModel.FactoryMethod;
+            model.FactoryMethod = factoryMethod;
+            return model;
+        }
+
+        if (nestedItemType == null || string.IsNullOrWhiteSpace(nestedItemsMember))
+        {
+            ReportInvalidRowDetails(request, diagnostics, "nested-grid recipes require both RowDetailsNestedItemType and RowDetailsNestedItemsMember");
+            return null;
+        }
+
+        IPropertySymbol? nestedItemsProperty = FindReadableInstanceProperty(request.ItemType, nestedItemsMember!);
+        if (nestedItemsProperty == null || !IsEnumerableOf(nestedItemsProperty.Type, nestedItemType))
+        {
+            ReportInvalidRowDetails(
+                request,
+                diagnostics,
+                $"nested items member '{nestedItemsMember}' must be an accessible readable IEnumerable<{nestedItemType.ToDisplayString()}> property");
+            return null;
+        }
+
+        string? summaryMember = GeneratorUtilities.GetString(arguments, "RowDetailsSummaryMember");
+        IPropertySymbol? summaryProperty = null;
+        if (!string.IsNullOrWhiteSpace(summaryMember))
+        {
+            summaryProperty = FindReadableInstanceProperty(request.ItemType, summaryMember!);
+            if (summaryProperty == null || summaryProperty.Type.SpecialType != SpecialType.System_String)
+            {
+                ReportInvalidRowDetails(
+                    request,
+                    diagnostics,
+                    $"summary member '{summaryMember}' must be an accessible readable string property");
+                return null;
+            }
+        }
+
+        string nestedProviderNamespace = GeneratorUtilities.GetString(arguments, "RowDetailsNestedProviderNamespace") ??
+            (nestedItemType.ContainingNamespace?.IsGlobalNamespace == false
+                ? nestedItemType.ContainingNamespace.ToDisplayString()
+                : string.Empty);
+        model.Source = RowDetailsTemplateSourceModel.NestedGrid;
+        model.NestedItemType = nestedItemType;
+        model.NestedItemsProperty = nestedItemsProperty;
+        model.SummaryProperty = summaryProperty;
+        model.NestedProviderName = GeneratorUtilities.SanitizeIdentifier(
+            GeneratorUtilities.GetString(arguments, "RowDetailsNestedProviderName") ??
+            GeneratorUtilities.GetDefaultProviderName(nestedItemType));
+        model.NestedProviderNamespace = nestedProviderNamespace;
+        return model;
+    }
+
+    private static void ReportInvalidRowDetails(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string reason) =>
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidRowDetails,
+            request.Location,
+            request.ViewName,
+            reason));
+
+    private static bool ValidateRowDetailsImplementation(INamedTypeSymbol implementationType)
+    {
+        if (!GeneratorUtilities.IsAccessibleFromGeneratedCode(implementationType) || implementationType.IsAbstract)
+        {
+            return false;
+        }
+
+        bool hasConstructor = implementationType.InstanceConstructors.Any(static constructor =>
+            constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+        return hasConstructor && implementationType.AllInterfaces.Any(static implemented =>
+            string.Equals(
+                GeneratorUtilities.GetMetadataName(implemented),
+                "Avalonia.Controls.Templates.IDataTemplate",
+                StringComparison.Ordinal));
+    }
+
+    private static bool HasRowDetailsFactoryMethod(INamedTypeSymbol itemType, string methodName) =>
+        itemType.GetMembers(methodName).OfType<IMethodSymbol>().Any(method =>
+            method.IsStatic &&
+            GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+            method.TypeParameters.Length == 0 &&
+            method.Parameters.Length == 2 &&
+            SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, itemType) &&
+            IsMetadataType(method.Parameters[1].Type, "Avalonia.Controls.Control") &&
+            IsOrDerivesFrom(method.ReturnType, "Avalonia.Controls.Control"));
+
+    private static IPropertySymbol? FindReadableInstanceProperty(INamedTypeSymbol ownerType, string propertyName)
+    {
+        INamedTypeSymbol? current = ownerType;
+        while (current != null)
+        {
+            IPropertySymbol? property = current.GetMembers(propertyName)
+                .OfType<IPropertySymbol>()
+                .FirstOrDefault(static property =>
+                    !property.IsStatic &&
+                    property.Parameters.Length == 0 &&
+                    property.GetMethod != null &&
+                    GeneratorUtilities.IsAccessibleFromGeneratedCode(property.GetMethod));
+            if (property != null)
+            {
+                return property;
+            }
+
+            current = current.BaseType;
+        }
+
+        return null;
+    }
+
+    private static bool IsEnumerableOf(ITypeSymbol sequenceType, INamedTypeSymbol elementType)
+    {
+        if (sequenceType is IArrayTypeSymbol arrayType)
+        {
+            return SymbolEqualityComparer.Default.Equals(arrayType.ElementType, elementType);
+        }
+
+        if (sequenceType is not INamedTypeSymbol namedType)
+        {
+            return false;
+        }
+
+        if (IsEnumerableInterface(namedType, elementType))
+        {
+            return true;
+        }
+
+        return namedType.AllInterfaces.Any(implemented => IsEnumerableInterface(implemented, elementType));
+    }
+
+    private static bool IsEnumerableInterface(INamedTypeSymbol type, INamedTypeSymbol elementType) =>
+        type.TypeArguments.Length == 1 &&
+        string.Equals(
+            GeneratorUtilities.GetMetadataName(type.OriginalDefinition),
+            "System.Collections.Generic.IEnumerable`1",
+            StringComparison.Ordinal) &&
+        SymbolEqualityComparer.Default.Equals(type.TypeArguments[0], elementType);
 
     private static string GetViewMetadataName(ViewRequest request) =>
         string.IsNullOrEmpty(request.ViewNamespace)
@@ -627,6 +845,10 @@ internal static partial class Discovery
         public string? SearchTextPropertyName { get; set; }
         public string? SelectionModelPropertyName { get; set; }
         public string? StateControllerPropertyName { get; set; }
+        public Dictionary<string, TypedConstant> RowDetailsArguments { get; set; } = new(StringComparer.Ordinal);
+        public bool HasRowDetailsConfiguration =>
+            RowDetailsArguments.Keys.Any(static key => key.StartsWith("RowDetails", StringComparison.Ordinal) ||
+                                                       string.Equals(key, "AreRowDetailsFrozen", StringComparison.Ordinal));
         public Location Location { get; set; } = Location.None;
     }
 }

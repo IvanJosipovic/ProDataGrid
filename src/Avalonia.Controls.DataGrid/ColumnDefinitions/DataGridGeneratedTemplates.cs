@@ -34,6 +34,14 @@ namespace Avalonia.Controls
         /// <inheritdoc />
         public Control Build(object data, Control existing)
         {
+            // DataGrid may probe a row-details template before a data row is available.
+            // Returning no control keeps that measurement pass allocation-free and lets
+            // the first realized typed row establish the actual details height.
+            if (data is null)
+            {
+                return null;
+            }
+
             if (data is not TItem item)
             {
                 throw new InvalidOperationException("Generated template expected item type '" + typeof(TItem) + "'.");

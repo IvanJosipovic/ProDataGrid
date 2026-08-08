@@ -133,7 +133,11 @@
       <pages:ContentControlRowDetailsSwapPage />
     </TabItem>
     <TabItem Header="Row Details Selection">
-      <pages:RowDetailsSelectionPage />
+      <pages:RowDetailsSelectionPage>
+        <pages:RowDetailsSelectionPage.DataContext>
+          <viewModels:RowDetailsSelectionViewModel />
+        </pages:RowDetailsSelectionPage.DataContext>
+      </pages:RowDetailsSelectionPage>
     </TabItem>
     <TabItem Header="Detach While Editing">
       <pages:DetachWhileEditingPage />
