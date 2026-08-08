@@ -204,13 +204,13 @@ namespace Avalonia.Controls.DataGridSelection
 
             if (snapshot.Count == 1)
             {
-                return Equals(GetIdentity(snapshot[0]), GetIdentity(_inner.SelectedItems[0]));
+                return Equals(snapshot[0], GetIdentity(_inner.SelectedItems[0]));
             }
 
             var matched = new bool[_inner.SelectedItems.Count];
             foreach (var snapshotItem in snapshot)
             {
-                var identity = GetIdentity(snapshotItem);
+                var identity = snapshotItem;
                 var found = false;
                 for (var i = 0; i < _inner.SelectedItems.Count; i++)
                 {
@@ -245,7 +245,7 @@ namespace Avalonia.Controls.DataGridSelection
             {
                 foreach (var snapshotItem in snapshot)
                 {
-                    var identity = GetIdentity(snapshotItem);
+                    var identity = snapshotItem;
                     for (var i = 0; i < list.Count; i++)
                     {
                         if (!Equals(identity, GetIdentity(list[i])))
@@ -263,7 +263,7 @@ namespace Avalonia.Controls.DataGridSelection
 
             foreach (var snapshotItem in snapshot)
             {
-                var identity = GetIdentity(snapshotItem);
+                var identity = snapshotItem;
                 var index = 0;
                 foreach (var candidate in Source)
                 {

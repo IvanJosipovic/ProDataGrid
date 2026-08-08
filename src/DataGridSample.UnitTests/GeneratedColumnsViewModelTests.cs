@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using DataGridSample.Models;
 using DataGridSample.ViewModels;
 using Xunit;
@@ -173,5 +174,61 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(36, viewModel.Items.Count);
         Assert.Equal(36, viewModel.PublishedItemCount);
         Assert.Equal(2, viewModel.BatchCount);
+    }
+
+    [AvaloniaFact]
+    public void Generated_source_cache_pipeline_preserves_selection_across_keyed_replacement_and_move()
+    {
+        using var viewModel = new GeneratedDynamicDataSourceCacheViewModel();
+
+        Assert.Equal(18, viewModel.Items.Count);
+        Assert.Equal(18, viewModel.CacheItemCount);
+        Assert.Equal(1, viewModel.BatchCount);
+        Assert.Equal(0, viewModel.ErrorCount);
+
+        GeneratedTrade original = viewModel.Items.Single(static trade => trade.Id == 8);
+        viewModel.RunReplacementScenarioCommand.Execute().Subscribe();
+        Dispatcher.UIThread.RunJobs();
+
+        GeneratedTrade replacement = viewModel.Items.Single(static trade => trade.Id == 8);
+        Assert.NotSame(original, replacement);
+        Assert.Equal(999m, replacement.Price);
+        Assert.Equal(1, viewModel.ReplacementCount);
+        Assert.Equal(8, viewModel.SelectedKey);
+        Assert.Equal(999m, viewModel.SelectedPrice);
+        Assert.Same(replacement, viewModel.SelectionModel.SelectedItem);
+        Assert.Equal(8, viewModel.Items[0].Id);
+        Assert.Contains("Selection preserved stable key 8", viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.Query = "AOT";
+        Assert.NotEmpty(viewModel.Items);
+        Assert.All(viewModel.Items, static trade => Assert.Equal("AOT", trade.Symbol));
+
+        viewModel.ClearOperationsCommand.Execute().Subscribe();
+        viewModel.ApplyLondonFilterCommand.Execute().Subscribe();
+        Assert.NotEmpty(viewModel.Items);
+        Assert.All(viewModel.Items, static trade =>
+        {
+            Assert.Equal("London", trade.Desk);
+            Assert.True(trade.Price >= 70m);
+        });
+
+        viewModel.ClearOperationsCommand.Execute().Subscribe();
+        viewModel.AddBatchCommand.Execute().Subscribe();
+        Assert.Equal(24, viewModel.Items.Count);
+        Assert.Equal(24, viewModel.CacheItemCount);
+        Assert.Equal(2, viewModel.BatchCount);
+    }
+
+    [AvaloniaFact]
+    public void Generated_source_cache_pipeline_disposes_idempotently()
+    {
+        var viewModel = new GeneratedDynamicDataSourceCacheViewModel();
+
+        viewModel.Dispose();
+        viewModel.Dispose();
+
+        Assert.True(viewModel.IsDisposed);
+        Assert.Empty(viewModel.SelectionModel.Source.Cast<object>());
     }
 }

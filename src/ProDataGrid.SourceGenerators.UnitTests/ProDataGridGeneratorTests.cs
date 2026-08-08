@@ -3040,6 +3040,7 @@ public sealed class ProDataGridGeneratorTests
         AssertNoErrors(result);
         Assert.Contains("ConnectRowsPipeline", result.CombinedSource);
         Assert.Contains("SortAndBind", result.CombinedSource);
+        Assert.Contains("UseReplaceForUpdates = true", result.CombinedSource);
         Assert.Contains("RowsErrors", result.CombinedSource);
         Assert.Contains("DisconnectRowsPipeline", result.CombinedSource);
     }

@@ -593,6 +593,13 @@
         </pages:GeneratedDynamicDataSourceListPage.DataContext>
       </pages:GeneratedDynamicDataSourceListPage>
     </TabItem>
+    <TabItem Header="Generated DynamicData SourceCache">
+      <pages:GeneratedDynamicDataSourceCachePage>
+        <pages:GeneratedDynamicDataSourceCachePage.DataContext>
+          <viewModels:GeneratedDynamicDataSourceCacheViewModel />
+        </pages:GeneratedDynamicDataSourceCachePage.DataContext>
+      </pages:GeneratedDynamicDataSourceCachePage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

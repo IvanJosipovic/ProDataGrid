@@ -372,6 +372,8 @@ The low-level schema compilers remain available for custom pipelines, but named 
 
 `DataGridSample.Pages.GeneratedDynamicDataSourceListPage` demonstrates the `SourceList<T>` shape end to end: batched edits enter one generated pipeline, sort/filter/search predicates are replaced upstream through the named controller, errors are observable, and the generated ReactiveUI view receives the bound read-only collection. The sample exposes deterministic published-item, batch, and error counters and verifies the complete lifetime in ViewModel and Avalonia Headless tests.
 
+`DataGridSample.Pages.GeneratedDynamicDataSourceCachePage` demonstrates the keyed `SourceCache<T,TKey>` shape. The generated pipeline enables replace-aware sorting, reuses the `[DataGridKey]` accessor for an identity selection model, and binds that model through a generated ReactiveUI view. Replacing the selected trade with a new instance carrying the same key can move it under the active sort without moving selection to an adjacent row. The sample also exercises upstream filtering/search, deterministic cache batches, observable errors, and idempotent disposal. Runtime and Avalonia Headless regressions verify both the replacement instance and its preserved key.
+
 For `IAsyncEnumerable<T>` or `ChannelReader<T>`, the named controller emits `Run{Name}StreamAsync`, `Stop{Name}Stream`, `{Name}StreamPump`, and `{Name}StreamMetrics`. Ingestion uses a bounded buffer with explicit `Wait`, `DropNewest`, `DropOldest`, or keyed `CoalesceByKey` overflow policy and one callback per drained batch. Disposal cancels active enumeration.
 
 Keyed schemas also expose reusable streaming primitives directly:

@@ -504,6 +504,63 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_source_cache_page_binds_identity_selection_and_preserves_keyed_replacements()
+    {
+        using var viewModel = new GeneratedDynamicDataSourceCacheViewModel();
+        var view = new GeneratedDynamicDataSourceCachePage { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 640, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            TextBox searchBox = view.GetLogicalDescendants().OfType<TextBox>()
+                .Single(static textBox => textBox.Name == "GeneratedSearchBox");
+
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Same(viewModel.SortingModel, grid.SortingModel);
+            Assert.Same(viewModel.FilteringModel, grid.FilteringModel);
+            Assert.Same(viewModel.SearchModel, grid.SearchModel);
+            Assert.Same(viewModel.SelectionModel, grid.Selection);
+
+            searchBox.Text = "London";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("London", viewModel.Query);
+            Assert.NotEmpty(viewModel.Items);
+            Assert.All(viewModel.Items, static trade => Assert.Equal("London", trade.Desk));
+
+            searchBox.Text = string.Empty;
+            Dispatcher.UIThread.RunJobs();
+            GeneratedTrade original = viewModel.Items.Single(static trade => trade.Id == 8);
+            viewModel.RunReplacementScenarioCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+
+            GeneratedTrade replacement = viewModel.Items.Single(static trade => trade.Id == 8);
+            Assert.NotSame(original, replacement);
+            Assert.Same(replacement, grid.SelectedItem);
+            Assert.Equal(8, viewModel.SelectedKey);
+            Assert.Equal(999m, viewModel.SelectedPrice);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-dynamic-data-source-cache.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();
