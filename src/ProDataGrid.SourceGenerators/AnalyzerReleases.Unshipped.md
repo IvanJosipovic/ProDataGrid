@@ -37,3 +37,5 @@ PDGSG131 | ProDataGrid.SourceGeneration | Error | Invalid generated view conditi
 PDGSG132 | ProDataGrid.SourceGeneration | Error | Ambiguous inherited interface property
 PDGSG133 | ProDataGrid.SourceGeneration | Error | Ambiguous explicit interface property
 PDGSG134 | ProDataGrid.SourceGeneration | Error | Runtime-defined shape requires an explicit provider
+PDGSG135 | ProDataGrid.SourceGeneration | Error | Invalid collection mutation handler
+PDGSG136 | ProDataGrid.SourceGeneration | Error | Invalid new-row factory

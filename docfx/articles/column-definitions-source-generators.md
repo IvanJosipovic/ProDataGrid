@@ -110,6 +110,52 @@ public sealed class RuntimeRowSchema : DataGridRuntimeSchemaAdapter<RuntimeRow>
 
 The adapter materializes and validates the field shape once, rejects duplicate keys and mismatched accessor item types, creates fresh column definitions per grid, computes an immutable runtime manifest, and reuses the standard accessor-based sort/filter/search engine. The generated facade forwards the implementation manifest and implements `IDataGridRuntimeDefinedSchema`; use `RuntimeRowFacade.Instance.Manifest` for runtime field identity. Any reflection needed to discover an external shape belongs inside the explicit provider. Dictionary and other known-key providers can stay completely reflection-free and NativeAOT-safe.
 
+## Domain-owned collection mutations and new rows
+
+Generated schemas never infer how an application collection should be changed. Supply small domain services when add/delete/reorder/reset or new-row creation is required. The generated provider accepts injected instances for DI and can optionally construct compile-time-validated defaults:
+
+```csharp
+[GenerateDataGridColumns(
+    MutationHandlerType = typeof(OrderMutations),
+    NewRowFactoryType = typeof(OrderFactory))]
+public sealed class Order
+{
+    public int Id { get; init; }
+    public string Symbol { get; set; } = string.Empty;
+}
+
+public sealed class OrderMutations : IDataGridGeneratedCollectionMutationHandler<Order>
+{
+    public ValueTask AddAsync(int index, ReadOnlyMemory<Order> items, CancellationToken token) =>
+        SaveAddedOrdersAsync(index, items, token);
+
+    public ValueTask RemoveAsync(int index, ReadOnlyMemory<Order> items, CancellationToken token) =>
+        DeleteOrdersAsync(items, token);
+
+    public ValueTask ReplaceAsync(
+        int index,
+        ReadOnlyMemory<Order> oldItems,
+        ReadOnlyMemory<Order> newItems,
+        CancellationToken token) => SaveReplacementsAsync(index, oldItems, newItems, token);
+
+    public ValueTask MoveAsync(int oldIndex, int newIndex, int count, CancellationToken token) =>
+        ReorderOrdersAsync(oldIndex, newIndex, count, token);
+
+    public ValueTask ResetAsync(ReadOnlyMemory<Order> items, CancellationToken token) =>
+        ReplaceSnapshotAsync(items, token);
+}
+
+public sealed class OrderFactory : IDataGridGeneratedNewRowFactory<Order>
+{
+    public ValueTask<Order> CreateAsync(CancellationToken token) =>
+        ValueTask.FromResult(new Order { Id = AllocateId() });
+}
+```
+
+`OrderDataGridSchema.CreateCollectionMutationService(handler)` and `CreateNewRowService(factory)` are always available and preserve DI ownership. When the two optional types are configured, `CreateConfiguredCollectionMutationService()` and `CreateConfiguredNewRowService()` call their accessible parameterless constructors directly. `PDGSG135` and `PDGSG136` reject incompatible implementations.
+
+Mutation ranges use `ReadOnlyMemory<TItem>` and one `ValueTask` per add/remove/replace/move/reset operation, so a DynamicData edit, database transaction, or undo unit does not need to be expanded into per-row callbacks. `maximumItemsPerMutation` bounds hostile or accidental batches, cancellation is checked before forwarding, and the generated/runtime layer never mutates or reflects over the domain source itself.
+
 The generated provider implements `IDataGridGeneratedSchema<TItem>`, which is composed from five focused contracts:
 
 - `IDataGridColumnDefinitionProvider<TItem>` creates a new mutable definition list for each grid.

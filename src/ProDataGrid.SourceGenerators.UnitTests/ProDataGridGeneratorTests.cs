@@ -4631,6 +4631,76 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("new global::Demo.HeaderHandler()", result.CombinedSource);
     }
 
+    [Fact]
+    public void Schema_generates_injected_and_configured_domain_mutation_services()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Threading;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo
+            {
+                public sealed class RowMutationHandler : IDataGridGeneratedCollectionMutationHandler<Row>
+                {
+                    public ValueTask AddAsync(int index, ReadOnlyMemory<Row> items, CancellationToken token) => default;
+                    public ValueTask RemoveAsync(int index, ReadOnlyMemory<Row> items, CancellationToken token) => default;
+                    public ValueTask ReplaceAsync(int index, ReadOnlyMemory<Row> oldItems, ReadOnlyMemory<Row> newItems, CancellationToken token) => default;
+                    public ValueTask MoveAsync(int oldIndex, int newIndex, int count, CancellationToken token) => default;
+                    public ValueTask ResetAsync(ReadOnlyMemory<Row> items, CancellationToken token) => default;
+                }
+
+                public sealed class RowFactory : IDataGridGeneratedNewRowFactory<Row>
+                {
+                    public ValueTask<Row> CreateAsync(CancellationToken token) => new(new Row());
+                }
+
+                [GenerateDataGridColumns(
+                    MutationHandlerType = typeof(RowMutationHandler),
+                    NewRowFactoryType = typeof(RowFactory))]
+                public sealed class Row
+                {
+                    public int Id { get; set; }
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("CreateCollectionMutationService(", result.CombinedSource);
+        Assert.Contains("IDataGridGeneratedCollectionMutationHandler<global::Demo.Row> handler", result.CombinedSource);
+        Assert.Contains("CreateNewRowService(", result.CombinedSource);
+        Assert.Contains("CreateConfiguredCollectionMutationService(", result.CombinedSource);
+        Assert.Contains("new global::Demo.RowMutationHandler()", result.CombinedSource);
+        Assert.Contains("CreateConfiguredNewRowService()", result.CombinedSource);
+        Assert.Contains("new global::Demo.RowFactory()", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_domain_mutation_service_types_report_deterministic_diagnostics()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo
+            {
+                public sealed class InvalidService { }
+
+                [GenerateDataGridColumns(
+                    MutationHandlerType = typeof(InvalidService),
+                    NewRowFactoryType = typeof(InvalidService))]
+                public sealed class Row
+                {
+                    public int Id { get; set; }
+                }
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG135");
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG136");
+        Assert.DoesNotContain("CreateConfiguredCollectionMutationService", result.CombinedSource);
+        Assert.DoesNotContain("CreateConfiguredNewRowService", result.CombinedSource);
+    }
+
     private static void AssertNoErrors(GeneratorTestResult result)
     {
         Assert.True(

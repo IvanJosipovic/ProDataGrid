@@ -1222,7 +1222,11 @@ internal static class Emitter
             .AppendLine("            }")
             .AppendLine("            return view;")
             .AppendLine("        }")
-            .AppendLine()
+            .AppendLine();
+
+        EmitCollectionMutationFactories(builder, schema, itemType);
+
+        builder
             .Append("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.IDataGridGeneratedSummary<")
             .Append(itemType).AppendLine(">> CreateSummaries()")
             .AppendLine("        {")
@@ -1299,6 +1303,46 @@ internal static class Emitter
             .AppendLine("            global::System.Collections.IEnumerable items,")
             .AppendLine("            global::System.Action<global::Avalonia.Controls.DataGridPivoting.PivotTableModel>? configure = null)")
             .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure);");
+    }
+
+    private static void EmitCollectionMutationFactories(StringBuilder builder, SchemaModel schema, string itemType)
+    {
+        builder.Append("        public static global::Avalonia.Controls.DataGridGeneratedCollectionMutationService<")
+            .Append(itemType).AppendLine("> CreateCollectionMutationService(")
+            .Append("            global::Avalonia.Controls.IDataGridGeneratedCollectionMutationHandler<")
+            .Append(itemType).AppendLine("> handler,")
+            .AppendLine("            int maximumItemsPerMutation = 65536)")
+            .Append("            => new global::Avalonia.Controls.DataGridGeneratedCollectionMutationService<")
+            .Append(itemType).AppendLine(">(handler, maximumItemsPerMutation);")
+            .AppendLine()
+            .Append("        public static global::Avalonia.Controls.DataGridGeneratedNewRowService<")
+            .Append(itemType).AppendLine("> CreateNewRowService(")
+            .Append("            global::Avalonia.Controls.IDataGridGeneratedNewRowFactory<")
+            .Append(itemType).AppendLine("> factory)")
+            .Append("            => new global::Avalonia.Controls.DataGridGeneratedNewRowService<")
+            .Append(itemType).AppendLine(">(factory);")
+            .AppendLine();
+
+        if (schema.MutationHandlerType != null)
+        {
+            string handlerType = schema.MutationHandlerType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            builder.Append("        public static global::Avalonia.Controls.DataGridGeneratedCollectionMutationService<")
+                .Append(itemType).AppendLine("> CreateConfiguredCollectionMutationService(")
+                .AppendLine("            int maximumItemsPerMutation = 65536)")
+                .Append("            => new global::Avalonia.Controls.DataGridGeneratedCollectionMutationService<")
+                .Append(itemType).Append(">(new ").Append(handlerType).AppendLine("(), maximumItemsPerMutation);")
+                .AppendLine();
+        }
+
+        if (schema.NewRowFactoryType != null)
+        {
+            string factoryType = schema.NewRowFactoryType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            builder.Append("        public static global::Avalonia.Controls.DataGridGeneratedNewRowService<")
+                .Append(itemType).AppendLine("> CreateConfiguredNewRowService()")
+                .Append("            => new global::Avalonia.Controls.DataGridGeneratedNewRowService<")
+                .Append(itemType).Append(">(new ").Append(factoryType).AppendLine("());")
+                .AppendLine();
+        }
     }
 
     private static void EmitAnalyticsRole(StringBuilder builder, ColumnModel column, AnalyticsRoleModel role, string itemType)

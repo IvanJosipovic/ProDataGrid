@@ -79,6 +79,8 @@ internal static partial class Discovery
                 schema.ImplementationType = null;
             }
 
+            ValidateMutationServices(schema, schemaDiagnostics);
+
             if (IsRuntimeDefinedShape(schema.ItemType))
             {
                 schema.Columns = ImmutableArray<ColumnModel>.Empty;
@@ -391,6 +393,8 @@ internal static partial class Discovery
                 schema.ItemType.ToDisplayString()));
             schema.ImplementationType = null;
         }
+
+        ValidateMutationServices(schema, diagnostics);
 
         if (IsRuntimeDefinedShape(schema.ItemType))
         {
@@ -1558,6 +1562,18 @@ internal static partial class Discovery
                 implementation.Value is INamedTypeSymbol implementationType)
             {
                 schema.ImplementationType = implementationType;
+            }
+
+            if (arguments.TryGetValue("MutationHandlerType", out TypedConstant mutationHandler) &&
+                mutationHandler.Value is INamedTypeSymbol mutationHandlerType)
+            {
+                schema.MutationHandlerType = mutationHandlerType;
+            }
+
+            if (arguments.TryGetValue("NewRowFactoryType", out TypedConstant newRowFactory) &&
+                newRowFactory.Value is INamedTypeSymbol newRowFactoryType)
+            {
+                schema.NewRowFactoryType = newRowFactoryType;
             }
         }
 
@@ -3136,6 +3152,68 @@ internal static partial class Discovery
         }
 
         return false;
+    }
+
+    private static void ValidateMutationServices(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        if (schema.MutationHandlerType != null &&
+            !ValidateServiceImplementation(
+                schema.ItemType,
+                schema.MutationHandlerType,
+                "Avalonia.Controls.IDataGridGeneratedCollectionMutationHandler`1"))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidMutationHandler,
+                schema.Location,
+                schema.MutationHandlerType.ToDisplayString(),
+                schema.ItemType.ToDisplayString()));
+            schema.MutationHandlerType = null;
+        }
+
+        if (schema.NewRowFactoryType != null &&
+            !ValidateServiceImplementation(
+                schema.ItemType,
+                schema.NewRowFactoryType,
+                "Avalonia.Controls.IDataGridGeneratedNewRowFactory`1"))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidNewRowFactory,
+                schema.Location,
+                schema.NewRowFactoryType.ToDisplayString(),
+                schema.ItemType.ToDisplayString()));
+            schema.NewRowFactoryType = null;
+        }
+    }
+
+    private static bool ValidateServiceImplementation(
+        INamedTypeSymbol itemType,
+        INamedTypeSymbol implementationType,
+        string interfaceMetadataName)
+    {
+        if (!GeneratorUtilities.IsAccessibleFromGeneratedCode(implementationType) ||
+            implementationType.IsAbstract ||
+            implementationType.IsUnboundGenericType ||
+            implementationType.TypeParameters.Length != 0)
+        {
+            return false;
+        }
+
+        bool hasConstructor = implementationType.InstanceConstructors.Any(static constructor =>
+            constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+        if (!hasConstructor)
+        {
+            return false;
+        }
+
+        return implementationType.AllInterfaces.Any(implemented =>
+            string.Equals(
+                GeneratorUtilities.GetMetadataName(implemented.OriginalDefinition),
+                interfaceMetadataName,
+                StringComparison.Ordinal) &&
+            implemented.TypeArguments.Length == 1 &&
+            SymbolEqualityComparer.Default.Equals(implemented.TypeArguments[0], itemType));
     }
 
     private static bool ValidateControllerImplementation(

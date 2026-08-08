@@ -34,7 +34,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F18 analytics | Core implemented | Typed pivot fields, globally ordered axis/value factories, generated configurable pivot-model construction, neutral chart/outline/formula roles, direct numeric chart selectors, compile-time formula dependency validation, runtime indexed formula definitions, and an optional reflection-free chart adapter are available. The formal pivot/chart sample validates pivot-derived and direct chart projections; optional formula-parser analyzers, relative-reference fill, keyed chart synchronization, and spreadsheet range projection remain. |
 | F19 generated views | Implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, hierarchical and formula-model bindings, retry-command bindings, typed routed-event command bridges, typed ReactiveUI interaction responses, activation/DataContext-scoped subscriptions, protected handler factories, and `[DataGridViewRegistration]` mappings for existing XAML views are available. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
-| F21 collection views/dynamic shapes | Core implemented | Typed collection-view factories, range-aware generated services, interface and explicit-interface schemas, dynamic-shape detection, validated runtime field/provider adapters, implementation-manifest forwarding, and deterministic diagnostics are available; generated domain mutation/new-row service policies remain. |
+| F21 collection views/dynamic shapes | Implemented | Typed collection-view factories, range-aware domain mutation and new-row services, interface and explicit-interface schemas, dynamic-shape detection, validated runtime field/provider adapters, implementation-manifest forwarding, and deterministic diagnostics are available. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
 | F23 performance/input diagnostics | Implemented | Explicit performance profiles, platform-aware keyboard maps, typed input-command feedback, compile-time high-frequency/details compatibility validation, stable-key current-cell and XY navigation, scroll-state interactions, diagnostics metric-name manifests, replaceable renderer metric sinks, and ReactiveUI/Avalonia lifetime management are available. |
 
@@ -1057,6 +1057,8 @@ Requirements:
 - Detect `DataTable`/`DataRow`/`DataRowView`, `IDataRecord`, `ICustomTypeDescriptor`, dictionaries, and dynamic meta-object property bags as dynamic shapes and require an explicit runtime accessor provider. Implemented through `PDGSG134`, `IDataGridRuntimeSchemaProvider<TItem>`, `DataGridRuntimeSchemaField<TItem>`, and `DataGridRuntimeSchemaAdapter<TItem>`; the provider owns any unavoidable external-shape inspection.
 - Generate range-aware adapters for add/remove/replace/move/reset so bulk updates are not expanded into avoidable per-item work.
 
+Implemented mutation API: every generated schema exposes injected `CreateCollectionMutationService` and `CreateNewRowService` factories. Optional `MutationHandlerType` and `NewRowFactoryType` settings emit direct configured factories after compile-time interface, accessibility, closed-type, and constructor validation. `DataGridGeneratedCollectionMutationService<TItem>` accepts bounded `ReadOnlyMemory<TItem>` ranges, checks cancellation before forwarding, and issues one `ValueTask` call per add/remove/replace/move/reset. `IDataGridGeneratedNewRowFactory<TItem>` owns construction, defaults, identity allocation, and any asynchronous domain policy; the generated layer never assumes a public item constructor or collection ownership.
+
 The generator must not pretend that an unknown runtime schema is compile-time typed. Dynamic shapes use a clearly labeled runtime provider and are excluded from strict typed accessor guarantees.
 
 ### F22. Header menus, filter editors, and distinct-value providers — P2
@@ -1450,6 +1452,8 @@ Proposed diagnostic range for expansion work:
 | `PDGSG132` | Error | Interface schema inherits unrelated same-name property contracts without a resolving redeclaration. |
 | `PDGSG133` | Error | Type schema explicitly implements unrelated same-name properties without a public forwarding property. |
 | `PDGSG134` | Error | Runtime-defined item shape is configured without an explicit schema/provider implementation. |
+| `PDGSG135` | Error | Configured collection mutation handler is inaccessible, abstract, open, lacks a parameterless constructor, or implements the wrong item contract. |
+| `PDGSG136` | Error | Configured new-row factory is inaccessible, abstract, open, lacks a parameterless constructor, or implements the wrong item contract. |
 
 Strict mode promotes applicable fallback warnings to errors. Diagnostics should point to the smallest relevant attribute argument or member declaration and include the expected signature/type.
 
@@ -1559,7 +1563,7 @@ Use xUnit and Roslyn generator-driver tests for:
 - BenchmarkDotNet runtime comparisons against an equivalent handwritten compiled fast path.
 - Cold, no-op, and single-type-edit generator benchmarks at representative compilation sizes.
 
-Implemented deployment gate: `tests/ProDataGrid.SourceGeneration.AotSmoke` contains only generated strict paths and is built with `IL2026`, `IL2070`, `IL2075`, and `IL3050` promoted to errors. CI publishes it self-contained for `linux-x64` and executes the resulting native binary. The smoke surface includes both generated view strategies, a custom base, controller operations, strict fast-path options, and registry lookup.
+Implemented deployment gate: `tests/ProDataGrid.SourceGeneration.AotSmoke` contains only generated strict paths and is built with `IL2026`, `IL2070`, `IL2075`, and `IL3050` promoted to errors. CI publishes it self-contained for `linux-x64` and executes the resulting native binary. The smoke surface includes both generated view strategies, a custom base, controller operations, strict fast-path options, configured domain mutation/new-row services, and registry lookup.
 
 ## 12. Implementation plan
 

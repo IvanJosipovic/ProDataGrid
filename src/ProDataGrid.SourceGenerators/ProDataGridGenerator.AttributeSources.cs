@@ -168,6 +168,8 @@ public sealed partial class ProDataGridGenerator
                 public bool HierarchicalRows { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public Type? ImplementationType { get; set; }
+                public Type? MutationHandlerType { get; set; }
+                public Type? NewRowFactoryType { get; set; }
                 public string? ConfigureMethod { get; set; }
             }
 

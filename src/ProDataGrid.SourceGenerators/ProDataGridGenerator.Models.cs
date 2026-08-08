@@ -302,6 +302,10 @@ internal sealed class SchemaModel
 
     public INamedTypeSymbol? ImplementationType { get; set; }
 
+    public INamedTypeSymbol? MutationHandlerType { get; set; }
+
+    public INamedTypeSymbol? NewRowFactoryType { get; set; }
+
     public string? ConfigureMethod { get; set; }
 
     public Location Location { get; set; } = Location.None;

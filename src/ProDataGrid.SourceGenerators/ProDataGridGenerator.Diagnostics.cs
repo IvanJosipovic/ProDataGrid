@@ -185,6 +185,16 @@ internal static class GeneratorDiagnostics
         "Runtime-defined shape requires an explicit provider",
         "Type '{0}' has a runtime-defined field shape; configure ImplementationType with an explicit IDataGridGeneratedSchema<{0}> implementation, typically based on DataGridRuntimeSchemaAdapter<{0}>");
 
+    public static readonly DiagnosticDescriptor InvalidMutationHandler = Create(
+        "PDGSG135",
+        "Invalid collection mutation handler",
+        "Mutation handler type '{0}' must be accessible, non-abstract, have an accessible parameterless constructor, and implement IDataGridGeneratedCollectionMutationHandler<{1}>");
+
+    public static readonly DiagnosticDescriptor InvalidNewRowFactory = Create(
+        "PDGSG136",
+        "Invalid new-row factory",
+        "New-row factory type '{0}' must be accessible, non-abstract, have an accessible parameterless constructor, and implement IDataGridGeneratedNewRowFactory<{1}>");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

@@ -14,11 +14,18 @@ RxAppBuilder.CreateReactiveUIBuilder()
     .BuildApp();
 
 using var viewModel = new AotTradeViewModel();
+DataGridGeneratedCollectionMutationService<AotTradeRow> mutations =
+    AotTradeRowSchema.CreateConfiguredCollectionMutationService(maximumItemsPerMutation: 8);
+DataGridGeneratedNewRowService<AotTradeRow> newRows =
+    AotTradeRowSchema.CreateConfiguredNewRowService();
+AotTradeRow newRow = await newRows.CreateAsync();
+await mutations.AddAsync(0, new[] { newRow });
 
 if (!AotGeneratedRegistry.TryGetSchema(typeof(AotTradeRow), out IDataGridGeneratedSchemaManifestProvider schema) ||
     schema.Manifest.SchemaId != AotTradeRowSchema.SchemaId ||
     viewModel.ColumnDefinitions.Count != 5 ||
-    !viewModel.FastPathOptions.StrictMode)
+    !viewModel.FastPathOptions.StrictMode ||
+    newRow.Id != 42)
 {
     return 1;
 }
