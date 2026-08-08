@@ -337,6 +337,16 @@ internal static partial class Discovery
             SearchTextPropertyName = GeneratorUtilities.GetString(arguments, "SearchTextPropertyName"),
             SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
             StateControllerPropertyName = GeneratorUtilities.GetString(arguments, "StateControllerPropertyName"),
+            ViewStatePropertyName = GeneratorUtilities.GetString(arguments, "ViewStatePropertyName"),
+            ErrorMessagePropertyName = GeneratorUtilities.GetString(arguments, "ErrorMessagePropertyName"),
+            RetryCommandPropertyName = GeneratorUtilities.GetString(arguments, "RetryCommandPropertyName"),
+            LoadingText = GeneratorUtilities.GetString(arguments, "LoadingText") ?? "Loading data…",
+            EmptyText = GeneratorUtilities.GetString(arguments, "EmptyText") ?? "No items to display.",
+            ErrorText = GeneratorUtilities.GetString(arguments, "ErrorText") ?? "Unable to load data.",
+            RetryText = GeneratorUtilities.GetString(arguments, "RetryText") ?? "Retry",
+            HasViewStateConfiguration = arguments.Keys.Any(static key =>
+                key is "ViewStatePropertyName" or "ErrorMessagePropertyName" or "RetryCommandPropertyName" or
+                    "LoadingText" or "EmptyText" or "ErrorText" or "RetryText"),
             RowDetailsArguments = arguments,
             Recipe = GetEnumValue(arguments, "Recipe", 1),
             ControllerName = GeneratorUtilities.GetString(arguments, "ControllerName"),
@@ -428,6 +438,50 @@ internal static partial class Discovery
             return null;
         }
 
+        ViewBindingModel? viewState = null;
+        ViewBindingModel? errorMessage = null;
+        ViewBindingModel? retryCommand = null;
+        if (request.HasViewStateConfiguration)
+        {
+            if (string.IsNullOrWhiteSpace(request.ViewStatePropertyName))
+            {
+                ReportInvalidViewState(request, diagnostics, "ViewStatePropertyName is required when a state projection option is configured");
+                return null;
+            }
+
+            viewState = ResolveValidatedViewBinding(
+                request,
+                request.ViewStatePropertyName!,
+                static type => IsMetadataType(type, "Avalonia.Controls.DataGridGeneratedViewState"),
+                "must be an accessible readable DataGridGeneratedViewState property",
+                diagnostics);
+            if (!string.IsNullOrWhiteSpace(request.ErrorMessagePropertyName))
+            {
+                errorMessage = ResolveValidatedViewBinding(
+                    request,
+                    request.ErrorMessagePropertyName!,
+                    static type => type.SpecialType == SpecialType.System_String,
+                    "must be an accessible readable string property",
+                    diagnostics);
+            }
+            if (!string.IsNullOrWhiteSpace(request.RetryCommandPropertyName))
+            {
+                retryCommand = ResolveValidatedViewBinding(
+                    request,
+                    request.RetryCommandPropertyName!,
+                    static type => ImplementsMetadataName(type, "System.Windows.Input.ICommand"),
+                    "must be an accessible readable property implementing System.Windows.Input.ICommand",
+                    diagnostics);
+            }
+
+            if (viewState == null ||
+                (!string.IsNullOrWhiteSpace(request.ErrorMessagePropertyName) && errorMessage == null) ||
+                (!string.IsNullOrWhiteSpace(request.RetryCommandPropertyName) && retryCommand == null))
+            {
+                return null;
+            }
+        }
+
         RowDetailsViewModel? rowDetails = ResolveRowDetails(request, diagnostics);
         if (request.HasRowDetailsConfiguration && rowDetails == null)
         {
@@ -455,6 +509,13 @@ internal static partial class Discovery
             SearchText = ResolveOptionalViewBinding(request, request.SearchTextPropertyName, diagnostics, requireSetter: true),
             SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
             StateController = ResolveOptionalViewBinding(request, request.StateControllerPropertyName, diagnostics),
+            ViewState = viewState,
+            ErrorMessage = errorMessage,
+            RetryCommand = retryCommand,
+            LoadingText = request.LoadingText,
+            EmptyText = request.EmptyText,
+            ErrorText = request.ErrorText,
+            RetryText = request.RetryText,
             RowDetails = rowDetails,
             Location = request.Location
         };
@@ -589,6 +650,65 @@ internal static partial class Discovery
         string reason) =>
         diagnostics.Add(Diagnostic.Create(
             GeneratorDiagnostics.InvalidRowDetails,
+            request.Location,
+            request.ViewName,
+            reason));
+
+    private static ViewBindingModel? ResolveValidatedViewBinding(
+        ViewRequest request,
+        string propertyName,
+        Func<ITypeSymbol, bool> isValidType,
+        string invalidReason,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        ViewBindingModel? binding = ResolveViewBinding(request, propertyName, null, false, diagnostics);
+        if (binding == null)
+        {
+            return null;
+        }
+
+        ITypeSymbol? memberType = FindViewBindingMemberType(request.ViewModelType, propertyName);
+        if (memberType != null && isValidType(memberType))
+        {
+            return binding;
+        }
+
+        ReportInvalidViewState(request, diagnostics, $"member '{propertyName}' {invalidReason}");
+        return null;
+    }
+
+    private static ITypeSymbol? FindViewBindingMemberType(INamedTypeSymbol viewModelType, string propertyName)
+    {
+        IPropertySymbol? property = viewModelType.GetMembers(propertyName)
+            .OfType<IPropertySymbol>()
+            .FirstOrDefault(static property =>
+                !property.IsStatic &&
+                property.GetMethod != null &&
+                GeneratorUtilities.IsAccessibleFromGeneratedCode(property.GetMethod));
+        if (property != null)
+        {
+            return property.Type;
+        }
+
+        IFieldSymbol? reactiveField = viewModelType.GetMembers()
+            .OfType<IFieldSymbol>()
+            .FirstOrDefault(field =>
+                !field.IsStatic &&
+                string.Equals(GetReactivePropertyName(field.Name), propertyName, StringComparison.Ordinal) &&
+                field.GetAttributes().Any(static attribute =>
+                    string.Equals(
+                        attribute.AttributeClass?.ToDisplayString(),
+                        "ReactiveUI.SourceGenerators.ReactiveAttribute",
+                        StringComparison.Ordinal)));
+        return reactiveField?.Type;
+    }
+
+    private static void ReportInvalidViewState(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string reason) =>
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewState,
             request.Location,
             request.ViewName,
             reason));
@@ -845,6 +965,14 @@ internal static partial class Discovery
         public string? SearchTextPropertyName { get; set; }
         public string? SelectionModelPropertyName { get; set; }
         public string? StateControllerPropertyName { get; set; }
+        public string? ViewStatePropertyName { get; set; }
+        public string? ErrorMessagePropertyName { get; set; }
+        public string? RetryCommandPropertyName { get; set; }
+        public string LoadingText { get; set; } = "Loading data…";
+        public string EmptyText { get; set; } = "No items to display.";
+        public string ErrorText { get; set; } = "Unable to load data.";
+        public string RetryText { get; set; } = "Retry";
+        public bool HasViewStateConfiguration { get; set; }
         public Dictionary<string, TypedConstant> RowDetailsArguments { get; set; } = new(StringComparer.Ordinal);
         public bool HasRowDetailsConfiguration =>
             RowDetailsArguments.Keys.Any(static key => key.StartsWith("RowDetails", StringComparison.Ordinal) ||

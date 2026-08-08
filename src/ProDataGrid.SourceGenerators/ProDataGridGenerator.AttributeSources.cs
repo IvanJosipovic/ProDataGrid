@@ -273,6 +273,13 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
+                public string? ViewStatePropertyName { get; set; }
+                public string? ErrorMessagePropertyName { get; set; }
+                public string? RetryCommandPropertyName { get; set; }
+                public string LoadingText { get; set; } = "Loading data…";
+                public string EmptyText { get; set; } = "No items to display.";
+                public string ErrorText { get; set; } = "Unable to load data.";
+                public string RetryText { get; set; } = "Retry";
                 public string? RowDetailsTemplateKey { get; set; }
                 public Type? RowDetailsTemplateImplementationType { get; set; }
                 public string? RowDetailsTemplateFactoryMethod { get; set; }
@@ -308,6 +315,13 @@ public sealed partial class ProDataGridGenerator
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
                 public string? StateControllerPropertyName { get; set; }
+                public string? ViewStatePropertyName { get; set; }
+                public string? ErrorMessagePropertyName { get; set; }
+                public string? RetryCommandPropertyName { get; set; }
+                public string LoadingText { get; set; } = "Loading data…";
+                public string EmptyText { get; set; } = "No items to display.";
+                public string ErrorText { get; set; } = "Unable to load data.";
+                public string RetryText { get; set; } = "Retry";
                 public string? RowDetailsTemplateKey { get; set; }
                 public Type? RowDetailsTemplateImplementationType { get; set; }
                 public string? RowDetailsTemplateFactoryMethod { get; set; }

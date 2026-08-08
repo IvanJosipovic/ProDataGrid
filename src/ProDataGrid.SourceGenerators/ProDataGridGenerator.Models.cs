@@ -105,6 +105,20 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? StateController { get; set; }
 
+    public ViewBindingModel? ViewState { get; set; }
+
+    public ViewBindingModel? ErrorMessage { get; set; }
+
+    public ViewBindingModel? RetryCommand { get; set; }
+
+    public string LoadingText { get; set; } = string.Empty;
+
+    public string EmptyText { get; set; } = string.Empty;
+
+    public string ErrorText { get; set; } = string.Empty;
+
+    public string RetryText { get; set; } = string.Empty;
+
     public RowDetailsViewModel? RowDetails { get; set; }
 
     public Location Location { get; set; } = Location.None;

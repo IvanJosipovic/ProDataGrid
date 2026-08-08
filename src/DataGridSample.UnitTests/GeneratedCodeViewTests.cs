@@ -68,6 +68,58 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public void Generated_reactive_view_state_projections_bind_state_message_and_retry_command()
+    {
+        var viewModel = new GeneratedReactiveViewStatesViewModel();
+        var view = new GeneratedReactiveViewStatesPage(viewModel);
+        var window = new Window { Width = 900, Height = 560, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            Control loading = view.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "GeneratedLoadingState");
+            Control empty = view.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "GeneratedEmptyState");
+            Control error = view.GetLogicalDescendants().OfType<Control>().Single(control => control.Name == "GeneratedErrorState");
+            TextBlock errorMessage = view.GetLogicalDescendants().OfType<TextBlock>().Single(control => control.Name == "GeneratedErrorMessage");
+            Button retry = view.GetLogicalDescendants().OfType<Button>().Single(control => control.Name == "GeneratedRetryButton");
+
+            Assert.False(grid.IsVisible);
+            Assert.False(loading.IsVisible);
+            Assert.False(empty.IsVisible);
+            Assert.True(error.IsVisible);
+            Assert.Equal(viewModel.ErrorMessage, errorMessage.Text);
+            Assert.Same(viewModel.RetryCommand, retry.Command);
+
+            viewModel.ErrorMessage = null;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Generated trades could not be loaded.", errorMessage.Text);
+
+            viewModel.ViewState = DataGridGeneratedViewState.Loading;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(loading.IsVisible);
+            Assert.False(error.IsVisible);
+
+            viewModel.ViewState = DataGridGeneratedViewState.Empty;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(empty.IsVisible);
+            Assert.False(loading.IsVisible);
+
+            retry.Command!.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(DataGridGeneratedViewState.Content, viewModel.ViewState);
+            Assert.True(grid.IsVisible);
+            Assert.False(empty.IsVisible);
+            Assert.Equal(3, viewModel.Items.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Generated_view_remains_fully_customizable_by_subclassing_hooks()
     {
         var view = new CustomizedGeneratedView();

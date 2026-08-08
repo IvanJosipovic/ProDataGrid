@@ -558,6 +558,13 @@
         </pages:GeneratedReactiveDataGridView.DataContext>
       </pages:GeneratedReactiveDataGridView>
     </TabItem>
+    <TabItem Header="Generated C# View - Reactive States">
+      <pages:GeneratedReactiveViewStatesPage>
+        <pages:GeneratedReactiveViewStatesPage.DataContext>
+          <viewModels:GeneratedReactiveViewStatesViewModel />
+        </pages:GeneratedReactiveViewStatesPage.DataContext>
+      </pages:GeneratedReactiveViewStatesPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

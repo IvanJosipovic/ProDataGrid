@@ -406,6 +406,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG122` | A custom-drawing factory type/method is conflicting or incompatible. |
 | `PDGSG123` | Generated row-details sources or typed nested-grid members are conflicting or incompatible. |
 | `PDGSG124` | A button/toggle member binding is unsupported, conflicting, inaccessible, missing, or has an invalid command type. |
+| `PDGSG125` | A generated view-state projection is incomplete or uses an incompatible state, message, or command member. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable.
 
@@ -435,6 +436,38 @@ public sealed partial class TradesViewModel : ReactiveObject
 The generated view contains a title, an optional two-way search box, and a configured `DataGrid`. It binds items, definitions, fast-path options, and any named sorting, filtering, search, selection, and state models. Recipes add stable toolbar and Explorer, spreadsheet, analytics, or master-detail customization slots. The parameterless constructor supports XAML, DI, and view locators; an overload accepts the typed view model directly.
 
 Every generated control uses stable automation IDs derived from `AutomationId`. The grid also receives an accessible name/help text, and the title is exposed as a level-one automation heading. These identifiers are covered by Avalonia Headless tests and do not require visual-tree reflection for test lookup.
+
+### Loading, empty, and error projections
+
+Generated views can project one typed state property into mutually exclusive content, loading, empty, and error surfaces. The view model owns the state transition and retry command; generated C# owns only the visual projection and compiled bindings.
+
+```csharp
+[GenerateDataGridViewModel(typeof(Trade), ProviderName = "TradeGridSchema")]
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    ViewStatePropertyName = nameof(ViewState),
+    ErrorMessagePropertyName = nameof(ErrorMessage),
+    RetryCommandPropertyName = nameof(RetryCommand),
+    LoadingText = "Loading trades…",
+    EmptyText = "No trades match the current query.",
+    ErrorText = "Trades could not be loaded.",
+    RetryText = "Try again")]
+public sealed partial class TradesViewModel : ReactiveObject
+{
+    [Reactive]
+    private DataGridGeneratedViewState _viewState;
+
+    [Reactive]
+    private string? _errorMessage;
+
+    public ReactiveCommand<RxVoid, RxVoid> RetryCommand { get; }
+}
+```
+
+`ViewStatePropertyName` must resolve to `DataGridGeneratedViewState`. `ErrorMessagePropertyName`, when present, must be `string`; `RetryCommandPropertyName` must implement `ICommand`. ReactiveUI.SourceGenerators `[Reactive]` fields are resolved directly from their declared field types. Missing or incompatible members report `PDGSG012` or `PDGSG125`; the generator never falls back to a reflection binding.
+
+The generated state host keeps the DataGrid alive while hiding it, so loaded rows, column layout, selection, and scroll state survive temporary loading or error projections. Each surface receives stable IDs ending in `-loading`, `-empty`, `-error`, or `-retry`. Applications can replace `CreateGeneratedViewStateHost`, `CreateGeneratedLoadingContent`, `CreateGeneratedEmptyContent`, or `CreateGeneratedErrorContent` in a derived generated view. A non-null error-message property overrides `ErrorText`; a null value restores that static fallback. The same options are available on type-, assembly-, and namespace-level view attributes.
 
 ### Typed row details and nested grids
 
@@ -504,6 +537,10 @@ Generated views are inheritable and expose these hooks:
 protected virtual Control CreateGeneratedContent();
 protected virtual DataGrid CreateGeneratedDataGrid();
 protected virtual void ConfigureGeneratedDataGrid(DataGrid dataGrid);
+protected virtual Control CreateGeneratedViewStateHost(DataGrid dataGrid);
+protected virtual Control CreateGeneratedLoadingContent();
+protected virtual Control CreateGeneratedEmptyContent();
+protected virtual Control CreateGeneratedErrorContent();
 protected virtual Control? CreateGeneratedToolbar();
 protected virtual Control? CreateGeneratedRecipeContent();
 ```

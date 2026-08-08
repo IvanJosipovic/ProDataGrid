@@ -32,7 +32,7 @@ Code blocks labelled **Proposed API** describe the remaining target shape. Unlab
 | F16 templates/drawing | Implemented | Typed recycling cell/edit/new-row templates, resource/implementation/factory row-details sources, typed nested-grid recipes, validated custom-drawing factories/options, invalidation-source-compatible wiring, bounded generated item caches, compiled button/toggle command/parameter/content accessors, and template-root automation metadata are available. |
 | F17 drag/drop | Implemented | Keyed request/result adapters and domain-owned handlers are available. |
 | F18 analytics | Core implemented | Typed pivot fields, neutral chart/outline/formula roles, compile-time formula dependency validation, and an optional reflection-free chart adapter are available; optional formula-parser analyzers and range projection remain. |
-| F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, and `[DataGridViewRegistration]` mappings for existing XAML views are available; richer command/event bridges and loading/error/empty projections remain. |
+| F19 generated views | Core implemented | Avalonia and ReactiveUI code-only views, compiled binding indexers, custom bases, recipes, named slots, automation metadata, state bridges, typed loading/empty/error projections, retry-command bindings, and `[DataGridViewRegistration]` mappings for existing XAML views are available; richer routed-event/interaction bridges remain. |
 | F20 localization/accessibility/diagnostics | Implemented | Validated direct localization providers, resource keys, stable automation IDs/names/help, and generated diagnostics manifests are available. |
 | F21 collection views/dynamic shapes | Partial | Typed collection-view factories and range-aware generated services are available; unknown runtime shapes still require explicit user adapters. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
@@ -940,6 +940,29 @@ Requirements:
 - Emit reflection-free view registration.
 - Allow multiple views per ViewModel.
 
+Implemented state-projection API:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    ViewStatePropertyName = nameof(ViewState),
+    ErrorMessagePropertyName = nameof(ErrorMessage),
+    RetryCommandPropertyName = nameof(RetryCommand),
+    LoadingText = "Loading trades…",
+    EmptyText = "No trades found.",
+    ErrorText = "Trades are unavailable.",
+    RetryText = "Retry")]
+public sealed partial class TradeBlotterViewModel : ReactiveObject
+{
+    [Reactive] private DataGridGeneratedViewState _viewState;
+    [Reactive] private string? _errorMessage;
+    public ReactiveCommand<RxVoid, RxVoid> RetryCommand { get; }
+}
+```
+
+The generated state host preserves the DataGrid instance and switches four projections with compiled bindings. State, optional error text, and retry command members are resolved and type-checked at compile time. `PDGSG125` rejects incomplete or incompatible contracts. Loading, empty, error, and retry controls have stable automation IDs and replaceable protected factory hooks. Type-, assembly-, and namespace-level view policies share the same options.
+
 Custom frameworks cannot be loaded as arbitrary compiler plugins from user code. A new framework strategy should be delivered as a compatible generator package/strategy. User customization within an existing strategy uses base types, runtime adapters, named partial hooks, and implementation types.
 
 ### F20. Localization, accessibility, diagnostics, and test metadata — P3
@@ -1333,6 +1356,7 @@ Proposed diagnostic range for expansion work:
 | `PDGSG118` | Warning | Async stream uses an unbounded buffer without explicit opt-in. |
 | `PDGSG119` | Error | Namespace convention produces an ambiguous ViewModel/item/view match. |
 | `PDGSG120` | Warning | Hierarchical compiled-binding projection is unavailable and runtime binding would be required. |
+| `PDGSG125` | Error | Generated view-state projection is incomplete or has an incompatible state, message, or retry-command member. |
 
 Strict mode promotes applicable fallback warnings to errors. Diagnostics should point to the smallest relevant attribute argument or member declaration and include the expected signature/type.
 
@@ -1554,6 +1578,7 @@ Add focused pages rather than one overloaded showcase:
 14. `GeneratedAssemblyNamespacePolicyPage` — assembly/namespace discovery and explicit overrides.
 15. `GeneratedHeaderFiltersPage` — typed editors, local/remote distinct values, and header commands.
 16. `GeneratedVirtualizationProfilePage` — variable-height estimates, recycling metrics, keyboard maps, and state-safe scrolling.
+17. `GeneratedReactiveViewStatesPage` — ReactiveUI-owned loading, empty, error, retry, and content transitions through a generated code-only view.
 
 Each sample needs a ViewModel unit test. Interaction samples also need Avalonia Headless tests. Streaming samples need deterministic virtual-time tests and exposed metrics.
 

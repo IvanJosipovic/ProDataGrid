@@ -135,6 +135,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated column binding",
         "Generated binding option '{0}' for property '{1}' is invalid: {2}");
 
+    public static readonly DiagnosticDescriptor InvalidViewState = Create(
+        "PDGSG125",
+        "Invalid generated view state",
+        "Generated state projection for view '{0}' is invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

@@ -2486,6 +2486,33 @@ internal static class Emitter
         {
             EmitViewPropertyInfo(builder, model.StateController, viewModelType, "StateController");
         }
+        if (model.ViewState != null)
+        {
+            EmitViewPropertyInfo(builder, model.ViewState, viewModelType, "ViewState");
+        }
+        if (model.ErrorMessage != null)
+        {
+            EmitViewPropertyInfo(builder, model.ErrorMessage, viewModelType, "ErrorMessage");
+        }
+        if (model.RetryCommand != null)
+        {
+            EmitViewPropertyInfo(builder, model.RetryCommand, viewModelType, "RetryCommand");
+        }
+
+        if (model.ViewState != null)
+        {
+            builder.AppendLine("        private static readonly GeneratedViewStateVisibilityConverter s_contentStateConverter = new(global::Avalonia.Controls.DataGridGeneratedViewState.Content);")
+                .AppendLine("        private static readonly GeneratedViewStateVisibilityConverter s_loadingStateConverter = new(global::Avalonia.Controls.DataGridGeneratedViewState.Loading);")
+                .AppendLine("        private static readonly GeneratedViewStateVisibilityConverter s_emptyStateConverter = new(global::Avalonia.Controls.DataGridGeneratedViewState.Empty);")
+                .AppendLine("        private static readonly GeneratedViewStateVisibilityConverter s_errorStateConverter = new(global::Avalonia.Controls.DataGridGeneratedViewState.Error);")
+                .AppendLine();
+        }
+        if (model.ErrorMessage != null)
+        {
+            builder.Append("        private static readonly GeneratedErrorMessageConverter s_errorMessageConverter = new(")
+                .Append(GeneratorUtilities.EscapeString(model.ErrorText)).AppendLine(");")
+                .AppendLine();
+        }
 
         builder.AppendLine("        private global::Avalonia.Controls.DataGrid? _generatedDataGrid;")
             .AppendLine()
@@ -2552,6 +2579,9 @@ internal static class Emitter
 
         builder.AppendLine("            var dataGrid = CreateGeneratedDataGrid();")
             .AppendLine("            _generatedDataGrid = dataGrid;")
+            .AppendLine(model.ViewState != null
+                ? "            var generatedStateHost = CreateGeneratedViewStateHost(dataGrid);"
+                : string.Empty)
             .AppendLine("            var layout = new global::Avalonia.Controls.Grid")
             .AppendLine("            {")
             .AppendLine("                Margin = new global::Avalonia.Thickness(12d),")
@@ -2559,7 +2589,9 @@ internal static class Emitter
             .Append(GeneratorUtilities.EscapeString(model.Recipe >= 3 ? "Auto,Auto,*,Auto" : model.Recipe >= 2 ? "Auto,Auto,*" : "Auto,*")).AppendLine("),")
             .AppendLine("                RowSpacing = 8d")
             .AppendLine("            };")
-            .Append("            global::Avalonia.Controls.Grid.SetRow(dataGrid, ").Append(model.Recipe >= 2 ? "2" : "1").AppendLine(");")
+            .Append("            global::Avalonia.Controls.Grid.SetRow(")
+            .Append(model.ViewState != null ? "generatedStateHost" : "dataGrid")
+            .Append(", ").Append(model.Recipe >= 2 ? "2" : "1").AppendLine(");")
             .AppendLine("            layout.Children.Add(header);");
         if (model.Recipe >= 2)
         {
@@ -2578,7 +2610,9 @@ internal static class Emitter
                 .AppendLine("            }");
         }
         builder
-            .AppendLine("            layout.Children.Add(dataGrid);")
+            .Append("            layout.Children.Add(")
+            .Append(model.ViewState != null ? "generatedStateHost" : "dataGrid")
+            .AppendLine(");")
             .AppendLine("            return layout;")
             .AppendLine("        }")
             .AppendLine()
@@ -2611,8 +2645,11 @@ internal static class Emitter
             .AppendLine("        protected virtual void ConfigureGeneratedDataGrid(global::Avalonia.Controls.DataGrid dataGrid)")
             .AppendLine("        {")
             .AppendLine("        }")
-            .AppendLine()
-            .AppendLine("        protected virtual global::Avalonia.Controls.Control? CreateGeneratedToolbar()")
+            .AppendLine();
+
+        EmitGeneratedViewStateMembers(builder, model);
+
+        builder.AppendLine("        protected virtual global::Avalonia.Controls.Control? CreateGeneratedToolbar()")
             .AppendLine("        {");
         if (model.Recipe < 2)
         {
@@ -2678,15 +2715,57 @@ internal static class Emitter
 
         EmitGeneratedRowDetailsMembers(builder, model);
 
+        if (model.ViewState != null)
+        {
+            builder.AppendLine()
+                .AppendLine("        private sealed class GeneratedViewStateVisibilityConverter : global::Avalonia.Data.Converters.IValueConverter")
+                .AppendLine("        {")
+                .AppendLine("            private readonly global::Avalonia.Controls.DataGridGeneratedViewState _expected;")
+                .AppendLine()
+                .AppendLine("            public GeneratedViewStateVisibilityConverter(global::Avalonia.Controls.DataGridGeneratedViewState expected)")
+                .AppendLine("            {")
+                .AppendLine("                _expected = expected;")
+                .AppendLine("            }")
+                .AppendLine()
+                .AppendLine("            public object Convert(object? value, global::System.Type targetType, object? parameter, global::System.Globalization.CultureInfo culture)")
+                .AppendLine("                => value is global::Avalonia.Controls.DataGridGeneratedViewState state && state == _expected;")
+                .AppendLine()
+                .AppendLine("            public object ConvertBack(object? value, global::System.Type targetType, object? parameter, global::System.Globalization.CultureInfo culture)")
+                .AppendLine("                => global::Avalonia.AvaloniaProperty.UnsetValue;")
+                .AppendLine("        }");
+        }
+
+        if (model.ErrorMessage != null)
+        {
+            builder.AppendLine()
+                .AppendLine("        private sealed class GeneratedErrorMessageConverter : global::Avalonia.Data.Converters.IValueConverter")
+                .AppendLine("        {")
+                .AppendLine("            private readonly string _fallback;")
+                .AppendLine()
+                .AppendLine("            public GeneratedErrorMessageConverter(string fallback)")
+                .AppendLine("            {")
+                .AppendLine("                _fallback = fallback;")
+                .AppendLine("            }")
+                .AppendLine()
+                .AppendLine("            public object Convert(object? value, global::System.Type targetType, object? parameter, global::System.Globalization.CultureInfo culture)")
+                .AppendLine("                => value as string ?? _fallback;")
+                .AppendLine()
+                .AppendLine("            public object ConvertBack(object? value, global::System.Type targetType, object? parameter, global::System.Globalization.CultureInfo culture)")
+                .AppendLine("                => global::Avalonia.AvaloniaProperty.UnsetValue;")
+                .AppendLine("        }");
+        }
+
         builder.AppendLine()
             .AppendLine("        private static global::Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindingExtension CreateBinding(")
             .AppendLine("            global::Avalonia.Data.Core.IPropertyInfo property,")
-            .AppendLine("            global::Avalonia.Data.BindingMode mode)")
+            .AppendLine("            global::Avalonia.Data.BindingMode mode,")
+            .AppendLine("            global::Avalonia.Data.Converters.IValueConverter? converter = null)")
             .AppendLine("        {")
             .AppendLine("            return new global::Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindingExtension")
             .AppendLine("            {")
             .Append("                DataType = typeof(").Append(viewModelType).AppendLine("),")
             .AppendLine("                Mode = mode,")
+            .AppendLine("                Converter = converter,")
             .AppendLine("                Path = new global::Avalonia.Data.CompiledBindingPathBuilder()")
             .AppendLine("                    .Property(property, global::Avalonia.Markup.Xaml.MarkupExtensions.CompiledBindings.PropertyInfoAccessorFactory.CreateInpcPropertyAccessor)")
             .AppendLine("                    .Build()")
@@ -2695,6 +2774,109 @@ internal static class Emitter
             .AppendLine("    }");
         CloseNamespace(builder, model.ViewNamespace);
         return builder.ToString();
+    }
+
+    private static void EmitGeneratedViewStateMembers(StringBuilder builder, ViewModelViewModel model)
+    {
+        if (model.ViewState == null)
+        {
+            return;
+        }
+
+        builder.AppendLine("        protected virtual global::Avalonia.Controls.Control CreateGeneratedViewStateHost(global::Avalonia.Controls.DataGrid dataGrid)")
+            .AppendLine("        {")
+            .AppendLine("            var host = new global::Avalonia.Controls.Grid { Name = \"GeneratedViewStateHost\" };")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(host, GeneratedAutomationId + \"-state-host\");")
+            .AppendLine("            dataGrid[!global::Avalonia.Visual.IsVisibleProperty] = CreateBinding(s_viewStateProperty, global::Avalonia.Data.BindingMode.OneWay, s_contentStateConverter);")
+            .AppendLine("            host.Children.Add(dataGrid);")
+            .AppendLine("            var loading = CreateGeneratedLoadingContent();")
+            .AppendLine("            loading[!global::Avalonia.Visual.IsVisibleProperty] = CreateBinding(s_viewStateProperty, global::Avalonia.Data.BindingMode.OneWay, s_loadingStateConverter);")
+            .AppendLine("            host.Children.Add(loading);")
+            .AppendLine("            var empty = CreateGeneratedEmptyContent();")
+            .AppendLine("            empty[!global::Avalonia.Visual.IsVisibleProperty] = CreateBinding(s_viewStateProperty, global::Avalonia.Data.BindingMode.OneWay, s_emptyStateConverter);")
+            .AppendLine("            host.Children.Add(empty);")
+            .AppendLine("            var error = CreateGeneratedErrorContent();")
+            .AppendLine("            error[!global::Avalonia.Visual.IsVisibleProperty] = CreateBinding(s_viewStateProperty, global::Avalonia.Data.BindingMode.OneWay, s_errorStateConverter);")
+            .AppendLine("            host.Children.Add(error);")
+            .AppendLine("            return host;")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        protected virtual global::Avalonia.Controls.Control CreateGeneratedLoadingContent()")
+            .AppendLine("        {")
+            .AppendLine("            var content = new global::Avalonia.Controls.StackPanel")
+            .AppendLine("            {")
+            .AppendLine("                Name = \"GeneratedLoadingState\",")
+            .AppendLine("                Spacing = 10d,")
+            .AppendLine("                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,")
+            .AppendLine("                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center,")
+            .AppendLine("                Children =")
+            .AppendLine("                {")
+            .AppendLine("                    new global::Avalonia.Controls.ProgressBar { IsIndeterminate = true, Width = 180d },")
+            .Append("                    new global::Avalonia.Controls.TextBlock { Text = ").Append(GeneratorUtilities.EscapeString(model.LoadingText)).AppendLine(" }")
+            .AppendLine("                }")
+            .AppendLine("            };")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(content, GeneratedAutomationId + \"-loading\");")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetName(content, \"Loading\");")
+            .Append("            global::Avalonia.Automation.AutomationProperties.SetHelpText(content, ").Append(GeneratorUtilities.EscapeString(model.LoadingText)).AppendLine(");")
+            .AppendLine("            return content;")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        protected virtual global::Avalonia.Controls.Control CreateGeneratedEmptyContent()")
+            .AppendLine("        {")
+            .AppendLine("            var content = new global::Avalonia.Controls.TextBlock")
+            .AppendLine("            {")
+            .AppendLine("                Name = \"GeneratedEmptyState\",")
+            .Append("                Text = ").Append(GeneratorUtilities.EscapeString(model.EmptyText)).AppendLine(",")
+            .AppendLine("                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,")
+            .AppendLine("                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center")
+            .AppendLine("            };")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(content, GeneratedAutomationId + \"-empty\");")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetName(content, \"Empty\");")
+            .Append("            global::Avalonia.Automation.AutomationProperties.SetHelpText(content, ").Append(GeneratorUtilities.EscapeString(model.EmptyText)).AppendLine(");")
+            .AppendLine("            return content;")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        protected virtual global::Avalonia.Controls.Control CreateGeneratedErrorContent()")
+            .AppendLine("        {")
+            .AppendLine("            var message = new global::Avalonia.Controls.TextBlock")
+            .AppendLine("            {")
+            .AppendLine("                Name = \"GeneratedErrorMessage\",")
+            .Append("                Text = ").Append(GeneratorUtilities.EscapeString(model.ErrorText)).AppendLine(",")
+            .AppendLine("                TextWrapping = global::Avalonia.Media.TextWrapping.Wrap,")
+            .AppendLine("                MaxWidth = 520d,")
+            .AppendLine("                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center")
+            .AppendLine("            };");
+        if (model.ErrorMessage != null)
+        {
+            builder.AppendLine("            message[!global::Avalonia.Controls.TextBlock.TextProperty] = CreateBinding(s_errorMessageProperty, global::Avalonia.Data.BindingMode.OneWay, s_errorMessageConverter);");
+        }
+        builder.AppendLine("            var content = new global::Avalonia.Controls.StackPanel")
+            .AppendLine("            {")
+            .AppendLine("                Name = \"GeneratedErrorState\",")
+            .AppendLine("                Spacing = 10d,")
+            .AppendLine("                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center,")
+            .AppendLine("                VerticalAlignment = global::Avalonia.Layout.VerticalAlignment.Center")
+            .AppendLine("            };")
+            .AppendLine("            content.Children.Add(message);");
+        if (model.RetryCommand != null)
+        {
+            builder.AppendLine("            var retry = new global::Avalonia.Controls.Button")
+                .AppendLine("            {")
+                .AppendLine("                Name = \"GeneratedRetryButton\",")
+                .Append("                Content = ").Append(GeneratorUtilities.EscapeString(model.RetryText)).AppendLine(",")
+                .AppendLine("                HorizontalAlignment = global::Avalonia.Layout.HorizontalAlignment.Center")
+                .AppendLine("            };")
+                .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(retry, GeneratedAutomationId + \"-retry\");")
+                .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetName(retry, retry.Content?.ToString());")
+                .AppendLine("            retry[!global::Avalonia.Controls.Button.CommandProperty] = CreateBinding(s_retryCommandProperty, global::Avalonia.Data.BindingMode.OneWay);")
+                .AppendLine("            content.Children.Add(retry);");
+        }
+        builder.AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(content, GeneratedAutomationId + \"-error\");")
+            .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetName(content, \"Error\");")
+            .Append("            global::Avalonia.Automation.AutomationProperties.SetHelpText(content, ").Append(GeneratorUtilities.EscapeString(model.ErrorText)).AppendLine(");")
+            .AppendLine("            return content;")
+            .AppendLine("        }")
+            .AppendLine();
     }
 
     private static void EmitRowDetailsConfiguration(StringBuilder builder, ViewModelViewModel model)

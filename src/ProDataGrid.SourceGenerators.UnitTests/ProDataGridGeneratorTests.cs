@@ -632,6 +632,105 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Generated_view_emits_compiled_loading_empty_error_and_retry_projections()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewStatePropertyName = nameof(ViewState),
+                ErrorMessagePropertyName = nameof(ErrorMessage),
+                RetryCommandPropertyName = nameof(RetryCommand),
+                LoadingText = "Fetching rows",
+                EmptyText = "Nothing matched",
+                ErrorText = "Rows unavailable",
+                RetryText = "Try again")]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public DataGridGeneratedViewState ViewState { get; set; }
+                public string? ErrorMessage { get; set; }
+                public ICommand RetryCommand { get; } = null!;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("CreateGeneratedViewStateHost", result.CombinedSource);
+        Assert.Contains("CreateGeneratedLoadingContent", result.CombinedSource);
+        Assert.Contains("CreateGeneratedEmptyContent", result.CombinedSource);
+        Assert.Contains("CreateGeneratedErrorContent", result.CombinedSource);
+        Assert.Contains("s_viewStateProperty", result.CombinedSource);
+        Assert.Contains("s_errorMessageProperty", result.CombinedSource);
+        Assert.Contains("s_retryCommandProperty", result.CombinedSource);
+        Assert.Contains("Button.CommandProperty", result.CombinedSource);
+        Assert.Contains("GeneratedViewStateVisibilityConverter", result.CombinedSource);
+        Assert.Contains("GeneratedErrorMessageConverter", result.CombinedSource);
+        Assert.Contains("s_errorMessageConverter", result.CombinedSource);
+        Assert.Contains("\"Fetching rows\"", result.CombinedSource);
+        Assert.Contains("\"Nothing matched\"", result.CombinedSource);
+        Assert.Contains("\"Rows unavailable\"", result.CombinedSource);
+        Assert.Contains("\"Try again\"", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_generated_view_state_member_types_report_PDGSG125()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewStatePropertyName = nameof(ViewState),
+                ErrorMessagePropertyName = nameof(ErrorMessage),
+                RetryCommandPropertyName = nameof(RetryCommand))]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public string ViewState { get; } = "Loading";
+                public int ErrorMessage { get; }
+                public object RetryCommand { get; } = new object();
+            }
+            """);
+
+        Diagnostic[] diagnostics = result.GeneratorDiagnostics
+            .Where(static diagnostic => diagnostic.Id == "PDGSG125")
+            .ToArray();
+        Assert.Equal(3, diagnostics.Length);
+        Assert.DoesNotContain("class RowsView :", result.CombinedSource);
+    }
+
+    [Fact]
+    public void State_projection_options_without_state_member_report_PDGSG125()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), RetryCommandPropertyName = nameof(RetryCommand))]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                public ICommand RetryCommand { get; } = null!;
+            }
+            """);
+
+        Diagnostic diagnostic = Assert.Single(result.GeneratorDiagnostics.Where(static item => item.Id == "PDGSG125"));
+        Assert.Contains("ViewStatePropertyName", diagnostic.GetMessage());
+    }
+
+    [Fact]
     public void Generated_view_emits_typed_nested_grid_row_details()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -896,6 +995,45 @@ public sealed class ProDataGridGeneratorTests
         AssertNoErrors(result);
         Assert.Contains("class FirstGrid", result.CombinedSource);
         Assert.Contains("class SecondView", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Namespace_view_policy_applies_typed_state_projection_options()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using System.Windows.Input;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridViewsForNamespace(
+                "Demo.ViewModels",
+                IncludeNestedNamespaces = false,
+                ViewStatePropertyName = "ViewState",
+                ErrorMessagePropertyName = "ErrorMessage",
+                RetryCommandPropertyName = "RetryCommand",
+                EmptyText = "No namespace rows")]
+            namespace Demo.Models
+            {
+                public sealed class Row { public int Id { get; set; } }
+            }
+            namespace Demo.ViewModels
+            {
+                public sealed class RowsViewModel
+                {
+                    public IReadOnlyList<Demo.Models.Row> Items { get; } = new List<Demo.Models.Row>();
+                    public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public DataGridFastPathOptions FastPathOptions { get; } = new();
+                    public DataGridGeneratedViewState ViewState { get; set; }
+                    public string? ErrorMessage { get; set; }
+                    public ICommand RetryCommand { get; } = null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class RowsView", result.CombinedSource);
+        Assert.Contains("CreateGeneratedViewStateHost", result.CombinedSource);
+        Assert.Contains("\"No namespace rows\"", result.CombinedSource);
     }
 
     [Fact]
