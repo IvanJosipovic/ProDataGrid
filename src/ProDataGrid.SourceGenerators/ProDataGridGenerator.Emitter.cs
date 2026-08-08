@@ -2448,6 +2448,8 @@ internal static class Emitter
         string viewModelType = model.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string accessibility = IsPubliclyAccessible(model.ViewModelType) ? "public" : "internal";
         string baseType = ViewGenerationStrategyRegistry.Get(model.Framework).GetBaseType(model);
+        bool usesReactiveActivation = model.Framework == ViewFrameworkModel.ReactiveUI &&
+            (model.RoutedEventCommand != null || !model.Interactions.IsDefaultOrEmpty);
         var builder = new StringBuilder(12288);
         AppendHeader(builder);
         OpenNamespace(builder, model.ViewNamespace);
@@ -2524,8 +2526,12 @@ internal static class Emitter
             .AppendLine("        {")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(this, GeneratedAutomationId + \"-view\");")
             .Append("            global::Avalonia.Automation.AutomationProperties.SetName(this, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");")
-            .AppendLine("            Content = CreateGeneratedContent();")
-            .AppendLine("        }")
+            .AppendLine("            Content = CreateGeneratedContent();");
+        if (usesReactiveActivation)
+        {
+            builder.AppendLine("            ConfigureGeneratedReactiveActivation(GeneratedDataGrid);");
+        }
+        builder.AppendLine("        }")
             .AppendLine()
             .Append("        public ").Append(model.ViewName).Append('(').Append(viewModelType).AppendLine(" viewModel)")
             .AppendLine("            : this()")
@@ -2639,7 +2645,7 @@ internal static class Emitter
         EmitRowDetailsConfiguration(builder, model);
 
         builder.AppendLine("            ConfigureGeneratedDataGrid(dataGrid);");
-        if (model.RoutedEventCommand != null)
+        if (model.RoutedEventCommand != null && model.Framework != ViewFrameworkModel.ReactiveUI)
         {
             builder.AppendLine("            ConfigureGeneratedRoutedEventCommands(dataGrid);");
         }
@@ -2653,6 +2659,7 @@ internal static class Emitter
             .AppendLine();
 
         EmitGeneratedRoutedEventMembers(builder, model);
+        EmitGeneratedReactiveActivationMembers(builder, model);
         EmitGeneratedViewStateMembers(builder, model);
 
         builder.AppendLine("        protected virtual global::Avalonia.Controls.Control? CreateGeneratedToolbar()")
@@ -2837,6 +2844,42 @@ internal static class Emitter
         }
         builder.AppendLine("        }")
             .AppendLine()
+            .AppendLine("        protected virtual void DetachGeneratedRoutedEventCommands(global::Avalonia.Controls.DataGrid dataGrid)")
+            .AppendLine("        {");
+        if ((model.RoutedEvents & selectionChanged) != 0)
+        {
+            builder.AppendLine("            dataGrid.SelectionChanged -= OnGeneratedSelectionChanged;");
+        }
+        if ((model.RoutedEvents & currentCellChanged) != 0)
+        {
+            builder.AppendLine("            dataGrid.CurrentCellChanged -= OnGeneratedCurrentCellChanged;");
+        }
+        if ((model.RoutedEvents & sorting) != 0)
+        {
+            builder.AppendLine("            dataGrid.Sorting -= OnGeneratedSorting;");
+        }
+        if ((model.RoutedEvents & beginningEdit) != 0)
+        {
+            builder.AppendLine("            dataGrid.BeginningEdit -= OnGeneratedBeginningEdit;");
+        }
+        if ((model.RoutedEvents & cellEditEnding) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellEditEnding -= OnGeneratedCellEditEnding;");
+        }
+        if ((model.RoutedEvents & cellEditEnded) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellEditEnded -= OnGeneratedCellEditEnded;");
+        }
+        if ((model.RoutedEvents & rowEditEnding) != 0)
+        {
+            builder.AppendLine("            dataGrid.RowEditEnding -= OnGeneratedRowEditEnding;");
+        }
+        if ((model.RoutedEvents & rowEditEnded) != 0)
+        {
+            builder.AppendLine("            dataGrid.RowEditEnded -= OnGeneratedRowEditEnded;");
+        }
+        builder.AppendLine("        }")
+            .AppendLine()
             .Append("        private void ExecuteGeneratedRoutedEventCommand(global::Avalonia.Controls.DataGridGeneratedViewEvent<")
             .Append(itemType).AppendLine("> eventData)")
             .AppendLine("        {")
@@ -2965,6 +3008,201 @@ internal static class Emitter
                 hasColumn: false,
                 isCancelable: false);
         }
+    }
+
+    private static void EmitGeneratedReactiveActivationMembers(StringBuilder builder, ViewModelViewModel model)
+    {
+        if (model.Framework != ViewFrameworkModel.ReactiveUI ||
+            (model.RoutedEventCommand == null && model.Interactions.IsDefaultOrEmpty))
+        {
+            return;
+        }
+
+        builder.AppendLine("        private void ConfigureGeneratedReactiveActivation(global::Avalonia.Controls.DataGrid dataGrid)")
+            .AppendLine("        {")
+            .AppendLine("            global::ReactiveUI.ViewForMixins.WhenActivated(")
+            .AppendLine("                (global::ReactiveUI.IActivatableView)this,")
+            .AppendLine("                (global::System.Action<global::System.Action<global::System.IDisposable>>)(dispose =>")
+            .AppendLine("                {");
+        if (model.RoutedEventCommand != null)
+        {
+            builder.AppendLine("                    ConfigureGeneratedRoutedEventCommands(dataGrid);")
+                .AppendLine("                    dispose(new GeneratedRoutedEventSubscription(this, dataGrid));");
+        }
+        if (!model.Interactions.IsDefaultOrEmpty)
+        {
+            builder.AppendLine("                    dispose(new GeneratedInteractionSubscription(this, dataGrid));");
+        }
+        builder.AppendLine("                }));")
+            .AppendLine("        }")
+            .AppendLine();
+
+        if (!model.Interactions.IsDefaultOrEmpty)
+        {
+            EmitGeneratedInteractionMembers(builder, model);
+        }
+
+        if (model.RoutedEventCommand != null)
+        {
+            builder.AppendLine("        private sealed class GeneratedRoutedEventSubscription : global::System.IDisposable")
+                .AppendLine("        {")
+                .Append("            private ").Append(model.ViewName).AppendLine("? _view;")
+                .AppendLine("            private global::Avalonia.Controls.DataGrid? _dataGrid;")
+                .AppendLine()
+                .Append("            public GeneratedRoutedEventSubscription(").Append(model.ViewName)
+                .AppendLine(" view, global::Avalonia.Controls.DataGrid dataGrid)")
+                .AppendLine("            {")
+                .AppendLine("                _view = view;")
+                .AppendLine("                _dataGrid = dataGrid;")
+                .AppendLine("            }")
+                .AppendLine()
+                .AppendLine("            public void Dispose()")
+                .AppendLine("            {")
+                .Append("                ").Append(model.ViewName).AppendLine("? view = _view;")
+                .AppendLine("                global::Avalonia.Controls.DataGrid? dataGrid = _dataGrid;")
+                .AppendLine("                _view = null;")
+                .AppendLine("                _dataGrid = null;")
+                .AppendLine("                if (view is not null && dataGrid is not null)")
+                .AppendLine("                {")
+                .AppendLine("                    view.DetachGeneratedRoutedEventCommands(dataGrid);")
+                .AppendLine("                }")
+                .AppendLine("            }")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+    }
+
+    private static void EmitGeneratedInteractionMembers(StringBuilder builder, ViewModelViewModel model)
+    {
+        string viewModelType = model.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+        for (int index = 0; index < model.Interactions.Length; index++)
+        {
+            ViewInteractionModel interaction = model.Interactions[index];
+            string inputType = interaction.InputType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string outputType = interaction.OutputType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string handlerType = interaction.HandlerType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            builder.Append("        protected virtual global::Avalonia.Controls.IDataGridGeneratedViewInteractionHandler<")
+                .Append(inputType).Append(", ").Append(outputType).Append("> CreateGeneratedInteractionHandler")
+                .Append(index).AppendLine("()")
+                .Append("            => new ").Append(handlerType).AppendLine("();")
+                .AppendLine();
+        }
+
+        builder.AppendLine("        private sealed class GeneratedInteractionSubscription : global::System.IObserver<object?>, global::System.IDisposable")
+            .AppendLine("        {")
+            .Append("            private ").Append(model.ViewName).AppendLine("? _view;")
+            .AppendLine("            private global::Avalonia.Controls.DataGrid? _dataGrid;")
+            .AppendLine("            private global::System.IDisposable? _dataContextSubscription;")
+            .AppendLine("            private GeneratedInteractionLifetime? _interactionLifetime;");
+        for (int index = 0; index < model.Interactions.Length; index++)
+        {
+            ViewInteractionModel interaction = model.Interactions[index];
+            string inputType = interaction.InputType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string outputType = interaction.OutputType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            builder.Append("            private global::System.IDisposable? _registration").Append(index).AppendLine(";")
+                .Append("            private global::Avalonia.Controls.IDataGridGeneratedViewInteractionHandler<")
+                .Append(inputType).Append(", ").Append(outputType).Append(">? _handler").Append(index).AppendLine(";");
+        }
+        builder.AppendLine()
+            .Append("            public GeneratedInteractionSubscription(").Append(model.ViewName)
+            .AppendLine(" view, global::Avalonia.Controls.DataGrid dataGrid)")
+            .AppendLine("            {")
+            .AppendLine("                _view = view;")
+            .AppendLine("                _dataGrid = dataGrid;")
+            .AppendLine("                _dataContextSubscription = global::Avalonia.AvaloniaObjectExtensions")
+            .AppendLine("                    .GetObservable(view, global::Avalonia.StyledElement.DataContextProperty)")
+            .AppendLine("                    .Subscribe(this);")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            public void OnNext(object? value)")
+            .AppendLine("            {")
+            .AppendLine("                DisconnectCurrent();")
+            .AppendLine("                if (_view is not { } view || _dataGrid is not { } dataGrid ||")
+            .Append("                    value is not ").Append(viewModelType).AppendLine(" viewModel)")
+            .AppendLine("                {")
+            .AppendLine("                    return;")
+            .AppendLine("                }")
+            .AppendLine()
+            .AppendLine("                var interactionLifetime = new GeneratedInteractionLifetime();")
+            .AppendLine("                _interactionLifetime = interactionLifetime;");
+        for (int index = 0; index < model.Interactions.Length; index++)
+        {
+            ViewInteractionModel interaction = model.Interactions[index];
+            string inputType = interaction.InputType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            string propertyName = GeneratorUtilities.EscapeIdentifier(interaction.PropertyName);
+            builder.Append("                var handler").Append(index).Append(" = view.CreateGeneratedInteractionHandler")
+                .Append(index).AppendLine("();")
+                .Append("                _handler").Append(index).Append(" = handler").Append(index).AppendLine(";")
+                .Append("                _registration").Append(index).Append(" = viewModel.").Append(propertyName)
+                .AppendLine(".RegisterHandler(async context =>")
+                .AppendLine("                {")
+                .Append("                    var output = await handler").Append(index)
+                .Append(".HandleAsync(new global::Avalonia.Controls.DataGridGeneratedViewInteractionContext<")
+                .Append(inputType).AppendLine(">(")
+                .AppendLine("                        view,")
+                .AppendLine("                        dataGrid,")
+                .AppendLine("                        context.Input,")
+                .AppendLine("                        interactionLifetime.CancellationToken));")
+                .AppendLine("                    context.SetOutput(output);")
+                .AppendLine("                });");
+        }
+        builder.AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            public void OnError(global::System.Exception error) => Dispose();")
+            .AppendLine()
+            .AppendLine("            public void OnCompleted() => Dispose();")
+            .AppendLine()
+            .AppendLine("            public void Dispose()")
+            .AppendLine("            {")
+            .AppendLine("                global::System.IDisposable? subscription = _dataContextSubscription;")
+            .AppendLine("                _dataContextSubscription = null;")
+            .AppendLine("                _view = null;")
+            .AppendLine("                _dataGrid = null;")
+            .AppendLine("                subscription?.Dispose();")
+            .AppendLine("                DisconnectCurrent();")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            private void DisconnectCurrent()")
+            .AppendLine("            {");
+        for (int index = 0; index < model.Interactions.Length; index++)
+        {
+            builder.Append("                _registration").Append(index).AppendLine("?.Dispose();")
+                .Append("                _registration").Append(index).AppendLine(" = null;");
+        }
+        builder.AppendLine("                _interactionLifetime?.Dispose();")
+            .AppendLine("                _interactionLifetime = null;");
+        for (int index = 0; index < model.Interactions.Length; index++)
+        {
+            builder.Append("                if (_handler").Append(index).AppendLine(" is global::System.IDisposable disposableHandler)")
+                .AppendLine("                {")
+                .AppendLine("                    disposableHandler.Dispose();")
+                .AppendLine("                }")
+                .Append("                _handler").Append(index).AppendLine(" = null;");
+        }
+        builder.AppendLine("            }")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        private sealed class GeneratedInteractionLifetime : global::System.IDisposable")
+            .AppendLine("        {")
+            .AppendLine("            private global::System.Threading.CancellationTokenSource? _source = new();")
+            .AppendLine()
+            .AppendLine("            public global::System.Threading.CancellationToken CancellationToken")
+            .AppendLine("                => _source?.Token ?? new global::System.Threading.CancellationToken(canceled: true);")
+            .AppendLine()
+            .AppendLine("            public void Dispose()")
+            .AppendLine("            {")
+            .AppendLine("                global::System.Threading.CancellationTokenSource? source =")
+            .AppendLine("                    global::System.Threading.Interlocked.Exchange(ref _source, null);")
+            .AppendLine("                if (source is null)")
+            .AppendLine("                {")
+            .AppendLine("                    return;")
+            .AppendLine("                }")
+            .AppendLine()
+            .AppendLine("                source.Cancel();")
+            .AppendLine("                source.Dispose();")
+            .AppendLine("            }")
+            .AppendLine("        }")
+            .AppendLine();
     }
 
     private static void EmitGeneratedEditEventHandler(

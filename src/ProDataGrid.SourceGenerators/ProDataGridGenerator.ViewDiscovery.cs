@@ -344,6 +344,10 @@ internal static partial class Discovery
             RoutedEventCommandPropertyName = GeneratorUtilities.GetString(arguments, "RoutedEventCommandPropertyName"),
             HasRoutedEventConfiguration = arguments.Keys.Any(static key =>
                 key is "RoutedEvents" or "RoutedEventCommandPropertyName"),
+            InteractionPropertyNames = GeneratorUtilities.GetStringArray(arguments, "InteractionPropertyNames"),
+            InteractionHandlerTypes = GeneratorUtilities.GetTypeArray(arguments, "InteractionHandlerTypes"),
+            HasInteractionConfiguration = arguments.Keys.Any(static key =>
+                key is "InteractionPropertyNames" or "InteractionHandlerTypes"),
             LoadingText = GeneratorUtilities.GetString(arguments, "LoadingText") ?? "Loading data…",
             EmptyText = GeneratorUtilities.GetString(arguments, "EmptyText") ?? "No items to display.",
             ErrorText = GeneratorUtilities.GetString(arguments, "ErrorText") ?? "Unable to load data.",
@@ -415,6 +419,19 @@ internal static partial class Discovery
         }
 
         if (request.BaseType != null && !ValidateViewBase(request.BaseType))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidViewBase,
+                request.Location,
+                request.BaseType.ToDisplayString(),
+                metadataName));
+            return null;
+        }
+
+        bool needsReactiveActivation = request.Framework == ViewFrameworkModel.ReactiveUI &&
+            (request.HasRoutedEventConfiguration || request.HasInteractionConfiguration);
+        if (needsReactiveActivation && request.BaseType != null &&
+            !ImplementsMetadataName(request.BaseType, "ReactiveUI.IActivatableView"))
         {
             diagnostics.Add(Diagnostic.Create(
                 GeneratorDiagnostics.InvalidViewBase,
@@ -530,6 +547,12 @@ internal static partial class Discovery
             }
         }
 
+        ImmutableArray<ViewInteractionModel> interactions = ResolveViewInteractions(request, diagnostics);
+        if (request.HasInteractionConfiguration && interactions.IsDefault)
+        {
+            return null;
+        }
+
         RowDetailsViewModel? rowDetails = ResolveRowDetails(request, diagnostics);
         if (request.HasRowDetailsConfiguration && rowDetails == null)
         {
@@ -562,6 +585,7 @@ internal static partial class Discovery
             RetryCommand = retryCommand,
             RoutedEventCommand = routedEventCommand,
             RoutedEvents = request.RoutedEvents,
+            Interactions = interactions.IsDefault ? ImmutableArray<ViewInteractionModel>.Empty : interactions,
             LoadingText = request.LoadingText,
             EmptyText = request.EmptyText,
             ErrorText = request.ErrorText,
@@ -569,6 +593,121 @@ internal static partial class Discovery
             RowDetails = rowDetails,
             Location = request.Location
         };
+    }
+
+    private static ImmutableArray<ViewInteractionModel> ResolveViewInteractions(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        if (!request.HasInteractionConfiguration)
+        {
+            return ImmutableArray<ViewInteractionModel>.Empty;
+        }
+
+        if (request.Framework != ViewFrameworkModel.ReactiveUI)
+        {
+            ReportInvalidViewInteraction(request, diagnostics, "Interaction adapters require Framework = DataGridViewFramework.ReactiveUI");
+            return default;
+        }
+
+        if (request.InteractionPropertyNames.IsDefaultOrEmpty || request.InteractionHandlerTypes.IsDefaultOrEmpty ||
+            request.InteractionPropertyNames.Length != request.InteractionHandlerTypes.Length)
+        {
+            ReportInvalidViewInteraction(
+                request,
+                diagnostics,
+                "InteractionPropertyNames and InteractionHandlerTypes must contain the same non-zero number of entries");
+            return default;
+        }
+
+        var seenProperties = new HashSet<string>(StringComparer.Ordinal);
+        var result = ImmutableArray.CreateBuilder<ViewInteractionModel>(request.InteractionPropertyNames.Length);
+        for (int index = 0; index < request.InteractionPropertyNames.Length; index++)
+        {
+            string propertyName = request.InteractionPropertyNames[index];
+            INamedTypeSymbol handlerType = request.InteractionHandlerTypes[index];
+            if (string.IsNullOrWhiteSpace(propertyName) || !seenProperties.Add(propertyName))
+            {
+                ReportInvalidViewInteraction(request, diagnostics, $"interaction property name '{propertyName}' is empty or duplicated");
+                return default;
+            }
+
+            ITypeSymbol? propertyType = FindViewBindingMemberType(request.ViewModelType, propertyName);
+            INamedTypeSymbol? interactionType = FindConstructedInterface(propertyType, "ReactiveUI.IInteraction`2");
+            if (interactionType == null)
+            {
+                ReportInvalidViewInteraction(
+                    request,
+                    diagnostics,
+                    $"member '{propertyName}' must be an accessible readable ReactiveUI.IInteraction<TInput, TOutput> property");
+                return default;
+            }
+
+            if (!ValidateViewInteractionHandler(handlerType, interactionType.TypeArguments[0], interactionType.TypeArguments[1]))
+            {
+                ReportInvalidViewInteraction(
+                    request,
+                    diagnostics,
+                    $"handler '{handlerType.ToDisplayString()}' must be an accessible non-abstract type with a parameterless constructor implementing IDataGridGeneratedViewInteractionHandler<{interactionType.TypeArguments[0].ToDisplayString()}, {interactionType.TypeArguments[1].ToDisplayString()}> exactly");
+                return default;
+            }
+
+            result.Add(new ViewInteractionModel
+            {
+                PropertyName = propertyName,
+                InputType = interactionType.TypeArguments[0],
+                OutputType = interactionType.TypeArguments[1],
+                HandlerType = handlerType
+            });
+        }
+
+        return result.ToImmutable();
+    }
+
+    private static INamedTypeSymbol? FindConstructedInterface(ITypeSymbol? type, string metadataName)
+    {
+        if (type is not INamedTypeSymbol namedType)
+        {
+            return null;
+        }
+
+        if (namedType.TypeArguments.Length == 2 &&
+            string.Equals(GeneratorUtilities.GetMetadataName(namedType.OriginalDefinition), metadataName, StringComparison.Ordinal))
+        {
+            return namedType;
+        }
+
+        return namedType.AllInterfaces.FirstOrDefault(implemented =>
+            implemented.TypeArguments.Length == 2 &&
+            string.Equals(GeneratorUtilities.GetMetadataName(implemented.OriginalDefinition), metadataName, StringComparison.Ordinal));
+    }
+
+    private static bool ValidateViewInteractionHandler(
+        INamedTypeSymbol handlerType,
+        ITypeSymbol inputType,
+        ITypeSymbol outputType)
+    {
+        if (handlerType.TypeKind != TypeKind.Class || handlerType.IsAbstract ||
+            handlerType.TypeParameters.Length != 0 || !GeneratorUtilities.IsAccessibleFromGeneratedCode(handlerType))
+        {
+            return false;
+        }
+
+        bool hasConstructor = handlerType.InstanceConstructors.Any(static constructor =>
+            constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+        if (!hasConstructor)
+        {
+            return false;
+        }
+
+        return handlerType.AllInterfaces.Any(implemented =>
+            implemented.TypeArguments.Length == 2 &&
+            string.Equals(
+                GeneratorUtilities.GetMetadataName(implemented.OriginalDefinition),
+                "Avalonia.Controls.IDataGridGeneratedViewInteractionHandler`2",
+                StringComparison.Ordinal) &&
+            SymbolEqualityComparer.Default.Equals(implemented.TypeArguments[0], inputType) &&
+            SymbolEqualityComparer.Default.Equals(implemented.TypeArguments[1], outputType));
     }
 
     private static RowDetailsViewModel? ResolveRowDetails(
@@ -769,6 +908,16 @@ internal static partial class Discovery
         string reason) =>
         diagnostics.Add(Diagnostic.Create(
             GeneratorDiagnostics.InvalidViewEventBridge,
+            request.Location,
+            request.ViewName,
+            reason));
+
+    private static void ReportInvalidViewInteraction(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string reason) =>
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewInteraction,
             request.Location,
             request.ViewName,
             reason));
@@ -1031,6 +1180,9 @@ internal static partial class Discovery
         public int RoutedEvents { get; set; }
         public string? RoutedEventCommandPropertyName { get; set; }
         public bool HasRoutedEventConfiguration { get; set; }
+        public ImmutableArray<string> InteractionPropertyNames { get; set; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<INamedTypeSymbol> InteractionHandlerTypes { get; set; } = ImmutableArray<INamedTypeSymbol>.Empty;
+        public bool HasInteractionConfiguration { get; set; }
         public string LoadingText { get; set; } = "Loading data…";
         public string EmptyText { get; set; } = "No items to display.";
         public string ErrorText { get; set; } = "Unable to load data.";

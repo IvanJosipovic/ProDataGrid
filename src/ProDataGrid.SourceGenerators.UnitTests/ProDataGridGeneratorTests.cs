@@ -632,6 +632,273 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Reactive_ui_view_generates_typed_activation_scoped_interaction_adapters()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteractionContext<out TInput, in TOutput>
+                {
+                    TInput Input { get; }
+                    void SetOutput(TOutput output);
+                }
+                public interface IInteraction<TInput, TOutput>
+                {
+                    IDisposable RegisterHandler(Func<IInteractionContext<TInput, TOutput>, Task> handler);
+                }
+                public static class ViewForMixins
+                {
+                    public static void WhenActivated(IActivatableView view, Action<Action<IDisposable>> block) { }
+                }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class ConfirmHandler : IDataGridGeneratedViewInteractionHandler<string, bool>, IDisposable
+                {
+                    public ValueTask<bool> HandleAsync(DataGridGeneratedViewInteractionContext<string> context) => new(true);
+                    public void Dispose() { }
+                }
+                [GenerateDataGridViewModel(typeof(Row))]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    InteractionPropertyNames = new[] { nameof(Confirm) },
+                    InteractionHandlerTypes = new[] { typeof(ConfirmHandler) })]
+                public sealed partial class RowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("ConfigureGeneratedReactiveActivation(GeneratedDataGrid)", result.CombinedSource);
+        Assert.Contains("ViewForMixins.WhenActivated", result.CombinedSource);
+        Assert.Contains("viewModel.Confirm.RegisterHandler", result.CombinedSource);
+        Assert.Contains("CreateGeneratedInteractionHandler0", result.CombinedSource);
+        Assert.Contains("=> new global::Demo.ConfirmHandler()", result.CombinedSource);
+        Assert.Contains("GetObservable(view, global::Avalonia.StyledElement.DataContextProperty)", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedViewInteractionContext<string>", result.CombinedSource);
+        Assert.Contains("_handler0 is global::System.IDisposable disposableHandler", result.CombinedSource);
+        Assert.Contains("interactionLifetime.CancellationToken", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Assembly_and_namespace_view_policies_share_typed_interaction_options()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridView(
+                typeof(Demo.AssemblyRowsViewModel),
+                typeof(Demo.Models.Row),
+                ViewName = "AssemblyRowsView",
+                Framework = DataGridViewFramework.ReactiveUI,
+                InteractionPropertyNames = new[] { "Confirm" },
+                InteractionHandlerTypes = new[] { typeof(Demo.Handlers.ConfirmHandler) })]
+            [assembly: GenerateDataGridViewsForNamespace(
+                "Demo.NamespaceViewModels",
+                Framework = DataGridViewFramework.ReactiveUI,
+                InteractionPropertyNames = new[] { "Confirm" },
+                InteractionHandlerTypes = new[] { typeof(Demo.Handlers.ConfirmHandler) })]
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteractionContext<out TInput, in TOutput>
+                {
+                    TInput Input { get; }
+                    void SetOutput(TOutput output);
+                }
+                public interface IInteraction<TInput, TOutput>
+                {
+                    IDisposable RegisterHandler(Func<IInteractionContext<TInput, TOutput>, Task> handler);
+                }
+                public static class ViewForMixins
+                {
+                    public static void WhenActivated(IActivatableView view, Action<Action<IDisposable>> block) { }
+                }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo.Models
+            {
+                public sealed class Row { public int Id { get; set; } }
+            }
+            namespace Demo.Handlers
+            {
+                public sealed class ConfirmHandler : IDataGridGeneratedViewInteractionHandler<string, bool>
+                {
+                    public ValueTask<bool> HandleAsync(DataGridGeneratedViewInteractionContext<string> context) => new(true);
+                }
+            }
+            namespace Demo
+            {
+                [GenerateDataGridViewModel(typeof(Models.Row))]
+                public sealed partial class AssemblyRowsViewModel
+                {
+                    public IReadOnlyList<Models.Row> Items { get; } = new List<Models.Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+            }
+            namespace Demo.NamespaceViewModels
+            {
+                [GenerateDataGridViewModel(typeof(global::Demo.Models.Row))]
+                public sealed partial class PolicyRowsViewModel
+                {
+                    public IReadOnlyList<global::Demo.Models.Row> Items { get; } = new List<global::Demo.Models.Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class AssemblyRowsView :", result.CombinedSource);
+        Assert.Contains("class PolicyRowsView :", result.CombinedSource);
+        Assert.Equal(
+            2,
+            result.CombinedSource.Split(
+                "=> new global::Demo.Handlers.ConfirmHandler();",
+                StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public void Invalid_generated_view_interaction_contracts_report_PDGSG127()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteraction<TInput, TOutput> { }
+            }
+            namespace ReactiveUI.Avalonia
+            {
+                public class ReactiveUserControl<T> : global::Avalonia.Controls.UserControl, global::ReactiveUI.IActivatableView { }
+            }
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class WrongHandler : IDataGridGeneratedViewInteractionHandler<int, bool>
+                {
+                    public ValueTask<bool> HandleAsync(DataGridGeneratedViewInteractionContext<int> context) => new(true);
+                }
+
+                [GenerateDataGridViewModel(typeof(Row))]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    ViewName = "PlainInteractionView",
+                    InteractionPropertyNames = new[] { nameof(Confirm) },
+                    InteractionHandlerTypes = new[] { typeof(WrongHandler) })]
+                public sealed partial class PlainViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+
+                [GenerateDataGridViewModel(typeof(Row), ColumnDefinitionsPropertyName = "Columns2", FastPathOptionsPropertyName = "Fast2")]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    ViewName = "MismatchedInteractionView",
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    ColumnDefinitionsPropertyName = "Columns2",
+                    FastPathOptionsPropertyName = "Fast2",
+                    InteractionPropertyNames = new[] { nameof(Confirm) },
+                    InteractionHandlerTypes = new Type[0])]
+                public sealed partial class MismatchedViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+
+                [GenerateDataGridViewModel(typeof(Row), ColumnDefinitionsPropertyName = "Columns3", FastPathOptionsPropertyName = "Fast3")]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    ViewName = "WrongHandlerView",
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    ColumnDefinitionsPropertyName = "Columns3",
+                    FastPathOptionsPropertyName = "Fast3",
+                    InteractionPropertyNames = new[] { nameof(Confirm) },
+                    InteractionHandlerTypes = new[] { typeof(WrongHandler) })]
+                public sealed partial class WrongHandlerViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+            }
+            """);
+
+        Diagnostic[] diagnostics = result.GeneratorDiagnostics
+            .Where(static diagnostic => diagnostic.Id == "PDGSG127")
+            .ToArray();
+        Assert.Equal(3, diagnostics.Length);
+        Assert.DoesNotContain("class PlainInteractionView :", result.CombinedSource);
+        Assert.DoesNotContain("class MismatchedInteractionView :", result.CombinedSource);
+        Assert.DoesNotContain("class WrongHandlerView :", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Reactive_activation_features_require_activatable_custom_base()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using System.Threading.Tasks;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace ReactiveUI
+            {
+                public interface IActivatableView { }
+                public interface IInteraction<TInput, TOutput> { }
+            }
+            namespace Demo
+            {
+                public class PassiveBase : UserControl { }
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class ConfirmHandler : IDataGridGeneratedViewInteractionHandler<string, bool>
+                {
+                    public ValueTask<bool> HandleAsync(DataGridGeneratedViewInteractionContext<string> context) => new(true);
+                }
+                [GenerateDataGridViewModel(typeof(Row))]
+                [GenerateDataGridView(
+                    typeof(Row),
+                    Framework = DataGridViewFramework.ReactiveUI,
+                    BaseType = typeof(PassiveBase),
+                    InteractionPropertyNames = new[] { nameof(Confirm) },
+                    InteractionHandlerTypes = new[] { typeof(ConfirmHandler) })]
+                public sealed partial class RowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = new List<Row>();
+                    public global::ReactiveUI.IInteraction<string, bool> Confirm { get; } = null!;
+                }
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG013");
+        Assert.DoesNotContain("class RowsView :", result.CombinedSource);
+    }
+
+    [Fact]
     public void Generated_view_emits_compiled_loading_empty_error_and_retry_projections()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

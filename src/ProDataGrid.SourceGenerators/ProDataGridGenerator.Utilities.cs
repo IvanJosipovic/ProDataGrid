@@ -229,6 +229,26 @@ internal static class GeneratorUtilities
         return arguments.TryGetValue(name, out TypedConstant value) ? value.Value as INamedTypeSymbol : null;
     }
 
+    public static ImmutableArray<INamedTypeSymbol> GetTypeArray(
+        Dictionary<string, TypedConstant> arguments,
+        string name)
+    {
+        if (!arguments.TryGetValue(name, out TypedConstant value) || value.Kind != TypedConstantKind.Array)
+        {
+            return ImmutableArray<INamedTypeSymbol>.Empty;
+        }
+
+        var builder = ImmutableArray.CreateBuilder<INamedTypeSymbol>(value.Values.Length);
+        foreach (TypedConstant element in value.Values)
+        {
+            if (element.Value is INamedTypeSymbol type)
+            {
+                builder.Add(type);
+            }
+        }
+        return builder.ToImmutable();
+    }
+
     public static int GetInt32(Dictionary<string, TypedConstant> arguments, string name, int fallback)
     {
         return arguments.TryGetValue(name, out TypedConstant value) && value.Value is int number ? number : fallback;

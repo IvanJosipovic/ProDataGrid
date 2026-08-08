@@ -4,6 +4,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Controls;
 using DataGridSample.Models;
+using DataGridSample.Pages;
 using ProDataGrid.SourceGeneration;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
@@ -21,7 +22,9 @@ namespace DataGridSample.ViewModels;
     Title = "Generated ReactiveUI routed-event commands",
     AutomationId = "generated-reactive-event-commands-grid",
     RoutedEvents = DataGridGeneratedViewEventKinds.All,
-    RoutedEventCommandPropertyName = nameof(GridEventCommand))]
+    RoutedEventCommandPropertyName = nameof(GridEventCommand),
+    InteractionPropertyNames = [nameof(InspectGeneratedGrid)],
+    InteractionHandlerTypes = [typeof(GeneratedGridEventInteractionHandler)])]
 public sealed partial class GeneratedReactiveEventCommandsViewModel : ReactiveObject
 {
     private readonly ObservableCollection<GeneratedEventCommandRow> _items;
@@ -52,6 +55,8 @@ public sealed partial class GeneratedReactiveEventCommandsViewModel : ReactiveOb
     public ObservableCollection<GeneratedEventCommandRow> Items => _items;
 
     public ReactiveCommand<DataGridGeneratedViewEvent<GeneratedEventCommandRow>, RxVoid> GridEventCommand { get; }
+
+    public Interaction<GeneratedEventCommandRow, string> InspectGeneratedGrid { get; } = new();
 
     public DataGridGeneratedViewEvent<GeneratedEventCommandRow>? LastEventData { get; private set; }
 

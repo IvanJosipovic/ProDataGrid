@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.IO;
 using System.Linq;
+using System.Reactive.Threading.Tasks;
+using System.Threading.Tasks;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -196,6 +198,43 @@ public sealed class GeneratedCodeViewTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public async Task Generated_reactive_interaction_handler_is_typed_and_scoped_to_view_activation()
+    {
+        var viewModel = new GeneratedReactiveEventCommandsViewModel();
+        var view = new GeneratedReactiveEventCommandsPage(viewModel);
+        var window = new Window { Width = 900, Height = 560, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+
+        string response = await viewModel.InspectGeneratedGrid
+            .Handle(viewModel.Items[0])
+            .ToTask();
+
+        Assert.Equal($"AVLN: generated view has {grid.Columns.Count} typed columns.", response);
+
+        var replacementViewModel = new GeneratedReactiveEventCommandsViewModel();
+        view.DataContext = replacementViewModel;
+        Dispatcher.UIThread.RunJobs();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => viewModel.InspectGeneratedGrid
+            .Handle(viewModel.Items[0])
+            .ToTask());
+
+        string replacementResponse = await replacementViewModel.InspectGeneratedGrid
+            .Handle(replacementViewModel.Items[1])
+            .ToTask();
+        Assert.Equal($"RXUI: generated view has {grid.Columns.Count} typed columns.", replacementResponse);
+
+        window.Close();
+        Dispatcher.UIThread.RunJobs();
+
+        await Assert.ThrowsAnyAsync<Exception>(() => replacementViewModel.InspectGeneratedGrid
+            .Handle(replacementViewModel.Items[0])
+            .ToTask());
     }
 
     [AvaloniaFact]

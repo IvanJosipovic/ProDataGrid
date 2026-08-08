@@ -65,6 +65,18 @@ internal enum ViewFrameworkModel
     ReactiveUI
 }
 
+internal sealed class ViewInteractionModel
+{
+    public string PropertyName { get; set; } = string.Empty;
+
+    public ITypeSymbol InputType { get; set; } = null!;
+
+    public ITypeSymbol OutputType { get; set; } = null!;
+
+    public INamedTypeSymbol HandlerType { get; set; } = null!;
+
+}
+
 internal sealed class ViewModelViewModel
 {
     public INamedTypeSymbol ViewModelType { get; set; } = null!;
@@ -114,6 +126,8 @@ internal sealed class ViewModelViewModel
     public ViewBindingModel? RoutedEventCommand { get; set; }
 
     public int RoutedEvents { get; set; }
+
+    public ImmutableArray<ViewInteractionModel> Interactions { get; set; } = ImmutableArray<ViewInteractionModel>.Empty;
 
     public string LoadingText { get; set; } = string.Empty;
 

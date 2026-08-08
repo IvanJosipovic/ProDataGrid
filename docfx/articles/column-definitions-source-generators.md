@@ -408,6 +408,7 @@ A keyed schema also emits `CreateIdentitySelectionModel()` and `CreateStateOptio
 | `PDGSG124` | A button/toggle member binding is unsupported, conflicting, inaccessible, missing, or has an invalid command type. |
 | `PDGSG125` | A generated view-state projection is incomplete or uses an incompatible state, message, or command member. |
 | `PDGSG126` | A generated routed-event bridge uses unsupported flags or an incompatible command member. |
+| `PDGSG127` | A generated ReactiveUI interaction declaration has mismatched metadata, an incompatible property, or an invalid handler implementation. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
@@ -493,6 +494,42 @@ The supported flags are `SelectionChanged`, `CurrentCellChanged`, `Sorting`, `Be
 
 `RoutedEventCommandPropertyName` must identify an accessible property implementing `ICommand`; ReactiveUI.SourceGenerators `[Reactive]` command fields are also resolved from their declared type. Invalid flag combinations or incompatible command members report `PDGSG126`. Assembly and namespace view policies support the same options. A derived generated view can override `ConfigureGeneratedRoutedEventCommands(DataGrid)` to add application-specific wiring while retaining the generated bridge.
 
+For ReactiveUI views, routed-event subscriptions are attached by `WhenActivated` and removed on deactivation. Reactivation therefore cannot accumulate duplicate handlers. Plain Avalonia generated views retain view-owned subscriptions for the lifetime of the view.
+
+### Typed ReactiveUI interaction responses
+
+A generated ReactiveUI view can register one or more typed `Interaction<TInput, TOutput>` response adapters without reflection or handwritten code-behind. Property names and implementation types are parallel arrays so the same metadata works on type-, assembly-, and namespace-level view declarations:
+
+```csharp
+[GenerateDataGridViewModel(typeof(Trade), ProviderName = "TradeGridSchema")]
+[GenerateDataGridView(
+    typeof(Trade),
+    Framework = DataGridViewFramework.ReactiveUI,
+    InteractionPropertyNames = [nameof(ConfirmTrade)],
+    InteractionHandlerTypes = [typeof(ConfirmTradeHandler)])]
+public sealed partial class TradesViewModel : ReactiveObject
+{
+    public Interaction<Trade, bool> ConfirmTrade { get; } = new();
+}
+
+public sealed class ConfirmTradeHandler :
+    IDataGridGeneratedViewInteractionHandler<Trade, bool>
+{
+    public ValueTask<bool> HandleAsync(
+        DataGridGeneratedViewInteractionContext<Trade> context)
+    {
+        context.CancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(context.Input.Quantity <= 1_000);
+    }
+}
+```
+
+Every configured property must implement the exact `IInteraction<TInput, TOutput>` contract. Its paired implementation must be accessible, non-abstract, closed, parameterless, and implement `IDataGridGeneratedViewInteractionHandler<TInput, TOutput>` with the same type arguments. `PDGSG127` rejects incomplete arrays, duplicate properties, non-ReactiveUI views, incompatible interaction types, and invalid implementation types.
+
+The generated view observes `DataContext` directly through the Avalonia property observable while active. Replacing the ViewModel unregisters and disposes the old response adapters, cancels their context token, and registers adapters for the replacement. Deactivation performs the same cleanup. Handlers that implement `IDisposable` are disposed, and an in-flight handler receives cancellation through `DataGridGeneratedViewInteractionContext<TInput>.CancellationToken`.
+
+Each generated interaction also exposes a protected `CreateGeneratedInteractionHandlerN()` factory. A derived generated view can override that factory to construct a DI-backed or otherwise application-specific implementation while preserving the compile-time interaction signature and generated lifetime management.
+
 ### Typed row details and nested grids
 
 `GenerateDataGridView` can assign a row-details template without reflection-based view lookup. A built-in nested-grid recipe reads the detail collection through a validated typed property, reuses a generated presenter, and references the nested item schema directly:
@@ -553,7 +590,7 @@ View emission is selected through an internal strategy registry. Avalonia and Re
 
 ### Custom base classes and view customization
 
-Set `BaseType = typeof(MyGridViewBase)` to use an accessible, non-sealed `UserControl` base with a parameterless constructor. This supports shared styling, activation, services, and application-specific view infrastructure.
+Set `BaseType = typeof(MyGridViewBase)` to use an accessible, non-sealed `UserControl` base with a parameterless constructor. This supports shared styling, activation, services, and application-specific view infrastructure. A ReactiveUI custom base used with routed-event or interaction activation must also implement `IActivatableView`; an incompatible base reports `PDGSG013` at compile time.
 
 Generated views are inheritable and expose these hooks:
 
