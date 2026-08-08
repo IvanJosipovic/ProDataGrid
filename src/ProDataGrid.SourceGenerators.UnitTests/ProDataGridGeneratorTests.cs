@@ -4632,13 +4632,14 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
-    public void Schema_generates_injected_and_configured_domain_mutation_services()
+    public void Schema_generates_injected_and_configured_domain_and_formula_services()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
             using System;
             using System.Threading;
             using System.Threading.Tasks;
             using Avalonia.Controls;
+            using ProDataGrid.FormulaEngine;
             using ProDataGrid.SourceGeneration;
             namespace Demo
             {
@@ -4656,11 +4657,22 @@ public sealed class ProDataGridGeneratorTests
                     public ValueTask<Row> CreateAsync(CancellationToken token) => new(new Row());
                 }
 
+                public sealed class FormulaTranslator : IFormulaFillTranslator
+                {
+                    public bool TryTranslate(string formula, int sourceRow, int sourceColumn, int targetRow, int targetColumn, out string translated)
+                    {
+                        translated = formula;
+                        return true;
+                    }
+                }
+
                 [GenerateDataGridColumns(
                     MutationHandlerType = typeof(RowMutationHandler),
-                    NewRowFactoryType = typeof(RowFactory))]
+                    NewRowFactoryType = typeof(RowFactory),
+                    FormulaFillTranslatorType = typeof(FormulaTranslator))]
                 public sealed class Row
                 {
+                    [DataGridKey]
                     public int Id { get; set; }
                 }
             }
@@ -4674,6 +4686,9 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("new global::Demo.RowMutationHandler()", result.CombinedSource);
         Assert.Contains("CreateConfiguredNewRowService()", result.CombinedSource);
         Assert.Contains("new global::Demo.RowFactory()", result.CombinedSource);
+        Assert.Contains("IFormulaFillTranslator? formulaTranslator = null", result.CombinedSource);
+        Assert.Contains("CreateConfiguredFormulaFillModel(", result.CombinedSource);
+        Assert.Contains("new global::Demo.FormulaTranslator()", result.CombinedSource);
     }
 
     [Fact]
@@ -4687,7 +4702,8 @@ public sealed class ProDataGridGeneratorTests
 
                 [GenerateDataGridColumns(
                     MutationHandlerType = typeof(InvalidService),
-                    NewRowFactoryType = typeof(InvalidService))]
+                    NewRowFactoryType = typeof(InvalidService),
+                    FormulaFillTranslatorType = typeof(InvalidService))]
                 public sealed class Row
                 {
                     public int Id { get; set; }
@@ -4697,8 +4713,10 @@ public sealed class ProDataGridGeneratorTests
 
         Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG135");
         Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG136");
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG137");
         Assert.DoesNotContain("CreateConfiguredCollectionMutationService", result.CombinedSource);
         Assert.DoesNotContain("CreateConfiguredNewRowService", result.CombinedSource);
+        Assert.DoesNotContain("CreateConfiguredFormulaFillModel", result.CombinedSource);
     }
 
     private static void AssertNoErrors(GeneratorTestResult result)

@@ -813,7 +813,7 @@ public sealed class GeneratedColumnsViewModelTests
     {
         using var viewModel = new GeneratedEditingClipboardFillViewModel();
 
-        Assert.Equal(6, GeneratedEditableOrderSchema.EditFields.Count);
+        Assert.Equal(7, GeneratedEditableOrderSchema.EditFields.Count);
         Assert.DoesNotContain(GeneratedEditableOrderSchema.EditFields, static field => field.ColumnKey is "order-id" or "total");
         Assert.False(viewModel.CanUndo);
 

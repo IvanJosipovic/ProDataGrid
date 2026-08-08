@@ -87,7 +87,7 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
             ReportGridTransfer,
             CultureInfo.InvariantCulture,
             new DataGridGeneratedTransferLimits(maximumCells: 256, maximumCharacters: 16 * 1024));
-        FillModel = GeneratedEditableOrderSchema.CreateFillModel(
+        FillModel = GeneratedEditableOrderSchema.CreateConfiguredFormulaFillModel(
             EditController,
             ReportGridTransfer,
             maximumCells: 256,

@@ -561,9 +561,27 @@ internal static class Emitter
                     .Append("            global::System.Action<global::Avalonia.Controls.DataGridGeneratedTransferResult<")
                     .Append(keyType).AppendLine(">>? resultHandler = null,")
                     .AppendLine("            int maximumCells = 100000,")
-                    .AppendLine("            bool useSeries = true)")
+                    .AppendLine("            bool useSeries = true,")
+                    .AppendLine("            global::ProDataGrid.FormulaEngine.IFormulaFillTranslator? formulaTranslator = null)")
                     .Append("            => new global::Avalonia.Controls.DataGridGeneratedFillModel<")
-                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController, resultHandler, maximumCells, useSeries);");
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController, resultHandler, maximumCells, useSeries, formulaTranslator);");
+
+                if (schema.FormulaFillTranslatorType != null)
+                {
+                    string translatorType = schema.FormulaFillTranslatorType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+                    builder.AppendLine()
+                        .Append("        public static global::Avalonia.Controls.DataGridGeneratedFillModel<")
+                        .Append(itemType).Append(", ").Append(keyType).AppendLine("> CreateConfiguredFormulaFillModel(")
+                        .Append("            global::Avalonia.Controls.DataGridGeneratedEditController<").Append(itemType).Append(", ")
+                        .Append(keyType).AppendLine("> editController,")
+                        .Append("            global::System.Action<global::Avalonia.Controls.DataGridGeneratedTransferResult<")
+                        .Append(keyType).AppendLine(">>? resultHandler = null,")
+                        .AppendLine("            int maximumCells = 100000,")
+                        .AppendLine("            bool useSeries = true)")
+                        .Append("            => new global::Avalonia.Controls.DataGridGeneratedFillModel<")
+                        .Append(itemType).Append(", ").Append(keyType).Append(">(Instance, editController, resultHandler, maximumCells, useSeries, new ")
+                        .Append(translatorType).AppendLine("());");
+                }
             }
 
             builder.AppendLine()

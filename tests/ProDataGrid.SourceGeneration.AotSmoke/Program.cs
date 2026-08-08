@@ -18,6 +18,9 @@ DataGridGeneratedCollectionMutationService<AotTradeRow> mutations =
     AotTradeRowSchema.CreateConfiguredCollectionMutationService(maximumItemsPerMutation: 8);
 DataGridGeneratedNewRowService<AotTradeRow> newRows =
     AotTradeRowSchema.CreateConfiguredNewRowService();
+using DataGridGeneratedEditController<AotTradeRow, int> edits = AotTradeRowSchema.CreateEditController();
+DataGridGeneratedFillModel<AotTradeRow, int> formulaFill =
+    AotTradeRowSchema.CreateConfiguredFormulaFillModel(edits);
 AotTradeRow newRow = await newRows.CreateAsync();
 await mutations.AddAsync(0, new[] { newRow });
 
@@ -41,4 +44,5 @@ Control reactiveView = new AotGeneratedReactiveGridView(viewModel);
 GC.KeepAlive(registeredView);
 GC.KeepAlive(avaloniaView);
 GC.KeepAlive(reactiveView);
+GC.KeepAlive(formulaFill);
 return 0;

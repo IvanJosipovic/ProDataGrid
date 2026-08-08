@@ -79,7 +79,7 @@ internal static partial class Discovery
                 schema.ImplementationType = null;
             }
 
-            ValidateMutationServices(schema, schemaDiagnostics);
+            ValidateSchemaServiceImplementations(schema, schemaDiagnostics);
 
             if (IsRuntimeDefinedShape(schema.ItemType))
             {
@@ -394,7 +394,7 @@ internal static partial class Discovery
             schema.ImplementationType = null;
         }
 
-        ValidateMutationServices(schema, diagnostics);
+        ValidateSchemaServiceImplementations(schema, diagnostics);
 
         if (IsRuntimeDefinedShape(schema.ItemType))
         {
@@ -1574,6 +1574,12 @@ internal static partial class Discovery
                 newRowFactory.Value is INamedTypeSymbol newRowFactoryType)
             {
                 schema.NewRowFactoryType = newRowFactoryType;
+            }
+
+            if (arguments.TryGetValue("FormulaFillTranslatorType", out TypedConstant formulaFillTranslator) &&
+                formulaFillTranslator.Value is INamedTypeSymbol formulaFillTranslatorType)
+            {
+                schema.FormulaFillTranslatorType = formulaFillTranslatorType;
             }
         }
 
@@ -3154,7 +3160,7 @@ internal static partial class Discovery
         return false;
     }
 
-    private static void ValidateMutationServices(
+    private static void ValidateSchemaServiceImplementations(
         SchemaModel schema,
         ImmutableArray<Diagnostic>.Builder diagnostics)
     {
@@ -3185,6 +3191,35 @@ internal static partial class Discovery
                 schema.ItemType.ToDisplayString()));
             schema.NewRowFactoryType = null;
         }
+
+        if (schema.FormulaFillTranslatorType != null &&
+            !ValidateFormulaFillTranslator(schema.FormulaFillTranslatorType))
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidFormulaFillTranslator,
+                schema.Location,
+                schema.FormulaFillTranslatorType.ToDisplayString()));
+            schema.FormulaFillTranslatorType = null;
+        }
+    }
+
+    private static bool ValidateFormulaFillTranslator(INamedTypeSymbol implementationType)
+    {
+        if (!GeneratorUtilities.IsAccessibleFromGeneratedCode(implementationType) ||
+            implementationType.IsAbstract ||
+            implementationType.IsUnboundGenericType ||
+            implementationType.TypeParameters.Length != 0)
+        {
+            return false;
+        }
+
+        bool hasConstructor = implementationType.InstanceConstructors.Any(static constructor =>
+            constructor.Parameters.Length == 0 && GeneratorUtilities.IsAccessibleFromGeneratedCode(constructor));
+        return hasConstructor && implementationType.AllInterfaces.Any(implemented =>
+            string.Equals(
+                GeneratorUtilities.GetMetadataName(implemented),
+                "ProDataGrid.FormulaEngine.IFormulaFillTranslator",
+                StringComparison.Ordinal));
     }
 
     private static bool ValidateServiceImplementation(

@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using ProDataGrid.FormulaEngine.Excel;
 using ProDataGrid.SourceGeneration;
 
 namespace DataGridSample.Models;
@@ -14,7 +15,8 @@ namespace DataGridSample.Models;
 [GenerateDataGridColumns(
     ProviderName = "GeneratedEditableOrderSchema",
     SchemaId = "sample/generated-editable-order/v1",
-    Strict = true)]
+    Strict = true,
+    FormulaFillTranslatorType = typeof(ExcelFormulaFillTranslator))]
 public sealed class GeneratedEditableOrder
 {
     [DataGridKey]
@@ -64,6 +66,9 @@ public sealed class GeneratedEditableOrder
 
     [DataGridColumn(DataGridColumnKind.CheckBox, Header = "Locked", ColumnKey = "locked", Width = "86")]
     public bool Locked { get; set; }
+
+    [DataGridColumn(Header = "Formula", ColumnKey = "formula", Width = "180")]
+    public string Formula { get; set; } = "=B1*C1";
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Total", ColumnKey = "total", Width = "142", FormatString = "C2", IsReadOnly = true)]
     public decimal Total => Quantity * UnitPrice * (1m - Discount);

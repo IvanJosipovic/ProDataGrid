@@ -306,6 +306,8 @@ internal sealed class SchemaModel
 
     public INamedTypeSymbol? NewRowFactoryType { get; set; }
 
+    public INamedTypeSymbol? FormulaFillTranslatorType { get; set; }
+
     public string? ConfigureMethod { get; set; }
 
     public Location Location { get; set; } = Location.None;

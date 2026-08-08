@@ -540,6 +540,26 @@ DataGridGeneratedFillModel<Order, int> fill =
 
 The clipboard adapter maps DataGrid columns by stable `ColumnKey`, never by property path. It supports rectangular tabular paste and one-value multi-cell paste, returns structured keyed parse/validation errors, enforces cell/payload limits, and records each operation as one undo batch. The fill adapter supports bounded cyclic copy and automatic numeric, date/time, and duration sequences through the same edit fields. The lower-level generated controller exports text, CSV, JSON, Markdown, HTML, XML, and YAML with typed formatters.
 
+For spreadsheet formulas, inject any `IFormulaFillTranslator` into `CreateFillModel`, or configure a validated default on the schema:
+
+```csharp
+[GenerateDataGridColumns(
+    FormulaFillTranslatorType = typeof(ExcelFormulaFillTranslator))]
+public sealed class Order
+{
+    [DataGridKey]
+    public int Id { get; init; }
+
+    [DataGridColumn(ColumnKey = "formula")]
+    public string Formula { get; set; } = "=B1*C1";
+}
+
+DataGridGeneratedFillModel<Order, int> formulaFill =
+    OrderDataGridSchema.CreateConfiguredFormulaFillModel(edits);
+```
+
+`ExcelFormulaFillTranslator` parses once per source formula, shifts relative A1 rows/columns, preserves `$`-absolute dimensions, R1C1 offsets, sheet qualifiers, names, and structured references, emits `#REF!` when a copy crosses the A1 boundary, and formats the translated AST without reflection or expression compilation. Formula translation runs before series/cyclic copy and remains in the same bounded undo batch. `PDGSG137` rejects an inaccessible, open, non-constructible, or incompatible configured translator; DI users can continue to pass an instance directly.
+
 Bind the adapters directly from a generated Avalonia or ReactiveUI view:
 
 ```csharp
@@ -562,7 +582,7 @@ public sealed partial class OrdersViewModel : ReactiveObject
 
 Both named members are compile-time validated against `IDataGridClipboardImportModel` and `IDataGridFillModel`. Generated views disable add/delete rows by default so strict generated grids do not silently enter the DataGrid's reflection-based new-item path. Applications that need spreadsheet-specific formulas or domain transactions can retain a custom adapter while reusing the generated fields and controller.
 
-`DataGridSample.Pages.GeneratedEditingClipboardFillPage` demonstrates direct and DataGrid-driven edits, DataAnnotations plus custom synchronous/asynchronous validation, coercion, row eligibility, paste errors, numeric series, undo/redo, bounded multi-format export, compiled bindings, and a passive ReactiveUI shell.
+`DataGridSample.Pages.GeneratedEditingClipboardFillPage` demonstrates direct and DataGrid-driven edits, DataAnnotations plus custom synchronous/asynchronous validation, coercion, row eligibility, paste errors, numeric series, relative A1 formula fill, undo/redo, bounded multi-format export, compiled bindings, and a passive ReactiveUI shell.
 
 Canonical field metadata can also declare export/null formatting, backend names, filter-editor profiles, header/description resource keys, accessibility text, and sensitive-data policy. For reflection-free strongly typed localization, use validated static provider methods:
 
@@ -925,6 +945,7 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG128` | A generated-view performance profile, input map, input command, diagnostics sink, or provably incompatible high-frequency setting is invalid. |
 | `PDGSG129` | A generated clipboard-import or fill-model binding is missing or incompatible. |
 | `PDGSG130` | A generated formula-model binding is missing or does not implement `IDataGridFormulaModel`. |
+| `PDGSG137` | A configured formula-fill translator is inaccessible, abstract, open, non-constructible, or does not implement `IFormulaFillTranslator`. |
 | `PDGSG131` | A generated conditional-formatting-model binding is missing or does not implement `IConditionalFormattingModel`. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.

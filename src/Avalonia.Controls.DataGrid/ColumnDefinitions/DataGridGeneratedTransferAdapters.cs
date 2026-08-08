@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Avalonia.Controls.DataGridClipboard;
 using Avalonia.Controls.DataGridFilling;
+using ProDataGrid.FormulaEngine;
 
 namespace Avalonia.Controls
 {
@@ -205,6 +206,7 @@ namespace Avalonia.Controls
         private readonly IDataGridItemKey<TItem, TKey> _keyAccessor;
         private readonly DataGridGeneratedEditController<TItem, TKey> _edits;
         private readonly Action<DataGridGeneratedTransferResult<TKey>> _resultHandler;
+        private readonly IFormulaFillTranslator _formulaTranslator;
 
         /// <summary>Initializes a generated fill-handle adapter.</summary>
         public DataGridGeneratedFillModel(
@@ -212,7 +214,8 @@ namespace Avalonia.Controls
             DataGridGeneratedEditController<TItem, TKey> edits,
             Action<DataGridGeneratedTransferResult<TKey>> resultHandler = null,
             int maximumCells = 100000,
-            bool useSeries = true)
+            bool useSeries = true,
+            IFormulaFillTranslator formulaTranslator = null)
         {
             if (maximumCells <= 0)
             {
@@ -223,6 +226,7 @@ namespace Avalonia.Controls
             _resultHandler = resultHandler;
             MaximumCells = maximumCells;
             UseSeries = useSeries;
+            _formulaTranslator = formulaTranslator;
         }
 
         /// <summary>Gets the maximum destination cells handled by one fill operation.</summary>
@@ -247,6 +251,7 @@ namespace Avalonia.Controls
             int applied = 0;
             int visited = 0;
             bool truncated = false;
+            Dictionary<(int Row, int Column), IPreparedFormulaFillTranslation> preparedFormulas = null;
 
             _edits.BeginBatch();
             try
@@ -275,7 +280,14 @@ namespace Avalonia.Controls
 
                         visited++;
                         object value;
-                        if (!TryGetSeriesValue(context, source, rowIndex, columnIndex, out value) &&
+                        if (!TryGetFormulaValue(
+                                context,
+                                source,
+                                rowIndex,
+                                columnIndex,
+                                ref preparedFormulas,
+                                out value) &&
+                            !TryGetSeriesValue(context, source, rowIndex, columnIndex, out value) &&
                             !TryGetCopiedValue(context, source, rowIndex, columnIndex, out value))
                         {
                             continue;
@@ -302,6 +314,60 @@ namespace Avalonia.Controls
             }
 
             _resultHandler?.Invoke(new DataGridGeneratedTransferResult<TKey>(applied, truncated, errors));
+        }
+
+        private bool TryGetFormulaValue(
+            DataGridFillContext context,
+            DataGridCellRange source,
+            int rowIndex,
+            int columnIndex,
+            ref Dictionary<(int Row, int Column), IPreparedFormulaFillTranslation> preparedFormulas,
+            out object value)
+        {
+            value = null;
+            if (_formulaTranslator == null)
+            {
+                return false;
+            }
+
+            int sourceRow = source.StartRow + PositiveModulo(rowIndex - source.StartRow, source.RowCount);
+            int sourceColumn = source.StartColumn + PositiveModulo(columnIndex - source.StartColumn, source.ColumnCount);
+            if (!TryGetRow(context, sourceRow, out TItem sourceItem) ||
+                !TryGetField(context.Grid, sourceColumn, out _, out IDataGridGeneratedEditField<TItem> sourceField) ||
+                sourceField.GetValue(sourceItem) is not string formulaText)
+            {
+                return false;
+            }
+
+            string translatedFormula;
+            if (_formulaTranslator is IPreparedFormulaFillTranslator preparedTranslator)
+            {
+                preparedFormulas ??= new Dictionary<(int Row, int Column), IPreparedFormulaFillTranslation>();
+                var key = (sourceRow, sourceColumn);
+                if (!preparedFormulas.TryGetValue(key, out IPreparedFormulaFillTranslation prepared))
+                {
+                    prepared = preparedTranslator.Prepare(formulaText, sourceRow, sourceColumn);
+                    preparedFormulas.Add(key, prepared);
+                }
+
+                if (prepared == null || !prepared.TryTranslate(rowIndex, columnIndex, out translatedFormula))
+                {
+                    return false;
+                }
+            }
+            else if (!_formulaTranslator.TryTranslate(
+                         formulaText,
+                         sourceRow,
+                         sourceColumn,
+                         rowIndex,
+                         columnIndex,
+                         out translatedFormula))
+            {
+                return false;
+            }
+
+            value = translatedFormula;
+            return true;
         }
 
         private bool TryGetSeriesValue(

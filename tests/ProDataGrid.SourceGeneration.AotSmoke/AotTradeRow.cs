@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using ProDataGrid.FormulaEngine.Excel;
 using ProDataGrid.SourceGeneration;
 
 namespace ProDataGrid.SourceGeneration.AotSmoke;
@@ -16,7 +17,8 @@ namespace ProDataGrid.SourceGeneration.AotSmoke;
     Strict = true,
     Streaming = true,
     MutationHandlerType = typeof(AotTradeMutationHandler),
-    NewRowFactoryType = typeof(AotTradeNewRowFactory))]
+    NewRowFactoryType = typeof(AotTradeNewRowFactory),
+    FormulaFillTranslatorType = typeof(ExcelFormulaFillTranslator))]
 internal sealed class AotTradeRow
 {
     [DataGridKey]
@@ -24,7 +26,7 @@ internal sealed class AotTradeRow
     public int Id { get; init; }
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Symbol", ColumnKey = "symbol", Order = 1, Width = "*")]
-    public string Symbol { get; init; } = string.Empty;
+    public string Symbol { get; set; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Desk", ColumnKey = "desk", Order = 2, Width = "*")]
     public string Desk { get; init; } = string.Empty;

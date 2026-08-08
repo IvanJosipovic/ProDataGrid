@@ -10,6 +10,8 @@ using Avalonia.Controls;
 using Avalonia.Controls.DataGridClipboard;
 using Avalonia.Controls.DataGridFilling;
 using Avalonia.Headless.XUnit;
+using ProDataGrid.FormulaEngine;
+using ProDataGrid.FormulaEngine.Excel;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
@@ -306,6 +308,55 @@ public sealed class DataGridGeneratedTransferTests
         }
     }
 
+    [AvaloniaFact]
+    public void Generated_fill_model_translates_relative_formulas_as_one_undo_batch()
+    {
+        var rows = new ObservableCollection<Row>
+        {
+            new(1, "=A1+$B$1", 1m),
+            new(2, "old-2", 2m),
+            new(3, "old-3", 3m)
+        };
+        using DataGridGeneratedEditController<Row, int> edits = CreateEdits();
+        DataGridGeneratedTransferResult<int>? reported = null;
+        var translator = new CountingPreparedTranslator();
+        var model = new DataGridGeneratedFillModel<Row, int>(
+            new RowKey(),
+            edits,
+            result => reported = result,
+            formulaTranslator: translator);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            ItemsSource = rows,
+            SelectionUnit = DataGridSelectionUnit.Cell
+        };
+        grid.ColumnsInternal.Add(new DataGridTextColumn { Header = "Formula", ColumnKey = "name" });
+        var window = new Window { Content = grid };
+        window.Show();
+        grid.UpdateLayout();
+
+        try
+        {
+            model.ApplyFill(new DataGridFillContext(
+                grid,
+                new DataGridCellRange(0, 0, 0, 0),
+                new DataGridCellRange(0, 2, 0, 0)));
+
+            Assert.NotNull(reported);
+            Assert.Equal(2, reported.AppliedCells);
+            Assert.Equal(1, translator.PrepareCalls);
+            Assert.Equal(new[] { "=A1+$B$1", "=A2+$B$1", "=A3+$B$1" }, rows.Select(static row => row.Name));
+            Assert.True(edits.Undo());
+            Assert.Equal(new[] { "=A1+$B$1", "old-2", "old-3" }, rows.Select(static row => row.Name));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [Fact]
     public void Generated_transfer_adapter_constructors_validate_required_dependencies_and_limits()
     {
@@ -349,5 +400,33 @@ public sealed class DataGridGeneratedTransferTests
     private sealed class RowKey : IDataGridItemKey<Row, int>
     {
         public int GetKey(Row item) => item.Id;
+    }
+
+    private sealed class CountingPreparedTranslator : IPreparedFormulaFillTranslator
+    {
+        private readonly ExcelFormulaFillTranslator _inner = new();
+
+        public int PrepareCalls { get; private set; }
+
+        public IPreparedFormulaFillTranslation? Prepare(string formulaText, int sourceRow, int sourceColumn)
+        {
+            PrepareCalls++;
+            return _inner.Prepare(formulaText, sourceRow, sourceColumn);
+        }
+
+        public bool TryTranslate(
+            string formulaText,
+            int sourceRow,
+            int sourceColumn,
+            int targetRow,
+            int targetColumn,
+            out string translatedFormula) =>
+            _inner.TryTranslate(
+                formulaText,
+                sourceRow,
+                sourceColumn,
+                targetRow,
+                targetColumn,
+                out translatedFormula);
     }
 }

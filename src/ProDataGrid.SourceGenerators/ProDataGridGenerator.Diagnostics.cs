@@ -195,6 +195,11 @@ internal static class GeneratorDiagnostics
         "Invalid new-row factory",
         "New-row factory type '{0}' must be accessible, non-abstract, have an accessible parameterless constructor, and implement IDataGridGeneratedNewRowFactory<{1}>");
 
+    public static readonly DiagnosticDescriptor InvalidFormulaFillTranslator = Create(
+        "PDGSG137",
+        "Invalid formula fill translator",
+        "Formula fill translator type '{0}' must be accessible, non-abstract, have an accessible parameterless constructor, and implement IFormulaFillTranslator");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

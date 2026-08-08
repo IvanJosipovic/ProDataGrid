@@ -170,6 +170,7 @@ public sealed partial class ProDataGridGenerator
                 public Type? ImplementationType { get; set; }
                 public Type? MutationHandlerType { get; set; }
                 public Type? NewRowFactoryType { get; set; }
+                public Type? FormulaFillTranslatorType { get; set; }
                 public string? ConfigureMethod { get; set; }
             }
 

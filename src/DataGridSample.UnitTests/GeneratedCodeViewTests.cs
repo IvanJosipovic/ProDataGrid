@@ -1370,6 +1370,18 @@ public sealed class GeneratedCodeViewTests
             Assert.Equal(new[] { 10, 20, 5, 8 }, viewModel.Items.Take(4).Select(static item => item.Quantity));
             Assert.True(viewModel.EditController.Undo());
             Assert.Equal("ALPHA", viewModel.Items[0].Product);
+
+            DataGridColumn formulaColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "formula"));
+            int formulaColumnIndex = grid.Columns.IndexOf(formulaColumn);
+            viewModel.FillModel.ApplyFill(new DataGridFillContext(
+                grid,
+                new DataGridCellRange(0, 0, formulaColumnIndex, formulaColumnIndex),
+                new DataGridCellRange(0, 3, formulaColumnIndex, formulaColumnIndex)));
+            Assert.Equal(
+                new[] { "=B1*C1", "=B2*C2", "=B3*C3", "=B4*C4" },
+                viewModel.Items.Take(4).Select(static item => item.Formula));
+            Assert.True(viewModel.EditController.Undo());
+            Assert.All(viewModel.Items.Take(4), static item => Assert.Equal("=B1*C1", item.Formula));
         }
         finally
         {
