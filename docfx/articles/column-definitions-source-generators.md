@@ -390,6 +390,51 @@ DataGridGeneratedSnapshotMetrics result = snapshots.Reconcile(
 
 Snapshot reconciliation applies keyed add/remove/move/replace changes without clearing the target collection, rejects duplicate keys before mutation, and ignores stale revisions. `CreateStreamBuffer` and `CreateAsyncStreamPump` provide the lower-level allocation-conscious APIs for custom adapters.
 
+### Generated remote queries
+
+Use `DataGridGeneratedSourceKind.Remote` with `DataGridOperationExecution.Remote` when a named controller owns typed operation state but a service executes the query. The generated ViewModel members construct immutable, monotonically revisioned `DataGridRemoteQuery<TItem>` values from the controller's current sorting, filtering, and searching descriptors. The application supplies an `IDataGridQueryProvider<TItem,TKey>`; networking, persistence, authentication, retries, and backend-specific serialization stay behind that interface.
+
+```csharp
+[GenerateDataGridController(
+    typeof(Order),
+    "Orders",
+    ProviderName = "OrderSchema",
+    SourceMember = nameof(_provider),
+    SourceKind = DataGridGeneratedSourceKind.Remote,
+    OperationExecution = DataGridOperationExecution.Remote,
+    Features = DataGridGeneratedFeatures.Columns |
+               DataGridGeneratedFeatures.Sorting |
+               DataGridGeneratedFeatures.Filtering |
+               DataGridGeneratedFeatures.Searching)]
+public sealed partial class OrdersViewModel : ReactiveObject, IDisposable
+{
+    private readonly IDataGridQueryProvider<Order, int> _provider;
+
+    private void InitializeRemoteQueries()
+    {
+        InitializeOrders(CreateOrdersController());
+        InitializeOrdersRemoteQuery(CreateOrdersRemoteQueryController(
+            debounce: TimeSpan.FromMilliseconds(50),
+            pageCacheCapacity: 4,
+            fieldNameTranslator: TranslateBackendField));
+    }
+
+    private ValueTask<DataGridQueryPage<Order, int>?> LoadPageAsync(
+        int pageIndex,
+        CancellationToken cancellationToken) =>
+        QueryOrdersAsync(
+            DataGridPageRequest.FromOffset(pageIndex * 50, 50),
+            cacheKey: $"v{Orders.Version}:page:{pageIndex}",
+            cancellationToken: cancellationToken);
+}
+```
+
+`Create{Name}RemoteQueryController`, `Initialize{Name}RemoteQuery`, `Query{Name}Async`, `{Name}RemoteQuery`, and `Dispose{Name}RemoteQuery` are generated for a keyed remote controller. A newer request cancels the previous request and advances the revision. A provider response is accepted only when both its revision and the controller's current revision match; canceled or stale results return `null` and cannot overwrite current rows. `StateChanged` reports loading, errors, and stale suppression. Offset and opaque-cursor paging are both supported through `DataGridPageRequest`.
+
+The optional page cache is bounded by page count and uses caller-defined stable cache keys, so keys should include every operation or data revision that affects the page. `TranslateField` maps stable generated field IDs to backend names without changing schema identity. Providers may call the generated schema's `CreateSortComparer`, `CreateFilterPredicate`, and `CreateSearchPredicate` for an in-process reflection-free implementation, or serialize the descriptors for a remote backend.
+
+`DataGridSample.Pages.GeneratedRemoteQueryPage` demonstrates the complete ReactiveUI path: generated descriptor builders, offset paging, cached back-navigation, field translation, cancellation, a cancellation-resistant stale response, loading/error/content projection, retry, deterministic service data, and passive generated-view hosting. ViewModel and Avalonia Headless tests cover the provider contract, cache, filters, sorting, search, stale suppression, disposal, and error recovery.
+
 ## Generated hierarchy, selection, and state helpers
 
 Annotate one children property with `[DataGridChildren]`, an optional writable Boolean property with `[DataGridExpanded]`, and an optional parent-key field/property with `[DataGridParentKey]`. The provider emits typed `CreateHierarchicalOptions()` and `GetParentKey()` methods. Invalid or ambiguous hierarchy members produce `PDGSG109`.

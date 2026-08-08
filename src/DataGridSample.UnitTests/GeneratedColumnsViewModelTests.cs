@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Linq;
+using System.Reactive.Threading.Tasks;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -307,5 +309,81 @@ public sealed class GeneratedColumnsViewModelTests
 
         Assert.True(viewModel.IsDisposed);
         Assert.Empty(viewModel.HierarchicalModel.ObservableFlattened);
+    }
+
+    [AvaloniaFact]
+    public async Task Generated_remote_query_pipeline_pages_caches_filters_and_suppresses_stale_responses()
+    {
+        using var viewModel = new GeneratedRemoteQueryViewModel();
+        await viewModel.Initialization;
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(DataGridGeneratedViewState.Content, viewModel.ViewState);
+        Assert.Equal(8, viewModel.Items.Count);
+        Assert.Equal(64, viewModel.TotalCount);
+        Assert.Equal(0, viewModel.PageIndex);
+        Assert.Equal(1, viewModel.RequestCount);
+        Assert.Equal(Enumerable.Range(57, 8).Reverse(), viewModel.Items.Select(static item => item.Id));
+        Assert.Contains("gross_total", viewModel.TranslatedField, StringComparison.Ordinal);
+
+        await viewModel.NextPageCommand.Execute().ToTask();
+        Assert.Equal(1, viewModel.PageIndex);
+        Assert.Equal(2, viewModel.RequestCount);
+        Assert.Equal(Enumerable.Range(49, 8).Reverse(), viewModel.Items.Select(static item => item.Id));
+
+        await viewModel.PreviousPageCommand.Execute().ToTask();
+        Assert.Equal(0, viewModel.PageIndex);
+        Assert.Equal(2, viewModel.RequestCount);
+
+        viewModel.Query = "Contoso";
+        await viewModel.LoadFirstPageCommand.Execute().ToTask();
+        Assert.Equal(3, viewModel.SearchModel.Descriptors.Count);
+        Assert.Equal(11, viewModel.TotalCount);
+        Assert.All(viewModel.Items, static item => Assert.StartsWith("Contoso", item.Customer, StringComparison.Ordinal));
+
+        await viewModel.ClearQueryCommand.Execute().ToTask();
+        await viewModel.ApplyEuropeFilterCommand.Execute().ToTask();
+        Assert.Equal(2, viewModel.FilteringModel.Descriptors.Count);
+        Assert.NotEmpty(viewModel.Items);
+        Assert.All(viewModel.Items, static item =>
+        {
+            Assert.Equal("Europe", item.Region);
+            Assert.True(item.Total >= 250m);
+        });
+
+        await viewModel.SortTotalDescendingCommand.Execute().ToTask();
+        decimal[] totals = viewModel.Items.Select(static item => item.Total).ToArray();
+        Assert.Equal(totals.OrderByDescending(static total => total), totals);
+
+        await viewModel.RunStaleScenarioCommand.Execute().ToTask();
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(viewModel.StaleResponseCount >= 1);
+        Assert.True(viewModel.CancellationCount >= 1);
+        Assert.Contains("Suppressed stale revision", viewModel.Status, StringComparison.Ordinal);
+        Assert.Equal(DataGridGeneratedViewState.Content, viewModel.ViewState);
+
+        await viewModel.SimulateErrorCommand.Execute().ToTask();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(DataGridGeneratedViewState.Error, viewModel.ViewState);
+        Assert.NotNull(viewModel.ErrorMessage);
+        Assert.True(viewModel.ErrorCount >= 1);
+
+        await viewModel.RetryCommand.Execute().ToTask();
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(DataGridGeneratedViewState.Content, viewModel.ViewState);
+        Assert.Null(viewModel.ErrorMessage);
+    }
+
+    [AvaloniaFact]
+    public async Task Generated_remote_query_pipeline_disposes_idempotently()
+    {
+        var viewModel = new GeneratedRemoteQueryViewModel();
+        await viewModel.Initialization;
+
+        viewModel.Dispose();
+        viewModel.Dispose();
+
+        Assert.True(viewModel.IsDisposed);
+        Assert.Throws<InvalidOperationException>(() => _ = viewModel.OrdersRemoteQuery);
     }
 }

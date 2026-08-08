@@ -86,6 +86,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.GeneratedReactiveDataGridView", static () => new global::DataGridSample.Pages.GeneratedReactiveDataGridView()),
             ("DataGridSample.Pages.GeneratedReactiveEventCommandsPage", static () => new global::DataGridSample.Pages.GeneratedReactiveEventCommandsPage()),
             ("DataGridSample.Pages.GeneratedReactiveViewStatesPage", static () => new global::DataGridSample.Pages.GeneratedReactiveViewStatesPage()),
+            ("DataGridSample.Pages.GeneratedRemoteQueryPage", static () => new global::DataGridSample.Pages.GeneratedRemoteQueryPage()),
             ("DataGridSample.Pages.GeneratedVirtualizationProfilePage", static () => new global::DataGridSample.Pages.GeneratedVirtualizationProfilePage()),
             ("DataGridSample.Pages.ExcelLikeEditingPage", static () => new global::DataGridSample.Pages.ExcelLikeEditingPage()),
             ("DataGridSample.Pages.ExplicitInterfaceSortingPage", static () => new global::DataGridSample.Pages.ExplicitInterfaceSortingPage()),

@@ -607,6 +607,13 @@
         </pages:GeneratedHierarchicalDynamicDataPage.DataContext>
       </pages:GeneratedHierarchicalDynamicDataPage>
     </TabItem>
+    <TabItem Header="Generated Remote Query">
+      <pages:GeneratedRemoteQueryPage>
+        <pages:GeneratedRemoteQueryPage.DataContext>
+          <viewModels:GeneratedRemoteQueryViewModel />
+        </pages:GeneratedRemoteQueryPage.DataContext>
+      </pages:GeneratedRemoteQueryPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

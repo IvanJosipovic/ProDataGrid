@@ -625,6 +625,74 @@ public sealed class GeneratedCodeViewTests
     }
 
     [AvaloniaFact]
+    public async Task Generated_remote_query_page_projects_paging_stale_and_error_state()
+    {
+        using var viewModel = new GeneratedRemoteQueryViewModel();
+        await viewModel.Initialization;
+        var view = new GeneratedRemoteQueryPage { DataContext = viewModel };
+        var window = new Window { Width = 1000, Height = 640, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            TextBox searchBox = view.GetLogicalDescendants().OfType<TextBox>()
+                .Single(static textBox => textBox.Name == "GeneratedSearchBox");
+            Control error = view.GetLogicalDescendants().OfType<Control>()
+                .Single(control => control.Name == "GeneratedErrorState");
+            Button retry = view.GetLogicalDescendants().OfType<Button>()
+                .Single(control => control.Name == "GeneratedRetryButton");
+
+            Assert.Same(viewModel.Items, grid.ItemsSource);
+            Assert.Same(viewModel.SortingModel, grid.SortingModel);
+            Assert.Same(viewModel.FilteringModel, grid.FilteringModel);
+            Assert.Same(viewModel.SearchModel, grid.SearchModel);
+            Assert.Equal(viewModel.ColumnDefinitions.Count, grid.Columns.Count);
+            Assert.True(grid.IsVisible);
+            Assert.False(error.IsVisible);
+
+            searchBox.Text = "Contoso";
+            Dispatcher.UIThread.RunJobs();
+            await viewModel.LoadFirstPageCommand.Execute().ToTask();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("Contoso", viewModel.Query);
+            Assert.NotEmpty(viewModel.Items);
+            Assert.All(viewModel.Items, static item => Assert.StartsWith("Contoso", item.Customer, StringComparison.Ordinal));
+
+            await viewModel.SimulateErrorCommand.Execute().ToTask();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(error.IsVisible);
+            Assert.False(grid.IsVisible);
+            Assert.Same(viewModel.RetryCommand, retry.Command);
+
+            await viewModel.RetryCommand.Execute().ToTask();
+            await viewModel.RunStaleScenarioCommand.Execute().ToTask();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(grid.IsVisible);
+            Assert.False(error.IsVisible);
+            Assert.True(viewModel.StaleResponseCount >= 1);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-remote-query.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Explorer_recipe_exposes_automation_and_named_slots_and_can_capture_populated_view()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();
