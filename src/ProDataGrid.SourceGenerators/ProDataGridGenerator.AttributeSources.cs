@@ -276,6 +276,15 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridSelectionMode.Single;
                 public global::Avalonia.Controls.DataGridSelectionUnit SelectionUnit { get; set; } =
                     global::Avalonia.Controls.DataGridSelectionUnit.FullRow;
+                public string? ClipboardImportModelPropertyName { get; set; }
+                public string? FillModelPropertyName { get; set; }
+                public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
+                    global::Avalonia.Controls.DataGridEditTriggers.Default;
+                public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
+                    global::Avalonia.Controls.DataGridClipboardCopyMode.ExcludeHeader;
+                public bool IsReadOnly { get; set; }
+                public bool CanUserAddRows { get; set; }
+                public bool CanUserDeleteRows { get; set; }
                 public bool ShowTotalSummary { get; set; }
                 public bool ShowGroupSummary { get; set; }
                 public global::Avalonia.Controls.DataGridSummaryRowPosition TotalSummaryPosition { get; set; } =
@@ -338,6 +347,15 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridSelectionMode.Single;
                 public global::Avalonia.Controls.DataGridSelectionUnit SelectionUnit { get; set; } =
                     global::Avalonia.Controls.DataGridSelectionUnit.FullRow;
+                public string? ClipboardImportModelPropertyName { get; set; }
+                public string? FillModelPropertyName { get; set; }
+                public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
+                    global::Avalonia.Controls.DataGridEditTriggers.Default;
+                public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
+                    global::Avalonia.Controls.DataGridClipboardCopyMode.ExcludeHeader;
+                public bool IsReadOnly { get; set; }
+                public bool CanUserAddRows { get; set; }
+                public bool CanUserDeleteRows { get; set; }
                 public bool ShowTotalSummary { get; set; }
                 public bool ShowGroupSummary { get; set; }
                 public global::Avalonia.Controls.DataGridSummaryRowPosition TotalSummaryPosition { get; set; } =

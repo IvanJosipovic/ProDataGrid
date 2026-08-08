@@ -628,6 +628,13 @@
         </pages:GeneratedGroupingSummariesPage.DataContext>
       </pages:GeneratedGroupingSummariesPage>
     </TabItem>
+    <TabItem Header="Generated Editing + Clipboard + Fill">
+      <pages:GeneratedEditingClipboardFillPage>
+        <pages:GeneratedEditingClipboardFillPage.DataContext>
+          <viewModels:GeneratedEditingClipboardFillViewModel />
+        </pages:GeneratedEditingClipboardFillPage.DataContext>
+      </pages:GeneratedEditingClipboardFillPage>
+    </TabItem>
     <TabItem Header="Generated Features - Complex App">
       <pages:GeneratedSourceFeaturesPage>
         <pages:GeneratedSourceFeaturesPage.DataContext>

@@ -3254,7 +3254,37 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("CreateEditController", result.CombinedSource);
         Assert.Contains("CreateClipboardController", result.CombinedSource);
         Assert.Contains("CreateFillController", result.CombinedSource);
+        Assert.Contains("CreateClipboardImportModel", result.CombinedSource);
+        Assert.Contains("CreateFillModel", result.CombinedSource);
         Assert.Contains("CreateDragDropController", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Writable_read_only_columns_are_excluded_from_generated_edit_fields()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridKey]
+                public int Id { get; init; }
+
+                [DataGridColumn(ColumnKey = "editable")]
+                public string Editable { get; set; } = "";
+
+                [DataGridColumn(ColumnKey = "read-only", IsReadOnly = true)]
+                public string ReadOnly { get; set; } = "";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("s_EditableEditField", result.CombinedSource);
+        Assert.DoesNotContain("s_ReadOnlyEditField", result.CombinedSource);
+        Assert.Contains("new global::Avalonia.Controls.DataGridGeneratedDiagnosticField(\"editable\", typeof(string), true", result.CombinedSource);
+        Assert.Contains("new global::Avalonia.Controls.DataGridGeneratedDiagnosticField(\"read-only\", typeof(string), false", result.CombinedSource);
     }
 
     [Fact]
@@ -3286,6 +3316,9 @@ public sealed class ProDataGridGeneratorTests
             {
                 [Required, StringLength(12, MinimumLength = 3)]
                 public string Name { get; set; } = "";
+
+                [Range(1, 500)]
+                public int Quantity { get; set; }
             }
             """);
 
@@ -3293,6 +3326,8 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("String.IsNullOrWhiteSpace(value)", result.CombinedSource);
         Assert.Contains("value.Length > 12", result.CombinedSource);
         Assert.Contains("value.Length < 3", result.CombinedSource);
+        Assert.Contains("value < (int)1", result.CombinedSource);
+        Assert.Contains("value > (int)500", result.CombinedSource);
     }
 
     [Fact]
@@ -3349,6 +3384,86 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("ShowGroupSummary = true", result.CombinedSource);
         Assert.Contains("TotalSummaryPosition = (global::Avalonia.Controls.DataGridSummaryRowPosition)0", result.CombinedSource);
         Assert.Contains("GroupSummaryPosition = (global::Avalonia.Controls.DataGridGroupSummaryPosition)2", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_binds_reflection_free_clipboard_and_fill_models()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridClipboard;
+            using Avalonia.Controls.DataGridFilling;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { [DataGridKey] public int Id { get; init; } public int Value { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                ClipboardImportModelPropertyName = nameof(ClipboardImport),
+                FillModelPropertyName = nameof(Fill),
+                SelectionUnit = DataGridSelectionUnit.CellOrRowHeader,
+                EditTriggers = DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput,
+                ClipboardCopyMode = DataGridClipboardCopyMode.IncludeHeader)]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+                public IDataGridClipboardImportModel ClipboardImport { get; } = null!;
+                public IDataGridFillModel Fill { get; } = null!;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DataGrid.ClipboardImportModelProperty", result.CombinedSource);
+        Assert.Contains("DataGrid.FillModelProperty", result.CombinedSource);
+        Assert.Contains("EditTriggers = (global::Avalonia.Controls.DataGridEditTriggers)6", result.CombinedSource);
+        Assert.Contains("ClipboardCopyMode = (global::Avalonia.Controls.DataGridClipboardCopyMode)2", result.CombinedSource);
+        Assert.Contains("dataGrid.SelectionUnit = (global::Avalonia.Controls.DataGridSelectionUnit)2", result.CombinedSource);
+        Assert.Contains("CanUserAddRows = false", result.CombinedSource);
+        Assert.Contains("CanUserDeleteRows = false", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_rejects_incompatible_clipboard_and_fill_model_members()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Value { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(
+                typeof(Row),
+                ClipboardImportModelPropertyName = nameof(ClipboardImport),
+                FillModelPropertyName = nameof(Fill))]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+                public object ClipboardImport { get; } = new();
+                public object Fill { get; } = new();
+            }
+            """);
+
+        Assert.Equal(2, result.GeneratorDiagnostics.Count(static diagnostic => diagnostic.Id == "PDGSG129"));
+    }
+
+    [Fact]
+    public void Generated_view_preserves_datagrid_selection_defaults_when_not_configured()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Value { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row))]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+            }
+            """);
+
+        AssertNoErrors(result);
+        string viewSource = result.Sources.Single(static source => source.Contains("class GridView :", StringComparison.Ordinal));
+        Assert.DoesNotContain("dataGrid.SelectionMode =", viewSource);
+        Assert.DoesNotContain("dataGrid.SelectionUnit =", viewSource);
     }
 
     [Fact]

@@ -338,6 +338,15 @@ internal static partial class Discovery
             SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
             SelectionMode = GetEnumValue(arguments, "SelectionMode", 1),
             SelectionUnit = GetEnumValue(arguments, "SelectionUnit", 0),
+            HasSelectionConfiguration = arguments.Keys.Any(static key =>
+                key is "SelectionModelPropertyName" or "SelectionMode" or "SelectionUnit"),
+            ClipboardImportModelPropertyName = GeneratorUtilities.GetString(arguments, "ClipboardImportModelPropertyName"),
+            FillModelPropertyName = GeneratorUtilities.GetString(arguments, "FillModelPropertyName"),
+            EditTriggers = GetEnumValue(arguments, "EditTriggers", 9),
+            ClipboardCopyMode = GetEnumValue(arguments, "ClipboardCopyMode", 1),
+            IsReadOnly = GeneratorUtilities.GetBoolean(arguments, "IsReadOnly", false),
+            CanUserAddRows = GeneratorUtilities.GetBoolean(arguments, "CanUserAddRows", false),
+            CanUserDeleteRows = GeneratorUtilities.GetBoolean(arguments, "CanUserDeleteRows", false),
             ShowTotalSummary = GeneratorUtilities.GetBoolean(arguments, "ShowTotalSummary", false),
             ShowGroupSummary = GeneratorUtilities.GetBoolean(arguments, "ShowGroupSummary", false),
             TotalSummaryPosition = GetEnumValue(arguments, "TotalSummaryPosition", 1),
@@ -651,6 +660,24 @@ internal static partial class Discovery
             SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
             SelectionMode = request.SelectionMode,
             SelectionUnit = request.SelectionUnit,
+            ConfigureSelection = request.HasSelectionConfiguration,
+            ClipboardImportModel = ResolveTransferViewBinding(
+                request,
+                request.ClipboardImportModelPropertyName,
+                "Avalonia.Controls.DataGridClipboard.IDataGridClipboardImportModel",
+                "IDataGridClipboardImportModel",
+                diagnostics),
+            FillModel = ResolveTransferViewBinding(
+                request,
+                request.FillModelPropertyName,
+                "Avalonia.Controls.DataGridFilling.IDataGridFillModel",
+                "IDataGridFillModel",
+                diagnostics),
+            EditTriggers = request.EditTriggers,
+            ClipboardCopyMode = request.ClipboardCopyMode,
+            IsReadOnly = request.IsReadOnly,
+            CanUserAddRows = request.CanUserAddRows,
+            CanUserDeleteRows = request.CanUserDeleteRows,
             ShowTotalSummary = request.ShowTotalSummary,
             ShowGroupSummary = request.ShowGroupSummary,
             TotalSummaryPosition = request.TotalSummaryPosition,
@@ -1181,6 +1208,38 @@ internal static partial class Discovery
             : ResolveViewBinding(request, propertyName!, null, false, diagnostics, requireSetter);
     }
 
+    private static ViewBindingModel? ResolveTransferViewBinding(
+        ViewRequest request,
+        string? propertyName,
+        string interfaceMetadataName,
+        string interfaceDisplayName,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        ViewBindingModel? binding = ResolveOptionalViewBinding(request, propertyName, diagnostics);
+        if (binding == null || string.IsNullOrWhiteSpace(propertyName))
+        {
+            return binding;
+        }
+
+        ITypeSymbol? propertyType = FindViewBindingMemberType(request.ViewModelType, propertyName!);
+        if (propertyType is INamedTypeSymbol namedType &&
+            (string.Equals(GeneratorUtilities.GetMetadataName(namedType), interfaceMetadataName, StringComparison.Ordinal) ||
+             namedType.AllInterfaces.Any(implemented => string.Equals(
+                 GeneratorUtilities.GetMetadataName(implemented),
+                 interfaceMetadataName,
+                 StringComparison.Ordinal))))
+        {
+            return binding;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewTransferIntegration,
+            request.Location,
+            request.ViewName,
+            $"member '{propertyName}' must implement {interfaceDisplayName}"));
+        return null;
+    }
+
     private static ViewBindingModel? ResolveViewBinding(
         ViewRequest request,
         string propertyName,
@@ -1341,6 +1400,14 @@ internal static partial class Discovery
         public string? SelectionModelPropertyName { get; set; }
         public int SelectionMode { get; set; } = 1;
         public int SelectionUnit { get; set; }
+        public bool HasSelectionConfiguration { get; set; }
+        public string? ClipboardImportModelPropertyName { get; set; }
+        public string? FillModelPropertyName { get; set; }
+        public int EditTriggers { get; set; } = 9;
+        public int ClipboardCopyMode { get; set; } = 1;
+        public bool IsReadOnly { get; set; }
+        public bool CanUserAddRows { get; set; }
+        public bool CanUserDeleteRows { get; set; }
         public bool ShowTotalSummary { get; set; }
         public bool ShowGroupSummary { get; set; }
         public int TotalSummaryPosition { get; set; } = 1;

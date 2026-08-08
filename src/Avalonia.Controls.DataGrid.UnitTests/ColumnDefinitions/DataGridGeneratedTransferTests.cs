@@ -3,8 +3,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridClipboard;
+using Avalonia.Controls.DataGridFilling;
+using Avalonia.Headless.XUnit;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
@@ -97,6 +102,221 @@ public sealed class DataGridGeneratedTransferTests
         Assert.Equal(1, result.AppliedCells);
         Assert.Equal("new", rows[0].Name);
         Assert.Equal("unchanged", rows[1].Name);
+    }
+
+    [AvaloniaFact]
+    public void Generated_clipboard_import_model_uses_column_keys_and_records_one_undo_batch()
+    {
+        var rows = new ObservableCollection<Row>
+        {
+            new(1, "old", 1m),
+            new(2, "old", 2m)
+        };
+        using DataGridGeneratedEditController<Row, int> edits = CreateEdits();
+        DataGridGeneratedTransferResult<int>? reported = null;
+        var model = new DataGridGeneratedClipboardImportModel<Row, int>(
+            new RowKey(),
+            edits,
+            result => reported = result,
+            CultureInfo.InvariantCulture);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            ItemsSource = rows,
+            SelectionUnit = DataGridSelectionUnit.Cell
+        };
+        var nameColumn = new DataGridTextColumn { Header = "Name", ColumnKey = "name" };
+        var amountColumn = new DataGridNumericColumn { Header = "Amount", ColumnKey = "amount" };
+        grid.ColumnsInternal.Add(nameColumn);
+        grid.ColumnsInternal.Add(amountColumn);
+        var window = new Window { Content = grid };
+        window.Show();
+        grid.UpdateLayout();
+
+        try
+        {
+            var context = new DataGridClipboardImportContext(
+                grid,
+                "first\t10.5\nsecond\t20.25",
+                [new DataGridCellInfo(rows[0], nameColumn, 0, 0)]);
+
+            Assert.True(model.Paste(context));
+            Assert.NotNull(reported);
+            Assert.Equal(4, reported.AppliedCells);
+            Assert.Equal(("first", 10.5m), (rows[0].Name, rows[0].Amount));
+            Assert.Equal(("second", 20.25m), (rows[1].Name, rows[1].Amount));
+            Assert.True(edits.Undo());
+            Assert.Equal(("old", 1m), (rows[0].Name, rows[0].Amount));
+            Assert.Equal(("old", 2m), (rows[1].Name, rows[1].Amount));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_fill_model_extrapolates_numeric_series_and_records_one_undo_batch()
+    {
+        var rows = new ObservableCollection<Row>
+        {
+            new(1, "A", 1m),
+            new(2, "B", 2m),
+            new(3, "C", 0m),
+            new(4, "D", 0m)
+        };
+        using DataGridGeneratedEditController<Row, int> edits = CreateEdits();
+        DataGridGeneratedTransferResult<int>? reported = null;
+        var model = new DataGridGeneratedFillModel<Row, int>(
+            new RowKey(),
+            edits,
+            result => reported = result);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            ItemsSource = rows,
+            SelectionUnit = DataGridSelectionUnit.Cell
+        };
+        grid.ColumnsInternal.Add(new DataGridNumericColumn { Header = "Amount", ColumnKey = "amount" });
+        var window = new Window { Content = grid };
+        window.Show();
+        grid.UpdateLayout();
+
+        try
+        {
+            model.ApplyFill(new DataGridFillContext(
+                grid,
+                new DataGridCellRange(0, 1, 0, 0),
+                new DataGridCellRange(0, 3, 0, 0)));
+
+            Assert.NotNull(reported);
+            Assert.Equal(2, reported.AppliedCells);
+            Assert.Equal((1m, 2m, 3m, 4m), (rows[0].Amount, rows[1].Amount, rows[2].Amount, rows[3].Amount));
+            Assert.True(edits.Undo());
+            Assert.Equal((1m, 2m, 0m, 0m), (rows[0].Amount, rows[1].Amount, rows[2].Amount, rows[3].Amount));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_clipboard_import_model_applies_one_value_to_selection_with_a_hard_limit()
+    {
+        var rows = new ObservableCollection<Row>
+        {
+            new(1, "first", 1m),
+            new(2, "second", 2m)
+        };
+        using DataGridGeneratedEditController<Row, int> edits = CreateEdits();
+        DataGridGeneratedTransferResult<int>? reported = null;
+        var model = new DataGridGeneratedClipboardImportModel<Row, int>(
+            new RowKey(),
+            edits,
+            result => reported = result,
+            CultureInfo.InvariantCulture,
+            new DataGridGeneratedTransferLimits(maximumCells: 1, maximumCharacters: 100));
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            ItemsSource = rows,
+            SelectionUnit = DataGridSelectionUnit.Cell
+        };
+        var nameColumn = new DataGridTextColumn { Header = "Name", ColumnKey = "name" };
+        grid.ColumnsInternal.Add(nameColumn);
+        var window = new Window { Content = grid };
+        window.Show();
+        grid.UpdateLayout();
+
+        try
+        {
+            var context = new DataGridClipboardImportContext(
+                grid,
+                "shared",
+                [
+                    new DataGridCellInfo(rows[0], nameColumn, 0, 0),
+                    new DataGridCellInfo(rows[1], nameColumn, 1, 0)
+                ]);
+
+            Assert.True(model.Paste(context));
+            Assert.NotNull(reported);
+            Assert.Equal(1, reported.AppliedCells);
+            Assert.True(reported.Truncated);
+            Assert.Equal(("shared", "second"), (rows[0].Name, rows[1].Name));
+            Assert.True(edits.Undo());
+            Assert.Equal(("first", "second"), (rows[0].Name, rows[1].Name));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_fill_model_supports_bounded_cyclic_copy_without_series()
+    {
+        var rows = new ObservableCollection<Row>
+        {
+            new(1, "A", 1m),
+            new(2, "B", 2m),
+            new(3, "C", 3m),
+            new(4, "D", 4m)
+        };
+        using DataGridGeneratedEditController<Row, int> edits = CreateEdits();
+        DataGridGeneratedTransferResult<int>? reported = null;
+        var model = new DataGridGeneratedFillModel<Row, int>(
+            new RowKey(),
+            edits,
+            result => reported = result,
+            maximumCells: 2,
+            useSeries: false);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            CanUserAddRows = false,
+            ItemsSource = rows,
+            SelectionUnit = DataGridSelectionUnit.Cell
+        };
+        grid.ColumnsInternal.Add(new DataGridTextColumn { Header = "Name", ColumnKey = "name" });
+        var window = new Window { Content = grid };
+        window.Show();
+        grid.UpdateLayout();
+
+        try
+        {
+            model.ApplyFill(new DataGridFillContext(
+                grid,
+                new DataGridCellRange(0, 0, 0, 0),
+                new DataGridCellRange(0, 3, 0, 0)));
+
+            Assert.NotNull(reported);
+            Assert.Equal(2, reported.AppliedCells);
+            Assert.True(reported.Truncated);
+            Assert.Equal(new[] { "A", "A", "A", "D" }, rows.Select(static row => row.Name));
+            Assert.True(edits.Undo());
+            Assert.Equal(new[] { "A", "B", "C", "D" }, rows.Select(static row => row.Name));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [Fact]
+    public void Generated_transfer_adapter_constructors_validate_required_dependencies_and_limits()
+    {
+        using DataGridGeneratedEditController<Row, int> edits = CreateEdits();
+        var key = new RowKey();
+
+        Assert.Throws<ArgumentNullException>(() => new DataGridGeneratedClipboardImportModel<Row, int>(null!, edits));
+        Assert.Throws<ArgumentNullException>(() => new DataGridGeneratedClipboardImportModel<Row, int>(key, null!));
+        Assert.Throws<ArgumentNullException>(() => new DataGridGeneratedFillModel<Row, int>(null!, edits));
+        Assert.Throws<ArgumentNullException>(() => new DataGridGeneratedFillModel<Row, int>(key, null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DataGridGeneratedFillModel<Row, int>(key, edits, maximumCells: 0));
     }
 
     private static DataGridGeneratedEditController<Row, int> CreateEdits() =>

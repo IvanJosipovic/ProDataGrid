@@ -119,6 +119,22 @@ internal sealed class ViewModelViewModel
 
     public int SelectionUnit { get; set; }
 
+    public bool ConfigureSelection { get; set; }
+
+    public ViewBindingModel? ClipboardImportModel { get; set; }
+
+    public ViewBindingModel? FillModel { get; set; }
+
+    public int EditTriggers { get; set; }
+
+    public int ClipboardCopyMode { get; set; }
+
+    public bool IsReadOnly { get; set; }
+
+    public bool CanUserAddRows { get; set; }
+
+    public bool CanUserDeleteRows { get; set; }
+
     public bool ShowTotalSummary { get; set; }
 
     public bool ShowGroupSummary { get; set; }

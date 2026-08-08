@@ -491,4 +491,64 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(initialRevenue, viewModel.TotalRevenue);
         Assert.Contains("Reset fallback", viewModel.Status, StringComparison.Ordinal);
     }
+
+    [AvaloniaFact]
+    public async Task Generated_editing_clipboard_fill_view_model_exercises_typed_workflows()
+    {
+        using var viewModel = new GeneratedEditingClipboardFillViewModel();
+
+        Assert.Equal(6, GeneratedEditableOrderSchema.EditFields.Count);
+        Assert.DoesNotContain(GeneratedEditableOrderSchema.EditFields, static field => field.ColumnKey is "order-id" or "total");
+        Assert.False(viewModel.CanUndo);
+
+        viewModel.ApplyValidEditCommand.Execute().Subscribe();
+        Assert.Equal("CATALYST", viewModel.Items[0].Product);
+        Assert.Equal(123.46m, viewModel.Items[0].UnitPrice);
+        Assert.True(viewModel.CanUndo);
+
+        int originalQuantity = viewModel.Items[1].Quantity;
+        decimal lockedPrice = viewModel.Items[^1].UnitPrice;
+        viewModel.ApplyInvalidEditCommand.Execute().Subscribe();
+        Assert.Equal(originalQuantity, viewModel.Items[1].Quantity);
+        Assert.Equal(lockedPrice, viewModel.Items[^1].UnitPrice);
+        Assert.Equal(2, viewModel.LastErrorCount);
+        Assert.Contains("Locked-row policy=NotEditable", viewModel.Status, StringComparison.Ordinal);
+
+        await viewModel.ValidateAsyncCommand.Execute().ToTask();
+        Assert.Equal(148.68m, viewModel.Items[0].UnitPrice);
+        Assert.Equal(1, viewModel.LastErrorCount);
+        Assert.Contains("approval=ValidationFailed", viewModel.Status, StringComparison.Ordinal);
+
+        viewModel.PasteCommand.Execute().Subscribe();
+        Assert.Equal(("OMEGA", 12, 44.13m, 0.10m),
+            (viewModel.Items[0].Product, viewModel.Items[0].Quantity, viewModel.Items[0].UnitPrice, viewModel.Items[0].Discount));
+        Assert.Equal(4, viewModel.LastAppliedCells);
+        Assert.Equal(4, viewModel.LastErrorCount);
+        Assert.True(viewModel.EditController.Undo());
+        Assert.Equal(("CATALYST", 10, 148.68m, 0.05m),
+            (viewModel.Items[0].Product, viewModel.Items[0].Quantity, viewModel.Items[0].UnitPrice, viewModel.Items[0].Discount));
+
+        int[] originalQuantities = viewModel.Items.Select(static item => item.Quantity).ToArray();
+        viewModel.FillSeriesCommand.Execute().Subscribe();
+        Assert.Equal(new[] { 10, 20, 30, 40, 50, 60 }, viewModel.Items.Select(static item => item.Quantity));
+        Assert.True(viewModel.EditController.Undo());
+        Assert.Equal(originalQuantities, viewModel.Items.Select(static item => item.Quantity));
+        Assert.True(viewModel.EditController.Redo());
+        Assert.Equal(new[] { 10, 20, 30, 40, 50, 60 }, viewModel.Items.Select(static item => item.Quantity));
+
+        viewModel.ExportCommand.Execute().Subscribe();
+        Assert.StartsWith("product,quantity,unit-price,discount", viewModel.ExportPreview, StringComparison.Ordinal);
+        Assert.Contains("Generated Csv export", viewModel.Status, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public void Generated_editing_clipboard_fill_view_model_disposes_idempotently()
+    {
+        var viewModel = new GeneratedEditingClipboardFillViewModel();
+
+        viewModel.Dispose();
+        viewModel.Dispose();
+
+        Assert.True(viewModel.IsDisposed);
+    }
 }

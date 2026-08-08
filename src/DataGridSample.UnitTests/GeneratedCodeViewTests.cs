@@ -7,6 +7,8 @@ using System.Reactive.Threading.Tasks;
 using System.Threading.Tasks;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridClipboard;
+using Avalonia.Controls.DataGridFilling;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -846,6 +848,75 @@ public sealed class GeneratedCodeViewTests
                 frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
                 Assert.True(new FileInfo(path).Length > 0);
             }
+        }
+        finally
+        {
+            window.Close();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Generated_editing_clipboard_fill_page_binds_and_executes_typed_datagrid_adapters()
+    {
+        using var viewModel = new GeneratedEditingClipboardFillViewModel();
+        var view = new GeneratedEditingClipboardFillPage { DataContext = viewModel };
+        var window = new Window { Width = 1180, Height = 760, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetLogicalDescendants().OfType<DataGrid>().Single();
+            Assert.Same(viewModel.ItemsView, grid.ItemsSource);
+            Assert.Same(viewModel.ClipboardImportModel, grid.ClipboardImportModel);
+            Assert.Same(viewModel.FillModel, grid.FillModel);
+            Assert.Equal(DataGridSelectionMode.Extended, grid.SelectionMode);
+            Assert.Equal(DataGridSelectionUnit.CellOrRowHeader, grid.SelectionUnit);
+            Assert.Equal(
+                DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput | DataGridEditTriggers.F2,
+                grid.EditTriggers);
+            Assert.Equal(DataGridClipboardCopyMode.IncludeHeader, grid.ClipboardCopyMode);
+            Assert.False(grid.IsReadOnly);
+            Assert.False(grid.CanUserAddRows);
+            Assert.False(grid.CanUserDeleteRows);
+            Assert.Equal(viewModel.ColumnDefinitions.Count, grid.Columns.Count);
+
+            DataGridColumn productColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "product"));
+            int productColumnIndex = grid.Columns.IndexOf(productColumn);
+            var paste = new DataGridClipboardImportContext(
+                grid,
+                "grid adapter",
+                [new DataGridCellInfo(viewModel.Items[0], productColumn, 0, productColumnIndex)]);
+            Assert.True(viewModel.ClipboardImportModel.Paste(paste));
+            Assert.Equal("GRID ADAPTER", viewModel.Items[0].Product);
+            Assert.Equal(1, viewModel.LastAppliedCells);
+
+            DataGridColumn quantityColumn = grid.Columns.Single(static column => Equals(column.ColumnKey, "quantity"));
+            int quantityColumnIndex = grid.Columns.IndexOf(quantityColumn);
+            viewModel.FillModel.ApplyFill(new DataGridFillContext(
+                grid,
+                new DataGridCellRange(0, 1, quantityColumnIndex, quantityColumnIndex),
+                new DataGridCellRange(0, 3, quantityColumnIndex, quantityColumnIndex)));
+            Assert.Equal(new[] { 10, 20, 30, 40 }, viewModel.Items.Take(4).Select(static item => item.Quantity));
+            Assert.Equal(2, viewModel.LastAppliedCells);
+
+            string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
+            if (!string.IsNullOrWhiteSpace(screenshotDirectory))
+            {
+                using var frame = window.CaptureRenderedFrame();
+                Assert.NotNull(frame);
+                Directory.CreateDirectory(screenshotDirectory);
+                string path = Path.GetFullPath(Path.Combine(screenshotDirectory, "generated-editing-clipboard-fill.png"));
+                using FileStream stream = File.Create(path);
+                frame.Save(stream, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                Assert.True(new FileInfo(path).Length > 0);
+            }
+
+            Assert.True(viewModel.EditController.Undo());
+            Assert.Equal(new[] { 10, 20, 5, 8 }, viewModel.Items.Take(4).Select(static item => item.Quantity));
+            Assert.True(viewModel.EditController.Undo());
+            Assert.Equal("ALPHA", viewModel.Items[0].Product);
         }
         finally
         {

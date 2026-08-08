@@ -155,6 +155,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated view performance integration",
         "Generated performance, input, or diagnostics integration for view '{0}' is invalid: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidViewTransferIntegration = Create(
+        "PDGSG129",
+        "Invalid generated view transfer integration",
+        "Generated clipboard or fill integration for view '{0}' is invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

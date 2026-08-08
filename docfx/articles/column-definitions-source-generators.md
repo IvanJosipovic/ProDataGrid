@@ -265,6 +265,53 @@ public static void ConfigureSymbol(DataGridTextColumnDefinition column)
 
 For full ownership, set `ImplementationType` to a public parameterless implementation of `IDataGridGeneratedSchema<TItem>`. The generated provider becomes a stable facade that forwards every operation to user code.
 
+### Typed editing, clipboard, fill, and undo
+
+For keyed schemas, writable columns become `IDataGridGeneratedEditField<TItem>` instances. A writable property marked `IsReadOnly = true` is intentionally excluded. Parsers and formatters are culture-aware span/delegate calls; `Required`, string-length, minimum/maximum-length, and numeric `Range` annotations compile into direct validation. `ValidatorMethod`, `AsyncValidatorMethod`, `CoerceMethod`, and `CanEditMethod` add validated static hooks without reflection. Asynchronous validation is cancellable and revisioned per item key and column key.
+
+The generated schema owns the standard factories:
+
+```csharp
+DataGridGeneratedEditController<Order, int> edits =
+    OrderSchema.CreateEditController(ResolveOrder);
+
+DataGridGeneratedClipboardImportModel<Order, int> clipboard =
+    OrderSchema.CreateClipboardImportModel(
+        edits,
+        ReportTransfer,
+        CultureInfo.InvariantCulture,
+        new DataGridGeneratedTransferLimits(10_000, 1_000_000));
+
+DataGridGeneratedFillModel<Order, int> fill =
+    OrderSchema.CreateFillModel(edits, ReportTransfer, maximumCells: 10_000);
+```
+
+The clipboard adapter maps DataGrid columns by stable `ColumnKey`, never by property path. It supports rectangular tabular paste and one-value multi-cell paste, returns structured keyed parse/validation errors, enforces cell/payload limits, and records each operation as one undo batch. The fill adapter supports bounded cyclic copy and automatic numeric, date/time, and duration sequences through the same edit fields. The lower-level generated controller exports text, CSV, JSON, Markdown, HTML, XML, and YAML with typed formatters.
+
+Bind the adapters directly from a generated Avalonia or ReactiveUI view:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Order),
+    Framework = DataGridViewFramework.ReactiveUI,
+    Recipe = DataGridViewRecipe.Spreadsheet,
+    ClipboardImportModelPropertyName = nameof(ClipboardImportModel),
+    FillModelPropertyName = nameof(FillModel),
+    SelectionMode = DataGridSelectionMode.Extended,
+    SelectionUnit = DataGridSelectionUnit.CellOrRowHeader,
+    EditTriggers = DataGridEditTriggers.CellDoubleClick |
+                   DataGridEditTriggers.TextInput |
+                   DataGridEditTriggers.F2,
+    ClipboardCopyMode = DataGridClipboardCopyMode.IncludeHeader)]
+public sealed partial class OrdersViewModel : ReactiveObject
+{
+}
+```
+
+Both named members are compile-time validated against `IDataGridClipboardImportModel` and `IDataGridFillModel`. Generated views disable add/delete rows by default so strict generated grids do not silently enter the DataGrid's reflection-based new-item path. Applications that need spreadsheet-specific formulas or domain transactions can retain a custom adapter while reusing the generated fields and controller.
+
+`DataGridSample.Pages.GeneratedEditingClipboardFillPage` demonstrates direct and DataGrid-driven edits, DataAnnotations plus custom synchronous/asynchronous validation, coercion, row eligibility, paste errors, numeric series, undo/redo, bounded multi-format export, compiled bindings, and a passive ReactiveUI shell.
+
 Canonical field metadata can also declare export/null formatting, backend names, filter-editor profiles, header/description resource keys, accessibility text, and sensitive-data policy. For reflection-free strongly typed localization, use validated static provider methods:
 
 ```csharp

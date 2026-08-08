@@ -489,7 +489,7 @@ internal static class Emitter
                 .Append("            => new global::Avalonia.Controls.DataGridGeneratedSnapshotReconciler<")
                 .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, KeyComparer, itemComparer);");
 
-            if (schema.Columns.Any(static column => CanWrite(column.Property)))
+            if (schema.Columns.Any(static column => CanEdit(column)))
             {
                 builder.AppendLine()
                     .Append("        public static global::Avalonia.Controls.DataGridGeneratedEditController<")
@@ -515,7 +515,29 @@ internal static class Emitter
                     .Append("            global::Avalonia.Controls.DataGridGeneratedEditController<").Append(itemType).Append(", ")
                     .Append(keyType).AppendLine("> editController)")
                     .Append("            => new global::Avalonia.Controls.DataGridGeneratedFillController<")
-                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController);");
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController);")
+                    .AppendLine()
+                    .Append("        public static global::Avalonia.Controls.DataGridGeneratedClipboardImportModel<")
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine("> CreateClipboardImportModel(")
+                    .Append("            global::Avalonia.Controls.DataGridGeneratedEditController<").Append(itemType).Append(", ")
+                    .Append(keyType).AppendLine("> editController,")
+                    .Append("            global::System.Action<global::Avalonia.Controls.DataGridGeneratedTransferResult<")
+                    .Append(keyType).AppendLine(">>? resultHandler = null,")
+                    .AppendLine("            global::System.IFormatProvider? formatProvider = null,")
+                    .AppendLine("            global::Avalonia.Controls.DataGridGeneratedTransferLimits? limits = null)")
+                    .Append("            => new global::Avalonia.Controls.DataGridGeneratedClipboardImportModel<")
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController, resultHandler, formatProvider, limits);")
+                    .AppendLine()
+                    .Append("        public static global::Avalonia.Controls.DataGridGeneratedFillModel<")
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine("> CreateFillModel(")
+                    .Append("            global::Avalonia.Controls.DataGridGeneratedEditController<").Append(itemType).Append(", ")
+                    .Append(keyType).AppendLine("> editController,")
+                    .Append("            global::System.Action<global::Avalonia.Controls.DataGridGeneratedTransferResult<")
+                    .Append(keyType).AppendLine(">>? resultHandler = null,")
+                    .AppendLine("            int maximumCells = 100000,")
+                    .AppendLine("            bool useSeries = true)")
+                    .Append("            => new global::Avalonia.Controls.DataGridGeneratedFillModel<")
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController, resultHandler, maximumCells, useSeries);");
             }
 
             builder.AppendLine()
@@ -1058,7 +1080,7 @@ internal static class Emitter
     private static void EmitEditField(StringBuilder builder, SchemaModel schema, ColumnModel column, string itemType)
     {
         IPropertySymbol property = column.Property;
-        if (!CanWrite(property))
+        if (!CanEdit(column))
         {
             return;
         }
@@ -1097,7 +1119,7 @@ internal static class Emitter
             .AppendLine("            {");
         foreach (ColumnModel column in schema.Columns)
         {
-            if (CanWrite(column.Property))
+            if (CanEdit(column))
             {
                 builder.Append("                ").Append(GetEditFieldName(column.Property)).AppendLine(",");
             }
@@ -1306,7 +1328,7 @@ internal static class Emitter
             builder.Append("                    new global::Avalonia.Controls.DataGridGeneratedDiagnosticField(")
                 .Append(GeneratorUtilities.EscapeString(column.ColumnKey)).Append(", typeof(")
                 .Append(column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedFormat)).Append("), ")
-                .Append(CanWrite(column.Property) ? "true" : "false").Append(", ")
+                .Append(CanEdit(column) ? "true" : "false").Append(", ")
                 .Append(column.IsSearchable ? "true" : "false").Append(", (global::Avalonia.Controls.DataGridGeneratedFilterEditorKind)")
                 .Append(filterEditor.ToString(CultureInfo.InvariantCulture)).Append(", (global::Avalonia.Controls.DataGridGeneratedAnalyticsRole)")
                 .Append(analyticsRoles.ToString(CultureInfo.InvariantCulture)).AppendLine("),");
@@ -1537,8 +1559,16 @@ internal static class Emitter
         AttributeData? stringLength = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.StringLengthAttribute");
         AttributeData? minLength = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.MinLengthAttribute");
         AttributeData? maxLength = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.MaxLengthAttribute");
+        AttributeData? range = FindAttribute(column.Property, "System.ComponentModel.DataAnnotations.RangeAttribute");
         bool isString = UnwrapNullable(column.Property.Type).SpecialType == SpecialType.System_String;
-        if (required == null && (!isString || stringLength == null && minLength == null && maxLength == null))
+        string? minimumRange = null;
+        string? maximumRange = null;
+        bool hasNumericRange = range != null &&
+            IsNumericType(UnwrapNullable(column.Property.Type)) &&
+            TryGetRangeBounds(range, out minimumRange, out maximumRange);
+        if (required == null &&
+            (!isString || stringLength == null && minLength == null && maxLength == null) &&
+            !hasNumericRange)
         {
             builder.Append("null");
             return;
@@ -1581,6 +1611,14 @@ internal static class Emitter
                 .Append(" ? \"The value is too long.\"");
             emitted = true;
         }
+        if (hasNumericRange)
+        {
+            string valueType = column.Property.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
+            if (emitted) builder.Append(" : ");
+            builder.Append("value < (").Append(valueType).Append(')').Append(minimumRange)
+                .Append(" ? \"The value is below the allowed range.\" : value > (").Append(valueType).Append(')')
+                .Append(maximumRange).Append(" ? \"The value is above the allowed range.\"");
+        }
         builder.Append(" : null");
     }
 
@@ -1607,6 +1645,38 @@ internal static class Emitter
             if (argument.Key == name && argument.Value.Value is int value) return value;
         }
         return fallback;
+    }
+
+    private static bool TryGetRangeBounds(AttributeData attribute, out string? minimum, out string? maximum)
+    {
+        minimum = null;
+        maximum = null;
+        if (attribute.ConstructorArguments.Length != 2)
+        {
+            return false;
+        }
+
+        minimum = FormatNumericAttributeConstant(attribute.ConstructorArguments[0]);
+        maximum = FormatNumericAttributeConstant(attribute.ConstructorArguments[1]);
+        return minimum != null && maximum != null;
+    }
+
+    private static string? FormatNumericAttributeConstant(TypedConstant constant)
+    {
+        return constant.Value switch
+        {
+            int value => value.ToString(CultureInfo.InvariantCulture),
+            double value => GeneratorUtilities.FormatDouble(value),
+            _ => null
+        };
+    }
+
+    private static bool IsNumericType(ITypeSymbol type)
+    {
+        return type.SpecialType is SpecialType.System_Byte or SpecialType.System_SByte or
+            SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or
+            SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or
+            SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal;
     }
 
     private static string EmitOptionalMethod(SchemaModel schema, string? method) =>
@@ -2535,6 +2605,14 @@ internal static class Emitter
         {
             EmitViewPropertyInfo(builder, model.SelectionModel, viewModelType, "SelectionModel");
         }
+        if (model.ClipboardImportModel != null)
+        {
+            EmitViewPropertyInfo(builder, model.ClipboardImportModel, viewModelType, "ClipboardImportModel");
+        }
+        if (model.FillModel != null)
+        {
+            EmitViewPropertyInfo(builder, model.FillModel, viewModelType, "FillModel");
+        }
         if (model.HierarchicalModel != null)
         {
             EmitViewPropertyInfo(builder, model.HierarchicalModel, viewModelType, "HierarchicalModel");
@@ -2694,6 +2772,13 @@ internal static class Emitter
             .AppendLine("                Name = \"GeneratedDataGrid\",")
             .AppendLine("                AutoGenerateColumns = false,")
             .AppendLine("                CanUserSortColumns = true,")
+            .Append("                IsReadOnly = ").Append(model.IsReadOnly ? "true" : "false").AppendLine(",")
+            .Append("                CanUserAddRows = ").Append(model.CanUserAddRows ? "true" : "false").AppendLine(",")
+            .Append("                CanUserDeleteRows = ").Append(model.CanUserDeleteRows ? "true" : "false").AppendLine(",")
+            .Append("                EditTriggers = (global::Avalonia.Controls.DataGridEditTriggers)")
+            .Append(model.EditTriggers.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
+            .Append("                ClipboardCopyMode = (global::Avalonia.Controls.DataGridClipboardCopyMode)")
+            .Append(model.ClipboardCopyMode.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
             .Append("                ShowTotalSummary = ").Append(model.ShowTotalSummary ? "true" : "false").AppendLine(",")
             .Append("                ShowGroupSummary = ").Append(model.ShowGroupSummary ? "true" : "false").AppendLine(",")
             .Append("                TotalSummaryPosition = (global::Avalonia.Controls.DataGridSummaryRowPosition)")
@@ -2716,7 +2801,7 @@ internal static class Emitter
         EmitOptionalGridBinding(builder, model.SortingModel, "SortingModel", "s_sortingModelProperty");
         EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
         EmitOptionalGridBinding(builder, model.SearchModel, "SearchModel", "s_searchModelProperty");
-        if (model.SelectionModel != null)
+        if (model.ConfigureSelection)
         {
             builder.Append("            dataGrid.SelectionMode = (global::Avalonia.Controls.DataGridSelectionMode)")
                 .Append(model.SelectionMode.ToString(CultureInfo.InvariantCulture)).AppendLine(";")
@@ -2724,6 +2809,8 @@ internal static class Emitter
                 .Append(model.SelectionUnit.ToString(CultureInfo.InvariantCulture)).AppendLine(";");
         }
         EmitOptionalGridBinding(builder, model.SelectionModel, "Selection", "s_selectionModelProperty");
+        EmitOptionalGridBinding(builder, model.ClipboardImportModel, "ClipboardImportModel", "s_clipboardImportModelProperty");
+        EmitOptionalGridBinding(builder, model.FillModel, "FillModel", "s_fillModelProperty");
         EmitOptionalGridBinding(builder, model.HierarchicalModel, "HierarchicalModel", "s_hierarchicalModelProperty");
         if (model.HierarchicalModel != null)
         {
@@ -3963,6 +4050,14 @@ internal static class Emitter
         return property.SetMethod != null &&
                !property.SetMethod.IsInitOnly &&
                GeneratorUtilities.IsAccessibleFromGeneratedCode(property.SetMethod);
+    }
+
+    private static bool CanEdit(ColumnModel column)
+    {
+        return CanWrite(column.Property) &&
+               (!column.Options.TryGetValue("IsReadOnly", out TypedConstant value) ||
+                value.Value is not bool isReadOnly ||
+                !isReadOnly);
     }
 
     private static string GetDefinitionTypeName(string kind)
