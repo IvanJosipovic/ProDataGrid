@@ -926,6 +926,20 @@ internal static class Emitter
                 AppendCanonicalConstant(canonical, option.Value);
                 canonical.Append(',');
             }
+            foreach (ConditionalRuleModel rule in column.ConditionalRules)
+            {
+                canonical.Append("condition=")
+                    .Append(rule.Condition.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(rule.RuleId).Append(':')
+                    .Append(rule.Operand).Append(':')
+                    .Append(rule.Operand2).Append(':')
+                    .Append(rule.StringComparison.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(rule.ThemeKey).Append(':')
+                    .Append(rule.Priority.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(rule.StopIfTrue ? '1' : '0').Append(':')
+                    .Append(rule.PredicateMethod).Append(':')
+                    .Append(rule.Target.ToString(CultureInfo.InvariantCulture)).Append(',');
+            }
             canonical.Append(';');
         }
 
@@ -1604,9 +1618,32 @@ internal static class Emitter
             builder.Append("static (item, value) => ((global::System.Object?)value) is not null");
             return;
         }
+        if (rule.Condition is 10 or 11 or 12)
+        {
+            string method = rule.Condition switch
+            {
+                10 => "Contains",
+                11 => "StartsWith",
+                _ => "EndsWith"
+            };
+            builder.Append("static (item, value) => value is not null && value.")
+                .Append(method).Append('(').Append(GeneratorUtilities.EscapeString(rule.Operand))
+                .Append(", (global::System.StringComparison)")
+                .Append(rule.StringComparison.ToString(CultureInfo.InvariantCulture)).Append(')');
+            return;
+        }
         if (!TryEmitOperand(type, rule.Operand, out string operand))
         {
             builder.Append("static (item, value) => false");
+            return;
+        }
+        if (rule.Condition == 9)
+        {
+            TryEmitOperand(type, rule.Operand2, out string operand2);
+            builder.Append("static (item, value) => global::System.Collections.Generic.Comparer<")
+                .Append(valueType).Append(">.Default.Compare(value, ").Append(operand)
+                .Append(") >= 0 && global::System.Collections.Generic.Comparer<")
+                .Append(valueType).Append(">.Default.Compare(value, ").Append(operand2).Append(") <= 0");
             return;
         }
         string comparison = rule.Condition switch

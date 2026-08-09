@@ -20,6 +20,10 @@
       <Setter Property="Background" Value="#30FFB020" />
       <Setter Property="Foreground" Value="#704000" />
     </ControlTheme>
+    <ControlTheme x:Key="GeneratedRegionMatchCellTheme" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+      <Setter Property="Background" Value="#242B88D8" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </ControlTheme>
     <ControlTheme x:Key="GeneratedChangeNegativeCellTheme" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
       <Setter Property="Foreground" Value="#C42B1C" />
       <Setter Property="FontWeight" Value="SemiBold" />
@@ -27,6 +31,10 @@
     <ControlTheme x:Key="GeneratedTargetStretchCellTheme" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
       <Setter Property="Background" Value="#282B88D8" />
       <Setter Property="Foreground" Value="#174A7E" />
+    </ControlTheme>
+    <ControlTheme x:Key="GeneratedTargetRangeCellTheme" TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
+      <Setter Property="Background" Value="#2634C759" />
+      <Setter Property="Foreground" Value="#0D5428" />
     </ControlTheme>
     <ControlTheme x:Key="GeneratedRowWarningTheme" TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
       <Style Selector="^ /template/ Rectangle#BackgroundRectangle">
@@ -45,7 +53,7 @@
   <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
     <StackPanel Spacing="3">
       <TextBlock Classes="h2" Text="Generated conditional formatting" />
-      <TextBlock TextWrapping="Wrap" Text="Attributes emit typed predicates, priorities, stop rules, cell/row targets, and theme keys. The generated factory adapts them to the runtime model without property reflection." />
+      <TextBlock TextWrapping="Wrap" Text="Attributes emit typed comparisons, ranges, ordinal text predicates, custom predicates, priorities, stop rules, cell/row targets, and theme keys. The generated factory adapts them to the runtime model without property reflection." />
     </StackPanel>
     <WrapPanel Grid.Row="1">
       <Button Content="Randomize reactive values" Command="{Binding RandomizeCommand}" />

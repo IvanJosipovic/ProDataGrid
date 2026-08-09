@@ -2901,11 +2901,22 @@ internal static partial class Discovery
                     GeneratorDiagnostics.InvalidColumnConfiguration,
                     GeneratorUtilities.GetLocation(property), property.ToDisplayString(), "ConditionalFormat", "PredicateMethod"));
             }
+            string? operand = GeneratorUtilities.GetString(arguments, "Operand");
+            string? operand2 = GeneratorUtilities.GetString(arguments, "Operand2");
+            string? invalidOption = GetInvalidConditionalRuleOption(property.Type, condition, operand, operand2);
+            if (invalidOption != null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), "ConditionalFormat", invalidOption));
+            }
             rules.Add(new ConditionalRuleModel
             {
                 Condition = condition,
                 RuleId = GeneratorUtilities.GetString(arguments, "RuleId") ?? columnKey + ":rule:" + index.ToString(CultureInfo.InvariantCulture),
-                Operand = GeneratorUtilities.GetString(arguments, "Operand"),
+                Operand = operand,
+                Operand2 = operand2,
+                StringComparison = GetEnumValue(arguments, "StringComparison", 4),
                 ThemeKey = GeneratorUtilities.GetString(arguments, "CellThemeKey"),
                 Priority = GeneratorUtilities.GetInt32(arguments, "Priority", 0),
                 StopIfTrue = GeneratorUtilities.GetBoolean(arguments, "StopIfTrue", true),
@@ -2915,6 +2926,62 @@ internal static partial class Discovery
             index++;
         }
         return rules.ToImmutable();
+    }
+
+    private static string? GetInvalidConditionalRuleOption(
+        ITypeSymbol propertyType,
+        int condition,
+        string? operand,
+        string? operand2)
+    {
+        if (condition is 6 or 7 or 8)
+        {
+            return null;
+        }
+
+        ITypeSymbol effectiveType = propertyType;
+        if (propertyType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
+        {
+            effectiveType = nullable.TypeArguments[0];
+        }
+
+        if (condition is 10 or 11 or 12)
+        {
+            if (effectiveType.SpecialType != SpecialType.System_String)
+            {
+                return "a string property for text predicates";
+            }
+
+            return operand == null ? "Operand" : null;
+        }
+
+        if (!IsSupportedConditionalOperand(effectiveType, operand))
+        {
+            return "a valid typed Operand";
+        }
+
+        return condition == 9 && !IsSupportedConditionalOperand(effectiveType, operand2)
+            ? "a valid typed Operand2"
+            : null;
+    }
+
+    private static bool IsSupportedConditionalOperand(ITypeSymbol type, string? text)
+    {
+        if (type.SpecialType == SpecialType.System_String)
+        {
+            return text != null;
+        }
+
+        if (type.SpecialType == SpecialType.System_Boolean)
+        {
+            return bool.TryParse(text, out _);
+        }
+
+        bool isNumeric = type.SpecialType is SpecialType.System_Byte or SpecialType.System_SByte or
+                SpecialType.System_Int16 or SpecialType.System_UInt16 or SpecialType.System_Int32 or
+                SpecialType.System_UInt32 or SpecialType.System_Int64 or SpecialType.System_UInt64 or
+                SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal;
+        return isNumeric && decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
     }
 
     private static ImmutableArray<BandModel> DiscoverBands(

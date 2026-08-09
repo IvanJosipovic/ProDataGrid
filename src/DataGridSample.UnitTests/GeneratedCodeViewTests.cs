@@ -994,7 +994,7 @@ public sealed class GeneratedCodeViewTests
 
             Assert.Same(viewModel.Items, grid.ItemsSource);
             Assert.Same(viewModel.ConditionalFormatting, grid.ConditionalFormattingModel);
-            Assert.Equal(7, grid.ConditionalFormattingModel.Descriptors.Count);
+            Assert.Equal(9, grid.ConditionalFormattingModel.Descriptors.Count);
             Assert.True(grid.FastPathOptions.StrictMode);
 
             GeneratedConditionalFormattingRow first = viewModel.Items[0];

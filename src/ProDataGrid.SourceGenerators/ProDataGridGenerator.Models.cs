@@ -623,6 +623,8 @@ internal sealed class ConditionalRuleModel
     public int Condition { get; set; }
     public string RuleId { get; set; } = string.Empty;
     public string? Operand { get; set; }
+    public string? Operand2 { get; set; }
+    public int StringComparison { get; set; }
     public string? ThemeKey { get; set; }
     public int Priority { get; set; }
     public bool StopIfTrue { get; set; }

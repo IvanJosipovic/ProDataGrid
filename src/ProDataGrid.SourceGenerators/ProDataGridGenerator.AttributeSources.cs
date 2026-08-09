@@ -110,7 +110,11 @@ public sealed partial class ProDataGridGenerator
                 LessThanOrEqual,
                 IsNull,
                 IsNotNull,
-                Custom
+                Custom,
+                Between,
+                Contains,
+                StartsWith,
+                EndsWith
             }
 
             [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
@@ -534,6 +538,9 @@ public sealed partial class ProDataGridGenerator
                 public DataGridCondition Condition { get; }
                 public string? RuleId { get; set; }
                 public string? Operand { get; set; }
+                public string? Operand2 { get; set; }
+                public global::System.StringComparison StringComparison { get; set; } =
+                    global::System.StringComparison.Ordinal;
                 public string? CellThemeKey { get; set; }
                 public int Priority { get; set; }
                 public bool StopIfTrue { get; set; } = true;

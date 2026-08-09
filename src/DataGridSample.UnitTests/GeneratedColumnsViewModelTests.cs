@@ -686,14 +686,22 @@ public sealed class GeneratedColumnsViewModelTests
     {
         var viewModel = new GeneratedConditionalFormattingViewModel();
 
-        Assert.Equal(7, GeneratedConditionalFormattingRowSchema.ConditionalRules.Count);
-        Assert.Equal(7, viewModel.ConditionalFormatting.Descriptors.Count);
+        Assert.Equal(9, GeneratedConditionalFormattingRowSchema.ConditionalRules.Count);
+        Assert.Equal(9, viewModel.ConditionalFormatting.Descriptors.Count);
         Assert.Equal(2, viewModel.ConditionalFormatting.Descriptors.Count(
             static descriptor => descriptor.Target == ConditionalFormattingTarget.Row));
         IDataGridGeneratedConditionalRule belowTarget = Assert.Single(
             GeneratedConditionalFormattingRowSchema.ConditionalRules,
             static rule => rule.RuleId == "score-below-target");
         Assert.True(belowTarget.IsMatch(viewModel.Items[0]));
+        IDataGridGeneratedConditionalRule regionMatch = Assert.Single(
+            GeneratedConditionalFormattingRowSchema.ConditionalRules,
+            static rule => rule.RuleId == "region-north");
+        Assert.True(regionMatch.IsMatch(viewModel.Items[0]));
+        IDataGridGeneratedConditionalRule targetRange = Assert.Single(
+            GeneratedConditionalFormattingRowSchema.ConditionalRules,
+            static rule => rule.RuleId == "target-core-range");
+        Assert.True(targetRange.IsMatch(viewModel.Items[1]));
         Assert.True(viewModel.BelowTargetCount > 0);
         Assert.True(viewModel.AtRiskCount > 0);
 
@@ -703,7 +711,7 @@ public sealed class GeneratedColumnsViewModelTests
 
         viewModel.ToggleRulesCommand.Execute().Subscribe();
         Assert.True(viewModel.RulesEnabled);
-        Assert.Equal(7, viewModel.ConditionalFormatting.Descriptors.Count);
+        Assert.Equal(9, viewModel.ConditionalFormatting.Descriptors.Count);
 
         viewModel.RandomizeCommand.Execute().Subscribe();
         Assert.Equal(16, viewModel.Items.Count);

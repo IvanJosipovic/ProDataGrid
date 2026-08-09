@@ -4209,6 +4209,55 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Conditional_formatting_emits_typed_range_and_ordinal_text_predicates()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridConditionalFormat(DataGridCondition.Between, Operand = "10", Operand2 = "20")]
+                public int Score { get; set; }
+
+                [DataGridConditionalFormat(
+                    DataGridCondition.Contains,
+                    Operand = "risk",
+                    StringComparison = StringComparison.OrdinalIgnoreCase)]
+                [DataGridConditionalFormat(DataGridCondition.StartsWith, Operand = "A")]
+                [DataGridConditionalFormat(DataGridCondition.EndsWith, Operand = "Z")]
+                public string Status { get; set; } = "";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("Comparer<int>.Default.Compare(value, (int)10m) >= 0", result.CombinedSource);
+        Assert.Contains("Comparer<int>.Default.Compare(value, (int)20m) <= 0", result.CombinedSource);
+        Assert.Contains("value.Contains(\"risk\", (global::System.StringComparison)5)", result.CombinedSource);
+        Assert.Contains("value.StartsWith(\"A\", (global::System.StringComparison)4)", result.CombinedSource);
+        Assert.Contains("value.EndsWith(\"Z\", (global::System.StringComparison)4)", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Conditional_formatting_rejects_invalid_typed_operands_and_text_targets()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridConditionalFormat(DataGridCondition.Between, Operand = "10", Operand2 = "not-an-int")]
+                [DataGridConditionalFormat(DataGridCondition.Contains, Operand = "1")]
+                public int Score { get; set; }
+            }
+            """);
+
+        Assert.Equal(2, result.GeneratorDiagnostics.Count(diagnostic => diagnostic.Id == "PDGSG009"));
+    }
+
+    [Fact]
     public void Generated_view_configures_total_and_group_summary_placement()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

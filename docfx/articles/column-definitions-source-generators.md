@@ -807,7 +807,7 @@ For a custom calculator, a column `ConfigureMethod` can assign `DataGridSummaryD
 
 ### Typed conditional formatting
 
-`DataGridConditionalFormat` compiles comparisons and custom predicates against the same typed accessor used by generated columns, sorting, summaries, export, and editing. Each rule has a stable ID and column key plus priority, stop behavior, a resource theme key, and a cell or row target:
+`DataGridConditionalFormat` compiles comparisons, inclusive ranges, null checks, ordinal text matching, and custom predicates against the same typed accessor used by generated columns, sorting, summaries, export, and editing. Each rule has a stable ID and column key plus priority, stop behavior, a resource theme key, and a cell or row target:
 
 ```csharp
 [DataGridColumn(
@@ -828,7 +828,19 @@ For a custom calculator, a column `ConfigureMethod` can assign `DataGridSummaryD
     Priority = 1)]
 public double Score { get; set; }
 
+[DataGridConditionalFormat(
+    DataGridCondition.Between,
+    Operand = "75",
+    Operand2 = "85",
+    CellThemeKey = "TargetRangeCellTheme")]
+public double Target { get; set; }
+
 [DataGridColumn(Header = "Status", ColumnKey = "status")]
+[DataGridConditionalFormat(
+    DataGridCondition.Contains,
+    Operand = "risk",
+    StringComparison = StringComparison.OrdinalIgnoreCase,
+    CellThemeKey = "RiskTextCellTheme")]
 [DataGridConditionalFormat(
     DataGridCondition.Equals,
     RuleId = "row-overdue",
@@ -841,7 +853,7 @@ public static bool IsBelowTarget(Order item, double score) =>
     score < item.Target;
 ```
 
-Built-in rules convert `Operand` at compile time and emit a direct typed predicate. A custom predicate must be an accessible static `bool (TItem, TValue)` method. Generated predicates do not allocate while evaluating cells, and `ConditionalFormattingValueSource.Item` prevents the runtime adapter from resolving a property path.
+Built-in rules convert `Operand` and, for `Between`, `Operand2` at compile time and emit a direct typed predicate. `Contains`, `StartsWith`, and `EndsWith` accept an explicit `StringComparison` and default to `Ordinal`. Invalid constants and text predicates on non-string properties produce `PDGSG009` instead of silently generating a rule that never matches. A custom predicate must be an accessible static `bool (TItem, TValue)` method. Generated predicates do not allocate while evaluating cells, and `ConditionalFormattingValueSource.Item` prevents the runtime adapter from resolving a property path.
 
 The schema exposes `IReadOnlyList<IDataGridGeneratedConditionalRule> ConditionalRules` for inspection or custom composition and `CreateConditionalFormattingModel()` for the normal runtime model. The factory creates `ConditionalFormattingDescriptor` instances whose cached predicates call the generated getter directly; rule ordering, `StopIfTrue`, theme keys, stable column keys, and cell/row targets are preserved.
 

@@ -1,6 +1,7 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridConditionalFormatting;
 using ProDataGrid.SourceGeneration;
@@ -31,6 +32,7 @@ public sealed class GeneratedConditionalFormattingRow : ReactiveObject
     }
 
     [DataGridColumn(Header = "Region", ColumnKey = "region", Width = "1.5*", IsReadOnly = true)]
+    [DataGridConditionalFormat(DataGridCondition.Contains, RuleId = "region-north", Operand = "north", StringComparison = StringComparison.OrdinalIgnoreCase, CellThemeKey = "GeneratedRegionMatchCellTheme")]
     public string Region
     {
         get => _region;
@@ -57,6 +59,7 @@ public sealed class GeneratedConditionalFormattingRow : ReactiveObject
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Target", ColumnKey = "target", Width = "*", FormatString = "N1")]
     [DataGridConditionalFormat(DataGridCondition.GreaterThan, RuleId = "target-stretch", Operand = "85", CellThemeKey = "GeneratedTargetStretchCellTheme")]
+    [DataGridConditionalFormat(DataGridCondition.Between, RuleId = "target-core-range", Operand = "75", Operand2 = "85", CellThemeKey = "GeneratedTargetRangeCellTheme", Priority = 1)]
     public double Target
     {
         get => _target;

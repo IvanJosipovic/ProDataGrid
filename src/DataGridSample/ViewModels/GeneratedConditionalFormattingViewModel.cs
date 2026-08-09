@@ -33,7 +33,7 @@ public sealed partial class GeneratedConditionalFormattingViewModel : ReactiveOb
     private bool _rulesEnabled = true;
 
     [Reactive]
-    private string _status = "Seven typed rules are active: five cell rules and two row rules.";
+    private string _status = "Nine typed rules are active: range, text, comparison, custom, and row rules.";
 
     [Reactive]
     private int _highScoreCount;
