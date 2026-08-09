@@ -18,6 +18,10 @@ namespace Avalonia.Controls
 {
     internal class DataGridSelectedItemsCollection : IList, INotifyCollectionChanged, INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs s_countPropertyChanged =
+            new(nameof(Count));
+        private static readonly PropertyChangedEventArgs s_indexerPropertyChanged =
+            new("Item[]");
         private List<object> _oldSelectedItemsCache;
         private List<object> _selectedItemsCache;
         private readonly SortedSet<int> _selectedSlots;
@@ -34,9 +38,16 @@ namespace Avalonia.Controls
         {
             get
             {
-                if (index < 0 || index >= _selectedSlots.Count)
+                int count = OwningGrid.UseCachedSelectedItemsDuringSourceMutation
+                    ? _selectedItemsCache.Count
+                    : _selectedSlots.Count;
+                if (index < 0 || index >= count)
                 {
-                    throw DataGridError.DataGrid.ValueMustBeBetween("index", "Index", 0, true, _selectedSlots.Count, false);
+                    throw DataGridError.DataGrid.ValueMustBeBetween("index", "Index", 0, true, count, false);
+                }
+                if (OwningGrid.UseCachedSelectedItemsDuringSourceMutation)
+                {
+                    return _selectedItemsCache[index];
                 }
                 int slot = GetNthSlot(index);
                 Debug.Assert(slot > -1);
@@ -228,7 +239,9 @@ namespace Avalonia.Controls
         {
             get
             {
-                return _selectedSlots.Count;
+                return OwningGrid.UseCachedSelectedItemsDuringSourceMutation
+                    ? _selectedItemsCache.Count
+                    : _selectedSlots.Count;
             }
         }
 
@@ -262,6 +275,15 @@ namespace Avalonia.Controls
             Debug.Assert(OwningGrid != null);
             Debug.Assert(OwningGrid.DataConnection != null);
             Debug.Assert(_selectedSlots != null);
+
+            if (OwningGrid.UseCachedSelectedItemsDuringSourceMutation)
+            {
+                for (int i = 0; i < _selectedItemsCache.Count; i++)
+                {
+                    yield return _selectedItemsCache[i];
+                }
+                yield break;
+            }
 
             foreach (int slot in _selectedSlots)
             {
@@ -326,14 +348,16 @@ namespace Avalonia.Controls
             {
                 OwningGrid.SelectionHasChanged = true;
                 DeleteSlot(slot);
-                _selectedItemsCache.Remove(item);
+                RemoveMatchingItem(_selectedItemsCache, item);
             }
         }
 
         internal void DeleteSlot(int slot)
         {
             _selectedSlots.Remove(slot);
-            _oldSelectedItemsCache.Remove(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
+            RemoveMatchingItem(
+                _oldSelectedItemsCache,
+                OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
         }
 
         // Returns the inclusive index count between lowerBound and upperBound of all indexes with the given value
@@ -369,9 +393,10 @@ namespace Avalonia.Controls
             foreach (int newSlot in _selectedSlots)
             {
                 object newItem = OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(newSlot));
-                if (_oldSelectedItemsCache.Contains(newItem))
+                int oldItemIndex = IndexOfMatchingItem(_oldSelectedItemsCache, newItem);
+                if (oldItemIndex >= 0)
                 {
-                    _oldSelectedItemsCache.Remove(newItem);
+                    _oldSelectedItemsCache.RemoveAt(oldItemIndex);
                 }
                 else
                 {
@@ -394,6 +419,29 @@ namespace Avalonia.Controls
 
             ((RoutedEventArgs)args).Source = OwningGrid;
             return args;
+        }
+
+        private static int IndexOfMatchingItem(List<object> items, object item)
+        {
+            // Preserve occurrence identity when multiple rows compare equal. Equality remains
+            // the fallback for reset projections that legitimately replace an item instance.
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (ReferenceEquals(items[i], item))
+                {
+                    return i;
+                }
+            }
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (Equals(items[i], item))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
         }
 
         private void RaiseCollectionChanged(int oldCount, List<object> addedItems, List<object> removedItems)
@@ -421,16 +469,16 @@ namespace Avalonia.Controls
             {
                 if (oldCount != _selectedItemsCache.Count)
                 {
-                    OnPropertyChanged(nameof(Count));
+                    OnPropertyChanged(s_countPropertyChanged);
                 }
 
-                OnPropertyChanged("Item[]");
+                OnPropertyChanged(s_indexerPropertyChanged);
             }
         }
 
-        private void OnPropertyChanged(string propertyName)
+        private void OnPropertyChanged(PropertyChangedEventArgs e)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, e);
         }
 
         internal void InsertIndex(int slot)
@@ -470,8 +518,19 @@ namespace Avalonia.Controls
             {
                 if (_selectedSlots.Remove(slot))
                 {
-                    _selectedItemsCache.Remove(OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
+                    RemoveMatchingItem(
+                        _selectedItemsCache,
+                        OwningGrid.DataConnection.GetDataItem(OwningGrid.RowIndexFromSlot(slot)));
                 }
+            }
+        }
+
+        private static void RemoveMatchingItem(List<object> items, object item)
+        {
+            int index = IndexOfMatchingItem(items, item);
+            if (index >= 0)
+            {
+                items.RemoveAt(index);
             }
         }
 

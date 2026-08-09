@@ -89,6 +89,7 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.HierarchicalExpandCollapseItemsPage", static () => new global::DataGridSample.Pages.HierarchicalExpandCollapseItemsPage()),
             ("DataGridSample.Pages.HierarchicalExpandedStatePage", static () => new global::DataGridSample.Pages.HierarchicalExpandedStatePage()),
             ("DataGridSample.Pages.HierarchicalFlyoutSelectionPage", static () => new global::DataGridSample.Pages.HierarchicalFlyoutSelectionPage()),
+            ("DataGridSample.Pages.HierarchyFeatureContractsPage", static () => new global::DataGridSample.Pages.HierarchyFeatureContractsPage()),
             ("DataGridSample.Pages.HierarchicalItemsSourceSwapPage", static () => new global::DataGridSample.Pages.HierarchicalItemsSourceSwapPage()),
             ("DataGridSample.Pages.HierarchicalPathSelectionPage", static () => new global::DataGridSample.Pages.HierarchicalPathSelectionPage()),
             ("DataGridSample.Pages.HierarchicalRangeCollectionChangesPage", static () => new global::DataGridSample.Pages.HierarchicalRangeCollectionChangesPage()),

@@ -6,6 +6,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Threading;
 using Avalonia.Collections;
 using Avalonia.Controls.DataGridHierarchical;
 
@@ -58,6 +59,7 @@ namespace Avalonia.Controls.DataGridFiltering
         private HashSet<HierarchicalNode> _includedNodes;
         private Func<object, bool> _selfPredicate;
         private bool _disposed;
+        private int _refreshQueued;
 
         /// <summary>
         /// Initializes a hierarchy-aware filtering adapter.
@@ -106,6 +108,7 @@ namespace Avalonia.Controls.DataGridFiltering
             }
 
             _disposed = true;
+            Interlocked.Exchange(ref _refreshQueued, 0);
             _hierarchicalModel.FlattenedChanged -= HierarchicalModel_FlattenedChanged;
             _hierarchicalModel.HierarchyChanged -= HierarchicalModel_HierarchyChanged;
             _hierarchicalModel.NodeLoaded -= HierarchicalModel_NodeLoaded;
@@ -140,7 +143,20 @@ namespace Avalonia.Controls.DataGridFiltering
 
             if (ReferenceEquals(view.Filter, viewPredicate))
             {
-                changed = false;
+                if (viewPredicate == null ||
+                    _policy == DataGridHierarchyFilterPolicy.SelfOnly)
+                {
+                    changed = false;
+                    return true;
+                }
+
+                // The installed delegate is intentionally stable; its backing included-node
+                // set was rebuilt above. Refresh even though the delegate identity did not
+                // change so a second non-empty descriptor cannot leave the view's cached rows
+                // from the previous filter.
+                view.Refresh();
+
+                changed = true;
                 return true;
             }
 
@@ -189,30 +205,51 @@ namespace Avalonia.Controls.DataGridFiltering
             return underlyingItem;
         }
 
-        private void HierarchicalModel_FlattenedChanged(object sender, FlattenedChangedEventArgs e)
-        {
-            RefreshForHierarchyChange();
-        }
+        private void HierarchicalModel_FlattenedChanged(object sender, FlattenedChangedEventArgs e) =>
+            QueueHierarchyRefresh();
 
-        private void HierarchicalModel_HierarchyChanged(object sender, HierarchyChangedEventArgs e)
+        private void HierarchicalModel_HierarchyChanged(object sender, HierarchyChangedEventArgs e) =>
+            QueueHierarchyRefresh();
+
+        private void HierarchicalModel_NodeLoaded(object sender, HierarchicalNodeEventArgs e) =>
+            QueueHierarchyRefresh();
+
+        private void QueueHierarchyRefresh()
         {
-            // Expanded visible parents already emitted FlattenedChanged for the same mutation.
-            // Collapsed or hidden parents do not, but their materialized descendants can still
-            // change an ancestor-preserving match set and therefore require a refresh here.
-            if (e.Node.IsExpanded && IsVisibleModelNode(e.Node))
+            // Hierarchy implementations commonly raise NodeLoaded/HierarchyChanged followed by
+            // FlattenedChanged for one logical materialization. Always cross one queued boundary
+            // and coalesce there. In particular, do not inspect Node.IsExpanded or Flattened on a
+            // producer thread even when a headless dispatcher reports CheckAccess.
+            if (Interlocked.CompareExchange(ref _refreshQueued, 1, 0) != 0)
             {
                 return;
             }
 
-            RefreshForHierarchyChange();
+            PostToViewThread(() =>
+            {
+                if (_disposed || Volatile.Read(ref _refreshQueued) == 0)
+                {
+                    Interlocked.Exchange(ref _refreshQueued, 0);
+                    return;
+                }
+
+                // Keep the gate closed for one additional view-thread turn. Hierarchy models
+                // can publish NodeLoaded before their final FlattenedChanged commit; the second
+                // turn lets that final notification join this logical refresh even if a host
+                // drains the first posted action from inside the NodeLoaded callback.
+                PostToViewThread(() =>
+                {
+                    if (Interlocked.Exchange(ref _refreshQueued, 0) == 0 || _disposed)
+                    {
+                        return;
+                    }
+
+                    RefreshForHierarchyChangeCore();
+                });
+            });
         }
 
-        private void HierarchicalModel_NodeLoaded(object sender, HierarchicalNodeEventArgs e)
-        {
-            RefreshForHierarchyChange();
-        }
-
-        private void RefreshForHierarchyChange()
+        private void RefreshForHierarchyChangeCore()
         {
             IDataGridCollectionView view = View;
             if (_disposed ||
@@ -328,25 +365,6 @@ namespace Avalonia.Controls.DataGridFiltering
             return item is HierarchicalNode node ? node.Item : item;
         }
 
-        private bool IsVisibleModelNode(HierarchicalNode node)
-        {
-            HierarchicalNode root = _hierarchicalModel.Root;
-            if (_hierarchicalModel.IsVirtualRoot && ReferenceEquals(node, root))
-            {
-                return true;
-            }
-
-            IReadOnlyList<HierarchicalNode> flattened = _hierarchicalModel.Flattened;
-            for (int i = 0; i < flattened.Count; i++)
-            {
-                if (ReferenceEquals(flattened[i], node))
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
     }
 
     /// <summary>

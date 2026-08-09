@@ -440,6 +440,10 @@ internal
             }
 
             _currentCell = info;
+            if (_itemsSourceMutationDeferralDepth > 0)
+            {
+                return;
+            }
             RaisePropertyChanged(CurrentCellProperty, old, info);
         }
 

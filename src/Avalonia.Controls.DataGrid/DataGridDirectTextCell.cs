@@ -7,7 +7,9 @@ using System;
 using System.ComponentModel;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Utils;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Controls
 {
@@ -26,18 +28,25 @@ namespace Avalonia.Controls
         private INotifyPropertyChanged _notifier;
         private INotifyPropertyChanged _itemNotifier;
         private bool _usesValueAccessor;
-        private IBrush _cachedBorderBrush;
-        private double _cachedBorderThickness;
-        private Pen _cachedBorderPen;
+        private bool _valueAccessorConfigurationInitialized;
         private TextBlock _textElement;
+        private readonly WeakPropertyChangedListener<DataGridDirectTextCell> _itemPropertyChangedListener;
 
         static DataGridDirectTextCell()
         {
+            UseDirectChromeProperty.OverrideDefaultValue<DataGridDirectTextCell>(true);
             AffectsRender<DataGridDirectTextCell>(
                 BackgroundProperty,
                 BorderBrushProperty,
                 BorderThicknessProperty,
                 CornerRadiusProperty);
+        }
+
+        public DataGridDirectTextCell()
+        {
+            _itemPropertyChangedListener = new WeakPropertyChangedListener<DataGridDirectTextCell>(
+                this,
+                static (cell, sender, e) => cell.OnItemPropertyChanged(sender, e));
         }
 
         /// <summary>
@@ -60,18 +69,45 @@ namespace Avalonia.Controls
             set => SetAndRaise(ValueProperty, ref _value, value);
         }
 
-        internal bool ConfigureValueAccessor(DataGridTextColumn column)
+        internal bool ConfigureValueAccessor(DataGridTextColumn column, object dataItem)
         {
             _column = column;
-            _usesValueAccessor = column?.CanUseDirectValueAccessor == true;
+            _usesValueAccessor = column?.CanUseDirectValueAccessorFor(dataItem) == true;
+            _valueAccessorConfigurationInitialized = true;
             UpdateValueSubscription();
             return _usesValueAccessor;
         }
 
+        internal bool ConfigureValueAccessor(DataGridTextColumn column) =>
+            ConfigureValueAccessor(column, DataContext);
+
+        internal bool UsesValueAccessor => _usesValueAccessor;
+
+        internal bool ValueAccessorConfigurationInitialized => _valueAccessorConfigurationInitialized;
+
         protected override void OnDataContextChanged(EventArgs e)
         {
             base.OnDataContextChanged(e);
+            if (_column != null)
+            {
+                _column.ConfigureDirectTextCell(this, DataContext, preserveCompatibleMode: true);
+            }
+            else
+            {
+                UpdateValueSubscription();
+            }
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
             UpdateValueSubscription();
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            DetachValueSubscriptions();
+            base.OnDetachedFromVisualTree(e);
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -81,55 +117,10 @@ namespace Avalonia.Controls
             UpdateTextElement();
         }
 
-        public override void Render(DrawingContext context)
-        {
-            base.Render(context);
-
-            var bounds = new Rect(Bounds.Size);
-            var thickness = Math.Max(
-                Math.Max(BorderThickness.Left, BorderThickness.Top),
-                Math.Max(BorderThickness.Right, BorderThickness.Bottom));
-            Pen borderPen = null;
-            if (BorderBrush != null && thickness > 0d)
-            {
-                if (!ReferenceEquals(_cachedBorderBrush, BorderBrush) ||
-                    !_cachedBorderThickness.Equals(thickness))
-                {
-                    _cachedBorderBrush = BorderBrush;
-                    _cachedBorderThickness = thickness;
-                    _cachedBorderPen = new Pen(BorderBrush, thickness);
-                }
-
-                borderPen = _cachedBorderPen;
-            }
-
-            if (Background == null && borderPen == null)
-            {
-                return;
-            }
-
-            var inset = borderPen == null ? 0d : thickness * 0.5d;
-            var chromeBounds = new Rect(
-                inset,
-                inset,
-                Math.Max(0d, bounds.Width - (inset * 2d)),
-                Math.Max(0d, bounds.Height - (inset * 2d)));
-            context.DrawRectangle(
-                Background,
-                borderPen,
-                new RoundedRect(chromeBounds, CornerRadius));
-        }
-
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
-            if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
-            {
-                _cachedBorderBrush = null;
-                _cachedBorderPen = null;
-                _cachedBorderThickness = 0d;
-            }
-            else if (change.Property == ValueProperty)
+            if (change.Property == ValueProperty)
             {
                 UpdateTextElement();
             }
@@ -137,17 +128,7 @@ namespace Avalonia.Controls
 
         private void UpdateValueSubscription()
         {
-            if (_notifier != null)
-            {
-                _notifier.PropertyChanged -= OnItemPropertyChanged;
-                _notifier = null;
-            }
-
-            if (_itemNotifier != null)
-            {
-                _itemNotifier.PropertyChanged -= OnItemPropertyChanged;
-                _itemNotifier = null;
-            }
+            DetachValueSubscriptions();
 
             if (!_usesValueAccessor)
             {
@@ -160,10 +141,17 @@ namespace Avalonia.Controls
                 return;
             }
 
+            // DataContext can change after recycling has detached the cell. Keep the
+            // displayed value current, but let the attach hook establish subscriptions.
+            if (VisualRoot == null)
+            {
+                return;
+            }
+
             if (DataContext is INotifyPropertyChanged notifier)
             {
                 _notifier = notifier;
-                _notifier.PropertyChanged += OnItemPropertyChanged;
+                _notifier.PropertyChanged += _itemPropertyChangedListener.Handler;
             }
 
             if (DataContext is IHierarchicalNodeItem node &&
@@ -171,13 +159,31 @@ namespace Avalonia.Controls
                 !ReferenceEquals(itemNotifier, _notifier))
             {
                 _itemNotifier = itemNotifier;
-                _itemNotifier.PropertyChanged += OnItemPropertyChanged;
+                _itemNotifier.PropertyChanged += _itemPropertyChangedListener.Handler;
+            }
+        }
+
+        private void DetachValueSubscriptions()
+        {
+            if (_notifier != null)
+            {
+                _notifier.PropertyChanged -= _itemPropertyChangedListener.Handler;
+                _notifier = null;
+            }
+
+            if (_itemNotifier != null)
+            {
+                _itemNotifier.PropertyChanged -= _itemPropertyChangedListener.Handler;
+                _itemNotifier = null;
             }
         }
 
         private void OnItemPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            UpdateValue();
+            if (ReferenceEquals(sender, _notifier) || ReferenceEquals(sender, _itemNotifier))
+            {
+                UpdateValue();
+            }
         }
 
         private void UpdateValue()

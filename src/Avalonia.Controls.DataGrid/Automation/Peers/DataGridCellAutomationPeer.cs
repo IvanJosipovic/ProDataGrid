@@ -35,8 +35,16 @@ class DataGridCellAutomationPeer : ContentControlAutomationPeer
             return name;
         }
 
-        return Owner is DataGridCustomDrawingCell drawingCell && drawingCell.Value != null
-            ? Convert.ToString(drawingCell.Value, CultureInfo.CurrentCulture) ?? string.Empty
+        var value = Owner switch
+        {
+            DataGridCustomDrawingCell drawingCell => drawingCell.Value,
+            DataGridDirectTextCell directTextCell => directTextCell.Value,
+            DataGridDirectHierarchicalCell hierarchicalCell => hierarchicalCell.Value,
+            _ => null
+        };
+
+        return value != null
+            ? Convert.ToString(value, CultureInfo.CurrentCulture) ?? string.Empty
             : string.Empty;
     }
 }

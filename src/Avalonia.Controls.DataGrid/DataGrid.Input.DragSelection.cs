@@ -279,11 +279,25 @@ internal
                     return;
                 }
 
+                _dragLastModifiers = e.KeyModifiers;
+                _dragTriggerEvent = e;
+                if (!UpdateSelectionForDrag(current.Position, e.KeyModifiers, force: false))
+                {
+                    // The first drag proposal is still transactional. A veto (or an invalid
+                    // target) must not capture the pointer or leave a latent drag/autoscroll
+                    // session behind.
+                    EndSelectionDrag();
+                    return;
+                }
+
                 _dragCapturePending = false;
                 if (_dragPointer != null && _dragPointer.Captured == null)
                 {
                     _dragPointer.Capture(this);
                 }
+
+                e.Handled = true;
+                return;
             }
 
             _dragLastModifiers = e.KeyModifiers;
@@ -323,15 +337,21 @@ internal
                 return false;
             }
 
-            _dragLastPoint = position;
-
             var updated = _headerSelectionDragMode != HeaderSelectionDragMode.None
                 ? UpdateHeaderSelectionForDrag(position, modifiers)
                 : _isRowSelectionDragging
                     ? UpdateRowSelectionForDrag(position, modifiers)
                     : UpdateCellSelectionForDrag(position, modifiers);
 
-            UpdateDragAutoScroll(position);
+            if (updated)
+            {
+                _dragLastPoint = position;
+                UpdateDragAutoScroll(position);
+            }
+            else
+            {
+                StopDragAutoScroll();
+            }
             return updated;
         }
 
@@ -354,7 +374,9 @@ internal
 
                 if (slot == _dragLastSlot)
                 {
-                    return false;
+                    // A force tick can legitimately resolve to the same edge row while the
+                    // viewport continues scrolling. This is an accepted no-op, not a veto.
+                    return true;
                 }
 
                 var rowIndex = RowIndexFromSlot(slot);
@@ -401,7 +423,7 @@ internal
 
                 if (columnIndex == _dragLastColumnIndex)
                 {
-                    return false;
+                    return true;
                 }
 
                 var anchorDisplayIndex = _dragHeaderAnchorColumnIndex >= 0
@@ -516,7 +538,7 @@ internal
 
             if (slot == _dragLastSlot)
             {
-                return false;
+                return true;
             }
 
             var previousSlot = _dragLastSlot;
@@ -616,7 +638,7 @@ internal
 
             if (slot == _dragLastSlot && columnIndex == _dragLastColumnIndex)
             {
-                return false;
+                return true;
             }
 
             using var _ = BeginSelectionChangeScope(

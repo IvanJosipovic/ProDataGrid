@@ -17,6 +17,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 namespace Avalonia.Controls
 {
@@ -153,6 +154,8 @@ internal
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            Volatile.Write(ref _ownerThreadId, Environment.CurrentManagedThreadId);
+            Volatile.Write(ref _isAttachedToVisualTreeForThreadAccess, 1);
             _recycledChildrenCleanupToken++;
             _recycledChildrenCleanupPending = false;
             _deferRecycledChildrenRemoval = false;
@@ -220,6 +223,7 @@ internal
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            Volatile.Write(ref _isAttachedToVisualTreeForThreadAccess, 0);
             CancelPendingLayoutRefreshes();
             CancelEdit(DataGridEditingUnit.Row, raiseEvents: false);
             DetachExternalEditingElement();
@@ -385,6 +389,14 @@ internal
         protected override AutomationPeer OnCreateAutomationPeer()
         {
             return new DataGridAutomationPeer(this);
+        }
+
+        internal void RaiseAutomationStructureChanged()
+        {
+            if (ControlAutomationPeer.FromElement(this) is DataGridAutomationPeer peer)
+            {
+                peer.RaiseHierarchyStructureChanged();
+            }
         }
 
 

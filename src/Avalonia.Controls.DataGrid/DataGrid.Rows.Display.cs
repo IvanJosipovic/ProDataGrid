@@ -166,13 +166,13 @@ namespace Avalonia.Controls
 
             if (_rowsPresenter == null)
             {
-                ResetDisplayedRows();
+                ResetDisplayedRows(DataGridRecycleReuseOrder.BottomUp);
                 return;
             }
 
             if (MathUtilities.LessThanOrClose(displayHeight, 0) || SlotCount == 0 || ColumnsItemsInternal.Count == 0)
             {
-                ResetDisplayedRows();
+                ResetDisplayedRows(DataGridRecycleReuseOrder.BottomUp);
                 return;
             }
 
@@ -183,7 +183,7 @@ namespace Avalonia.Controls
 
             if (!CanRetainDisplayedRowsForScrollTarget(lastDisplayedScrollingRow))
             {
-                ResetDisplayedRows();
+                ResetDisplayedRows(DataGridRecycleReuseOrder.BottomUp);
             }
 
             int slot = lastDisplayedScrollingRow;
@@ -231,7 +231,7 @@ namespace Avalonia.Controls
 
 
 
-        private void ResetDisplayedRows()
+        private void ResetDisplayedRows(DataGridRecycleReuseOrder reuseOrder = DataGridRecycleReuseOrder.TopDown)
         {
             if (UnloadingRowEvent.HasRaisedSubscriptions ||
                 UnloadingRowGroupEvent.HasRaisedSubscriptions ||
@@ -255,6 +255,7 @@ namespace Avalonia.Controls
                 }
             }
 
+            DisplayData.ActivateDeferredRecycleHiding(reuseOrder);
             DisplayData.ClearElements(recycle: true);
 
             if (_rowsPresenter != null && !KeepRecycledContainersInVisualTree)
@@ -451,25 +452,39 @@ namespace Avalonia.Controls
 
         internal void HideRecycledElement(Control element)
         {
-            element.SetCurrentValue(Visual.IsVisibleProperty, false);
-
-            if (RecycledContainerHidingMode == DataGridRecycleHidingMode.MoveOffscreen)
-            {
-                var size = element.Bounds.Size;
-                if (size.Width <= 0 || size.Height <= 0)
-                {
-                    size = element.DesiredSize;
-                }
-
-                // Move hidden elements off-screen immediately to avoid stale bounds being picked up
-                // by layout-sensitive logic (e.g., tests that inspect all rows).
-                element.Arrange(new Rect(-10000, -10000, size.Width, size.Height));
-            }
-
             if (element is DataGridRow row)
             {
                 row.ClearPointerOverState();
             }
+
+            if (DisplayData.TryDeferElementHide(element))
+            {
+                return;
+            }
+
+            if (RecycledContainerHidingMode == DataGridRecycleHidingMode.MoveOffscreen)
+            {
+                const double recycledElementPosition = -10000;
+                var bounds = element.Bounds;
+                if (bounds.X != recycledElementPosition || bounds.Y != recycledElementPosition)
+                {
+                    var size = bounds.Size;
+                    if (size.Width <= 0 || size.Height <= 0)
+                    {
+                        size = element.DesiredSize;
+                    }
+
+                    // Move hidden elements off-screen immediately to avoid stale bounds being picked up
+                    // by layout-sensitive logic (e.g., tests that inspect all rows).
+                    element.Arrange(new Rect(recycledElementPosition, recycledElementPosition, size.Width, size.Height));
+                }
+            }
+
+            if (element.IsVisible)
+            {
+                element.SetCurrentValue(Visual.IsVisibleProperty, false);
+            }
+
         }
 
         internal bool RecycleOrphanedElement(Control element)

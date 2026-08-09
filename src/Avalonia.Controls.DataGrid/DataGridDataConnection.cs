@@ -40,6 +40,7 @@ namespace Avalonia.Controls
         private int? _placeholderRowIndexDuringAdd;
         private DataGridCollectionView _groupingCollectionView;
         private bool _pendingGroupingRefresh;
+        private bool _skipPagedProjectionSelectionTransaction;
         private IList _referenceIndexLookupList;
         private Dictionary<object, int> _referenceIndexLookup;
         private int _referenceIndexNullIndex = -1;
@@ -715,6 +716,8 @@ namespace Avalonia.Controls
                    ReferenceEquals(itemsSource, model.ObservableFlattened);
         }
 
+        internal bool UsesHierarchicalItemsSource => IsHierarchicalItemsSource();
+
         private int ResolveReferenceIndex(IList list, object dataItem)
         {
             var resolver = _owner?.ReferenceIndexResolver;
@@ -951,6 +954,11 @@ namespace Avalonia.Controls
                     CollectionView,
                     nameof(IDataGridCollectionView.CurrentChanging),
                     CollectionView_CurrentChanging);
+                if (CollectionView is DataGridCollectionView builtInView)
+                {
+                    builtInView.SourceMutationStarting -= CollectionView_SourceMutationStarting;
+                    builtInView.SourceMutationCompleted -= CollectionView_SourceMutationCompleted;
+                }
             }
 
             UnWireGroupingEvents();
@@ -978,6 +986,11 @@ namespace Avalonia.Controls
 
             if (CollectionView != null)
             {
+                if (CollectionView is DataGridCollectionView builtInView)
+                {
+                    builtInView.SourceMutationStarting += CollectionView_SourceMutationStarting;
+                    builtInView.SourceMutationCompleted += CollectionView_SourceMutationCompleted;
+                }
                 WeakEventHandlerManager.Subscribe<IDataGridCollectionView, EventArgs, DataGridDataConnection>(
                     CollectionView,
                     nameof(IDataGridCollectionView.CurrentChanged),
@@ -991,6 +1004,50 @@ namespace Avalonia.Controls
             WireGroupingEvents();
 
             EventsWired = true;
+        }
+
+        private void CollectionView_SourceMutationStarting(
+            object sender,
+            DataGridCollectionViewSourceMutationEventArgs e)
+        {
+            if (IsHierarchicalItemsSource())
+            {
+                return;
+            }
+
+            if (!e.IsViewProjectionStable)
+            {
+                return;
+            }
+
+            if (CollectionView is DataGridCollectionView { PageSize: > 0 } &&
+                e.CollectionChange.Action == NotifyCollectionChangedAction.Reset)
+            {
+                _skipPagedProjectionSelectionTransaction = true;
+                return;
+            }
+
+            _owner.PrepareBuiltInCollectionViewMutationPreflight(
+                _owner.CaptureSelectionSnapshot(),
+                e.ProspectiveSource);
+        }
+
+        private void CollectionView_SourceMutationCompleted(
+            object sender,
+            DataGridCollectionViewSourceMutationEventArgs e)
+        {
+            if (_skipPagedProjectionSelectionTransaction)
+            {
+                _skipPagedProjectionSelectionTransaction = false;
+                return;
+            }
+
+            if (IsHierarchicalItemsSource() || !e.IsViewProjectionStable)
+            {
+                return;
+            }
+
+            _owner.CompleteBuiltInCollectionViewMutationPreflight();
         }
 
         private void WireGroupingEvents()
@@ -1174,11 +1231,23 @@ namespace Avalonia.Controls
                 return;
             }
 
+            bool isPageProjectionReset =
+                e.Action == NotifyCollectionChangedAction.Reset &&
+                CollectionView is DataGridCollectionView
+                {
+                    PageSize: > 0,
+                    IsPageProjectionChanging: true
+                };
+            List<int> pageSelectionIndexes = isPageProjectionReset
+                ? _owner.Selection?.SelectedIndexes?.ToList()
+                : null;
             bool updateSnapshotAfterChange = e.Action == NotifyCollectionChangedAction.Reset;
             var snapshotSuppression = _owner.BeginSelectionSnapshotSuppression();
             try
             {
-                using var _ = _owner.BeginSelectionChangeScope(DataGridSelectionChangeSource.ItemsSourceChange);
+                using var _ = _owner.BeginSelectionChangeScope(
+                    DataGridSelectionChangeSource.ItemsSourceChange,
+                    guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
 
                 if (_owner.LoadingOrUnloadingRow)
                 {
@@ -1186,12 +1255,24 @@ namespace Avalonia.Controls
                 }
 
                 List<object> selectionSnapshot = _owner.CaptureSelectionSnapshot();
+                DataGrid.ItemsSourceSelectionTransaction selectionTransaction =
+                    isPageProjectionReset || _skipPagedProjectionSelectionTransaction
+                        ? null
+                        : _owner.TakeItemsSourceSelectionTransaction(
+                            selectionSnapshot,
+                            CollectionView);
+                using var selectionCommit = selectionTransaction != null
+                    ? _owner.BeginSelectionCommit()
+                    : default;
+                using var sourceMutationDeferral = selectionTransaction != null
+                    ? _owner.BeginItemsSourceMutationDeferral()
+                    : default;
                 if (_owner.HierarchicalRowsEnabled && _owner.HierarchicalModel != null)
                 {
                     _owner.CacheHierarchicalSelectionSnapshot(selectionSnapshot);
                     _owner.CacheHierarchicalSelectionIndexes(_owner.Selection?.SelectedIndexes);
                 }
-                if (e.Action == NotifyCollectionChangedAction.Reset)
+                if (e.Action == NotifyCollectionChangedAction.Reset && !isPageProjectionReset)
                 {
                     var previousSelectionSync = _owner.PushSelectionSync();
                     try
@@ -1328,13 +1409,19 @@ namespace Avalonia.Controls
                         break;
                 }
 
-                if (selectionSnapshot != null && e.Action == NotifyCollectionChangedAction.Reset)
+                if (selectionSnapshot != null &&
+                    e.Action == NotifyCollectionChangedAction.Reset &&
+                    !isPageProjectionReset)
                 {
                     _owner.RestoreSelectionFromSnapshot(selectionSnapshot);
                 }
 
                 _owner.UpdatePseudoClasses();
-                _owner.RefreshSelectedColumnsFromCounts();
+                if (selectionTransaction == null &&
+                    !_owner.IsSelectionModelSourceResetPreflightPending)
+                {
+                    _owner.RefreshSelectedColumnsFromCounts();
+                }
 
                 // Notify the summary service about the collection change
                 _owner.OnCollectionChangedForSummaries(e);
@@ -1362,11 +1449,26 @@ namespace Avalonia.Controls
                 }
                 else
                 {
-                    _owner.RefreshSelectionFromModel();
+                    if (pageSelectionIndexes != null)
+                    {
+                        _owner.RestoreSelectionModelIndexes(pageSelectionIndexes);
+                        _owner.ApplyVisibleSelectionFromSelectionModel();
+                        _owner.RestoreSelectionModelIndexes(pageSelectionIndexes);
+                    }
+                    else
+                    {
+                        _owner.RefreshSelectionFromModel();
+                    }
                 }
 
-                _owner.RemapSelectedCellsToCurrentRows();
+                if (selectionTransaction == null &&
+                    !_owner.IsSelectionModelSourceResetPreflightPending)
+                {
+                    _owner.RemapSelectedCellsToCurrentRows();
+                }
                 _owner.RequestSelectionOverlayRefresh();
+
+                _owner.CompleteItemsSourceSelectionTransaction(selectionTransaction);
 
                 if (restoreSyncingSelectionModel)
                 {
@@ -1374,6 +1476,7 @@ namespace Avalonia.Controls
                 }
 
                 _owner.InvalidateMeasure();
+                _owner.RaiseAutomationStructureChanged();
             }
             finally
             {

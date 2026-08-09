@@ -5,10 +5,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Controls.Utils;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Controls.DataGridSearching;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Controls
 {
@@ -44,6 +48,13 @@ namespace Avalonia.Controls
         private SearchHighlightMode _highlightMode;
         private bool _usesInlines;
         private string _lastText;
+        private DataGridTextColumn _directColumn;
+        private bool _usesDirectAccessor;
+        private INotifyPropertyChanged _notifier;
+        private INotifyPropertyChanged _itemNotifier;
+        private WeakPropertyChangedListener<DataGridSearchTextBlock> _propertyChangedListener;
+
+        internal bool UsesDirectAccessor => _usesDirectAccessor;
 
         public IReadOnlyList<SearchMatch> SearchMatches
         {
@@ -95,6 +106,44 @@ namespace Avalonia.Controls
                     UpdateInlines();
                 }
             }
+        }
+
+        internal void ConfigureDirectText(DataGridTextColumn column, object dataItem)
+        {
+            DetachDirectTextSubscriptions();
+            _directColumn = column;
+            _usesDirectAccessor = column?.UseDirectTextContent == true &&
+                                  column.CanUseDirectValueAccessorFor(dataItem);
+            if (_usesDirectAccessor)
+            {
+                UpdateDirectText(dataItem);
+                AttachDirectTextSubscriptions(dataItem);
+            }
+        }
+
+        protected override void OnDataContextChanged(EventArgs e)
+        {
+            base.OnDataContextChanged(e);
+            if (_directColumn != null)
+            {
+                ConfigureDirectText(_directColumn, DataContext);
+            }
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            if (_usesDirectAccessor)
+            {
+                UpdateDirectText(DataContext);
+                AttachDirectTextSubscriptions(DataContext);
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            DetachDirectTextSubscriptions();
+            base.OnDetachedFromVisualTree(e);
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -207,6 +256,68 @@ namespace Avalonia.Controls
             }
 
             inlines.Add(new Run(text));
+        }
+
+        private void AttachDirectTextSubscriptions(object dataItem)
+        {
+            DetachDirectTextSubscriptions();
+            if (!_usesDirectAccessor ||
+                _directColumn?.TrackDirectTextValueChanges != true ||
+                VisualRoot == null)
+            {
+                return;
+            }
+
+            var listener = _propertyChangedListener ??=
+                new WeakPropertyChangedListener<DataGridSearchTextBlock>(
+                    this,
+                    static (textBlock, sender, e) => textBlock.OnDirectItemPropertyChanged(sender, e));
+
+            if (dataItem is INotifyPropertyChanged notifier)
+            {
+                _notifier = notifier;
+                _notifier.PropertyChanged += listener.Handler;
+            }
+
+            if (dataItem is IHierarchicalNodeItem node &&
+                node.Item is INotifyPropertyChanged itemNotifier &&
+                !ReferenceEquals(itemNotifier, _notifier))
+            {
+                _itemNotifier = itemNotifier;
+                _itemNotifier.PropertyChanged += listener.Handler;
+            }
+        }
+
+        private void DetachDirectTextSubscriptions()
+        {
+            if (_notifier != null && _propertyChangedListener != null)
+            {
+                _notifier.PropertyChanged -= _propertyChangedListener.Handler;
+                _notifier = null;
+            }
+
+            if (_itemNotifier != null && _propertyChangedListener != null)
+            {
+                _itemNotifier.PropertyChanged -= _propertyChangedListener.Handler;
+                _itemNotifier = null;
+            }
+        }
+
+        private void OnDirectItemPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (ReferenceEquals(sender, _notifier) || ReferenceEquals(sender, _itemNotifier))
+            {
+                UpdateDirectText(DataContext);
+            }
+        }
+
+        private void UpdateDirectText(object dataItem)
+        {
+            var value = _directColumn?.GetDirectCellText(dataItem);
+            if (!string.Equals(Text, value, StringComparison.Ordinal))
+            {
+                Text = value;
+            }
         }
 
         private IBrush TryFindBrush(string key)

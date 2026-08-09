@@ -194,6 +194,142 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
+    public void Initial_Selection_Veto_Preserves_Focus_And_Never_Starts_Drag_Or_AutoScroll()
+    {
+        var (grid, items) = CreateGrid(
+            rowCount: 20,
+            selectionUnit: DataGridSelectionUnit.FullRow,
+            selectionMode: DataGridSelectionMode.Extended);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        DataGridRow currentRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        DataGridRow targetRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(1)));
+        DataGridCell currentCell = currentRow.Cells[0];
+        DataGridCell targetCell = targetRow.Cells[0];
+        currentCell.Focus();
+        Assert.True(currentCell.IsKeyboardFocusWithin);
+        DataGridCellInfo current = grid.CurrentCell;
+        double offset = grid.GetVerticalOffset();
+        int proposals = 0;
+        IInputElement? focusDuringPreview = null;
+        grid.SelectionChanging += (_, e) =>
+        {
+            proposals++;
+            Assert.Equal(current, grid.CurrentCell);
+            focusDuringPreview = TopLevel.GetTopLevel(grid)?.FocusManager.GetFocusedElement();
+            e.Cancel = true;
+        };
+        Point start = GetCenterPoint(targetCell, grid);
+        Point move = start + new Point(20, 20);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        targetCell.RaiseEvent(CreatePointerPressedArgs(targetCell, grid, pointer, start, KeyModifiers.None));
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, move, KeyModifiers.None));
+
+        Assert.Equal(1, proposals);
+        Assert.Same(currentCell, focusDuringPreview);
+        Assert.Null(pointer.Captured);
+        Assert.False(GetSelectionDragCapturePending(grid));
+        Assert.Null(GetSelectionDragTimer(grid));
+        Assert.Equal(current, grid.CurrentCell);
+        Assert.True(currentCell.IsKeyboardFocusWithin);
+        Assert.Equal(offset, grid.GetVerticalOffset());
+        Assert.Equal(new[] { items[0] }, grid.SelectedItems.Cast<RowItem>());
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, move, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
+    public void First_Drag_Proposal_Veto_Happens_Before_Capture_And_Ends_The_Drag()
+    {
+        var (grid, items) = CreateGrid(
+            rowCount: 12,
+            selectionUnit: DataGridSelectionUnit.FullRow,
+            selectionMode: DataGridSelectionMode.Extended);
+        grid.SelectedItem = items[0];
+        grid.UpdateLayout();
+        DataGridRow startRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        DataGridRow targetRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(2)));
+        DataGridCell startCell = startRow.Cells[0];
+        Point start = GetCenterPoint(startCell, grid);
+        Point target = GetCenterPoint(targetRow.Cells[0], grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        startCell.RaiseEvent(CreatePointerPressedArgs(startCell, grid, pointer, start, KeyModifiers.None));
+        Assert.True(GetSelectionDragCapturePending(grid));
+        int dragProposals = 0;
+        grid.SelectionChanging += (_, e) =>
+        {
+            if (!e.Source.HasFlag(DataGridSelectionChangeSource.DragInteraction))
+            {
+                return;
+            }
+
+            dragProposals++;
+            Assert.Null(pointer.Captured);
+            Assert.True(GetSelectionDragCapturePending(grid));
+            e.Cancel = true;
+        };
+
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, target, KeyModifiers.None));
+
+        Assert.Equal(1, dragProposals);
+        Assert.Null(pointer.Captured);
+        Assert.False(GetSelectionDragCapturePending(grid));
+        Assert.False(GetPrivateField<bool>(grid, "_isDraggingSelection"));
+        Assert.Null(GetSelectionDragTimer(grid));
+        Assert.Equal(new[] { items[0] }, grid.SelectedItems.Cast<RowItem>());
+    }
+
+    [AvaloniaFact]
+    public void Edge_Force_Ticks_Keep_AutoScroll_Alive_Until_A_Proposal_Is_Vetoed()
+    {
+        var (grid, _) = CreateGrid(
+            rowCount: 100,
+            selectionUnit: DataGridSelectionUnit.FullRow,
+            selectionMode: DataGridSelectionMode.Extended);
+        DataGridRow startRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        DataGridCell startCell = startRow.Cells[0];
+        Point start = GetCenterPoint(startCell, grid);
+        Point edge = new(start.X, grid.Bounds.Height + 32);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        startCell.RaiseEvent(CreatePointerPressedArgs(startCell, grid, pointer, start, KeyModifiers.None));
+        grid.RaiseEvent(CreatePointerMovedArgs(grid, grid, pointer, edge, KeyModifiers.None));
+
+        DispatcherTimer timer = Assert.IsType<DispatcherTimer>(GetSelectionDragTimer(grid));
+        Assert.True(timer.IsEnabled);
+        Assert.True(InvokeUpdateSelectionForDrag(grid, edge, KeyModifiers.None, force: true));
+        Assert.True(timer.IsEnabled);
+        Assert.True(InvokeUpdateSelectionForDrag(grid, edge, KeyModifiers.None, force: true));
+        Assert.True(timer.IsEnabled);
+
+        int vetoes = 0;
+        grid.SelectionChanging += (_, e) =>
+        {
+            if (e.Source.HasFlag(DataGridSelectionChangeSource.DragInteraction))
+            {
+                vetoes++;
+                e.Cancel = true;
+            }
+        };
+        SetPrivateField(grid, "_dragLastSlot", -1);
+        SetPrivateField(grid, "_dragAnchorSlot", grid.SlotFromRowIndex(2));
+
+        Assert.False(InvokeUpdateSelectionForDrag(grid, edge, KeyModifiers.None, force: true));
+        Assert.Equal(1, vetoes);
+        Assert.False(timer.IsEnabled);
+        Assert.Equal(0, GetPrivateField<int>(grid, "_dragAutoScrollDirectionX"));
+        Assert.Equal(0, GetPrivateField<int>(grid, "_dragAutoScrollDirectionY"));
+
+        grid.RaiseEvent(CreatePointerReleasedArgs(grid, grid, pointer, edge, KeyModifiers.None));
+    }
+
+    [AvaloniaFact]
     public void RowDragHandle_Row_Suppresses_SelectionDrag_When_Enabled()
     {
         var (grid, items) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
@@ -2268,6 +2404,83 @@ public class DataGridInputMouseSelectionTests
     }
 
     [AvaloniaFact]
+    public void MouseRight_CurrentCell_Veto_Preserves_Current_Cell_And_Focus()
+    {
+        var (grid, _) = CreateGrid(
+            selectionUnit: DataGridSelectionUnit.Cell,
+            selectionMode: DataGridSelectionMode.Extended);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        DataGridRow currentRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        DataGridRow targetRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(1)));
+        DataGridCell currentCell = currentRow.Cells[0];
+        DataGridCell targetCell = targetRow.Cells[1];
+        currentCell.Focus();
+        DataGridCellInfo current = grid.CurrentCell;
+        DataGridCellInfo[] selected = grid.SelectedCells.ToArray();
+        int proposals = 0;
+        grid.SelectionChanging += (_, e) =>
+        {
+            proposals++;
+            Assert.Equal(current, grid.CurrentCell);
+            Assert.True(currentCell.IsKeyboardFocusWithin);
+            e.Cancel = true;
+        };
+        Point target = GetCenterPoint(targetCell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        targetCell.RaiseEvent(CreateRightPointerPressedArgs(targetCell, grid, pointer, target));
+
+        Assert.Equal(1, proposals);
+        Assert.Equal(current, grid.CurrentCell);
+        Assert.Equal(selected, grid.SelectedCells);
+        Assert.True(currentCell.IsKeyboardFocusWithin);
+        Assert.False(targetCell.IsKeyboardFocusWithin);
+    }
+
+    [AvaloniaFact]
+    public void MouseRight_NonCanceling_Subscriber_Preserves_Accepted_And_NoOp_Focus_Behavior()
+    {
+        var (grid, _) = CreateGrid(
+            selectionUnit: DataGridSelectionUnit.Cell,
+            selectionMode: DataGridSelectionMode.Extended);
+        SetCurrentCell(grid, rowIndex: 0, columnIndex: 0);
+        DataGridRow firstRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        DataGridRow targetRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(1)));
+        DataGridCell firstCell = firstRow.Cells[0];
+        DataGridCell targetCell = targetRow.Cells[1];
+        firstCell.Focus();
+        int proposals = 0;
+        grid.SelectionChanging += (_, _) => proposals++;
+        Point target = GetCenterPoint(targetCell, grid);
+        var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+
+        // Avalonia normally requests pointer focus before the tunnel press handler. Reproduce
+        // that ordering explicitly in the headless input harness.
+        targetCell.Focus(NavigationMethod.Pointer);
+        Assert.True(firstCell.IsKeyboardFocusWithin);
+        targetCell.RaiseEvent(CreateRightPointerPressedArgs(targetCell, grid, pointer, target));
+
+        Assert.Equal(1, proposals);
+        Assert.True(grid.IsFocused);
+        Assert.Equal(targetCell.ColumnIndex, grid.CurrentColumnIndex);
+        Assert.Equal(targetRow.Slot, grid.CurrentSlot);
+
+        firstCell.Focus();
+        targetCell.Focus(NavigationMethod.Pointer);
+        Assert.True(firstCell.IsKeyboardFocusWithin);
+        targetCell.RaiseEvent(CreateRightPointerPressedArgs(targetCell, grid, pointer, target));
+
+        Assert.Equal(1, proposals);
+        Assert.True(targetCell.IsKeyboardFocusWithin);
+        Assert.Equal(targetCell.ColumnIndex, grid.CurrentColumnIndex);
+        Assert.Equal(targetRow.Slot, grid.CurrentSlot);
+    }
+
+    [AvaloniaFact]
     public void MouseRight_Returns_When_Modifier_Pressed()
     {
         var (grid, _) = CreateGrid(selectionUnit: DataGridSelectionUnit.FullRow, selectionMode: DataGridSelectionMode.Extended);
@@ -2468,6 +2681,26 @@ public class DataGridInputMouseSelectionTests
         return new PointerPressedEventArgs(source, pointer, root, position, 0, properties, modifiers, clickCount);
     }
 
+    private static PointerPressedEventArgs CreateRightPointerPressedArgs(
+        Control source,
+        Visual root,
+        IPointer pointer,
+        Point position)
+    {
+        var properties = new PointerPointProperties(
+            RawInputModifiers.RightMouseButton,
+            PointerUpdateKind.RightButtonPressed);
+        return new PointerPressedEventArgs(
+            source,
+            pointer,
+            root,
+            position,
+            0,
+            properties,
+            KeyModifiers.None,
+            clickCount: 1);
+    }
+
     private static PointerPressedEventArgs CreateTouchPointerPressedArgs(Control source, Visual root, IPointer pointer, Point position)
     {
         var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
@@ -2562,6 +2795,37 @@ public class DataGridInputMouseSelectionTests
     {
         var field = typeof(DataGrid).GetField("_dragCapturePending", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
         return (bool?)field?.GetValue(grid) ?? false;
+    }
+
+    private static DispatcherTimer? GetSelectionDragTimer(DataGrid grid) =>
+        GetPrivateField<DispatcherTimer?>(grid, "_dragAutoScrollTimer");
+
+    private static bool InvokeUpdateSelectionForDrag(
+        DataGrid grid,
+        Point point,
+        KeyModifiers modifiers,
+        bool force)
+    {
+        var method = typeof(DataGrid).GetMethod(
+            "UpdateSelectionForDrag",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        return (bool)method!.Invoke(grid, new object[] { point, modifiers, force })!;
+    }
+
+    private static T GetPrivateField<T>(DataGrid grid, string name)
+    {
+        var field = typeof(DataGrid).GetField(
+            name,
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        return (T)field!.GetValue(grid)!;
+    }
+
+    private static void SetPrivateField(DataGrid grid, string name, object value)
+    {
+        var field = typeof(DataGrid).GetField(
+            name,
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        field!.SetValue(grid, value);
     }
 
     private static void CollapseSlot(DataGrid grid, int slot)

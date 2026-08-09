@@ -201,9 +201,100 @@ namespace Avalonia.Controls.Utils
             };
         }
 
+        public static bool SupportsDirectTextDataContextRead(BindingBase? binding)
+        {
+            if (!SupportsDirectDataContextRead(binding) ||
+                !HasSupportedDirectReadMode(binding) ||
+                !HasDefaultDirectReadAnchorAndPriority(binding) ||
+                !HasDefaultFallbackValues(binding) ||
+                HasReadDelay(binding))
+            {
+                return false;
+            }
+
+            // Arbitrary converters can depend on binding-engine behavior such as UnsetValue,
+            // DoNothing, target-null handling, or a target property type. Keep those bindings on
+            // Avalonia's retained binding path. The grid's default converter is known to perform
+            // only the standard value-to-string conversion reproduced by the typed accessor.
+            var converter = GetConverter(binding);
+            return converter == null || ReferenceEquals(converter, DataGridValueConverter.Instance);
+        }
+
+        public static bool SupportsDirectRawDataContextRead(BindingBase? binding)
+        {
+            if (!SupportsDirectTextDataContextRead(binding) ||
+                !string.IsNullOrWhiteSpace(GetStringFormat(binding)))
+            {
+                return false;
+            }
+
+            var converter = GetConverter(binding);
+            return converter == null || ReferenceEquals(converter, DataGridValueConverter.Instance);
+        }
+
         private static bool HasImplicitSource(object? source)
         {
             return source is null || ReferenceEquals(source, AvaloniaProperty.UnsetValue);
+        }
+
+        private static bool HasSupportedDirectReadMode(BindingBase? binding)
+        {
+            var mode = GetMode(binding);
+            return mode == BindingMode.Default ||
+                   mode == BindingMode.OneWay ||
+                   mode == BindingMode.TwoWay;
+        }
+
+        private static bool HasReadDelay(BindingBase? binding)
+        {
+            return binding switch
+            {
+                Binding avaloniaBinding => avaloniaBinding.Delay > 0,
+                ReflectionBinding reflectionBinding => reflectionBinding.Delay > 0,
+                CompiledBindingExtension compiledBindingExtension => compiledBindingExtension.Delay > 0,
+                CompiledBinding compiledBinding => compiledBinding.Delay > 0,
+                _ => false
+            };
+        }
+
+        private static bool HasDefaultDirectReadAnchorAndPriority(BindingBase? binding)
+        {
+            return binding switch
+            {
+                Binding avaloniaBinding =>
+                    avaloniaBinding.Priority == BindingPriority.LocalValue &&
+                    avaloniaBinding.DefaultAnchor is null,
+                ReflectionBinding reflectionBinding =>
+                    reflectionBinding.Priority == BindingPriority.LocalValue &&
+                    reflectionBinding.DefaultAnchor is null,
+                CompiledBindingExtension compiledBindingExtension =>
+                    compiledBindingExtension.Priority == BindingPriority.LocalValue &&
+                    compiledBindingExtension.DefaultAnchor is null,
+                CompiledBinding compiledBinding =>
+                    compiledBinding.Priority == BindingPriority.LocalValue &&
+                    compiledBinding.DefaultAnchor is null,
+                _ => false
+            };
+        }
+
+        private static bool HasDefaultFallbackValues(BindingBase? binding)
+        {
+            return binding switch
+            {
+                Binding avaloniaBinding =>
+                    ReferenceEquals(avaloniaBinding.FallbackValue, AvaloniaProperty.UnsetValue) &&
+                    ReferenceEquals(avaloniaBinding.TargetNullValue, AvaloniaProperty.UnsetValue),
+                ReflectionBinding reflectionBinding =>
+                    ReferenceEquals(reflectionBinding.FallbackValue, AvaloniaProperty.UnsetValue) &&
+                    ReferenceEquals(reflectionBinding.TargetNullValue, AvaloniaProperty.UnsetValue),
+                CompiledBindingExtension compiledBindingExtension =>
+                    ReferenceEquals(compiledBindingExtension.FallbackValue, AvaloniaProperty.UnsetValue) &&
+                    ReferenceEquals(compiledBindingExtension.TargetNullValue, AvaloniaProperty.UnsetValue),
+                CompiledBinding compiledBinding =>
+                    ReferenceEquals(compiledBinding.FallbackValue, AvaloniaProperty.UnsetValue) &&
+                    ReferenceEquals(compiledBinding.TargetNullValue, AvaloniaProperty.UnsetValue),
+                _ => false
+            };
         }
 
         private static Binding CloneBinding(Binding source)

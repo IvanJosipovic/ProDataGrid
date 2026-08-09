@@ -32,6 +32,8 @@
     href: search-model-high-performance-mode.md
   - name: Hierarchical Model (End-to-End)
     href: hierarchical-model-end-to-end.md
+  - name: Hierarchical UI Automation
+    href: hierarchical-automation.md
   - name: Summaries and Aggregation
     href: summaries.md
   - name: Pivot Tables
@@ -142,6 +144,8 @@
     href: column-definitions-models.md
   - name: Column Definitions (Hot Path Integration)
     href: column-definitions-hot-path.md
+  - name: Optimized Retained and Drawn Cells
+    href: optimized-cell-paths.md
   - name: Column Definitions (Hierarchical Columns)
     href: column-definitions-hierarchical.md
   - name: Column Banding

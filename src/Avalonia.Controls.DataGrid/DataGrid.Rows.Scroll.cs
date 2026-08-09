@@ -146,6 +146,8 @@ namespace Avalonia.Controls
                 return;
             }
 
+            using var deferredRecycleScope = DisplayData.BeginDeferredRecycleScope();
+
             if (DisplayData.FirstScrollingSlot < 0)
             {
                 DisplayData.FirstScrollingSlot = 0;
@@ -174,7 +176,7 @@ namespace Avalonia.Controls
                         _rowsPresenter?.IsBottomAnchorRequested == true)
                     {
                         EnsureScrollHeightIndex();
-                        ResetDisplayedRows();
+                        ResetDisplayedRows(DataGridRecycleReuseOrder.BottomUp);
                         UpdateDisplayedRowsFromBottom(lastVisibleSlot);
                         newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
                         newVerticalOffset = Math.Max(
@@ -187,7 +189,7 @@ namespace Avalonia.Controls
                         // We've scrolled to the bottom of the ScrollBar, automatically place the user at the very bottom
                         // of the DataGrid.  If this produces very odd behavior, evaluate the coping strategy used by
                         // OnRowMeasure(Size).  For most data, this should be unnoticeable.
-                        ResetDisplayedRows();
+                        ResetDisplayedRows(DataGridRecycleReuseOrder.BottomUp);
                         UpdateDisplayedRowsFromBottom(lastVisibleSlot);
                         newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
                     }
@@ -217,7 +219,7 @@ namespace Avalonia.Controls
                                         // An estimated extent can grow while a bottom-anchor request realizes
                                         // variable-height rows. Anchor the visual tail explicitly so the extent
                                         // cannot keep feeding the same delta back into logical scrolling.
-                                        ResetDisplayedRows();
+                                        ResetDisplayedRows(DataGridRecycleReuseOrder.BottomUp);
                                         UpdateDisplayedRowsFromBottom(lastVisibleSlot);
                                         newFirstScrollingSlot = DisplayData.FirstScrollingSlot;
                                         newVerticalOffset = Math.Max(

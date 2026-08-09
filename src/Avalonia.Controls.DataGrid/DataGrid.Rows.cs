@@ -638,9 +638,18 @@ internal
 
             var previousItem = row.DataContext;
             var wasPlaceholder = row.IsPlaceholder;
+            var assignmentChanged = !ReferenceEquals(previousItem, newItem);
             var hasPlaceholderTransition =
-                !ReferenceEquals(previousItem, newItem) &&
+                assignmentChanged &&
                 (wasPlaceholder || ReferenceEquals(newItem, DataGridCollectionView.NewItemPlaceholder));
+
+            if (assignmentChanged)
+            {
+                // This path keeps the realized row/cell containers while replacing their
+                // logical assignment. Preserve the same clearing/prepared boundary used by
+                // ordinary recycling: clearing observes the old item and content.
+                NotifyCellsClearing(row);
+            }
 
             if (hasPlaceholderTransition)
             {
@@ -665,6 +674,12 @@ internal
             }
 
             row.ApplyState();
+            if (assignmentChanged)
+            {
+                // Prepared handlers must observe the final item, regenerated content, and
+                // non-placeholder row state rather than the stale placeholder assignment.
+                NotifyPreparedRowCells(row);
+            }
             row.InvalidateMeasure();
             RequestPointerOverRefresh();
             return true;
@@ -723,7 +738,10 @@ internal
             _rowsPresenter.RaiseScrollInvalidated(EventArgs.Empty);
         }
 
-        internal void RefreshRows(bool recycleRows, bool clearRows)
+        internal void RefreshRows(
+            bool recycleRows,
+            bool clearRows,
+            bool recycleDisplayedRows = false)
         {
             using var activity = DataGridDiagnostics.RefreshRows();
             using var _ = DataGridDiagnostics.BeginRowsRefresh();
@@ -775,6 +793,13 @@ internal
                     ClearRows(recycleRows);
                     ClearRowGroupHeadersTable();
                     PopulateRowGroupHeadersTable();
+                }
+                else if (recycleDisplayedRows)
+                {
+                    // A bulk hierarchy change invalidates most realized row-to-item mappings.
+                    // Recycle the current viewport before AddSlots so it can reuse those rows
+                    // instead of realizing a second viewport and discarding the old one later.
+                    ResetDisplayedRows();
                 }
 
                 RefreshRowGroupHeaders();

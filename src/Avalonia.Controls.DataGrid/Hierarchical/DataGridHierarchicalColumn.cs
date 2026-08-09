@@ -47,6 +47,9 @@ internal
             _directTextCellTheme = new Lazy<ControlTheme?>(() => GetColumnControlTheme("DataGridOptimizedDirectTextHierarchicalCellTheme"));
         }
 
+        internal override bool CanReuseCellContentOnDataContextChange =>
+            GetType() == typeof(DataGridHierarchicalColumn);
+
         /// <summary>
         /// Defines the <see cref="UseDirectCell"/> property.
         /// </summary>
@@ -69,14 +72,32 @@ internal
             AvaloniaProperty.Register<DataGridHierarchicalColumn, bool>(nameof(UseDirectTextContent));
 
         /// <summary>
-        /// Gets or sets whether a direct cell with a typed value accessor uses the retained
-        /// text-only hierarchy theme instead of a content presenter. Custom cell templates
-        /// continue to use the content-presenter path.
+        /// Gets or sets whether a compatible typed value accessor supplies hierarchy text
+        /// directly. Direct cells use their text-only theme; ordinary retained cells keep
+        /// their presenter and Avalonia content template while avoiding per-cell bindings.
+        /// Custom cell templates continue to use the normal binding path.
         /// </summary>
         public bool UseDirectTextContent
         {
             get => GetValue(UseDirectTextContentProperty);
             set => SetValue(UseDirectTextContentProperty, value);
+        }
+
+        /// <summary>
+        /// Defines the <see cref="UseOptimizedPresenter"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseOptimizedPresenterProperty =
+            AvaloniaProperty.Register<DataGridHierarchicalColumn, bool>(nameof(UseOptimizedPresenter));
+
+        /// <summary>
+        /// Gets or sets whether retained hierarchy cells combine the cell and expander-presenter
+        /// roles while continuing to host their text as a normal retained Avalonia control.
+        /// Custom cell templates and editing continue to use the standard presenter path.
+        /// </summary>
+        public bool UseOptimizedPresenter
+        {
+            get => GetValue(UseOptimizedPresenterProperty);
+            set => SetValue(UseOptimizedPresenterProperty, value);
         }
 
         /// <summary>
@@ -97,11 +118,19 @@ internal
         }
 
         internal bool CanUseDirectTextContent =>
-            UseDirectCell &&
             UseDirectTextContent &&
             CellTemplate == null &&
-            BindingCloneHelper.SupportsDirectDataContextRead(Binding) &&
+            BindingCloneHelper.SupportsDirectTextDataContextRead(Binding) &&
             DataGridColumnMetadata.GetValueAccessor(this) is IDataGridColumnTextAccessor;
+
+        internal bool CanUseDirectTextContentFor(object? item)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this);
+            return CanUseDirectTextContent &&
+                   item != null &&
+                   accessor != null &&
+                   accessor.ItemType.IsInstanceOfType(item);
+        }
 
         /// <summary>
         /// Identifies the <see cref="Indent"/> property.
@@ -114,6 +143,22 @@ internal
                 16d);
 
         private double _indent = 16d;
+
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == UseDirectCellProperty ||
+                change.Property == UseDirectTextContentProperty ||
+                change.Property == UseOptimizedPresenterProperty)
+            {
+                OwningGrid?.OnColumnDisplayModeChanged(this);
+            }
+            else if (change.Property == TrackDirectTextValueChangesProperty)
+            {
+                NotifyPropertyChanged(change.Property.Name);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the per-level indent applied to the presenter.
@@ -159,36 +204,49 @@ internal
         {
             if (cell is DataGridDirectHierarchicalCell directCell)
             {
-                directCell.Content = null;
                 directCell.Indent = Indent;
-                directCell.ClearValue(DataGridDirectHierarchicalCell.ValueProperty);
-                if (directCell.ConfigureTextAccessor(this))
-                {
-                    directCell.ContentTemplate = null;
-                    directCell.Theme = CellTheme ?? GetDirectTextCellTheme();
-                    return null;
-                }
-
-                directCell.Theme = CellTheme ?? GetDirectCellTheme();
-                BindContent(directCell, dataItem);
+                ConfigureDirectHierarchicalCell(directCell, dataItem);
                 return null;
             }
 
-            if (cell.Content is DataGridHierarchicalPresenter existingPresenter && !_refreshingBinding)
+            var useDirectValues = CanUseDirectTextContentFor(dataItem);
+            if (cell.Content is DataGridHierarchicalPresenter existingPresenter &&
+                existingPresenter.UsesDirectValues == useDirectValues &&
+                !_refreshingBinding)
             {
-                BindContent(existingPresenter, dataItem, isEditing: false);
+                if (useDirectValues)
+                {
+                    existingPresenter.ConfigureDirectValues(this, dataItem);
+                }
+                else
+                {
+                    BindContent(existingPresenter, dataItem, isEditing: false);
+                }
                 return existingPresenter;
             }
 
-            var presenter = cell.Content as DataGridHierarchicalPresenter ?? CreatePresenter();
-            BindContent(presenter, dataItem, isEditing: false);
+            var presenter = CreatePresenter(useDirectValues);
+            if (useDirectValues)
+            {
+                presenter.ConfigureDirectValues(this, dataItem);
+            }
+            else
+            {
+                BindContent(presenter, dataItem, isEditing: false);
+            }
             return presenter;
         }
 
         /// <inheritdoc />
         protected override Control GenerateEditingElementDirect(DataGridCell cell, object dataItem)
         {
-            var presenter = CreatePresenter();
+            if (cell is DataGridDirectHierarchicalCell directCell)
+            {
+                directCell.ConfigureTextAccessor(null, dataItem);
+                directCell.Theme = OwningGrid?.CellTheme ?? GetColumnControlTheme(typeof(DataGridCell));
+            }
+
+            var presenter = CreatePresenter(useDirectValues: false);
             BindContent(presenter, dataItem, isEditing: true);
             return presenter;
         }
@@ -202,6 +260,20 @@ internal
             {
                 presenter.Indent = Indent;
             }
+            else if (element is DataGridDirectHierarchicalCell directCell)
+            {
+                if (propertyName == nameof(Indent))
+                {
+                    directCell.Indent = Indent;
+                }
+                else if (propertyName == nameof(TrackDirectTextValueChanges))
+                {
+                    ConfigureDirectHierarchicalCell(
+                        directCell,
+                        directCell.DataContext,
+                        preserveCompatibleMode: true);
+                }
+            }
         }
 
         /// <inheritdoc />
@@ -210,7 +282,7 @@ internal
             return (editingElement as ContentControl)?.Content;
         }
 
-        private DataGridHierarchicalPresenter CreatePresenter()
+        private DataGridHierarchicalPresenter CreatePresenter(bool useDirectValues)
         {
             var presenter = new DataGridHierarchicalPresenter
             {
@@ -218,6 +290,11 @@ internal
             };
 
             presenter.ToggleRequested += PresenterOnToggleRequested;
+            if (useDirectValues)
+            {
+                return presenter;
+            }
+
             presenter.Bind(
                 DataGridHierarchicalPresenter.LevelProperty,
                 new Binding(nameof(HierarchicalNode.Level)) { Mode = BindingMode.OneWay });
@@ -237,7 +314,7 @@ internal
 
         internal override DataGridCell CreateCell()
         {
-            if (!UseDirectCell)
+            if (!UseDirectCell && (!UseOptimizedPresenter || CellTemplate != null))
             {
                 return base.CreateCell();
             }
@@ -247,9 +324,42 @@ internal
             return cell;
         }
 
+        internal void ConfigureDirectHierarchicalCell(
+            DataGridDirectHierarchicalCell cell,
+            object? dataItem,
+            bool preserveCompatibleMode = false)
+        {
+            var useDirectText = CanUseDirectTextContentFor(dataItem);
+            var resetValueSource = !preserveCompatibleMode ||
+                                   !cell.TextAccessorConfigurationInitialized ||
+                                   cell.UsesTextAccessor != useDirectText;
+            if (resetValueSource)
+            {
+                cell.ClearValue(DataGridDirectHierarchicalCell.ValueProperty);
+                cell.ClearValue(ContentControl.ContentProperty);
+            }
+
+            if (cell.ConfigureTextAccessor(this, dataItem))
+            {
+                if (resetValueSource)
+                {
+                    cell.ContentTemplate = null;
+                    cell.Theme = CellTheme ?? GetDirectTextCellTheme();
+                }
+
+                return;
+            }
+
+            if (resetValueSource)
+            {
+                cell.Theme = CellTheme ?? GetDirectCellTheme();
+                BindContent(cell, dataItem);
+            }
+        }
+
         internal override ControlTheme ResolveCellTheme(DataGrid grid)
         {
-            return UseDirectCell
+            return UseDirectCell || (UseOptimizedPresenter && CellTemplate == null)
                 ? CellTheme ??
                   (CanUseDirectTextContent ? GetDirectTextCellTheme() : GetDirectCellTheme()) ??
                   base.ResolveCellTheme(grid)
@@ -321,7 +431,7 @@ internal
             }
         }
 
-        private void BindContent(DataGridDirectHierarchicalCell cell, object dataItem)
+        private void BindContent(DataGridDirectHierarchicalCell cell, object? dataItem)
         {
             if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
             {

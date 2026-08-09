@@ -115,7 +115,31 @@ internal
         public bool IsSelected
         {
             get => _isSelected;
-            set => SetAndRaise(IsSelectedProperty, ref _isSelected, value);
+            set
+            {
+                if (_isSelected == value)
+                {
+                    return;
+                }
+
+                DataGrid owner = OwningGrid;
+                if (owner != null &&
+                    Slot != -1 &&
+                    !owner.IsSelectionUpdateFromRowSuppressed)
+                {
+                    using var origin = owner.BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                    if (!owner.TryPreviewSetRowSelection(Slot, value, setAnchorSlot: false))
+                    {
+                        return;
+                    }
+
+                    using var commit = owner.BeginSelectionCommit();
+                    SetAndRaise(IsSelectedProperty, ref _isSelected, value);
+                    return;
+                }
+
+                SetAndRaise(IsSelectedProperty, ref _isSelected, value);
+            }
         }
 
         public static readonly DirectProperty<DataGridRow, bool> IsValidProperty =
@@ -749,12 +773,6 @@ internal
         //TODO Cleanup
         double? _previousDetailsHeight = null;
 
-        private bool _restoringSelectionAfterVeto;
-
-
-
-
-
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             if (change.Property == DataContextProperty)
@@ -780,26 +798,8 @@ internal
             {
                 var value = change.GetNewValue<bool>();
 
-                if (!_restoringSelectionAfterVeto && OwningGrid != null && Slot != -1)
+                if (OwningGrid != null && Slot != -1)
                 {
-                    using var origin = OwningGrid.BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
-                    if (!OwningGrid.TryPreviewSetRowSelection(Slot, value, setAnchorSlot: false))
-                    {
-                        try
-                        {
-                            _restoringSelectionAfterVeto = true;
-                            SetCurrentValue(IsSelectedProperty, !value);
-                        }
-                        finally
-                        {
-                            _restoringSelectionAfterVeto = false;
-                        }
-                        UpdateSelectionPseudoClasses();
-                        base.OnPropertyChanged(change);
-                        return;
-                    }
-
-                    using var commit = OwningGrid.BeginSelectionCommit();
                     OwningGrid.SetRowSelection(Slot, value, false);
                 }
 

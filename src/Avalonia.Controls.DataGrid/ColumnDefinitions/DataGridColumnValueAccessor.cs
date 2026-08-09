@@ -207,29 +207,29 @@ namespace Avalonia.Controls
             CultureInfo culture,
             IFormatProvider formatProvider)
         {
-            if (value == null)
-            {
-                return null;
-            }
-
             var provider = formatProvider ?? culture;
+            object formattedValue = value;
             if (converter != null)
             {
-                var converted = converter.Convert(value, typeof(string), converterParameter, culture);
-                return Convert.ToString(converted, provider);
+                formattedValue = converter.Convert(value, typeof(string), converterParameter, culture);
             }
 
             if (!string.IsNullOrEmpty(stringFormat))
             {
-                return string.Format(provider, stringFormat, value);
+                return string.Format(provider, stringFormat, formattedValue);
             }
 
-            if (provider != null && value is IFormattable formattable)
+            if (formattedValue == null)
+            {
+                return null;
+            }
+
+            if (provider != null && formattedValue is IFormattable formattable)
             {
                 return formattable.ToString(null, provider);
             }
 
-            return value.ToString();
+            return formattedValue.ToString();
         }
 
         private static bool TryEvaluateTyped(TValue value, FilteringDescriptor descriptor, out bool match)

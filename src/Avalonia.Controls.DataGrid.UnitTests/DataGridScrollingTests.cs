@@ -858,6 +858,30 @@ public class DataGridScrollingTests
     }
 
     [AvaloniaFact]
+    public void HidingMode_MoveOffscreen_Does_Not_Rearrange_Already_Hidden_Element()
+    {
+        var target = new DataGrid
+        {
+            RecycledContainerHidingMode = DataGridRecycleHidingMode.MoveOffscreen
+        };
+        var row = new ArrangeTrackingRow();
+        row.Measure(new Size(100, 24));
+        row.Arrange(new Rect(0, 0, 100, 24));
+        var initialArrangeCount = row.ArrangeCount;
+
+        target.HideRecycledElement(row);
+
+        var arrangeCountAfterFirstHide = row.ArrangeCount;
+        Assert.InRange(arrangeCountAfterFirstHide, initialArrangeCount, initialArrangeCount + 1);
+        Assert.Equal(new Point(-10000, -10000), row.Bounds.Position);
+
+        target.HideRecycledElement(row);
+
+        Assert.Equal(arrangeCountAfterFirstHide, row.ArrangeCount);
+        Assert.False(row.IsVisible);
+    }
+
+    [AvaloniaFact]
     public void HidingMode_SetIsVisibleOnly_Keeps_Last_Bounds()
     {
         // Arrange
@@ -874,6 +898,108 @@ public class DataGridScrollingTests
         recycleRow!.Invoke(target.DisplayData, new object[] { row });
 
         Assert.Equal(before, row.Bounds);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DataGridRecycleHidingMode.MoveOffscreen)]
+    [InlineData(DataGridRecycleHidingMode.SetIsVisibleOnly)]
+    public void Large_Logical_Scroll_Reuses_Rows_In_Visual_Order_Without_Visibility_Or_Bounds_Churn(
+        DataGridRecycleHidingMode hidingMode)
+    {
+        var items = Enumerable.Range(0, 4094)
+            .Select(x => new ScrollTestModel($"Item {x}"))
+            .ToList();
+        var target = CreateV2Target(items, height: 500, useLogicalScrollable: true);
+        target.CanUserAddRows = false;
+        target.RowHeight = 24;
+        target.KeepRecycledContainersInVisualTree = true;
+        target.RecycledContainerHidingMode = hidingMode;
+        var root = (Window)target.GetVisualRoot()!;
+        root.UpdateLayout();
+
+        DataGridRow[] initialRows = target.DisplayData.GetScrollingElements()
+            .OfType<DataGridRow>()
+            .ToArray();
+        Assert.InRange(initialRows.Length, 10, 40);
+
+        DataGridRowsPresenter presenter = GetRowsPresenter(target);
+        int initialPresenterRowCount = presenter.Children.OfType<DataGridRow>().Count();
+        target.MouseOverRowIndex = initialRows[0].Index;
+        Assert.True(initialRows[0].IsMouseOver);
+
+        int visibilityChanges = 0;
+        int boundsChanges = 0;
+        foreach (DataGridRow row in initialRows)
+        {
+            row.PropertyChanged += (_, args) =>
+            {
+                if (args.Property == Visual.IsVisibleProperty)
+                {
+                    visibilityChanges++;
+                }
+                else if (args.Property == Visual.BoundsProperty)
+                {
+                    boundsChanges++;
+                }
+            };
+        }
+
+        presenter.Offset = new Vector(0, 509 * 24d);
+        root.UpdateLayout();
+
+        DataGridRow[] jumpedRows = target.DisplayData.GetScrollingElements()
+            .OfType<DataGridRow>()
+            .ToArray();
+        Assert.Equal(initialRows.Length, jumpedRows.Length);
+        Assert.True(initialRows.SequenceEqual(jumpedRows), "A full jump should preserve row-container ordinal/Y reuse.");
+        Assert.Equal(0, visibilityChanges);
+        Assert.Equal(0, boundsChanges);
+        Assert.All(jumpedRows, row => Assert.True(row.IsVisible));
+        Assert.True(jumpedRows[0].Index >= 500, $"Expected a distant jump, but first row was {jumpedRows[0].Index}.");
+        Assert.Equal(initialPresenterRowCount, presenter.Children.OfType<DataGridRow>().Count());
+        Assert.DoesNotContain(
+            presenter.Children.OfType<DataGridRow>(),
+            row => !row.IsVisible && !row.IsRecycled);
+
+        visibilityChanges = 0;
+        double maximumOffset = Math.Max(0, presenter.Extent.Height - presenter.Viewport.Height);
+        presenter.Offset = new Vector(0, maximumOffset);
+        root.UpdateLayout();
+
+        DataGridRow[] bottomRows = target.DisplayData.GetScrollingElements()
+            .OfType<DataGridRow>()
+            .ToArray();
+        int commonRowCount = Math.Min(jumpedRows.Length, bottomRows.Length);
+        Assert.True(
+            jumpedRows.Skip(jumpedRows.Length - commonRowCount)
+                .SequenceEqual(bottomRows.Skip(bottomRows.Length - commonRowCount)),
+            "A bottom-anchored reset should preserve container order from the visual tail.");
+        Assert.InRange(visibilityChanges, 0, Math.Abs(jumpedRows.Length - bottomRows.Length));
+        Assert.All(bottomRows, row => Assert.True(row.IsVisible));
+        Assert.Equal(items.Count - 1, bottomRows[^1].Index);
+    }
+
+    [AvaloniaFact]
+    public void Deferred_Recycle_Scope_Flushes_Unused_Rows_When_Scroll_Aborts()
+    {
+        var target = new DataGrid
+        {
+            RecycledContainerHidingMode = DataGridRecycleHidingMode.SetIsVisibleOnly,
+        };
+        var row = new DataGridRow();
+
+        Action abortedScroll = () =>
+        {
+            using var scope = target.DisplayData.BeginDeferredRecycleScope();
+            target.DisplayData.ActivateDeferredRecycleHiding(DataGridRecycleReuseOrder.TopDown);
+            target.HideRecycledElement(row);
+            Assert.True(row.IsVisible);
+            throw new InvalidOperationException("Abort the simulated scroll transaction.");
+        };
+        var exception = Assert.Throws<InvalidOperationException>(abortedScroll);
+
+        Assert.Equal("Abort the simulated scroll transaction.", exception.Message);
+        Assert.False(row.IsVisible);
     }
 
     #endregion
@@ -1955,6 +2081,17 @@ public class DataGridScrollingTests
             var size = new Size(finalSize.Width, HostHeight);
             Child?.Arrange(new Rect(size));
             return size;
+        }
+    }
+
+    private sealed class ArrangeTrackingRow : DataGridRow
+    {
+        public int ArrangeCount { get; private set; }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            ArrangeCount++;
+            return base.ArrangeOverride(finalSize);
         }
     }
 

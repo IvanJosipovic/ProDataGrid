@@ -238,10 +238,10 @@ internal
                 return;
             }
 
-            using (_selectionModelAdapter.Model.BatchUpdate())
+            _syncingSelectionModel = true;
+            try
             {
-                _syncingSelectionModel = true;
-                try
+                using (_selectionModelAdapter.Model.BatchUpdate())
                 {
                     switch (action)
                     {
@@ -283,23 +283,25 @@ internal
                             break;
                     }
                 }
-                finally
-                {
-                    _syncingSelectionModel = false;
-                }
+            }
+            finally
+            {
+                _syncingSelectionModel = false;
             }
         }
 
         private void SelectionModel_SelectionChanged(object sender, SelectionModelSelectionChangedEventArgs e)
         {
-            if (_syncingSelectionModel)
+            if (_syncingSelectionModel || IsSelectionModelSourceResetPreflightPending)
             {
                 return;
             }
 
             try
             {
-                using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                using var _ = BeginSelectionChangeScope(
+                    DataGridSelectionChangeSource.SelectionModelSync,
+                    guarantee: GetSelectionModelChangeGuarantee());
                 if (!TryPreviewSelectionModelSelection())
                 {
                     RestoreSelectionFromSnapshot(restoreEmpty: true);
@@ -323,6 +325,8 @@ internal
         {
             var previousSync = _syncingSelectionModel;
             _syncingSelectionModel = true;
+            _noSelectionChangeCount++;
+            _noCurrentCellChangeCount++;
             try
             {
                 if (CurrentColumnIndex > -1 && (CurrentSlot < 0 || CurrentSlot >= SlotCount))
@@ -392,6 +396,63 @@ internal
             finally
             {
                 _syncingSelectionModel = previousSync;
+                NoCurrentCellChangeCount--;
+                NoSelectionChangeCount--;
+            }
+        }
+
+        private DataGridSelectionChangingGuarantee GetSelectionModelChangeGuarantee()
+        {
+            DataGridSelectionChangeSource gridOwnedSources =
+                CurrentSelectionChangeSource & ~DataGridSelectionChangeSource.SelectionModelSync;
+            return gridOwnedSources != DataGridSelectionChangeSource.Unknown
+                ? CurrentSelectionChangingGuarantee
+                : DataGridSelectionChangingGuarantee.PostChangeReconciliation;
+        }
+
+        private void RestoreSelectionModelBeforeCompletingPendingLayout()
+        {
+            if (_selectionModelAdapter?.Model.SelectedIndexes.Count > 0 &&
+                _selectedItems.Count == 0)
+            {
+                ApplySelectionFromSelectionModel();
+            }
+        }
+
+        private void CompletePendingSelectionModelSourceLayout()
+        {
+            if (!_selectionModelSourceLayoutPending)
+            {
+                return;
+            }
+
+            try
+            {
+                if (_selectionModelSourceIndexesPending is { Count: > 0 } indexes &&
+                    _selectionModelAdapter?.Model is { SelectedIndexes.Count: 0 } selectionModel)
+                {
+                    using (selectionModel.BatchUpdate())
+                    {
+                        int sourceCount = selectionModel.Source is ICollection collection
+                            ? collection.Count
+                            : DataConnection?.Count ?? 0;
+                        for (int i = 0; i < indexes.Count; i++)
+                        {
+                            int index = indexes[i];
+                            if (index >= 0 && index < sourceCount)
+                            {
+                                selectionModel.Select(index);
+                            }
+                        }
+                    }
+                }
+
+                ApplySelectionFromSelectionModel();
+            }
+            finally
+            {
+                _selectionModelSourceLayoutPending = false;
+                _selectionModelSourceIndexesPending = null;
             }
         }
 
@@ -419,16 +480,51 @@ internal
             }
         }
 
+        internal void ApplyVisibleSelectionFromSelectionModel()
+        {
+            if (_selectionModelAdapter?.Model.SelectedIndexes is not { } indexes)
+            {
+                return;
+            }
+
+            bool previousSync = _syncingSelectionModel;
+            _syncingSelectionModel = true;
+            try
+            {
+                ClearRowSelection(resetAnchorSlot: true);
+                bool setAnchor = true;
+                foreach (int selectionIndex in indexes)
+                {
+                    int slot = SlotFromSelectionIndex(selectionIndex);
+                    if (slot < 0 || slot >= SlotCount || IsGroupSlot(slot))
+                    {
+                        continue;
+                    }
+
+                    SetRowSelection(slot, isSelected: true, setAnchorSlot: setAnchor);
+                    setAnchor = false;
+                }
+
+                RefreshVisibleSelection();
+            }
+            finally
+            {
+                _syncingSelectionModel = previousSync;
+            }
+        }
+
         private void SelectionModel_IndexesChanged(object sender, SelectionModelIndexesChangedEventArgs e)
         {
-            if (_syncingSelectionModel)
+            if (_syncingSelectionModel || IsSelectionModelSourceResetPreflightPending)
             {
                 return;
             }
 
             try
             {
-                using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                using var _ = BeginSelectionChangeScope(
+                    DataGridSelectionChangeSource.SelectionModelSync,
+                    guarantee: GetSelectionModelChangeGuarantee());
                 if (!TryPreviewSelectionModelSelection())
                 {
                     RestoreSelectionFromSnapshot(restoreEmpty: true);
@@ -448,14 +544,16 @@ internal
 
         private void SelectionModel_LostSelection(object sender, EventArgs e)
         {
-            if (_syncingSelectionModel)
+            if (_syncingSelectionModel || IsSelectionModelSourceResetPreflightPending)
             {
                 return;
             }
 
             try
             {
-                using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                using var _ = BeginSelectionChangeScope(
+                    DataGridSelectionChangeSource.SelectionModelSync,
+                    guarantee: GetSelectionModelChangeGuarantee());
                 if (!TryPreviewClearRowSelection(resetAnchorSlot: true))
                 {
                     RestoreSelectionFromSnapshot(restoreEmpty: true);
@@ -503,9 +601,28 @@ internal
                 }
             }
 
+            PrepareSelectionModelSourceResetPreflight(snapshot);
+            bool sourceResetPreflightPending = IsSelectionModelSourceResetPreflightPending;
+
             try
             {
-                using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+                using var _ = BeginSelectionChangeScope(
+                    DataGridSelectionChangeSource.SelectionModelSync,
+                    guarantee: GetSelectionModelChangeGuarantee());
+                HashSet<int> proposedRows = BuildRowSelectionProposal(snapshot, out int proposedSlot);
+                int proposedColumnIndex = CurrentColumnIndex >= 0
+                    ? CurrentColumnIndex
+                    : FirstDisplayedNonFillerColumnIndex;
+                if (!sourceResetPreflightPending && !TryPreviewRowSet(
+                        proposedRows,
+                        CreateCellInfo(proposedColumnIndex, proposedSlot),
+                        CreateAnchorInfo(proposedSlot, proposedColumnIndex)))
+                {
+                    RestoreSelectionFromSnapshot(restoreEmpty: true);
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 _syncingSelectionModel = true;
                 using (_selectionModelAdapter.Model.BatchUpdate())
                 {
@@ -524,8 +641,11 @@ internal
                 }
 
                 _preferredSelectionIndex = _selectionModelAdapter.Model.SelectedIndex;
-                ApplySelectionFromSelectionModel();
-                UpdateSelectionSnapshot();
+                if (!sourceResetPreflightPending)
+                {
+                    ApplySelectionFromSelectionModel();
+                    UpdateSelectionSnapshot();
+                }
             }
             finally
             {
@@ -647,7 +767,16 @@ internal
                 return;
             }
 
-            using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+            using var _ = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.SelectionModelSync,
+                guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
+            if (!TryPreviewSelectionModelSelection())
+            {
+                RestoreSelectionFromSnapshot(restoreEmpty: true);
+                return;
+            }
+
+            using var commit = BeginSelectionCommit();
             _syncingSelectionModel = true;
             try
             {
@@ -711,6 +840,19 @@ internal
             }
 
             return _successfullyUpdatedSelection;
+        }
+
+        internal void SelectRowFromAutomation(int slot)
+        {
+            int columnIndex = CurrentColumnIndex != -1
+                ? CurrentColumnIndex
+                : FirstDisplayedNonFillerColumnIndex;
+
+            UpdateSelectionAndCurrency(
+                columnIndex,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false);
         }
 
 
@@ -810,7 +952,9 @@ internal
                 return;
             }
 
-            using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+            using var _ = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.Programmatic,
+                guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
             try
             {
                 _syncingSelectedItems = true;
@@ -931,169 +1075,11 @@ internal
                 return;
             }
 
-            switch (e.Action)
+            if (e.Action != NotifyCollectionChangedAction.Move)
             {
-                case NotifyCollectionChangedAction.Reset:
-                    ApplySelectedItemsFromBinding(_selectedItemsBinding);
-                    break;
-                case NotifyCollectionChangedAction.Add:
-                    if (SelectionMode == DataGridSelectionMode.Single)
-                    {
-                        if (e.NewItems != null && e.NewItems.Count > 0)
-                        {
-                            SelectedItem = e.NewItems[e.NewItems.Count - 1];
-                        }
-                        NormalizeBoundSelectionForSingleMode();
-                        break;
-                    }
-
-                    if (e.NewItems != null)
-                    {
-                        if (_selectionModelAdapter != null && DataConnection?.CollectionView != null)
-                        {
-                            _syncingSelectionModel = true;
-                            try
-                            {
-                                using (_selectionModelAdapter.Model.BatchUpdate())
-                                {
-                                    foreach (object item in e.NewItems)
-                                    {
-                                        int index = GetSelectionModelIndexOfItem(item);
-                                        if (index >= 0)
-                                        {
-                                            _selectionModelAdapter.Select(index);
-                                        }
-                                    }
-                                }
-
-                                ApplySelectionFromSelectionModel();
-                            }
-                            finally
-                            {
-                                _syncingSelectionModel = false;
-                            }
-                        }
-                        else
-                        {
-                            foreach (object item in e.NewItems)
-                            {
-                                _selectedItems.Add(item);
-                            }
-                        }
-                    }
-                    break;
-                case NotifyCollectionChangedAction.Remove:
-                    if (e.OldItems != null)
-                    {
-                        if (_selectionModelAdapter != null && DataConnection?.CollectionView != null)
-                        {
-                            _syncingSelectionModel = true;
-                            try
-                            {
-                                using (_selectionModelAdapter.Model.BatchUpdate())
-                                {
-                                    foreach (object item in e.OldItems)
-                                    {
-                                        int index = GetSelectionModelIndexOfItem(item);
-                                        if (index >= 0)
-                                        {
-                                            _selectionModelAdapter.Deselect(index);
-                                        }
-                                    }
-                                }
-
-                                ApplySelectionFromSelectionModel();
-                            }
-                            finally
-                            {
-                                _syncingSelectionModel = false;
-                            }
-                        }
-                        else
-                        {
-                            foreach (object item in e.OldItems)
-                            {
-                                _selectedItems.Remove(item);
-                            }
-                        }
-                    }
-
-                    if (SelectionMode == DataGridSelectionMode.Single)
-                    {
-                        if ((_selectedItemsBinding?.Count ?? 0) == 0)
-                        {
-                            SelectedItem = null;
-                        }
-                        NormalizeBoundSelectionForSingleMode();
-                    }
-                    break;
-                case NotifyCollectionChangedAction.Replace:
-                    if (SelectionMode == DataGridSelectionMode.Single)
-                    {
-                        SelectedItem = e.NewItems != null && e.NewItems.Count > 0 ? e.NewItems[0] : null;
-                        NormalizeBoundSelectionForSingleMode();
-                    }
-                    else if (_selectionModelAdapter != null && DataConnection?.CollectionView != null)
-                    {
-                        _syncingSelectionModel = true;
-                        try
-                        {
-                            using (_selectionModelAdapter.Model.BatchUpdate())
-                            {
-                                if (e.OldItems != null)
-                                {
-                                    foreach (object item in e.OldItems)
-                                    {
-                                        int index = GetSelectionModelIndexOfItem(item);
-                                        if (index >= 0)
-                                        {
-                                            _selectionModelAdapter.Deselect(index);
-                                        }
-                                    }
-                                }
-
-                                if (e.NewItems != null)
-                                {
-                                    foreach (object item in e.NewItems)
-                                    {
-                                        int index = GetSelectionModelIndexOfItem(item);
-                                        if (index >= 0)
-                                        {
-                                            _selectionModelAdapter.Select(index);
-                                        }
-                                    }
-                                }
-                            }
-
-                            ApplySelectionFromSelectionModel();
-                        }
-                        finally
-                        {
-                            _syncingSelectionModel = false;
-                        }
-                    }
-                    else
-                    {
-                        if (e.OldItems != null)
-                        {
-                            foreach (object item in e.OldItems)
-                            {
-                                _selectedItems.Remove(item);
-                            }
-                        }
-
-                        if (e.NewItems != null)
-                        {
-                            foreach (object item in e.NewItems)
-                            {
-                                _selectedItems.Add(item);
-                            }
-                        }
-                    }
-                    break;
-                case NotifyCollectionChangedAction.Move:
-                    // Order does not impact grid selection; no action required.
-                    break;
+                // Rebuild one complete proposal so Add/Remove/Replace use the same atomic
+                // preview/commit boundary as Reset and property assignment.
+                ApplySelectedItemsFromBinding(_selectedItemsBinding);
             }
         }
 
@@ -1232,7 +1218,9 @@ internal
                 return;
             }
 
-            using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+            using var _ = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.Programmatic,
+                guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
             try
             {
                 _syncingSelectedCells = true;
@@ -1334,10 +1322,19 @@ internal
 
             void CopyToBinding()
             {
-                _selectedCellsBinding.Clear();
-                foreach (var cell in _selectedCellsView)
+                bool previousSync = _syncingSelectedCells;
+                _syncingSelectedCells = true;
+                try
                 {
-                    _selectedCellsBinding.Add(cell);
+                    _selectedCellsBinding.Clear();
+                    foreach (var cell in _selectedCellsView)
+                    {
+                        _selectedCellsBinding.Add(cell);
+                    }
+                }
+                finally
+                {
+                    _syncingSelectedCells = previousSync;
                 }
             }
 
@@ -1408,7 +1405,9 @@ internal
                 return;
             }
 
-            using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+            using var _ = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.Programmatic,
+                guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
             try
             {
                 _syncingSelectedColumns = true;
@@ -1559,10 +1558,19 @@ internal
 
             void CopyToBinding()
             {
-                _selectedColumnsBinding.Clear();
-                foreach (var column in _selectedColumnsView)
+                bool previousSync = _syncingSelectedColumns;
+                _syncingSelectedColumns = true;
+                try
                 {
-                    _selectedColumnsBinding.Add(column);
+                    _selectedColumnsBinding.Clear();
+                    foreach (var column in _selectedColumnsView)
+                    {
+                        _selectedColumnsBinding.Add(column);
+                    }
+                }
+                finally
+                {
+                    _syncingSelectedColumns = previousSync;
                 }
             }
 
@@ -1732,6 +1740,145 @@ internal
             finally
             {
                 _syncingSelectedCells = previousSync;
+            }
+        }
+
+        internal void ReplaceSelectedCellsAfterItemsSourceMutation(
+            IReadOnlyList<DataGridCellInfo> remapped)
+        {
+            var removed = _selectedCellsView.ToList();
+            var oldSelectedColumns = _selectedColumnsView.ToList();
+            var newSelectedColumns = new List<DataGridColumn>();
+            bool previousCellSync = _syncingSelectedCells;
+            bool previousColumnSync = _syncingSelectedColumns;
+            bool cellsChanged;
+            bool columnsChanged;
+            _syncingSelectedCells = true;
+            _syncingSelectedColumns = true;
+            try
+            {
+                _selectedCells.Clear();
+                _selectedColumnCounts.Clear();
+                ClearHeaderSelectionTracking();
+
+                for (int i = 0; i < remapped.Count; i++)
+                {
+                    DataGridCellInfo cell = remapped[i];
+                    if (!_selectedCells.TryGetValue(cell.RowIndex, out HashSet<int> columns))
+                    {
+                        columns = new HashSet<int>();
+                        _selectedCells[cell.RowIndex] = columns;
+                    }
+                    columns.Add(cell.ColumnIndex);
+
+                    if (_selectedColumnCounts.TryGetValue(cell.ColumnIndex, out int count))
+                    {
+                        _selectedColumnCounts[cell.ColumnIndex] = count + 1;
+                    }
+                    else
+                    {
+                        _selectedColumnCounts[cell.ColumnIndex] = 1;
+                    }
+                }
+
+                _selectedColumnIndices.Clear();
+                int rowCount = DataConnection?.Count ?? 0;
+                if (rowCount > 0)
+                {
+                    for (int columnIndex = 0; columnIndex < ColumnsItemsInternal.Count; columnIndex++)
+                    {
+                        if (!_selectedColumnCounts.TryGetValue(columnIndex, out int count) ||
+                            count < rowCount)
+                        {
+                            continue;
+                        }
+
+                        DataGridColumn column = GetColumnForIndex(columnIndex);
+                        if (column == null)
+                        {
+                            continue;
+                        }
+
+                        _selectedColumnIndices.Add(columnIndex);
+                        newSelectedColumns.Add(column);
+                    }
+                }
+
+                // Mutate both observable public views silently first. Their reset notifications
+                // are emitted below only after cells, columns, row headers, and column headers
+                // all represent the same final transaction state.
+                cellsChanged = _selectedCellsView.ReplaceAllSilently(remapped);
+                columnsChanged = _selectedColumnsView.ReplaceAllSilently(newSelectedColumns);
+
+                foreach (int rowIndex in _selectedCells.Keys)
+                {
+                    if (IsRowFullySelectedByCells(rowIndex))
+                    {
+                        _selectedRowHeaderIndices.Add(rowIndex);
+                    }
+                }
+
+                if (cellsChanged)
+                {
+                    _selectedCellsView.RaiseResetNotification();
+                }
+                if (columnsChanged)
+                {
+                    _selectedColumnsView.RaiseResetNotification();
+                }
+            }
+            finally
+            {
+                _syncingSelectedColumns = previousColumnSync;
+                _syncingSelectedCells = previousCellSync;
+            }
+
+            if (!cellsChanged && !columnsChanged)
+            {
+                return;
+            }
+
+            if (cellsChanged)
+            {
+                RaiseSelectedCellsChanged(remapped, removed);
+                ApplySelectedCellsChangeToBinding(
+                    new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            }
+
+            if (columnsChanged)
+            {
+                var addedColumns = new List<DataGridColumn>();
+                for (int i = 0; i < newSelectedColumns.Count; i++)
+                {
+                    DataGridColumn column = newSelectedColumns[i];
+                    if (!oldSelectedColumns.Contains(column))
+                    {
+                        addedColumns.Add(column);
+                    }
+                }
+
+                var removedColumns = new List<DataGridColumn>();
+                for (int i = 0; i < oldSelectedColumns.Count; i++)
+                {
+                    DataGridColumn column = oldSelectedColumns[i];
+                    if (!newSelectedColumns.Contains(column))
+                    {
+                        removedColumns.Add(column);
+                    }
+                }
+
+                for (int i = 0; i < addedColumns.Count; i++)
+                {
+                    addedColumns[i].HeaderCell?.UpdatePseudoClasses();
+                }
+                for (int i = 0; i < removedColumns.Count; i++)
+                {
+                    removedColumns[i].HeaderCell?.UpdatePseudoClasses();
+                }
+
+                RaiseSelectedColumnsChanged(addedColumns, removedColumns);
+                ApplySelectedColumnsChangeToBinding(
+                    new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
             }
         }
 
@@ -2730,6 +2877,8 @@ internal
         private int _noSelectionChangeCount;
 
         private bool _successfullyUpdatedSelection;
+
+        internal bool SuccessfullyUpdatedSelection => _successfullyUpdatedSelection;
 
 
         /// <summary>

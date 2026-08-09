@@ -6,12 +6,18 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Automation.Peers;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Markup.Xaml.Styling;
+using Avalonia.Threading;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.Filtering;
@@ -114,7 +120,7 @@ public class DataGridHierarchicalFilteringAdapterTests
         Assert.False(hierarchy.Root!.IsExpanded);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Observable_Child_Addition_Rebuilds_One_Coherent_Filtered_View()
     {
         var root = new TreeItem("root");
@@ -127,11 +133,12 @@ public class DataGridHierarchicalFilteringAdapterTests
         Assert.Empty(fixture.VisibleNames());
 
         root.Children.Add(new TreeItem("needle"));
+        Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(new[] { "root", "needle" }, fixture.VisibleNames());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task Async_Completion_Reevaluates_Ancestor_Paths()
     {
         var completion = new TaskCompletionSource<IEnumerable?>(
@@ -149,12 +156,143 @@ public class DataGridHierarchicalFilteringAdapterTests
             hierarchy,
             DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches);
         fixture.Filter("needle");
+        fixture.ResetRefreshCounts();
 
         Task expand = hierarchy.ExpandAsync(hierarchy.Root!);
         completion.SetResult(new[] { new TreeItem("needle") });
         await expand;
+        Dispatcher.UIThread.RunJobs();
 
         Assert.Equal(new[] { "root", "needle" }, fixture.VisibleNames());
+        Assert.Equal(1, fixture.BeforeRefreshCount);
+        Assert.Equal(1, fixture.AfterRefreshCount);
+    }
+
+    [AvaloniaFact]
+    public void Worker_Descriptor_Changes_Are_Coalesced_And_Applied_On_The_UI_Thread()
+    {
+        TreeItem root = CreateTree();
+        HierarchicalModel hierarchy = CreateModel(root);
+        using AdapterFixture fixture = CreateFixture(
+            hierarchy,
+            DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches);
+        var queued = new Queue<Action>();
+        fixture.SetViewThreadPost(queued.Enqueue);
+        fixture.ResetRefreshCounts();
+        int ownerThreadId = Environment.CurrentManagedThreadId;
+
+        var worker = new Thread(() =>
+        {
+            fixture.Filter("branch");
+            fixture.Filter("needle");
+        });
+        worker.Start();
+        worker.Join();
+
+        Assert.Equal(0, fixture.BeforeRefreshCount);
+        Assert.Equal(0, fixture.AfterRefreshCount);
+        Assert.Single(queued);
+
+        queued.Dequeue()();
+
+        Assert.Equal(new[] { "root", "branch", "needle" }, fixture.VisibleNames());
+        Assert.Equal(1, fixture.BeforeRefreshCount);
+        Assert.Equal(1, fixture.AfterRefreshCount);
+        Assert.All(fixture.RefreshThreadIds, id => Assert.Equal(ownerThreadId, id));
+    }
+
+    [AvaloniaFact]
+    public void Sequential_NonEmpty_Filters_Refresh_The_Stable_Hierarchy_Predicate()
+    {
+        TreeItem root = CreateTree();
+        HierarchicalModel hierarchy = CreateModel(root);
+        using AdapterFixture fixture = CreateFixture(
+            hierarchy,
+            DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches);
+
+        fixture.Filter("branch");
+        Assert.Equal(new[] { "root", "branch" }, fixture.VisibleNames());
+        fixture.ResetRefreshCounts();
+
+        fixture.Filter("needle");
+
+        Assert.Equal(new[] { "root", "branch", "needle" }, fixture.VisibleNames());
+        Assert.Equal(1, fixture.BeforeRefreshCount);
+        Assert.Equal(1, fixture.AfterRefreshCount);
+    }
+
+    [AvaloniaFact]
+    public void NodeLoaded_First_Post_Cannot_Refresh_Before_Final_Flattened_Commit()
+    {
+        TreeItem root = CreateTree();
+        var hierarchy = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = static item => ((TreeItem)item).Children,
+            IsLeafSelector = static item => ((TreeItem)item).Children.Count == 0,
+        });
+        hierarchy.SetRoot(root);
+        using AdapterFixture fixture = CreateFixture(
+            hierarchy,
+            DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches);
+        fixture.Filter("needle");
+        fixture.ResetRefreshCounts();
+        var queued = new Queue<Action>();
+        fixture.SetViewThreadPost(queued.Enqueue);
+        bool drainedFirstTurn = false;
+        hierarchy.NodeLoaded += (_, _) =>
+        {
+            if (drainedFirstTurn)
+            {
+                return;
+            }
+
+            drainedFirstTurn = true;
+            Assert.Single(queued);
+            queued.Dequeue()();
+            Assert.Single(queued);
+            Assert.Equal(0, fixture.BeforeRefreshCount);
+        };
+
+        hierarchy.ExpandAll();
+
+        Assert.True(drainedFirstTurn);
+        Assert.Single(queued);
+        Assert.Equal(0, fixture.BeforeRefreshCount);
+        queued.Dequeue()();
+
+        Assert.Equal(new[] { "root", "branch", "needle" }, fixture.VisibleNames());
+        Assert.Equal(1, fixture.BeforeRefreshCount);
+        Assert.Equal(1, fixture.AfterRefreshCount);
+    }
+
+    [AvaloniaFact]
+    public async Task Collapsed_Async_Materialization_Still_Reevaluates_Filter_Once()
+    {
+        int version = 0;
+        var root = new TreeItem("root");
+        var hierarchy = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (_, _) => Task.FromResult<IEnumerable?>(
+                ++version == 1
+                    ? new[] { new TreeItem("other") }
+                    : new[] { new TreeItem("needle") }),
+        });
+        hierarchy.SetRoot(root);
+        await hierarchy.RefreshAsync(hierarchy.Root!);
+        Assert.False(hierarchy.Root!.IsExpanded);
+        using AdapterFixture fixture = CreateFixture(
+            hierarchy,
+            DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches);
+        fixture.Filter("needle");
+        fixture.ResetRefreshCounts();
+
+        await hierarchy.RefreshAsync(hierarchy.Root);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.False(hierarchy.Root.IsExpanded);
+        Assert.Equal(new[] { "root" }, fixture.VisibleNames());
+        Assert.Equal(1, fixture.BeforeRefreshCount);
+        Assert.Equal(1, fixture.AfterRefreshCount);
     }
 
     [Fact]
@@ -224,6 +362,109 @@ public class DataGridHierarchicalFilteringAdapterTests
         Assert.Same(second, grid.HierarchicalModel);
     }
 
+    [AvaloniaFact]
+    public void Real_Grid_Filtering_Preserves_Visible_Selection_And_Does_Not_Resurrect_Hidden_Selection()
+    {
+        TreeItem root = CreateTree();
+        TreeItem branch = root.Children[0];
+        TreeItem needle = branch.Children[0];
+        TreeItem other = root.Children[1];
+        HierarchicalModel hierarchy = CreateModel(root);
+        var filteringModel = new FilteringModel();
+        var factory = new DataGridHierarchicalFilteringAdapterFactory
+        {
+            Policy = DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches,
+        };
+        var column = new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name"),
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<TreeItem, string>(static item => item.Name));
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            FilteringAdapterFactory = factory,
+            FilteringModel = filteringModel,
+            HierarchicalModel = hierarchy,
+            HierarchicalRowsEnabled = true,
+            ItemsSource = hierarchy.ObservableFlattened,
+        };
+        grid.ColumnsInternal.Add(column);
+        var window = new Window
+        {
+            Width = 420,
+            Height = 260,
+            Content = grid,
+        };
+        window.SetThemeStyles();
+        window.Show();
+
+        try
+        {
+            grid.UpdateLayout();
+            DataGridAutomationPeer automationPeer = Assert.IsType<DataGridAutomationPeer>(
+                ControlAutomationPeer.CreatePeerForElement(grid));
+            int structureChanges = 0;
+            automationPeer.ChildrenChanged += (_, _) => structureChanges++;
+            grid.SelectedItem = needle;
+
+            int previousStructureChanges = structureChanges;
+            filteringModel.SetOrUpdate(new FilteringDescriptor(
+                column,
+                FilteringOperator.Contains,
+                value: "needle"));
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+
+            Assert.Equal(previousStructureChanges + 1, structureChanges);
+            Assert.Same(needle, grid.SelectedItem);
+            Assert.Equal(new[] { "root", "branch", "needle" },
+                grid.DataConnection.CollectionView!
+                    .Cast<HierarchicalNode>()
+                    .Select(static node => ((TreeItem)node.Item).Name));
+            Assert.True(hierarchy.Root!.IsExpanded);
+            Assert.True(hierarchy.Root.Children[0].IsExpanded);
+
+            previousStructureChanges = structureChanges;
+            filteringModel.Clear();
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+            Assert.Equal(previousStructureChanges + 1, structureChanges);
+            grid.SelectedItem = other;
+            Assert.Same(other, grid.SelectedItem);
+
+            previousStructureChanges = structureChanges;
+            filteringModel.SetOrUpdate(new FilteringDescriptor(
+                column,
+                FilteringOperator.Contains,
+                value: "needle"));
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+
+            Assert.Equal(previousStructureChanges + 1, structureChanges);
+            Assert.Null(grid.SelectedItem);
+            Assert.Empty(grid.SelectedItems.Cast<object>());
+
+            previousStructureChanges = structureChanges;
+            filteringModel.Clear();
+            Dispatcher.UIThread.RunJobs();
+            grid.UpdateLayout();
+
+            Assert.Equal(previousStructureChanges + 1, structureChanges);
+            Assert.Null(grid.SelectedItem);
+            Assert.Empty(grid.SelectedItems.Cast<object>());
+            Assert.True(hierarchy.Root.IsExpanded);
+            Assert.True(hierarchy.Root.Children[0].IsExpanded);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [Fact]
     public void Rejects_Unsupported_Policy_Flags()
     {
@@ -279,6 +520,9 @@ public class DataGridHierarchicalFilteringAdapterTests
         private readonly DataGridColumn _column;
         private readonly DataGridCollectionView _view;
         private readonly DataGridHierarchicalFilteringAdapter _adapter;
+        private readonly List<int> _refreshThreadIds = new();
+        private int _beforeRefreshCount;
+        private int _afterRefreshCount;
 
         public AdapterFixture(
             HierarchicalModel hierarchy,
@@ -293,13 +537,43 @@ public class DataGridHierarchicalFilteringAdapterTests
                 () => new[] { _column },
                 hierarchy,
                 policy,
-                new DataGridFastPathOptions { UseAccessorsOnly = true });
+                new DataGridFastPathOptions { UseAccessorsOnly = true },
+                () =>
+                {
+                    Assert.True(Dispatcher.UIThread.CheckAccess());
+                    _refreshThreadIds.Add(Environment.CurrentManagedThreadId);
+                    _beforeRefreshCount++;
+                },
+                () =>
+                {
+                    Assert.True(Dispatcher.UIThread.CheckAccess());
+                    _refreshThreadIds.Add(Environment.CurrentManagedThreadId);
+                    _afterRefreshCount++;
+                });
             _adapter.AttachView(_view);
         }
 
         public FilteringModel FilteringModel { get; }
 
         public DataGridColumn Column => _column;
+
+        public int BeforeRefreshCount => _beforeRefreshCount;
+
+        public int AfterRefreshCount => _afterRefreshCount;
+
+        public IReadOnlyList<int> RefreshThreadIds => _refreshThreadIds;
+
+        public void SetViewThreadPost(Action<Action> post)
+        {
+            _adapter.SetViewThreadPostForTesting(post);
+        }
+
+        public void ResetRefreshCounts()
+        {
+            _beforeRefreshCount = 0;
+            _afterRefreshCount = 0;
+            _refreshThreadIds.Clear();
+        }
 
         public void Filter(string value)
         {

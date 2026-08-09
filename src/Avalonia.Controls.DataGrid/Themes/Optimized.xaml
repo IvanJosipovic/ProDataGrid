@@ -5,25 +5,24 @@
     <ResourceDictionary>
       <!-- Explicit opt-in themes for read-mostly, control-count-sensitive grids. -->
       <ControlTheme x:Key="DataGridOptimizedCellTheme" TargetType="DataGridCell">
-        <Setter Property="Background" Value="{StaticResource DataGridCellBackgroundBrush}" />
+        <Setter Property="UseDirectChrome" Value="True" />
+        <Setter Property="UseDirectContentHost" Value="True" />
+        <Setter Property="Background" Value="{x:Null}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Stretch" />
         <Setter Property="FontSize" Value="{StaticResource DataGridCellFontSize}" />
         <Setter Property="MinHeight" Value="{StaticResource DataGridCellMinHeight}" />
         <Setter Property="Template">
-          <ControlTemplate>
-            <ContentPresenter Background="{TemplateBinding Background}"
-                              BorderBrush="{TemplateBinding BorderBrush}"
-                              BorderThickness="{TemplateBinding BorderThickness}"
-                              CornerRadius="{TemplateBinding CornerRadius}"
-                              Padding="{TemplateBinding Padding}"
-                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                              Content="{TemplateBinding Content}"
-                              ContentTemplate="{TemplateBinding ContentTemplate}"
-                              Foreground="{TemplateBinding Foreground}" />
-          </ControlTemplate>
+          <ControlTemplate />
         </Setter>
+        <Style Selector="^:current">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCurrencyVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
+        </Style>
+        <Style Selector="^:focus">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellFocusVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="2,2,2,2" />
+        </Style>
         <Style Selector="^:searchmatch">
           <Setter Property="Background" Value="{StaticResource DataGridSearchMatchBrush}" />
           <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
@@ -46,26 +45,37 @@
         </Style>
         <Style Selector="^:invalid">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInvalidBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:warning">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellWarningBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:info">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInfoBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
       </ControlTheme>
 
       <ControlTheme x:Key="DataGridOptimizedDrawingCellTheme"
                     TargetType="controls:DataGridCustomDrawingCell">
-        <Setter Property="Background" Value="{StaticResource DataGridCellBackgroundBrush}" />
+        <Setter Property="UseDirectChrome" Value="True" />
+        <Setter Property="Background" Value="{x:Null}" />
         <Setter Property="Padding" Value="{StaticResource DataGridCellTextBlockMargin}" />
+        <Setter Property="CornerRadius" Value="{StaticResource DataGridCellCornerRadius}" />
         <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="{StaticResource DataGridCellMinHeight}" />
         <Setter Property="Template">
           <ControlTemplate />
         </Setter>
+        <Style Selector="^:current">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCurrencyVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
+        </Style>
+        <Style Selector="^:focus">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellFocusVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="2,2,2,2" />
+        </Style>
         <Style Selector="^:searchmatch">
           <Setter Property="Background" Value="{StaticResource DataGridSearchMatchBrush}" />
           <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
@@ -88,24 +98,26 @@
         </Style>
         <Style Selector="^:invalid">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInvalidBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:warning">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellWarningBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:info">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInfoBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
       </ControlTheme>
 
       <ControlTheme x:Key="DataGridOptimizedDirectTextCellTheme"
                     TargetType="controls:DataGridDirectTextCell">
-        <Setter Property="Background" Value="{StaticResource DataGridCellBackgroundBrush}" />
+        <Setter Property="UseDirectChrome" Value="True" />
+        <Setter Property="Background" Value="{x:Null}" />
         <Setter Property="Padding" Value="{StaticResource DataGridCellTextBlockMargin}" />
         <Setter Property="FontSize" Value="{StaticResource DataGridCellFontSize}" />
         <Setter Property="MinHeight" Value="{StaticResource DataGridCellMinHeight}" />
+        <Setter Property="CornerRadius" Value="{StaticResource DataGridCellCornerRadius}" />
         <Setter Property="Template">
           <ControlTemplate>
             <TextBlock x:Name="PART_Text"
@@ -113,6 +125,14 @@
                        VerticalAlignment="Center" />
           </ControlTemplate>
         </Setter>
+        <Style Selector="^:current">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCurrencyVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
+        </Style>
+        <Style Selector="^:focus">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellFocusVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="2,2,2,2" />
+        </Style>
         <Style Selector="^:searchmatch">
           <Setter Property="Background" Value="{StaticResource DataGridSearchMatchBrush}" />
           <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
@@ -135,62 +155,75 @@
         </Style>
         <Style Selector="^:invalid">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInvalidBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:warning">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellWarningBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:info">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInfoBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
       </ControlTheme>
 
       <ControlTheme x:Key="DataGridOptimizedDirectHierarchicalCellTheme"
                     TargetType="controls:DataGridDirectHierarchicalCell">
-        <Setter Property="Background" Value="{StaticResource DataGridCellBackgroundBrush}" />
+        <Setter Property="UseDirectChrome" Value="True" />
+        <Setter Property="Background" Value="{x:Null}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="FontSize" Value="{StaticResource DataGridCellFontSize}" />
         <Setter Property="MinHeight" Value="{StaticResource DataGridCellMinHeight}" />
+        <Setter Property="CornerRadius" Value="{StaticResource DataGridCellCornerRadius}" />
         <Setter Property="Template">
           <ControlTemplate>
-            <Grid x:Name="PART_ContentRoot"
-                  ColumnDefinitions="Auto,*">
-              <ToggleButton x:Name="PART_Expander"
-                            Width="{StaticResource DataGridHierarchicalExpanderSize}"
-                            Height="{StaticResource DataGridHierarchicalExpanderSize}"
-                            Theme="{StaticResource DataGridHierarchicalExpanderTheme}"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            IsChecked="False" />
-              <ContentPresenter Grid.Column="1"
-                                Margin="{StaticResource DataGridHierarchicalPresenterContentMargin}"
-                                HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                ContentTemplate="{TemplateBinding ContentTemplate}"
-                                Content="{TemplateBinding Content}" />
-            </Grid>
+            <ContentPresenter x:Name="PART_ContentRoot"
+                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                              Content="{TemplateBinding Content}" />
           </ControlTemplate>
         </Setter>
+        <Style Selector="^:current">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCurrencyVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
+        </Style>
+        <Style Selector="^:focus">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellFocusVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="2,2,2,2" />
+        </Style>
+        <Style Selector="^:searchmatch">
+          <Setter Property="Background" Value="{StaticResource DataGridSearchMatchBrush}" />
+          <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
+        </Style>
+        <Style Selector="^:searchcurrent">
+          <Setter Property="Background" Value="{StaticResource DataGridSearchCurrentBrush}" />
+          <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
+        </Style>
         <Style Selector="^:cell-selected">
           <Setter Property="Background" Value="{StaticResource DataGridCellSelectedUnfocusedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:pointerover">
+          <Setter Property="Background" Value="{StaticResource DataGridCellSelectedHoveredUnfocusedBackgroundBrush}" />
         </Style>
         <Style Selector="^:cell-selected:focus">
           <Setter Property="Background" Value="{StaticResource DataGridCellSelectedBackgroundBrush}" />
         </Style>
+        <Style Selector="^:cell-selected:pointerover:focus">
+          <Setter Property="Background" Value="{StaticResource DataGridCellSelectedHoveredBackgroundBrush}" />
+        </Style>
         <Style Selector="^:invalid">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInvalidBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:warning">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellWarningBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
         <Style Selector="^:info">
           <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInfoBrush}" />
-          <Setter Property="BorderThickness" Value="1" />
+          <Setter Property="BorderThickness" Value="1,1,1,1" />
         </Style>
       </ControlTheme>
 
@@ -199,21 +232,9 @@
                     BasedOn="{StaticResource DataGridOptimizedDirectHierarchicalCellTheme}">
         <Setter Property="Template">
           <ControlTemplate>
-            <Grid x:Name="PART_ContentRoot"
-                  ColumnDefinitions="Auto,*">
-              <ToggleButton x:Name="PART_Expander"
-                            Width="{StaticResource DataGridHierarchicalExpanderSize}"
-                            Height="{StaticResource DataGridHierarchicalExpanderSize}"
-                            Theme="{StaticResource DataGridHierarchicalExpanderTheme}"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            IsChecked="False" />
-              <TextBlock Grid.Column="1"
-                         x:Name="PART_Text"
-                         Margin="{StaticResource DataGridHierarchicalPresenterContentMargin}"
-                         HorizontalAlignment="Stretch"
-                         VerticalAlignment="Center" />
-            </Grid>
+            <TextBlock x:Name="PART_Text"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Center" />
           </ControlTemplate>
         </Setter>
       </ControlTheme>
@@ -287,6 +308,9 @@
         <Setter Property="Template">
           <ControlTemplate>
             <ContentPresenter Background="{TemplateBinding Background}"
+                              BorderBrush="{TemplateBinding BorderBrush}"
+                              BorderThickness="{TemplateBinding BorderThickness}"
+                              CornerRadius="{TemplateBinding CornerRadius}"
                               Padding="{TemplateBinding Padding}"
                               HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
                               VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
@@ -295,7 +319,84 @@
                               Foreground="{TemplateBinding Foreground}" />
           </ControlTemplate>
         </Setter>
+        <Style Selector="^:focus-visible">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellFocusVisualPrimaryBrush}" />
+          <Setter Property="BorderThickness" Value="2,2,2,2" />
+        </Style>
+        <Style Selector="^:pointerover:not(:selected):not(:current)">
+          <Setter Property="Background" Value="{StaticResource DataGridColumnHeaderHoveredBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:pressed">
+          <Setter Property="Background" Value="{StaticResource DataGridColumnHeaderPressedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:selected">
+          <Setter Property="Background" Value="{StaticResource DataGridColumnHeaderSelectedBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{StaticResource DataGridColumnHeaderSelectedForegroundBrush}" />
+        </Style>
+        <Style Selector="^:current">
+          <Setter Property="Background" Value="{StaticResource DataGridColumnHeaderSelectedBackgroundBrush}" />
+          <Setter Property="Foreground" Value="{StaticResource DataGridColumnHeaderSelectedForegroundBrush}" />
+        </Style>
       </ControlTheme>
+
+      <!-- Feature-preserving optimized row structure. The lean row themes above remain
+           available for fixed-height, column-header-only benchmark surfaces. -->
+      <ControlTheme x:Key="DataGridOptimizedFeatureRowTheme" TargetType="DataGridRow"
+                    BasedOn="{StaticResource DataGridOptimizedRowTheme}">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <DataGridFrozenGrid Name="PART_Root"
+                                Background="{TemplateBinding Background}"
+                                ColumnDefinitions="Auto,*"
+                                RowDefinitions="*,Auto,Auto">
+              <DataGridRowHeader Name="PART_RowHeader"
+                                 Grid.RowSpan="3"
+                                 DataGridFrozenGrid.IsFrozen="True" />
+              <DataGridCellsPresenter Name="PART_CellsPresenter"
+                                      Grid.Column="1"
+                                      DataGridFrozenGrid.IsFrozen="True" />
+              <DataGridDetailsPresenter Name="PART_DetailsPresenter"
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        Background="{StaticResource DataGridDetailsPresenterBackgroundBrush}" />
+              <Rectangle Name="PART_BottomGridLine"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Height="{StaticResource DataGridRowBottomGridLineHeight}"
+                         HorizontalAlignment="Stretch" />
+            </DataGridFrozenGrid>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <ControlTheme x:Key="DataGridOptimizedFeatureUnfrozenRowTheme" TargetType="DataGridRow"
+                    BasedOn="{StaticResource DataGridOptimizedRowTheme}">
+        <Setter Property="Template">
+          <ControlTemplate>
+            <Grid Background="{TemplateBinding Background}"
+                  ColumnDefinitions="Auto,*"
+                  RowDefinitions="*,Auto,Auto">
+              <DataGridRowHeader Name="PART_RowHeader" Grid.RowSpan="3" />
+              <DataGridCellsPresenter Name="PART_CellsPresenter" Grid.Column="1" />
+              <DataGridDetailsPresenter Name="PART_DetailsPresenter"
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        Background="{StaticResource DataGridDetailsPresenterBackgroundBrush}" />
+              <Rectangle Name="PART_BottomGridLine"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Height="{StaticResource DataGridRowBottomGridLineHeight}"
+                         HorizontalAlignment="Stretch" />
+            </Grid>
+          </ControlTemplate>
+        </Setter>
+      </ControlTheme>
+
+      <!-- Headers are few relative to cells; this opt-in fallback retains every generic
+           sort/filter/separator/drag affordance without changing Generic.xaml. -->
+      <ControlTheme x:Key="DataGridOptimizedFeatureColumnHeaderTheme"
+                    TargetType="DataGridColumnHeader"
+                    BasedOn="{StaticResource {x:Type DataGridColumnHeader}}" />
     </ResourceDictionary>
   </Styles.Resources>
 </Styles>

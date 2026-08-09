@@ -54,6 +54,9 @@ internal
             _sharedTextLayoutCache = new DataGridCustomDrawingTextLayoutCache(DataGridCustomDrawingCell.DefaultSharedTextLayoutCacheCapacity);
         }
 
+        internal override bool CanReuseCellContentOnDataContextChange =>
+            GetType() == typeof(DataGridCustomDrawingColumn);
+
         /// <summary>
         /// Defines the <see cref="UseDirectValueAccessor"/> property.
         /// </summary>
@@ -320,6 +323,10 @@ internal
             {
                 _sharedTextLayoutCache.Capacity = SharedTextLayoutCacheCapacity;
             }
+            else if (change.Property == UseDirectValueAccessorProperty)
+            {
+                OwningGrid?.OnColumnDisplayModeChanged(this);
+            }
             else if (change.Property == FontFamilyProperty ||
                      change.Property == FontSizeProperty ||
                      change.Property == FontStyleProperty ||
@@ -350,9 +357,8 @@ internal
                 change.Property == SharedTextLayoutCacheCapacityProperty ||
                 change.Property == DrawOperationLayoutFastPathProperty ||
                 change.Property == RenderInvalidationTokenProperty ||
-                change.Property == LayoutInvalidationTokenProperty ||
-                change.Property == UseDirectValueAccessorProperty ||
-                change.Property == TrackDirectValueChangesProperty)
+                     change.Property == LayoutInvalidationTokenProperty ||
+                     change.Property == TrackDirectValueChangesProperty)
             {
                 NotifyPropertyChanged(change.Property.Name);
             }
@@ -443,7 +449,7 @@ internal
                    dataItem != null &&
                    accessor is IDataGridColumnTextAccessor &&
                    accessor.ItemType.IsInstanceOfType(dataItem) &&
-                   BindingCloneHelper.SupportsDirectDataContextRead(Binding);
+                   BindingCloneHelper.SupportsDirectTextDataContextRead(Binding);
         }
 
         protected override void CancelCellEdit(Control editingElement, object uneditedValue)
@@ -594,6 +600,9 @@ internal
                     break;
                 case nameof(LayoutInvalidationToken):
                     DataGridHelper.SyncColumnProperty(this, drawingCell, DataGridCustomDrawingCell.LayoutInvalidationTokenProperty, LayoutInvalidationTokenProperty);
+                    break;
+                case nameof(TrackDirectValueChanges):
+                    drawingCell.RefreshValueProviderSubscription();
                     break;
             }
 

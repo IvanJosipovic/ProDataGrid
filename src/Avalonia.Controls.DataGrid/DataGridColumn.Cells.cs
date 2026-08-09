@@ -36,6 +36,8 @@ namespace Avalonia.Controls
             return new DataGridCell();
         }
 
+        internal virtual bool CanReuseCellContentOnDataContextChange => false;
+
         internal virtual ControlTheme ResolveCellTheme(DataGrid grid)
         {
             return CellTheme ?? grid?.CellTheme;

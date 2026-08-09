@@ -49,6 +49,7 @@ using Avalonia.Styling;
 using Avalonia.Reactive;
 using System.Reflection;
 using System.Globalization;
+using System.Threading;
 
 namespace Avalonia.Controls
 {
@@ -151,17 +152,16 @@ internal
             try
             {
                 element.IsSelected = false;
+                element.IsPlaceholder = false;
+                element.ClearDragDropState();
+                ClearRowValidation(element);
+                element.DataContext = null;
+                element.ClearPointerOverState();
             }
             finally
             {
                 _suppressSelectionUpdatesFromRows = previousSuppress;
             }
-
-            element.IsPlaceholder = false;
-            element.ClearDragDropState();
-            ClearRowValidation(element);
-            element.DataContext = null;
-            element.ClearPointerOverState();
         }
 
         /// <summary>
@@ -193,8 +193,18 @@ internal
 
         internal void NotifyRowPrepared(DataGridRow row, object item)
         {
+            PrepareRowForItem(row, item);
+            NotifyPreparedRowCells(row);
+        }
+
+        private void PrepareRowForItem(DataGridRow row, object item)
+        {
             DataGridDiagnostics.RecordRowPrepared();
             PrepareContainerForItemOverride(row, item);
+        }
+
+        private void NotifyPreparedRowCells(DataGridRow row)
+        {
             NotifyCellsPrepared(row);
         }
 
@@ -297,6 +307,8 @@ internal
         private bool _scrollHeightIndexDirty = true;
         private bool _scrollHeightIndexEstimatorDirty;
         private readonly IDataGridScrollStateManager _scrollStateManager;
+        private int _ownerThreadId;
+        private int _isAttachedToVisualTreeForThreadAccess;
 
         // used to store the current column during a Reset
 
@@ -392,11 +404,13 @@ internal
         private IList<DataGridCellInfo> _selectedCellsBinding;
         private INotifyCollectionChanged _selectedCellsBindingNotifications;
         private ISelectionModel _selectionModel;
+        private bool _selectionModelExplicitlySet;
         private DataGridSelectionModelAdapter _selectionModelAdapter;
         private ISelectionModel _selectionModelProxy;
         private DataGridSelection.DataGridPagedSelectionSource _pagedSelectionSource;
         private DataGridCollectionView _pagedSelectionSourceView;
         private List<object> _selectionModelSnapshot;
+        private List<object> _filteringSelectionSnapshot;
         private DataGridSelectionMode? _detachedSelectionMode;
         private bool? _detachedSelectionModelSingleSelect;
         private bool _detachedSelectionChanged;
@@ -407,10 +421,11 @@ internal
         private bool _suppressSelectionSnapshotUpdates;
         private bool _syncingSelectionModel;
         private bool _suppressSelectionUpdatesFromRows;
+        internal bool IsSelectionUpdateFromRowSuppressed => _suppressSelectionUpdatesFromRows;
         private bool _syncingSelectedItems;
         private bool _syncingSelectedCells;
         private readonly Dictionary<int, HashSet<int>> _selectedCells = new();
-        private readonly AvaloniaList<DataGridCellInfo> _selectedCellsView = new();
+        private readonly DataGridSelectedCellsCollection _selectedCellsView = new();
         private IList<DataGridColumn> _selectedColumnsBinding;
         private INotifyCollectionChanged _selectedColumnsBindingNotifications;
         private bool _syncingSelectedColumns;
@@ -418,7 +433,7 @@ internal
         private readonly HashSet<int> _selectedColumnIndices = new();
         private readonly HashSet<int> _selectedRowHeaderIndices = new();
         private readonly HashSet<int> _selectedColumnHeaderIndices = new();
-        private readonly AvaloniaList<DataGridColumn> _selectedColumnsView = new();
+        private readonly DataGridSelectedColumnsCollection _selectedColumnsView = new();
         private DataGridCellCoordinates _cellAnchor = new DataGridCellCoordinates(-1, -1);
         private int _preferredSelectionIndex = -1;
         private IDataGridSelectionModelFactory _selectionModelFactory;
@@ -580,6 +595,7 @@ internal
         /// </summary>
         public DataGrid()
         {
+            Volatile.Write(ref _ownerThreadId, Environment.CurrentManagedThreadId);
             //TODO: Check if override works
             GotFocus += DataGrid_GotFocus;
             LostFocus += DataGrid_LostFocus;
@@ -650,6 +666,20 @@ internal
 
         private void SetValueNoCallback<T>(AvaloniaProperty<T> property, T value, BindingPriority priority = BindingPriority.LocalValue)
         {
+            if (_itemsSourceMutationDeferralDepth > 0)
+            {
+                if (ReferenceEquals(property, SelectedItemProperty))
+                {
+                    _selectedItem = value;
+                    return;
+                }
+                if (ReferenceEquals(property, SelectedIndexProperty))
+                {
+                    _selectedIndex = (int)(object)value;
+                    return;
+                }
+            }
+
             _areHandlersSuspended = true;
             try
             {
@@ -747,6 +777,11 @@ internal
         {
             get
             {
+                if (UseCachedSelectedItemsDuringSourceMutation)
+                {
+                    return _selectedItems;
+                }
+
                 if (_selectedItemsBinding != null)
                 {
                     return _selectedItemsBinding;
@@ -1196,6 +1231,17 @@ internal
 
         internal void RequestPointerOverRefreshFromRow()
         {
+            RequestPointerOverRefresh();
+        }
+
+        internal void ClearPointerOverRowForRecycle(DataGridRow row)
+        {
+            if (_mouseOverRowIndex != row.Index)
+            {
+                return;
+            }
+
+            MouseOverRowIndex = null;
             RequestPointerOverRefresh();
         }
 
@@ -2752,6 +2798,11 @@ internal
 
         private void SetSelectionModel(ISelectionModel model, bool initializing = false)
         {
+            if (!initializing)
+            {
+                _selectionModelExplicitlySet = model != null;
+            }
+
             var newModel = model ?? CreateSelectionModel();
             var oldAdapter = _selectionModelAdapter;
             var oldModel = _selectionModel;
@@ -2908,11 +2959,17 @@ internal
                 }, DispatcherPriority.Background);
 
                 TryRestorePendingScrollStateAfterViewRefresh();
+                if (DataConnection.UsesHierarchicalItemsSource &&
+                    _sortingModel?.Descriptors.Count > 0)
+                {
+                    RaiseAutomationStructureChanged();
+                }
             }
         }
 
         private void OnFilteringAdapterApplying()
         {
+            _filteringSelectionSnapshot = CaptureSelectionSnapshot() ?? new List<object>();
             UpdateSelectionSnapshot();
         }
 
@@ -2921,18 +2978,57 @@ internal
             if (DataConnection?.CollectionView != null)
             {
                 RefreshRowsAndColumns(clearRows: false);
-                RestoreSelectionFromSnapshot();
+                List<object> snapshot = _filteringSelectionSnapshot;
+                _filteringSelectionSnapshot = null;
+                if (snapshot != null)
+                {
+                    RestoreSelectionFromSnapshot(snapshot);
+                }
+                else
+                {
+                    RestoreSelectionFromSnapshot();
+                }
                 RefreshSelectionFromModel();
+                UpdateSelectionSnapshot();
                 RefreshColumnSortStates();
                 RefreshColumnFilterStates();
                 OnFilterChangedForSummaries();
                 TryRestorePendingScrollStateAfterViewRefresh();
+                if (DataConnection.UsesHierarchicalItemsSource)
+                {
+                    RaiseAutomationStructureChanged();
+                }
             }
         }
 
         private void HierarchicalAdapter_FlattenedChanged(object sender, FlattenedChangedEventArgs e)
         {
-            HandleHierarchicalFlattenedChanged(e);
+            if (!HasModelCallbackThreadAccess())
+            {
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (ReferenceEquals(sender, _hierarchicalModel))
+                    {
+                        HandleHierarchicalFlattenedChanged(e);
+                    }
+                });
+                return;
+            }
+
+            if (ReferenceEquals(sender, _hierarchicalModel))
+            {
+                HandleHierarchicalFlattenedChanged(e);
+            }
+        }
+
+        internal bool HasModelCallbackThreadAccess()
+        {
+            // Once attached, Avalonia's dispatcher is the durable affinity contract. Detached
+            // headless controls need the captured owner as a fallback because an unbound
+            // headless dispatcher can report access from a worker thread.
+            return Volatile.Read(ref _isAttachedToVisualTreeForThreadAccess) != 0
+                ? Dispatcher.UIThread.CheckAccess()
+                : Environment.CurrentManagedThreadId == Volatile.Read(ref _ownerThreadId);
         }
 
         private void HandleHierarchicalFlattenedChanged(FlattenedChangedEventArgs e)
@@ -3019,7 +3115,7 @@ internal
                 }
                 else
                 {
-                    RefreshRowsAndColumns(clearRows: false);
+                    RefreshRowsAndColumns(clearRows: false, recycleDisplayedRows: true);
                 }
                 if (CurrentColumnIndex > -1 && (CurrentSlot < 0 || CurrentSlot >= SlotCount))
                 {
@@ -3031,6 +3127,7 @@ internal
             }
 
             OnCollectionChangedForSummaries(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+            RaiseAutomationStructureChanged();
         }
 
         private bool FlushPendingScrollForHierarchyChange()
@@ -3939,6 +4036,11 @@ internal
                     {
                         model.Source = source;
                     }
+
+                    // Reassigning the refreshed view can clear SelectionModel's indexes.
+                    // Reassert the already-remapped indexes only after the final source is
+                    // attached so move/replace projections retain the exact selected nodes.
+                    RestoreSelectionModelIndexes(mapped);
                 }
 
                 PopSelectionSync(previous);
@@ -6044,11 +6146,17 @@ internal
             if (_hierarchicalRowsEnabled && _hierarchicalModel != null &&
                 item is not Avalonia.Controls.DataGridHierarchical.HierarchicalNode)
             {
-                var hierarchicalIndex = _hierarchicalModel.IndexOf(item);
-                if (hierarchicalIndex >= 0)
+                Avalonia.Controls.DataGridHierarchical.HierarchicalNode node =
+                    _hierarchicalModel.FindNode(item);
+                if (node != null)
                 {
-                    return hierarchicalIndex;
+                    // Selection-model indexes belong to the active view, not the unfiltered
+                    // flattened model. A materialized node can therefore exist while being
+                    // intentionally unavailable for selection because filtering hid it.
+                    return DataConnection.IndexOf(node);
                 }
+
+                return -1;
             }
 
             if (DataConnection.CollectionView is DataGridCollectionView paged && paged.PageSize > 0)
@@ -6100,6 +6208,40 @@ internal
                 {
                     model.Select(index);
                 }
+            }
+        }
+
+        internal void RestoreSelectionModelIndexes(IReadOnlyList<int> indexes)
+        {
+            if (_selectionModelAdapter?.Model is not { } model || indexes == null)
+            {
+                return;
+            }
+
+            bool previousSync = _syncingSelectionModel;
+            _syncingSelectionModel = true;
+            try
+            {
+                int sourceCount = model.Source is ICollection collection
+                    ? collection.Count
+                    : model.Count;
+                using (_selectionModelAdapter.SelectedItemsView.SuppressNotifications())
+                using (model.BatchUpdate())
+                {
+                    model.Clear();
+                    for (int i = 0; i < indexes.Count; i++)
+                    {
+                        int index = indexes[i];
+                        if (index >= 0 && index < sourceCount)
+                        {
+                            model.Select(index);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                _syncingSelectionModel = previousSync;
             }
         }
 

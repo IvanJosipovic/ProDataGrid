@@ -18,6 +18,7 @@ namespace Avalonia.Controls
         private string _cellTemplateKey;
         private bool _useDirectCell;
         private bool _useDirectTextContent;
+        private bool _useOptimizedPresenter;
         private bool _trackDirectTextValueChanges = true;
 
         public double? Indent
@@ -42,13 +43,23 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
-        /// Gets or sets whether the optimized direct hierarchy cell uses its typed accessor
-        /// with a retained text-only template instead of a content presenter.
+        /// Gets or sets whether compatible hierarchy cells use their typed accessor directly.
+        /// Ordinary retained cells keep their presenter and Avalonia content template.
         /// </summary>
         public bool UseDirectTextContent
         {
             get => _useDirectTextContent;
             set => SetProperty(ref _useDirectTextContent, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether retained hierarchy cells combine the cell and expander-presenter
+        /// roles while retaining normal Avalonia control content.
+        /// </summary>
+        public bool UseOptimizedPresenter
+        {
+            get => _useOptimizedPresenter;
+            set => SetProperty(ref _useOptimizedPresenter, value);
         }
 
         /// <summary>
@@ -74,6 +85,7 @@ namespace Avalonia.Controls
             {
                 hierarchicalColumn.UseDirectCell = UseDirectCell;
                 hierarchicalColumn.UseDirectTextContent = UseDirectTextContent;
+                hierarchicalColumn.UseOptimizedPresenter = UseOptimizedPresenter;
                 hierarchicalColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;
                 hierarchicalColumn.CellTemplate = CellTemplateKey != null
                     ? context?.ResolveResource<IDataTemplate>(CellTemplateKey)
@@ -112,6 +124,9 @@ namespace Avalonia.Controls
                     return true;
                 case nameof(UseDirectTextContent):
                     hierarchicalColumn.UseDirectTextContent = UseDirectTextContent;
+                    return true;
+                case nameof(UseOptimizedPresenter):
+                    hierarchicalColumn.UseOptimizedPresenter = UseOptimizedPresenter;
                     return true;
                 case nameof(TrackDirectTextValueChanges):
                     hierarchicalColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;

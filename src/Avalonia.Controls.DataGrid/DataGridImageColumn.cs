@@ -325,6 +325,9 @@ internal
         internal override DataGridCell CreateCell() =>
             UsesDrawnDisplay ? new DataGridCustomDrawingCell() : base.CreateCell();
 
+        internal override bool CanReuseCellContentOnDataContextChange =>
+            GetType() == typeof(DataGridImageColumn);
+
         internal override ControlTheme ResolveCellTheme(DataGrid grid) =>
             UsesDrawnDisplay
                 ? CellTheme ?? GetThemeValue(_drawingCellTheme) ?? base.ResolveCellTheme(grid)
@@ -341,7 +344,7 @@ internal
             return accessor != null &&
                    dataItem != null &&
                    accessor.ItemType.IsInstanceOfType(dataItem) &&
-                   BindingCloneHelper.SupportsDirectDataContextRead(Binding);
+                   BindingCloneHelper.SupportsDirectRawDataContextRead(Binding);
         }
 
         private void SyncEditingProperties(TextBox textBox)

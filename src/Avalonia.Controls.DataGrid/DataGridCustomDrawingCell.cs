@@ -9,6 +9,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Utils;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.SceneGraph;
@@ -43,11 +44,9 @@ namespace Avalonia.Controls
         private IDataGridDrawnCellValueProvider _valueProvider;
         private IDataGridBuiltInCellRenderer _builtInRenderer;
         private INotifyPropertyChanged _valueNotifier;
-        private IBrush _cachedBorderBrush;
-        private double _cachedBorderThickness;
-        private Pen _cachedBorderPen;
         private int _configurationDepth;
         private bool _configurationDirty;
+        private readonly WeakPropertyChangedListener<DataGridCustomDrawingCell> _valuePropertyChangedListener;
 
         internal bool DisplayPropertiesInitialized { get; set; }
 
@@ -122,12 +121,20 @@ namespace Avalonia.Controls
 
         static DataGridCustomDrawingCell()
         {
+            UseDirectChromeProperty.OverrideDefaultValue<DataGridCustomDrawingCell>(true);
             AffectsRender<DataGridCustomDrawingCell>(
                 BackgroundProperty,
                 BorderBrushProperty,
                 BorderThicknessProperty,
                 ForegroundProperty,
                 RenderInvalidationTokenProperty);
+        }
+
+        public DataGridCustomDrawingCell()
+        {
+            _valuePropertyChangedListener = new WeakPropertyChangedListener<DataGridCustomDrawingCell>(
+                this,
+                static (cell, sender, e) => cell.OnValueProviderPropertyChanged(sender, e));
         }
 
         /// <summary>
@@ -286,6 +293,15 @@ namespace Avalonia.Controls
 
         internal IDataGridBuiltInCellRenderer BuiltInRendererForTesting => _builtInRenderer;
 
+        internal bool HasCompositionVisualForTesting => _compositionVisual != null;
+
+        internal bool UsesValueProvider => _valueProvider != null;
+
+        internal void RefreshValueProviderSubscription()
+        {
+            UpdateValueProviderSubscription();
+        }
+
         internal void BeginDisplayConfiguration()
         {
             _configurationDepth++;
@@ -299,9 +315,6 @@ namespace Avalonia.Controls
             }
 
             _configurationDirty = false;
-            _cachedBorderBrush = null;
-            _cachedBorderPen = null;
-            _cachedBorderThickness = 0d;
             InvalidateResolvedTypeface();
             ApplySharedCacheCapacity();
             InvalidateTextLayout();
@@ -327,6 +340,7 @@ namespace Avalonia.Controls
 
         internal void UseRetainedTemplate()
         {
+            TearDownCompositionVisualHost();
             ClearValue(TemplateProperty);
         }
 
@@ -377,14 +391,14 @@ namespace Avalonia.Controls
 
             if (string.IsNullOrEmpty(text))
             {
-                return default;
+                return InflateSize(default, Padding, availableSize);
             }
 
             var contentAvailableSize = DeflateSize(availableSize, Padding);
             EnsureFormattedText(contentAvailableSize, text);
             if (_formattedText is null)
             {
-                return default;
+                return InflateSize(default, Padding, availableSize);
             }
 
             return InflateSize(
@@ -416,10 +430,9 @@ namespace Avalonia.Controls
         {
             base.Render(context);
 
-            DrawCellChrome(context);
-
             if (Content != null)
             {
+                ClearCompositionDrawOperation();
                 return;
             }
 
@@ -473,6 +486,7 @@ namespace Avalonia.Controls
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            UpdateValueProviderSubscription();
             _compositionHostUnavailable = false;
             EnsureCompositionVisualHost();
             UpdateCompositionVisualSize(Bounds.Size);
@@ -480,6 +494,7 @@ namespace Avalonia.Controls
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            DetachValueProviderSubscription();
             TearDownCompositionVisualHost();
             _compositionHostUnavailable = false;
             base.OnDetachedFromVisualTree(e);
@@ -564,48 +579,6 @@ namespace Avalonia.Controls
                 InvalidateTextLayout();
                 InvalidateVisual();
             }
-            else if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
-            {
-                _cachedBorderBrush = null;
-                _cachedBorderPen = null;
-                _cachedBorderThickness = 0d;
-                InvalidateVisual();
-            }
-        }
-
-        private void DrawCellChrome(DrawingContext context)
-        {
-            var bounds = new Rect(Bounds.Size);
-            if (Background != null)
-            {
-                context.DrawRectangle(Background, null, bounds);
-            }
-
-            var thickness = Math.Max(
-                Math.Max(BorderThickness.Left, BorderThickness.Top),
-                Math.Max(BorderThickness.Right, BorderThickness.Bottom));
-            if (BorderBrush == null || thickness <= 0d || bounds.Width <= 0d || bounds.Height <= 0d)
-            {
-                return;
-            }
-
-            if (!ReferenceEquals(_cachedBorderBrush, BorderBrush) ||
-                !_cachedBorderThickness.Equals(thickness))
-            {
-                _cachedBorderBrush = BorderBrush;
-                _cachedBorderThickness = thickness;
-                _cachedBorderPen = new Pen(BorderBrush, thickness);
-            }
-
-            var inset = thickness * 0.5d;
-            context.DrawRectangle(
-                null,
-                _cachedBorderPen,
-                new Rect(
-                    inset,
-                    inset,
-                    Math.Max(0d, bounds.Width - thickness),
-                    Math.Max(0d, bounds.Height - thickness)));
         }
 
         private static Size DeflateSize(Size size, Thickness padding)
@@ -875,6 +848,17 @@ namespace Avalonia.Controls
             var maxTextWidth = NormalizeConstraint(availableSize.Width);
             var maxTextHeight = NormalizeConstraint(availableSize.Height);
 
+            // Recycled cells can remain in the visual tree with a transient zero-sized
+            // arrange while their display mode is being changed. FormattedText rejects a
+            // zero MaxTextHeight, and there is no drawable text surface in this state.
+            if (maxTextWidth <= 0 || maxTextHeight <= 0)
+            {
+                _formattedText = null;
+                _text = text;
+                _availableSize = availableSize;
+                return;
+            }
+
             if (TextLayoutCacheMode == DataGridCustomDrawingTextLayoutCacheMode.Shared &&
                 SharedTextLayoutCache != null)
             {
@@ -944,11 +928,7 @@ namespace Avalonia.Controls
 
         private void UpdateValueProviderSubscription()
         {
-            if (_valueNotifier != null)
-            {
-                _valueNotifier.PropertyChanged -= OnValueProviderPropertyChanged;
-                _valueNotifier = null;
-            }
+            DetachValueProviderSubscription();
 
             if (_valueProvider == null)
             {
@@ -964,16 +944,37 @@ namespace Avalonia.Controls
                 return;
             }
 
+            // Recycled cells may receive a new DataContext while detached. Refresh the
+            // value above, but defer the external event subscription until reattachment.
+            if (VisualRoot == null)
+            {
+                return;
+            }
+
             if (DataContext is INotifyPropertyChanged notifier)
             {
                 _valueNotifier = notifier;
-                _valueNotifier.PropertyChanged += OnValueProviderPropertyChanged;
+                _valueNotifier.PropertyChanged += _valuePropertyChangedListener.Handler;
             }
+        }
+
+        private void DetachValueProviderSubscription()
+        {
+            if (_valueNotifier == null)
+            {
+                return;
+            }
+
+            _valueNotifier.PropertyChanged -= _valuePropertyChangedListener.Handler;
+            _valueNotifier = null;
         }
 
         private void OnValueProviderPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            UpdateValueFromProvider();
+            if (ReferenceEquals(sender, _valueNotifier))
+            {
+                UpdateValueFromProvider();
+            }
         }
 
         private void UpdateValueFromProvider()
@@ -1053,7 +1054,12 @@ namespace Avalonia.Controls
 
         private static double NormalizeConstraint(double value)
         {
-            return double.IsInfinity(value) ? double.PositiveInfinity : Math.Max(0, value);
+            if (double.IsNaN(value) || double.IsNegativeInfinity(value) || value <= 0)
+            {
+                return 0;
+            }
+
+            return double.IsPositiveInfinity(value) ? double.PositiveInfinity : value;
         }
 
         private bool ShouldUseDrawOperationLayoutFastPath =>

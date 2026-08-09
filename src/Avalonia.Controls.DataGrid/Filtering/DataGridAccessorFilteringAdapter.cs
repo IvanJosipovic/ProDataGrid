@@ -59,9 +59,17 @@ namespace Avalonia.Controls.DataGridFiltering
                 return true;
             }
 
-            using (view.DeferRefresh())
+            InvokeBeforeViewRefresh();
+            try
             {
-                view.Filter = predicate;
+                using (view.DeferRefresh())
+                {
+                    view.Filter = predicate;
+                }
+            }
+            finally
+            {
+                InvokeAfterViewRefresh();
             }
 
             changed = true;

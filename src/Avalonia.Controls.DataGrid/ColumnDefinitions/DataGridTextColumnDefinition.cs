@@ -22,6 +22,7 @@ namespace Avalonia.Controls
         private IBrush _foreground;
         private string _watermark;
         private bool _useDirectTextCell;
+        private bool _useDirectTextContent;
         private bool _trackDirectTextValueChanges = true;
 
         public FontFamily FontFamily
@@ -76,6 +77,16 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
+        /// Gets or sets whether ordinary retained cells use their typed accessor directly in
+        /// the retained text element, without replacing the cell or its Avalonia template.
+        /// </summary>
+        public bool UseDirectTextContent
+        {
+            get => _useDirectTextContent;
+            set => SetProperty(ref _useDirectTextContent, value);
+        }
+
+        /// <summary>
         /// Gets or sets whether generated direct text cells subscribe to row-item property changes.
         /// Disable this only when the displayed row values are immutable.
         /// </summary>
@@ -97,6 +108,7 @@ namespace Avalonia.Controls
             if (column is DataGridTextColumn textColumn)
             {
                 textColumn.UseDirectTextCell = UseDirectTextCell;
+                textColumn.UseDirectTextContent = UseDirectTextContent;
                 textColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;
                 if (FontFamily != null)
                 {
@@ -182,6 +194,9 @@ namespace Avalonia.Controls
             {
                 case nameof(UseDirectTextCell):
                     textColumn.UseDirectTextCell = UseDirectTextCell;
+                    return true;
+                case nameof(UseDirectTextContent):
+                    textColumn.UseDirectTextContent = UseDirectTextContent;
                     return true;
                 case nameof(TrackDirectTextValueChanges):
                     textColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;

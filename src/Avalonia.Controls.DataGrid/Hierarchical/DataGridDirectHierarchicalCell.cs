@@ -5,9 +5,12 @@ using System;
 using System.ComponentModel;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Utils;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Controls
 {
@@ -24,23 +27,67 @@ namespace Avalonia.Controls
         private const string PartExpander = "PART_Expander";
         private const string PartContentRoot = "PART_ContentRoot";
         private const string PartText = "PART_Text";
+        private const string ExpanderSizeResourceKey = "DataGridHierarchicalExpanderSize";
+        private const string ExpanderGlyphSizeResourceKey = "DataGridHierarchicalExpanderGlyphSize";
+        private const string ContentMarginResourceKey = "DataGridHierarchicalPresenterContentMargin";
+        private const string DisabledGlyphOpacityResourceKey = "DataGridHierarchicalDisabledGlyphOpacity";
+        private const string CollapsedGlyphResourceKey = "DataGridRowGroupHeaderIconClosedPath";
+        private const string ExpandedGlyphResourceKey = "DataGridRowGroupHeaderIconOpenedPath";
+        private const double DefaultExpanderSize = 28d;
+        private const double DefaultExpanderGlyphSize = 10d;
+        private const double MaximumTapMovement = 8d;
         private HierarchicalNode? _node;
         private ToggleButton? _expander;
         private Control? _contentRoot;
         private TextBlock? _textElement;
+        private DataGridHierarchicalColumn? _column;
         private DataGridHierarchicalColumn? _textColumn;
+        private bool _textAccessorConfigurationInitialized;
         private INotifyPropertyChanged? _itemNotifier;
-        private IBrush? _cachedBorderBrush;
-        private double _cachedBorderThickness;
-        private Pen? _cachedBorderPen;
+        private bool _nodeSubscribed;
+        private double _expanderSize = DefaultExpanderSize;
+        private double _expanderGlyphSize = DefaultExpanderGlyphSize;
+        private Thickness _contentMargin = new(6, 0, 0, 0);
+        private double _disabledGlyphOpacity;
+        private Geometry? _collapsedGlyph;
+        private Geometry? _expandedGlyph;
+        private bool _leanExpanderKeyboardActive;
+        private IPointer? _leanExpanderPressedPointer;
+        private Point _leanExpanderPressedPoint;
+        private readonly WeakPropertyChangedListener<DataGridDirectHierarchicalCell> _nodePropertyChangedListener;
+        private readonly WeakPropertyChangedListener<DataGridDirectHierarchicalCell> _itemPropertyChangedListener;
 
         static DataGridDirectHierarchicalCell()
         {
+            UseDirectChromeProperty.OverrideDefaultValue<DataGridDirectHierarchicalCell>(true);
             AffectsRender<DataGridDirectHierarchicalCell>(
                 BackgroundProperty,
                 BorderBrushProperty,
                 BorderThicknessProperty,
-                CornerRadiusProperty);
+                CornerRadiusProperty,
+                ForegroundProperty,
+                LevelProperty,
+                IndentProperty,
+                IsExpandedProperty,
+                IsExpandableProperty);
+            PointerPressedEvent.AddClassHandler<DataGridDirectHierarchicalCell>(
+                static (cell, e) => cell.OnLeanExpanderPointerPressed(e),
+                RoutingStrategies.Tunnel,
+                handledEventsToo: true);
+            PointerReleasedEvent.AddClassHandler<DataGridDirectHierarchicalCell>(
+                static (cell, e) => cell.OnLeanExpanderPointerReleased(e),
+                RoutingStrategies.Bubble,
+                handledEventsToo: true);
+        }
+
+        public DataGridDirectHierarchicalCell()
+        {
+            _nodePropertyChangedListener = new WeakPropertyChangedListener<DataGridDirectHierarchicalCell>(
+                this,
+                static (cell, sender, e) => cell.NodeOnPropertyChanged(sender, e));
+            _itemPropertyChangedListener = new WeakPropertyChangedListener<DataGridDirectHierarchicalCell>(
+                this,
+                static (cell, sender, e) => cell.ItemOnPropertyChanged(sender, e));
         }
 
         /// <summary>Defines the <see cref="Level"/> property.</summary>
@@ -114,11 +161,36 @@ namespace Avalonia.Controls
             set => SetAndRaise(ValueProperty, ref _value, value);
         }
 
-        internal bool ConfigureTextAccessor(DataGridHierarchicalColumn? column)
+        internal bool ConfigureTextAccessor(DataGridHierarchicalColumn? column, object? dataItem)
         {
-            _textColumn = column?.CanUseDirectTextContent == true ? column : null;
+            _column = column;
+            _textColumn = column?.CanUseDirectTextContentFor(dataItem) == true ? column : null;
+            _textAccessorConfigurationInitialized = true;
             UpdateTextSubscription();
             return _textColumn != null;
+        }
+
+        internal bool ConfigureTextAccessor(DataGridHierarchicalColumn? column) =>
+            ConfigureTextAccessor(column, DataContext);
+
+        internal bool UsesTextAccessor => _textColumn != null;
+
+        internal bool TextAccessorConfigurationInitialized => _textAccessorConfigurationInitialized;
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            SubscribeNode();
+            UpdateTextSubscription();
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            _leanExpanderPressedPointer = null;
+            _leanExpanderKeyboardActive = false;
+            DetachTextSubscription();
+            UnsubscribeNode();
+            base.OnDetachedFromVisualTree(e);
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -132,17 +204,21 @@ namespace Avalonia.Controls
                     IHierarchicalNodeItem nodeItem => nodeItem.Node,
                     _ => null
                 });
-                UpdateTextSubscription();
+                if (_column != null)
+                {
+                    _column.ConfigureDirectHierarchicalCell(
+                        this,
+                        change.NewValue,
+                        preserveCompatibleMode: true);
+                }
+                else
+                {
+                    UpdateTextSubscription();
+                }
             }
             else if (change.Property == LevelProperty || change.Property == IndentProperty)
             {
                 UpdateIndentPadding();
-            }
-            else if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
-            {
-                _cachedBorderBrush = null;
-                _cachedBorderPen = null;
-                _cachedBorderThickness = 0d;
             }
             else if (change.Property == IsExpandedProperty || change.Property == IsExpandableProperty)
             {
@@ -158,39 +234,7 @@ namespace Avalonia.Controls
         public override void Render(DrawingContext context)
         {
             base.Render(context);
-
-            var thickness = Math.Max(
-                Math.Max(BorderThickness.Left, BorderThickness.Top),
-                Math.Max(BorderThickness.Right, BorderThickness.Bottom));
-            Pen? borderPen = null;
-            if (BorderBrush != null && thickness > 0d)
-            {
-                if (!ReferenceEquals(_cachedBorderBrush, BorderBrush) ||
-                    !_cachedBorderThickness.Equals(thickness))
-                {
-                    _cachedBorderBrush = BorderBrush;
-                    _cachedBorderThickness = thickness;
-                    _cachedBorderPen = new Pen(BorderBrush, thickness);
-                }
-
-                borderPen = _cachedBorderPen;
-            }
-
-            if (Background == null && borderPen == null)
-            {
-                return;
-            }
-
-            var inset = borderPen == null ? 0d : thickness * 0.5d;
-            var chromeBounds = new Rect(
-                inset,
-                inset,
-                Math.Max(0d, Bounds.Width - (inset * 2d)),
-                Math.Max(0d, Bounds.Height - (inset * 2d)));
-            context.DrawRectangle(
-                Background,
-                borderPen,
-                new RoundedRect(chromeBounds, CornerRadius));
+            RenderLeanExpander(context);
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
@@ -205,10 +249,15 @@ namespace Avalonia.Controls
             _expander = e.NameScope.Find<ToggleButton>(PartExpander);
             _contentRoot = e.NameScope.Find<Control>(PartContentRoot);
             _textElement = e.NameScope.Find<TextBlock>(PartText);
+            _contentRoot ??= _textElement;
             if (_expander != null)
             {
                 _expander.Click += ExpanderOnClick;
                 _expander.KeyDown += ExpanderOnKeyDown;
+            }
+            else
+            {
+                ResolveLeanExpanderResources();
             }
 
             UpdateExpanderState();
@@ -216,35 +265,69 @@ namespace Avalonia.Controls
             UpdateTextElement();
         }
 
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+
+            if (_expander == null &&
+                _leanExpanderKeyboardActive &&
+                IsExpandable &&
+                !e.Handled &&
+                (e.Key == Key.Enter || e.Key == Key.Space))
+            {
+                RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnLostFocus(FocusChangedEventArgs e)
+        {
+            _leanExpanderKeyboardActive = false;
+            base.OnLostFocus(e);
+        }
+
         private void AttachNode(HierarchicalNode? node)
         {
             if (ReferenceEquals(_node, node))
             {
+                SubscribeNode();
                 UpdateNodeState();
                 return;
             }
 
-            if (_node != null)
-            {
-                _node.PropertyChanged -= NodeOnPropertyChanged;
-            }
+            UnsubscribeNode();
 
             _node = node;
-            if (_node != null)
-            {
-                _node.PropertyChanged += NodeOnPropertyChanged;
-            }
+            SubscribeNode();
 
             UpdateNodeState();
         }
 
+        private void SubscribeNode()
+        {
+            if (_node == null || _nodeSubscribed || VisualRoot == null)
+            {
+                return;
+            }
+
+            _node.PropertyChanged += _nodePropertyChangedListener.Handler;
+            _nodeSubscribed = true;
+        }
+
+        private void UnsubscribeNode()
+        {
+            if (_node == null || !_nodeSubscribed)
+            {
+                return;
+            }
+
+            _node.PropertyChanged -= _nodePropertyChangedListener.Handler;
+            _nodeSubscribed = false;
+        }
+
         private void UpdateTextSubscription()
         {
-            if (_itemNotifier != null)
-            {
-                _itemNotifier.PropertyChanged -= ItemOnPropertyChanged;
-                _itemNotifier = null;
-            }
+            DetachTextSubscription();
 
             if (_textColumn == null)
             {
@@ -254,16 +337,31 @@ namespace Avalonia.Controls
 
             UpdateTextValue();
             if (_textColumn.TrackDirectTextValueChanges &&
+                VisualRoot != null &&
                 _node?.Item is INotifyPropertyChanged notifier)
             {
                 _itemNotifier = notifier;
-                _itemNotifier.PropertyChanged += ItemOnPropertyChanged;
+                _itemNotifier.PropertyChanged += _itemPropertyChangedListener.Handler;
             }
+        }
+
+        private void DetachTextSubscription()
+        {
+            if (_itemNotifier == null)
+            {
+                return;
+            }
+
+            _itemNotifier.PropertyChanged -= _itemPropertyChangedListener.Handler;
+            _itemNotifier = null;
         }
 
         private void ItemOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            UpdateTextValue();
+            if (ReferenceEquals(sender, _itemNotifier))
+            {
+                UpdateTextValue();
+            }
         }
 
         private void UpdateTextValue()
@@ -273,10 +371,11 @@ namespace Avalonia.Controls
 
         private void NodeOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (string.IsNullOrEmpty(e.PropertyName) ||
+            if (ReferenceEquals(sender, _node) &&
+                (string.IsNullOrEmpty(e.PropertyName) ||
                 e.PropertyName == nameof(HierarchicalNode.Level) ||
                 e.PropertyName == nameof(HierarchicalNode.IsExpanded) ||
-                e.PropertyName == nameof(HierarchicalNode.IsLeaf))
+                e.PropertyName == nameof(HierarchicalNode.IsLeaf)))
             {
                 UpdateNodeState();
             }
@@ -296,7 +395,13 @@ namespace Avalonia.Controls
             SetCurrentValue(PaddingProperty, padding);
             if (_contentRoot != null)
             {
-                _contentRoot.Margin = padding;
+                _contentRoot.Margin = _expander == null
+                    ? new Thickness(
+                        padding.Left + _expanderSize + _contentMargin.Left,
+                        _contentMargin.Top,
+                        _contentMargin.Right,
+                        _contentMargin.Bottom)
+                    : padding;
             }
         }
 
@@ -315,6 +420,120 @@ namespace Avalonia.Controls
             {
                 _textElement.Text = Value;
             }
+        }
+
+        internal bool IsLeanExpanderHit(Point point)
+        {
+            if (_expander != null)
+            {
+                return false;
+            }
+
+            var indent = Math.Max(Level, 0) * Math.Max(Indent, 0);
+            return point.X >= indent &&
+                   point.X <= indent + _expanderSize &&
+                   point.Y >= 0 &&
+                   point.Y <= Bounds.Height;
+        }
+
+        private void OnLeanExpanderPointerPressed(PointerPressedEventArgs e)
+        {
+            _leanExpanderPressedPointer = null;
+            _leanExpanderKeyboardActive = false;
+            if (_expander != null)
+            {
+                return;
+            }
+
+            var point = e.GetCurrentPoint(this);
+            var isTouchLike = e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+            var isPrimaryPressed = point.Properties.IsLeftButtonPressed || isTouchLike;
+            var isExpanderHit = isPrimaryPressed && IsLeanExpanderHit(point.Position);
+            if (isExpanderHit)
+            {
+                _leanExpanderPressedPointer = e.Pointer;
+                _leanExpanderPressedPoint = point.Position;
+            }
+        }
+
+        private void OnLeanExpanderPointerReleased(PointerReleasedEventArgs e)
+        {
+            if (_expander != null || !ReferenceEquals(e.Pointer, _leanExpanderPressedPointer))
+            {
+                return;
+            }
+
+            _leanExpanderPressedPointer = null;
+            var point = e.GetPosition(this);
+            var delta = point - _leanExpanderPressedPoint;
+            var isTap = Math.Abs(delta.X) <= MaximumTapMovement &&
+                        Math.Abs(delta.Y) <= MaximumTapMovement;
+            if (!isTap || !IsLeanExpanderHit(point))
+            {
+                return;
+            }
+
+            _leanExpanderKeyboardActive = true;
+            if (IsExpandable)
+            {
+                RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
+                e.Handled = true;
+            }
+        }
+
+        private void ResolveLeanExpanderResources()
+        {
+            _expanderSize = FindResource(ExpanderSizeResourceKey, DefaultExpanderSize);
+            _expanderGlyphSize = FindResource(ExpanderGlyphSizeResourceKey, DefaultExpanderGlyphSize);
+            _contentMargin = FindResource(ContentMarginResourceKey, new Thickness(6, 0, 0, 0));
+            _disabledGlyphOpacity = FindResource(DisabledGlyphOpacityResourceKey, 0d);
+            _collapsedGlyph = FindResource<Geometry?>(CollapsedGlyphResourceKey, null);
+            _expandedGlyph = FindResource<Geometry?>(ExpandedGlyphResourceKey, null);
+        }
+
+        private T FindResource<T>(string key, T fallback)
+        {
+            return this.TryFindResource(key, out var resource) && resource is T value
+                ? value
+                : fallback;
+        }
+
+        private void RenderLeanExpander(DrawingContext context)
+        {
+            if (_expander != null || Foreground == null || _expanderGlyphSize <= 0 || _expanderSize <= 0)
+            {
+                return;
+            }
+
+            var opacity = IsExpandable ? 1d : _disabledGlyphOpacity;
+            if (opacity <= 0)
+            {
+                return;
+            }
+
+            var geometry = IsExpanded ? _expandedGlyph : _collapsedGlyph;
+            if (geometry == null)
+            {
+                return;
+            }
+
+            var geometryBounds = geometry.Bounds;
+            if (geometryBounds.Width <= 0 || geometryBounds.Height <= 0)
+            {
+                return;
+            }
+
+            var scale = Math.Min(
+                _expanderGlyphSize / geometryBounds.Width,
+                _expanderGlyphSize / geometryBounds.Height);
+            var indent = Math.Max(Level, 0) * Math.Max(Indent, 0);
+            var renderedWidth = geometryBounds.Width * scale;
+            var renderedHeight = geometryBounds.Height * scale;
+            var offsetX = indent + ((_expanderSize - renderedWidth) / 2d) - (geometryBounds.X * scale);
+            var offsetY = ((Bounds.Height - renderedHeight) / 2d) - (geometryBounds.Y * scale);
+            using var opacityState = context.PushOpacity(opacity);
+            using var transformState = context.PushTransform(new Matrix(scale, 0, 0, scale, offsetX, offsetY));
+            context.DrawGeometry(Foreground, null, geometry);
         }
 
         private void ExpanderOnClick(object? sender, RoutedEventArgs e)

@@ -395,20 +395,20 @@ internal
                 }
                 else
                 {
-                    if (!e.Handled && OwningGrid.IsTabStop)
+                    e.Handled = OwningGrid.UpdateStateOnMouseLeftButtonDown(e, OwningGrid.CurrentColumnIndex, RowGroupInfo.Slot, allowEdit: false);
+                    if (OwningGrid.IsTabStop && OwningGrid.SuccessfullyUpdatedSelection)
                     {
                         OwningGrid.Focus();
                     }
-                    e.Handled = OwningGrid.UpdateStateOnMouseLeftButtonDown(e, OwningGrid.CurrentColumnIndex, RowGroupInfo.Slot, allowEdit: false);
                 }
             }
             else if (e.GetCurrentPoint(this).Properties.IsRightButtonPressed)
             {
-                if (!e.Handled)
+                e.Handled = OwningGrid.UpdateStateOnMouseRightButtonDown(e, OwningGrid.CurrentColumnIndex, RowGroupInfo.Slot, allowEdit: false);
+                if (OwningGrid.SuccessfullyUpdatedSelection)
                 {
                     OwningGrid.Focus();
                 }
-                e.Handled = OwningGrid.UpdateStateOnMouseRightButtonDown(e, OwningGrid.CurrentColumnIndex, RowGroupInfo.Slot, allowEdit: false);
             }
 
         }

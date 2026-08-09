@@ -74,7 +74,8 @@
       <SolidColorBrush x:Key="DataGridSearchMatchBrush" Color="{DynamicResource ThemeAccentColor4}" />
       <SolidColorBrush x:Key="DataGridSearchCurrentBrush" Color="{DynamicResource ThemeAccentColor3}" />
       <SolidColorBrush x:Key="DataGridSearchMatchForegroundBrush" Color="{DynamicResource ThemeForegroundColor}" />
-      <StaticResource x:Key="DataGridRowDropIndicatorBrush" ResourceKey="HighlightBrush" />
+      <SolidColorBrush x:Key="DataGridRowDropIndicatorBrush"
+                       Color="{DynamicResource ThemeAccentColor2}" />
 
       <!-- Opacity Resources -->
       <x:Double x:Key="DataGridRowSelectedBackgroundOpacity">1</x:Double>

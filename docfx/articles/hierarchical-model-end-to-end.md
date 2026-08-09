@@ -182,6 +182,13 @@ children may be dematerialized and therefore cannot match until loaded again. Wi
 the expansion state remains unchanged. Observable child changes and completed async
 loads rebuild one coherent match set and refresh the view once per model notification.
 
+Filtering preserves a selected item when that identity remains visible; its row
+and cell coordinates are remapped to the filtered view. If a filter hides the
+selected identity, the grid clears that selection. Clearing the filter does not
+resurrect the hidden selection. Filtering never changes expansion state, so
+clearing the descriptor restores the same expanded/collapsed branches while
+selection follows this visible-identity policy.
+
 Column value accessors receive the underlying item by default. Existing accessors
 explicitly typed to `HierarchicalNode` remain supported. No reflection fallback is
 used by this adapter.
@@ -189,6 +196,7 @@ used by this adapter.
 Reference implementations:
 
 - `src/DataGridSample/Pages/ColumnDefinitionsHierarchicalPage.axaml`
+- `src/DataGridSample/Pages/HierarchyFeatureContractsPage.axaml`
 - `src/DataGridSample/Adapters/HierarchicalSearchAdapterFactory.cs`
 - `src/DataGridSample/Adapters/HierarchicalSortingAdapterFactory.cs`
 
@@ -211,5 +219,6 @@ Reference implementations:
 
 - [Hierarchical Data](hierarchical-data.md)
 - [Hierarchical High-Frequency Updates](hierarchical-high-frequency-updates.md)
+- [Hierarchical UI Automation](hierarchical-automation.md)
 - [Sorting Model: End-to-End Usage](sorting-model-end-to-end.md)
 - [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md)

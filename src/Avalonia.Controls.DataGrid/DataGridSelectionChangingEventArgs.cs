@@ -12,6 +12,32 @@ using Avalonia.Interactivity;
 namespace Avalonia.Controls
 {
     /// <summary>
+    /// Describes where a <see cref="DataGrid.SelectionChanging"/> proposal sits relative to
+    /// the state change that produced it.
+    /// </summary>
+#if !DATAGRID_INTERNAL
+    public
+#else
+    internal
+#endif
+    enum DataGridSelectionChangingGuarantee
+    {
+        /// <summary>
+        /// The proposal is raised before the DataGrid commits selection, current-cell, anchor,
+        /// currency, focus, or scrolling state. Cancellation commits none of that proposed state.
+        /// </summary>
+        AtomicPreflight = 0,
+
+        /// <summary>
+        /// An external producer has already published its change, so the DataGrid is reconciling
+        /// that change with its last committed state. Cancellation prevents an optional partial
+        /// DataGrid commit, but cannot erase external notifications, undo an item-source change,
+        /// or preserve a selected identity that the external source removed.
+        /// </summary>
+        PostChangeReconciliation = 1,
+    }
+
+    /// <summary>
     /// Describes a row participating in a proposed selection delta.
     /// </summary>
 #if !DATAGRID_INTERNAL
@@ -161,8 +187,9 @@ namespace Avalonia.Controls
     }
 
     /// <summary>
-    /// Provides a complete, cancellable proposal before DataGrid selection, current cell,
-    /// anchor, currency, focus, or scrolling state is committed.
+    /// Provides a complete, cancellable selection proposal. <see cref="Guarantee"/> identifies
+    /// whether the proposal is an atomic preflight or reconciliation of a change already
+    /// published by a caller-owned producer.
     /// </summary>
 #if !DATAGRID_INTERNAL
     public
@@ -186,7 +213,8 @@ namespace Avalonia.Controls
             HierarchicalNode hierarchyNode,
             IReadOnlyList<HierarchicalNode> hierarchyPath,
             DataGridSelectionChangeSource source,
-            RoutedEventArgs triggerEvent)
+            RoutedEventArgs triggerEvent,
+            DataGridSelectionChangingGuarantee guarantee = DataGridSelectionChangingGuarantee.AtomicPreflight)
         {
             AddedItems = addedItems ?? Array.Empty<object>();
             RemovedItems = removedItems ?? Array.Empty<object>();
@@ -203,6 +231,7 @@ namespace Avalonia.Controls
             HierarchyPath = hierarchyPath ?? Array.Empty<HierarchicalNode>();
             Source = source;
             TriggerEvent = triggerEvent;
+            Guarantee = guarantee;
         }
 
         /// <summary>Gets the underlying items proposed for addition.</summary>
@@ -246,6 +275,11 @@ namespace Avalonia.Controls
 
         /// <summary>Gets the origin of the selection proposal.</summary>
         public DataGridSelectionChangeSource Source { get; }
+
+        /// <summary>
+        /// Gets whether the proposal is an atomic preflight or post-change reconciliation.
+        /// </summary>
+        public DataGridSelectionChangingGuarantee Guarantee { get; }
 
         /// <summary>Gets whether the proposal originated from a user interaction.</summary>
         public bool IsUserInitiated =>

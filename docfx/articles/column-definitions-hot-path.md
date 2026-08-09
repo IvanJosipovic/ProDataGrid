@@ -198,6 +198,13 @@ drawing cell read compatible typed accessor metadata without creating a display
 binding expression. Set `TrackDirectValueChanges=false` only when the displayed value
 is immutable.
 
+Direct access is selected per realized item. If a recycled row has a different runtime
+type, or a binding uses a converter, explicit source, fallback value, or target-null
+value whose semantics cannot be reproduced directly, the cell automatically uses the
+normal retained binding path. This keeps heterogeneous sources and ordinary Avalonia
+binding behavior correct while preserving the allocation-free path for compatible
+items.
+
 The normal generic themes remain the compatibility default. Applications with simple,
 fixed-height data surfaces can opt into the partial themes from `Themes/Optimized.xaml`:
 
@@ -216,8 +223,26 @@ drawing. Editing, arbitrary templates, and the original generic themes remain
 available. Optimized resources use static resource lookup, so use the generic themes
 when application code must replace theme resources dynamically at runtime.
 
+The row and header themes above are intentionally lean: they omit row-header/details
+presenters and the generic header's sort/filter/drag visual tree. For applications that
+need those surfaces while still reducing the cell template, use the feature-preserving
+variants:
+
+```xml
+<DataGrid RowTheme="{StaticResource DataGridOptimizedFeatureUnfrozenRowTheme}"
+          CellTheme="{StaticResource DataGridOptimizedCellTheme}"
+          ColumnHeaderTheme="{StaticResource DataGridOptimizedFeatureColumnHeaderTheme}" />
+```
+
+`DataGridOptimizedFeatureRowTheme` is the corresponding frozen-column variant. These
+themes retain row headers, details, grid lines, sort/filter indicators, resize handles,
+and column drag behavior. The direct and drawn cell types honor normal cell padding,
+selection/current/focus states, corner radii, borders, automation names, and editing;
+variable-height measurement includes padding as well.
+
 ## Related articles
 
+- [Optimized Retained and Drawn Cell Paths](optimized-cell-paths.md)
 - [Column Definitions](column-definitions.md)
 - [Column Definitions (AOT-Friendly Bindings)](column-definitions-aot.md)
 - [Column Definitions (Model Integration)](column-definitions-models.md)

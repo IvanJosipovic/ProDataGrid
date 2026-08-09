@@ -229,6 +229,8 @@ namespace Avalonia.Controls
 
         internal void ClearPointerOverState()
         {
+            OwningGrid?.ClearPointerOverRowForRecycle(this);
+            MouseOverColumnIndex = null;
             PseudoClassesHelper.Set(PseudoClasses, ":pointerover", false);
         }
 

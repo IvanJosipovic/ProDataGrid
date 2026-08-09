@@ -192,6 +192,9 @@
     <TabItem Header="Hierarchical Templated Cells">
       <pages:HierarchicalTemplatedCellPage />
     </TabItem>
+    <TabItem Header="Hierarchy Feature Contracts">
+      <pages:HierarchyFeatureContractsPage />
+    </TabItem>
     <TabItem Header="Grouped Selection">
       <pages:GroupedSelectionPage />
     </TabItem>

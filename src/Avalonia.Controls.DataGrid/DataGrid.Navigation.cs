@@ -111,6 +111,40 @@ internal
             }
         }
 
+        /// <summary>
+        /// Brings a row represented by an unrealized automation peer into the realized viewport.
+        /// </summary>
+        /// <remarks>
+        /// This is deliberately vertical-only. It reuses/recycles the current row containers and
+        /// does not force cell creation for horizontally virtualized columns.
+        /// </remarks>
+        internal bool BringRowIntoViewForAutomation(object item)
+        {
+            // Hierarchy expansion can invalidate and clear the realized range before the next
+            // layout pass. Automation may request the newly changed item immediately, so make
+            // the pending layout state usable before resolving the vertical scroll.
+            if (IsAttachedToVisualTree &&
+                (DisplayData.FirstScrollingSlot == -1 ||
+                 MathUtilities.LessThanOrClose(CellsEstimatedHeight, 0)))
+            {
+                UpdateLayout();
+            }
+
+            if (item == null ||
+                !TryGetRowIndexFromItem(item, out int rowIndex))
+            {
+                return false;
+            }
+
+            int slot = SlotFromRowIndex(rowIndex);
+            if (slot < 0 || IsSlotOutOfBounds(slot) || !TryExpandCollapsedSlotForScroll(slot))
+            {
+                return false;
+            }
+
+            return ScrollSlotIntoView(slot, scrolledHorizontally: false);
+        }
+
 
         internal bool ScrollSlotIntoView(int columnIndex, int slot, bool forCurrentCellChange, bool forceHorizontalScroll)
         {

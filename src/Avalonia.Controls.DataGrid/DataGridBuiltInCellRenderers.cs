@@ -37,16 +37,17 @@ namespace Avalonia.Controls
         {
             var column = (DataGridProgressBarColumn)cell.OwningColumn;
             var height = double.IsNaN(column.Height) ? 4d : Math.Max(0d, column.Height);
-            desiredSize = new Size(0d, Math.Min(height, availableSize.Height));
+            var padding = cell.Padding;
+            desiredSize = new Size(
+                Math.Min(padding.Left + padding.Right, availableSize.Width),
+                Math.Min(height + padding.Top + padding.Bottom, availableSize.Height));
             return true;
         }
 
         public void Render(DataGridCustomDrawingCell cell, DrawingContext context)
         {
             var column = (DataGridProgressBarColumn)cell.OwningColumn;
-            var bounds = new Rect(cell.Bounds.Size);
-            var height = double.IsNaN(column.Height) ? Math.Min(4d, bounds.Height) : Math.Min(column.Height, bounds.Height);
-            var barBounds = new Rect(0d, Math.Max(0d, (bounds.Height - height) * 0.5d), bounds.Width, Math.Max(0d, height));
+            var barBounds = GetBarBounds(cell, column);
             var background = column.Background ?? Brushes.Transparent;
             var foreground = column.Foreground ?? cell.Foreground ?? Brushes.DodgerBlue;
 
@@ -62,6 +63,24 @@ namespace Avalonia.Controls
                     null,
                     new Rect(barBounds.X, barBounds.Y, barBounds.Width * ratio, barBounds.Height));
             }
+        }
+
+        internal static Rect GetBarBounds(DataGridCustomDrawingCell cell, DataGridProgressBarColumn column)
+        {
+            var padding = cell.Padding;
+            var bounds = new Rect(
+                padding.Left,
+                padding.Top,
+                Math.Max(0d, cell.Bounds.Width - padding.Left - padding.Right),
+                Math.Max(0d, cell.Bounds.Height - padding.Top - padding.Bottom));
+            var height = double.IsNaN(column.Height)
+                ? Math.Min(4d, bounds.Height)
+                : Math.Min(Math.Max(0d, column.Height), bounds.Height);
+            return new Rect(
+                bounds.X,
+                bounds.Y + Math.Max(0d, (bounds.Height - height) * 0.5d),
+                bounds.Width,
+                Math.Max(0d, height));
         }
 
         private static bool TryConvertDouble(object value, out double result)
@@ -106,9 +125,10 @@ namespace Avalonia.Controls
         public bool TryMeasure(DataGridCustomDrawingCell cell, Size availableSize, out Size desiredSize)
         {
             var column = (DataGridImageColumn)cell.OwningColumn;
+            var padding = cell.Padding;
             desiredSize = new Size(
-                Math.Min(Math.Max(0d, column.ImageWidth), availableSize.Width),
-                Math.Min(Math.Max(0d, column.ImageHeight), availableSize.Height));
+                Math.Min(Math.Max(0d, column.ImageWidth) + padding.Left + padding.Right, availableSize.Width),
+                Math.Min(Math.Max(0d, column.ImageHeight) + padding.Top + padding.Bottom, availableSize.Height));
             return true;
         }
 
@@ -126,9 +146,15 @@ namespace Avalonia.Controls
                 return;
             }
 
+            var padding = cell.Padding;
+            var contentBounds = new Rect(
+                padding.Left,
+                padding.Top,
+                Math.Max(0d, cell.Bounds.Width - padding.Left - padding.Right),
+                Math.Max(0d, cell.Bounds.Height - padding.Top - padding.Bottom));
             var target = new Size(
-                Math.Min(Math.Max(0d, column.ImageWidth), cell.Bounds.Width),
-                Math.Min(Math.Max(0d, column.ImageHeight), cell.Bounds.Height));
+                Math.Min(Math.Max(0d, column.ImageWidth), contentBounds.Width),
+                Math.Min(Math.Max(0d, column.ImageHeight), contentBounds.Height));
             var scaleX = target.Width / sourceSize.Width;
             var scaleY = target.Height / sourceSize.Height;
             var scale = column.Stretch switch
@@ -153,8 +179,8 @@ namespace Avalonia.Controls
             }
 
             var destination = new Rect(
-                Math.Max(0d, (cell.Bounds.Width - width) * 0.5d),
-                Math.Max(0d, (cell.Bounds.Height - height) * 0.5d),
+                contentBounds.X + Math.Max(0d, (contentBounds.Width - width) * 0.5d),
+                contentBounds.Y + Math.Max(0d, (contentBounds.Height - height) * 0.5d),
                 Math.Max(0d, width),
                 Math.Max(0d, height));
             context.DrawImage(image, new Rect(sourceSize), destination);

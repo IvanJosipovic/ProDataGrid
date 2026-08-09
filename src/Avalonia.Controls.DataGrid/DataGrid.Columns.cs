@@ -661,6 +661,10 @@ internal
                     if (row.Cells.Count < newColumnCount)
                     {
                         AddNewCellPrivate(row, insertedColumn);
+                        if (row.Slot >= 0 && !row.IsRecycled)
+                        {
+                            NotifyCellPrepared(row, row.Cells[insertedColumn.Index]);
+                        }
                     }
                 }
             }
@@ -756,6 +760,25 @@ internal
             OnGroupSummaryColumnRemoved(removedColumn);
 
             RemoveDisplayedColumnHeader(removedColumn, removedHeader);
+        }
+
+        internal void NotifyCellsClearingForColumnRemoval(DataGridColumn removedColumn)
+        {
+            if (_rowsPresenter == null)
+            {
+                return;
+            }
+
+            foreach (DataGridRow row in GetAllRows())
+            {
+                if (row.Slot >= 0 &&
+                    !row.IsRecycled &&
+                    removedColumn.Index >= 0 &&
+                    removedColumn.Index < row.Cells.Count)
+                {
+                    NotifyCellClearing(row, row.Cells[removedColumn.Index]);
+                }
+            }
         }
 
         internal DataGridCellCoordinates OnRemovingColumn(DataGridColumn dataGridColumn)
@@ -952,13 +975,24 @@ internal
                 return;
             }
 
-            NotifyCellClearing(row, oldCell);
+            // Recycled rows can intentionally remain under the rows presenter. Keep their
+            // pooled cell type synchronized with the new display mode, but do not report a
+            // lifecycle transition: their prior live assignment was already cleared when the
+            // row entered the recycle pool and their next assignment will be reported on reuse.
+            bool hasLiveAssignment = row.Slot >= 0 && !row.IsRecycled;
+            if (hasLiveAssignment)
+            {
+                NotifyCellClearing(row, oldCell);
+            }
             row.Cells.RemoveAt(column.Index);
             AddNewCellPrivate(row, column);
 
             DataGridCell newCell = row.Cells[column.Index];
             newCell.UpdatePseudoClasses();
-            NotifyCellPrepared(row, newCell);
+            if (hasLiveAssignment)
+            {
+                NotifyCellPrepared(row, newCell);
+            }
             row.InvalidateMeasure();
         }
 
@@ -1458,9 +1492,11 @@ internal
             {
                 dataGridColumn.RefreshCellContent(element, propertyName);
             }
-            else if (dataGridCell is DataGridDirectTextCell directTextCell)
+            else if (dataGridCell is DataGridDirectTextCell or
+                     DataGridCustomDrawingCell or
+                     DataGridDirectHierarchicalCell)
             {
-                dataGridColumn.RefreshCellContent(directTextCell, propertyName);
+                dataGridColumn.RefreshCellContent(dataGridCell, propertyName);
             }
             dataGridColumn.RefreshCellBindings(dataGridCell, propertyName);
         }

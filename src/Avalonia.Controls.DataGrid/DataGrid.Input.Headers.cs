@@ -69,6 +69,7 @@ internal
             }
 
             var anchorSlot = SlotFromRowIndex(0);
+            _successfullyUpdatedSelection = false;
             if (SuppressSortOnColumnHeaderSelection)
             {
                 header.SuppressSortOnClick();
@@ -164,10 +165,6 @@ internal
                     anchorDisplayIndex = resolvedAnchorDisplay;
                 }
             }
-            else if (!shift)
-            {
-                _columnHeaderAnchorIndex = column.Index;
-            }
 
             var startDisplayIndex = Math.Min(anchorDisplayIndex, currentDisplayIndex);
             var endDisplayIndex = Math.Max(anchorDisplayIndex, currentDisplayIndex);
@@ -175,6 +172,11 @@ internal
 
             if (ApplyColumnHeaderSelectionRange(startDisplayIndex, endDisplayIndex, append, DataGridSelectionChangeSource.Pointer, e))
             {
+                _successfullyUpdatedSelection = true;
+                if (!shift)
+                {
+                    _columnHeaderAnchorIndex = column.Index;
+                }
                 if (anchorSlot >= 0 && !IsGroupSlot(anchorSlot))
                 {
                     var startColumnIndex = GetColumnIndexFromDisplayIndex(startDisplayIndex);
@@ -190,7 +192,9 @@ internal
                 SetColumnHeaderSelectionRange(startDisplayIndex, endDisplayIndex, append);
             }
 
-            if ((!CanUserReorderColumns || ColumnDragHandle == DataGridColumnDragHandle.DragHandle) && !dragHandleHit)
+            if (_successfullyUpdatedSelection &&
+                (!CanUserReorderColumns || ColumnDragHandle == DataGridColumnDragHandle.DragHandle) &&
+                !dragHandleHit)
             {
                 TryBeginColumnHeaderSelectionDrag(e, column.Index);
             }
@@ -220,6 +224,8 @@ internal
             {
                 return false;
             }
+
+            _successfullyUpdatedSelection = false;
 
             KeyboardHelper.GetMetaKeyState(this, e.KeyModifiers, out var ctrl, out _);
             var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
@@ -296,6 +302,7 @@ internal
                 }
 
                 _rowHeaderAnchorIndex = rowIndex;
+                _successfullyUpdatedSelection = true;
                 return true;
             }
 
@@ -307,16 +314,17 @@ internal
                 startRow = Math.Min(_rowHeaderAnchorIndex, rowIndex);
                 endRow = Math.Max(_rowHeaderAnchorIndex, rowIndex);
             }
-            else if (!shift)
-            {
-                _rowHeaderAnchorIndex = rowIndex;
-            }
 
             var range = new DataGridCellRange(startRow, endRow, 0, ColumnsItemsInternal.Count - 1);
             var append = SelectionMode == DataGridSelectionMode.Extended && ctrl;
 
             if (ApplyCellSelectionRange(range, append, DataGridSelectionChangeSource.Pointer, e))
             {
+                _successfullyUpdatedSelection = true;
+                if (!shift)
+                {
+                    _rowHeaderAnchorIndex = rowIndex;
+                }
                 var anchorSlot = SlotFromRowIndex(startRow);
                 if (anchorSlot >= 0 && !IsGroupSlot(anchorSlot))
                 {
@@ -330,7 +338,8 @@ internal
                 return true;
             }
 
-            return false;
+            // The row-header selection path owned the gesture even when the proposal was vetoed.
+            return true;
         }
 
         private void TopLeftCornerHeader_PointerPressed(object? sender, PointerPressedEventArgs e)

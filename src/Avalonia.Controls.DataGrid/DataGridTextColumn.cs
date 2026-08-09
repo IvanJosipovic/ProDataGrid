@@ -80,6 +80,23 @@ internal
         }
 
         /// <summary>
+        /// Defines the <see cref="UseDirectTextContent"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectTextContentProperty =
+            AvaloniaProperty.Register<DataGridTextColumn, bool>(nameof(UseDirectTextContent));
+
+        /// <summary>
+        /// Gets or sets whether an ordinary retained <see cref="DataGridCell"/> and its
+        /// template-driven text element read compatible typed accessors directly. This keeps
+        /// the normal Avalonia layout/content path while avoiding a binding expression per cell.
+        /// </summary>
+        public bool UseDirectTextContent
+        {
+            get => GetValue(UseDirectTextContentProperty);
+            set => SetValue(UseDirectTextContentProperty, value);
+        }
+
+        /// <summary>
         /// Defines the <see cref="TrackDirectTextValueChanges"/> property.
         /// </summary>
         public static readonly StyledProperty<bool> TrackDirectTextValueChangesProperty =
@@ -97,8 +114,17 @@ internal
         }
 
         internal bool CanUseDirectValueAccessor =>
-            BindingCloneHelper.SupportsDirectDataContextRead(Binding) &&
+            BindingCloneHelper.SupportsDirectTextDataContextRead(Binding) &&
             DataGridColumnMetadata.GetValueAccessor(this) is IDataGridColumnTextAccessor;
+
+        internal bool CanUseDirectValueAccessorFor(object item)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this);
+            return CanUseDirectValueAccessor &&
+                   item != null &&
+                   accessor != null &&
+                   accessor.ItemType.IsInstanceOfType(item);
+        }
 
         /// <summary>
         /// Identifies the FontFamily dependency property.
@@ -211,13 +237,17 @@ internal
         {
             base.OnPropertyChanged(change);
 
-            if (change.Property == FontFamilyProperty
+            if (change.Property == UseDirectTextCellProperty ||
+                change.Property == UseDirectTextContentProperty)
+            {
+                OwningGrid?.OnColumnDisplayModeChanged(this);
+            }
+            else if (change.Property == FontFamilyProperty
                 || change.Property == FontSizeProperty
                 || change.Property == FontStyleProperty
                 || change.Property == FontWeightProperty
                 || change.Property == ForegroundProperty
                 || change.Property == WatermarkProperty
-                || change.Property == UseDirectTextCellProperty
                 || change.Property == TrackDirectTextValueChangesProperty)
             {
                 NotifyPropertyChanged(change.Property.Name);
@@ -316,13 +346,7 @@ internal
                 directCell.Content = null;
                 directCell.Theme = CellTheme ?? GetThemeValue(_directTextCellTheme);
                 SyncProperties(directCell);
-                directCell.ClearValue(DataGridDirectTextCell.ValueProperty);
-                if (!directCell.ConfigureValueAccessor(this) &&
-                    Binding != null &&
-                    dataItem != DataGridCollectionView.NewItemPlaceholder)
-                {
-                    directCell.Bind(DataGridDirectTextCell.ValueProperty, CreateDisplayBinding(Binding));
-                }
+                ConfigureDirectTextCell(directCell, dataItem);
 
                 return null;
             }
@@ -338,7 +362,11 @@ internal
 
             SyncProperties(textBlockElement);
 
-            if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+            if (UseDirectTextContent && CanUseDirectValueAccessorFor(dataItem))
+            {
+                textBlockElement.ConfigureDirectText(this, dataItem);
+            }
+            else if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
             {
                 textBlockElement.Bind(TextBlock.TextProperty, CreateDisplayBinding(Binding));
             }
@@ -413,6 +441,24 @@ internal
                 {
                     SyncEditingProperties(textBox);
                 }
+                else if (propertyName == nameof(TrackDirectTextValueChanges) &&
+                         content is DataGridDirectTextCell directTextCell)
+                {
+                    ConfigureDirectTextCell(
+                        directTextCell,
+                        directTextCell.DataContext,
+                        preserveCompatibleMode: true);
+                }
+                else if (propertyName == nameof(TrackDirectTextValueChanges) &&
+                         content is DataGridSearchTextBlock retainedTextBlock)
+                {
+                    retainedTextBlock.ConfigureDirectText(this, retainedTextBlock.DataContext);
+                }
+                else if (propertyName == nameof(TrackDirectTextValueChanges) &&
+                         content is DataGridCustomDrawingCell drawingCell)
+                {
+                    drawingCell.RefreshValueProviderSubscription();
+                }
             }
             else
             {
@@ -429,6 +475,32 @@ internal
 
             return UseDirectTextCell ? new DataGridDirectTextCell() : base.CreateCell();
         }
+
+        internal void ConfigureDirectTextCell(
+            DataGridDirectTextCell cell,
+            object dataItem,
+            bool preserveCompatibleMode = false)
+        {
+            var useDirectAccessor = CanUseDirectValueAccessorFor(dataItem);
+            var resetValueSource = !preserveCompatibleMode ||
+                                   !cell.ValueAccessorConfigurationInitialized ||
+                                   cell.UsesValueAccessor != useDirectAccessor;
+            if (resetValueSource)
+            {
+                cell.ClearValue(DataGridDirectTextCell.ValueProperty);
+            }
+
+            if (!cell.ConfigureValueAccessor(this, dataItem) &&
+                resetValueSource &&
+                Binding != null &&
+                dataItem != DataGridCollectionView.NewItemPlaceholder)
+            {
+                cell.Bind(DataGridDirectTextCell.ValueProperty, CreateDisplayBinding(Binding));
+            }
+        }
+
+        internal override bool CanReuseCellContentOnDataContextChange =>
+            GetType() == typeof(DataGridTextColumn);
 
         internal override ControlTheme ResolveCellTheme(DataGrid grid)
         {
@@ -471,7 +543,7 @@ internal
             return accessor is IDataGridColumnTextAccessor &&
                    dataItem != null &&
                    accessor.ItemType.IsInstanceOfType(dataItem) &&
-                   BindingCloneHelper.SupportsDirectDataContextRead(Binding);
+                   BindingCloneHelper.SupportsDirectTextDataContextRead(Binding);
         }
 
         private void SyncProperties(AvaloniaObject content)

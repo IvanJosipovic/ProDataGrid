@@ -608,6 +608,7 @@ namespace Avalonia.Controls
                 DataGridColumn dataGridColumn = ItemsInternal[columnIndexWithFiller];
                 var headerCell = dataGridColumn.HasHeaderCell ? dataGridColumn.HeaderCell : null;
                 DataGridCellCoordinates newCurrentCellCoordinates = _owningGrid.OnRemovingColumn(dataGridColumn);
+                _owningGrid.NotifyCellsClearingForColumnRemoval(dataGridColumn);
                 ItemsInternal.RemoveAt(columnIndexWithFiller);
                 if (dataGridColumn.IsVisible)
                 {

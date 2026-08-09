@@ -9,11 +9,14 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.Metadata;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Utils;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 using System;
 using System.Linq;
@@ -37,6 +40,20 @@ internal
         private Rectangle _rightGridLine;
         private DataGridColumn _owningColumn;
         private DataGridRow _owningRow;
+        private PointerPressedEventArgs _previewedPointerPressedEvent;
+        private bool _previewedPointerAccepted;
+        private IInputElement _deferredPointerFocusTarget;
+        private PointerPressedEventArgs _noOpPointerPressedEvent;
+        private IInputElement _noOpPointerFocusTarget;
+        private bool _allowNextPointerFocus;
+        private bool _suppressPointerFocusUntilRelease;
+        private IBrush _cachedDirectChromeBorderBrush;
+        private double _cachedDirectChromeBorderThickness;
+        private Pen _cachedDirectChromeBorderPen;
+        private IBrush _directChromeGridLineBrush;
+        private bool _directChromeGridLineVisible;
+        private bool _directChromeGridLineInitialized;
+        private Control _directContentControl;
 
         bool _isValid = true;
         DataGridValidationSeverity _validationSeverity = DataGridValidationSeverity.None;
@@ -82,10 +99,33 @@ internal
                 o => o.OwningRow,
                 (o, v) => o.OwningRow = v);
 
+        /// <summary>
+        /// Defines the <see cref="UseDirectChrome"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectChromeProperty =
+            AvaloniaProperty.Register<DataGridCell, bool>(nameof(UseDirectChrome));
+
+        /// <summary>
+        /// Defines the <see cref="UseDirectContentHost"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectContentHostProperty =
+            AvaloniaProperty.Register<DataGridCell, bool>(nameof(UseDirectContentHost));
+
         static DataGridCell()
         {
             PointerPressedEvent.AddClassHandler<DataGridCell>(
+                (x, e) => x.DataGridCell_PreviewPointerPressed(e),
+                RoutingStrategies.Tunnel,
+                handledEventsToo: true);
+            PointerPressedEvent.AddClassHandler<DataGridCell>(
                 (x, e) => x.DataGridCell_PointerPressed(e),
+                handledEventsToo: true);
+            PointerReleasedEvent.AddClassHandler<DataGridCell>(
+                (x, _) => x.ClearPointerFocusSuppression(),
+                RoutingStrategies.Bubble,
+                handledEventsToo: true);
+            PointerCaptureLostEvent.AddClassHandler<DataGridCell>(
+                (x, _) => x.ClearPointerFocusSuppression(),
                 handledEventsToo: true);
             FocusableProperty.OverrideDefaultValue<DataGridCell>(true);
             IsTabStopProperty.OverrideDefaultValue<DataGridCell>(false);
@@ -104,6 +144,31 @@ internal
         {
             get { return _validationSeverity; }
             internal set { SetAndRaise(ValidationSeverityProperty, ref _validationSeverity, value); }
+        }
+
+        /// <summary>
+        /// Gets or sets whether the cell paints its background, border, and vertical grid line
+        /// directly instead of requiring those chrome visuals in its control template.
+        /// </summary>
+        /// <remarks>
+        /// This is an opt-in template optimization. A theme that enables it should avoid drawing
+        /// the same chrome in the template.
+        /// </remarks>
+        public bool UseDirectChrome
+        {
+            get => GetValue(UseDirectChromeProperty);
+            set => SetValue(UseDirectChromeProperty, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether generated retained control content is hosted directly by the
+        /// cell instead of through a nested <see cref="Avalonia.Controls.Presenters.ContentPresenter"/>.
+        /// Column templates and editors remain ordinary retained Avalonia controls.
+        /// </summary>
+        public bool UseDirectContentHost
+        {
+            get => GetValue(UseDirectContentHostProperty);
+            set => SetValue(UseDirectContentHostProperty, value);
         }
 
         /// <summary>
@@ -157,7 +222,7 @@ internal
 
         internal double ActualRightGridLineWidth
         {
-            get { return _rightGridLine?.Bounds.Width ?? 0; }
+            get { return UseDirectChrome && _directChromeGridLineVisible ? 1d : _rightGridLine?.Bounds.Width ?? 0; }
         }
 
         internal int ColumnIndex
@@ -215,6 +280,52 @@ internal
             return new DataGridCellAutomationPeer(this);
         }
 
+        /// <inheritdoc />
+        public override void Render(DrawingContext context)
+        {
+            base.Render(context);
+            if (UseDirectChrome)
+            {
+                DataGridCellChromeRenderer.Render(
+                    this,
+                    context,
+                    ref _cachedDirectChromeBorderBrush,
+                    ref _cachedDirectChromeBorderThickness,
+                    ref _cachedDirectChromeBorderPen);
+            }
+        }
+
+        /// <inheritdoc />
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+        {
+            base.OnPropertyChanged(change);
+
+            if (change.Property == UseDirectChromeProperty)
+            {
+                ResetDirectChromeCache();
+                _directChromeGridLineInitialized = false;
+                InvalidateVisual();
+            }
+            else if (change.Property == UseDirectContentHostProperty ||
+                     (UseDirectContentHost && change.Property == ContentProperty))
+            {
+                SyncDirectContentHost();
+            }
+            else if (UseDirectChrome &&
+                     (change.Property == BackgroundProperty ||
+                      change.Property == BorderBrushProperty ||
+                      change.Property == BorderThicknessProperty ||
+                      change.Property == CornerRadiusProperty))
+            {
+                if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
+                {
+                    ResetDirectChromeCache();
+                }
+
+                InvalidateVisual();
+            }
+        }
+
         /// <summary>
         /// Builds the visual tree for the cell control when a new template is applied.
         /// </summary>
@@ -232,6 +343,91 @@ internal
                 EnsureGridLine(null);
             }
 
+            SyncDirectContentHost();
+
+        }
+
+        /// <inheritdoc />
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (!UseDirectContentHost)
+            {
+                return base.MeasureOverride(availableSize);
+            }
+
+            EnsureDirectContentHostAttached();
+            return LayoutHelper.MeasureChild(_directContentControl, availableSize, Padding);
+        }
+
+        /// <inheritdoc />
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            if (!UseDirectContentHost)
+            {
+                return base.ArrangeOverride(finalSize);
+            }
+
+            EnsureDirectContentHostAttached();
+            return LayoutHelper.ArrangeChild(_directContentControl, finalSize, Padding);
+        }
+
+        private void SyncDirectContentHost()
+        {
+            if (_directContentControl != null)
+            {
+                VisualChildren.Remove(_directContentControl);
+                _directContentControl = null;
+            }
+
+            if (!UseDirectContentHost || Content is not Control content)
+            {
+                InvalidateMeasure();
+                return;
+            }
+
+            var visualParent = content.GetVisualParent();
+            if (visualParent is ContentPresenter previousPresenter)
+            {
+                // A cell can receive the optimized theme after the default ContentControl
+                // presenter has already materialized its child. Release that obsolete host
+                // before attaching the retained control directly.
+                previousPresenter.Content = null;
+                visualParent = content.GetVisualParent();
+                if (!LogicalChildren.Contains(content))
+                {
+                    LogicalChildren.Add(content);
+                }
+            }
+
+            if (visualParent == null)
+            {
+                _directContentControl = content;
+                VisualChildren.Add(content);
+            }
+            else if (ReferenceEquals(visualParent, this))
+            {
+                _directContentControl = content;
+            }
+
+            InvalidateMeasure();
+        }
+
+        private void EnsureDirectContentHostAttached()
+        {
+            if (_directContentControl == null && Content is Control content)
+            {
+                _directContentControl = content;
+            }
+
+            if (_directContentControl != null && _directContentControl.GetVisualParent() == null)
+            {
+                if (!LogicalChildren.Contains(_directContentControl))
+                {
+                    LogicalChildren.Add(_directContentControl);
+                }
+
+                VisualChildren.Add(_directContentControl);
+            }
         }
         protected override void OnPointerEntered(PointerEventArgs e)
         {
@@ -252,7 +448,127 @@ internal
             }
         }
 
+        protected override void OnGettingFocus(FocusChangingEventArgs e)
+        {
+            base.OnGettingFocus(e);
+
+            if (e.NavigationMethod != NavigationMethod.Pointer ||
+                !IsSelfOrVisualDescendant(e.NewFocusedElement) ||
+                OwningGrid?.ShouldDeferPointerFocusForSelectionChanging != true)
+            {
+                return;
+            }
+
+            if (_allowNextPointerFocus)
+            {
+                _allowNextPointerFocus = false;
+                return;
+            }
+
+            if (e.TryCancel() && !_suppressPointerFocusUntilRelease)
+            {
+                _deferredPointerFocusTarget = e.NewFocusedElement;
+            }
+        }
+
         //TODO TabStop
+        private void DataGridCell_PreviewPointerPressed(PointerPressedEventArgs e)
+        {
+            DataGrid owningGrid = OwningGrid;
+            DataGridRow owningRow = OwningRow;
+            if (owningGrid == null || owningRow == null || owningRow.Slot < 0)
+            {
+                return;
+            }
+
+            PointerPoint point = e.GetCurrentPoint(this);
+            bool isTouchLike = e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+            bool isPrimaryPressed = point.Properties.IsLeftButtonPressed ||
+                                    (isTouchLike && owningGrid.AllowTouchDragSelection);
+            if ((isPrimaryPressed || isTouchLike) &&
+                owningGrid.HierarchicalRowsEnabled &&
+                IsHierarchicalExpanderHit(e))
+            {
+                AllowOrRestorePointerFocus(e.KeyModifiers);
+                return;
+            }
+
+            if (isPrimaryPressed)
+            {
+                KeyboardHelper.GetMetaKeyState(this, e.KeyModifiers, out bool ctrl, out _);
+                bool isSelected = owningGrid.SelectionUnit == DataGridSelectionUnit.FullRow
+                    ? owningGrid.GetRowSelection(owningRow.Slot)
+                    : owningGrid.GetCellSelectionFromSlot(owningRow.Slot, ColumnIndex);
+                bool shouldHandleSelection = !e.Handled || !IsKeyboardFocusWithin || !isSelected || ctrl;
+                if (!shouldHandleSelection ||
+                    owningGrid.ShouldDeferSelectionForRowDrag(ColumnIndex, owningRow.Slot, isSelected, e))
+                {
+                    AllowOrRestorePointerFocus(e.KeyModifiers);
+                    return;
+                }
+            }
+            bool accepted = owningGrid.TryPreviewPointerPressedSelection(
+                e,
+                ColumnIndex,
+                owningRow.Slot,
+                out bool previewed);
+            if (!previewed)
+            {
+                _noOpPointerPressedEvent = e;
+                _noOpPointerFocusTarget = _deferredPointerFocusTarget;
+                AllowOrRestorePointerFocus(e.KeyModifiers);
+                return;
+            }
+
+            _previewedPointerPressedEvent = e;
+            _previewedPointerAccepted = accepted;
+
+            if (accepted)
+            {
+                AllowOrRestorePointerFocus(e.KeyModifiers);
+            }
+
+            // Mouse focus is normally assigned before the bubbling cell handler. Marking a
+            // vetoed press handled in the tunnel keeps focus and every selection-related
+            // property at its pre-gesture value. Touch and pen stay unhandled so scrolling
+            // can still recognize the same gesture.
+            if (!accepted && !isTouchLike)
+            {
+                _deferredPointerFocusTarget = null;
+                _allowNextPointerFocus = false;
+                _suppressPointerFocusUntilRelease = true;
+                e.Handled = true;
+            }
+        }
+
+        private bool IsSelfOrVisualDescendant(IInputElement element)
+        {
+            return ReferenceEquals(element, this) ||
+                   element is Visual visual && visual.GetVisualAncestors().Contains(this);
+        }
+
+        private void AllowOrRestorePointerFocus(KeyModifiers keyModifiers)
+        {
+            _suppressPointerFocusUntilRelease = false;
+            IInputElement target = _deferredPointerFocusTarget;
+            _deferredPointerFocusTarget = null;
+            _allowNextPointerFocus = true;
+            if (target != null)
+            {
+                target.Focus(NavigationMethod.Pointer, keyModifiers);
+                _allowNextPointerFocus = false;
+            }
+        }
+
+        private void ClearPointerFocusSuppression()
+        {
+            _deferredPointerFocusTarget = null;
+            _allowNextPointerFocus = false;
+            _noOpPointerPressedEvent = null;
+            _noOpPointerFocusTarget = null;
+            _suppressPointerFocusUntilRelease = false;
+        }
+
         private void DataGridCell_PointerPressed(PointerPressedEventArgs e)
         {
             // OwningGrid is null for TopLeftHeaderCell and TopRightHeaderCell because they have no OwningRow
@@ -268,22 +584,48 @@ internal
 
             OwningGrid.OnCellPointerPressed(new DataGridCellPointerPressedEventArgs(this, owningRow, OwningColumn, e));
 
-            var point = e.GetCurrentPoint(this);
-            var isTouchLike = e.Pointer.Type == PointerType.Touch || e.Pointer.Type == PointerType.Pen;
-            var isPrimaryPressed = point.Properties.IsLeftButtonPressed ||
-                                   (isTouchLike && OwningGrid.AllowTouchDragSelection);
-            if (isPrimaryPressed)
+            _allowNextPointerFocus = false;
+            IInputElement noOpPointerFocusTarget = null;
+            if (ReferenceEquals(_noOpPointerPressedEvent, e))
             {
-                if (OwningGrid.HierarchicalRowsEnabled && IsHierarchicalExpanderHit(e.Source))
+                noOpPointerFocusTarget = _noOpPointerFocusTarget;
+                _noOpPointerPressedEvent = null;
+                _noOpPointerFocusTarget = null;
+            }
+
+            DataGrid.SelectionCommitScope pointerSelectionCommit = default;
+            bool hasAcceptedPreview = false;
+            if (ReferenceEquals(_previewedPointerPressedEvent, e))
+            {
+                bool accepted = _previewedPointerAccepted;
+                _previewedPointerPressedEvent = null;
+                _previewedPointerAccepted = false;
+                if (!accepted)
                 {
                     return;
                 }
 
+                hasAcceptedPreview = true;
+                pointerSelectionCommit = OwningGrid.BeginSelectionCommit();
+            }
+
+            using var pointerSelectionTransaction = pointerSelectionCommit;
+
+            var point = e.GetCurrentPoint(this);
+            var isTouchLike = e.Pointer.Type == PointerType.Touch || e.Pointer.Type == PointerType.Pen;
+            var isPrimaryPressed = point.Properties.IsLeftButtonPressed ||
+                                   (isTouchLike && OwningGrid.AllowTouchDragSelection);
+            if ((isPrimaryPressed || isTouchLike) &&
+                OwningGrid.HierarchicalRowsEnabled &&
+                IsHierarchicalExpanderHit(e))
+            {
+                return;
+            }
+
+            if (isPrimaryPressed)
+            {
                 var focusWithin = IsKeyboardFocusWithin;
-                if (OwningGrid.IsTabStop && !focusWithin)
-                {
-                    OwningGrid.Focus();
-                }
+                var focusGridAfterAcceptedSelection = OwningGrid.IsTabStop && !focusWithin;
 
                 if (OwningRow != null)
                 {
@@ -302,7 +644,13 @@ internal
                         var handled = deferSelectionForRowDrag
                             ? true
                             : OwningGrid.UpdateStateOnMouseLeftButtonDown(e, ColumnIndex, OwningRow.Slot, allowEdit);
-                        if (!OwningGrid.ShouldSuppressSelectionDragFromRowDragHandle(ColumnIndex))
+                        var selectionAccepted = deferSelectionForRowDrag || OwningGrid.SuccessfullyUpdatedSelection;
+                        if (focusGridAfterAcceptedSelection && selectionAccepted)
+                        {
+                            OwningGrid.Focus();
+                        }
+                        if (selectionAccepted &&
+                            !OwningGrid.ShouldSuppressSelectionDragFromRowDragHandle(ColumnIndex))
                         {
                             OwningGrid.TryBeginSelectionDrag(e, ColumnIndex, shouldHandleSelection);
                         }
@@ -318,19 +666,40 @@ internal
             }
             else if (point.Properties.IsRightButtonPressed)
             {
-                if (OwningGrid.IsTabStop)
-                {
-                    OwningGrid.Focus();
-                }
-                if (OwningRow != null && !e.Handled)
+                // Avalonia can mark the bubbling pointer event handled after the tunnel
+                // preview. An accepted preview still owns exactly one commit; a veto has
+                // already returned above and therefore cannot reach this branch.
+                if (OwningRow != null && (!e.Handled || hasAcceptedPreview))
                 {
                     e.Handled = OwningGrid.UpdateStateOnMouseRightButtonDown(e, ColumnIndex, OwningRow.Slot, !e.Handled);
+                    if (OwningGrid.IsTabStop && OwningGrid.SuccessfullyUpdatedSelection)
+                    {
+                        OwningGrid.Focus();
+                    }
+                }
+
+                // A no-op right press follows Avalonia's normal cell-focus path. Some routed
+                // input hosts mark the bubble handled after the tunnel, so re-apply the focus
+                // target that was deferred by OnGettingFocus instead of shifting focus to the
+                // grid or leaving the previously focused cell active.
+                if (noOpPointerFocusTarget != null)
+                {
+                    _allowNextPointerFocus = true;
+                    noOpPointerFocusTarget.Focus(NavigationMethod.Pointer, e.KeyModifiers);
+                    _allowNextPointerFocus = false;
                 }
             }
         }
 
-        private static bool IsHierarchicalExpanderHit(object? source)
+        private bool IsHierarchicalExpanderHit(PointerPressedEventArgs e)
         {
+            if (this is DataGridDirectHierarchicalCell directCell &&
+                directCell.IsLeanExpanderHit(e.GetPosition(directCell)))
+            {
+                return true;
+            }
+
+            var source = e.Source;
             if (source is not Visual visual)
             {
                 return false;
@@ -342,7 +711,8 @@ internal
                 return false;
             }
 
-            return toggleButton.GetVisualAncestors().OfType<DataGridHierarchicalPresenter>().Any();
+            return toggleButton.GetVisualAncestors().Any(ancestor =>
+                ancestor is DataGridHierarchicalPresenter or DataGridDirectHierarchicalCell);
         }
 
         internal void UpdatePseudoClasses()
@@ -498,6 +868,28 @@ internal
         // right gridline will be collapsed if this cell belongs to the lastVisibleColumn and there is no filler column
         internal void EnsureGridLine(DataGridColumn lastVisibleColumn)
         {
+            if (OwningGrid != null && UseDirectChrome)
+            {
+                lastVisibleColumn ??= OwningGrid.ColumnsInternal.LastVisibleColumn;
+                IBrush brush = OwningGrid.VerticalGridLinesBrush;
+                bool newVisibility =
+                    brush != null &&
+                    (OwningGrid.GridLinesVisibility == DataGridGridLinesVisibility.Vertical ||
+                     OwningGrid.GridLinesVisibility == DataGridGridLinesVisibility.All) &&
+                    (OwningGrid.ColumnsInternal.FillerColumn.IsActive || OwningColumn != lastVisibleColumn);
+                if (!_directChromeGridLineInitialized ||
+                    !ReferenceEquals(_directChromeGridLineBrush, brush) ||
+                    _directChromeGridLineVisible != newVisibility)
+                {
+                    _directChromeGridLineInitialized = true;
+                    _directChromeGridLineBrush = brush;
+                    _directChromeGridLineVisible = newVisibility;
+                    InvalidateVisual();
+                }
+
+                return;
+            }
+
             if (OwningGrid != null && _rightGridLine != null)
             {
                 if (OwningGrid.VerticalGridLinesBrush != null && OwningGrid.VerticalGridLinesBrush != _rightGridLine.Fill)
@@ -514,6 +906,13 @@ internal
                     _rightGridLine.IsVisible = newVisibility;
                 }
             }
+        }
+
+        private void ResetDirectChromeCache()
+        {
+            _cachedDirectChromeBorderBrush = null;
+            _cachedDirectChromeBorderPen = null;
+            _cachedDirectChromeBorderThickness = 0d;
         }
 
         private void OnOwningColumnSet(DataGridColumn column)
