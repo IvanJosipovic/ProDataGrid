@@ -58,6 +58,27 @@ Basic XAML usage:
 </DataGrid>
 ```
 
+### Performance-sensitive grids
+
+The compatibility themes remain the default. Large grids can additionally load
+`Themes/Optimized.xaml` and opt individual grids or columns into smaller retained
+Avalonia templates, direct typed text access, or drawn display cells. Start with the
+feature-preserving retained themes when applications rely on normal Avalonia controls,
+layout, validation, automation, row details, or editing:
+
+```xml
+<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Optimized.xaml" />
+
+<DataGrid RowTheme="{StaticResource DataGridOptimizedFeatureUnfrozenRowTheme}"
+          CellTheme="{StaticResource DataGridOptimizedCellTheme}"
+          ColumnHeaderTheme="{StaticResource DataGridOptimizedFeatureColumnHeaderTheme}"
+          UseLightweightFiller="True" />
+```
+
+See [Optimized retained and drawn cell paths](docfx/articles/optimized-cell-paths.md)
+for the retained-layout, direct-content, hierarchy, binding-fallback, and drawn-display
+options and their compatibility trade-offs.
+
 ### More than DataGrid
 
 ProDataGrid ships as a family of packages beyond the grid itself. Quick starts below cover the most common add-ons.
@@ -169,8 +190,10 @@ dotnet add package ProDataGrid --source github --version 11.3.9-nightly.20241227
 
 ## Documentation
 
-- DocFX articles: `docfx/articles/intro.md`
-- DocFX entry page: `docfx/index.md`
+- [DocFX articles](docfx/articles/intro.md)
+- [DocFX entry page](docfx/index.md)
+- [Optimized retained and drawn cell paths](docfx/articles/optimized-cell-paths.md)
+- [Hierarchy automation](docfx/articles/hierarchical-automation.md)
 
 ## Testing
 
