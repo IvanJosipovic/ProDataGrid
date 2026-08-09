@@ -22,6 +22,8 @@ This guide shows complete `HierarchicalModel` usage with `DataGrid`: building th
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.DataGridSorting;
 
@@ -52,6 +54,8 @@ public sealed class FilesViewModel
     }
 
     public void ExpandAll() => Model.ExpandAll();
+    public Task ExpandAllAsync(CancellationToken cancellationToken) =>
+        Model.ExpandAllAsync(cancellationToken: cancellationToken);
     public void CollapseAll() => Model.CollapseAll();
     public void RefreshRoot() => Model.Refresh(Model.Root);
 
@@ -117,6 +121,18 @@ When `HierarchicalRowsEnabled` is true and `ItemsSource` is omitted, the grid bi
 ## 3. Expansion and path behavior
 
 Use model commands (`Expand`, `Collapse`, `ExpandAll`, `CollapseAll`) rather than manipulating row containers directly.
+
+When children come from `ChildrenSelectorAsync`, use `ExpandAllAsync`. It resolves one
+selector at a time to preserve sibling order and selector thread safety, then publishes
+one coherent flattened-list change. `maxDepth` uses the same relative, inclusive
+semantics as synchronous `ExpandAll`.
+
+Cancellation before the final commit leaves expansion state and visible rows unchanged;
+children that finished loading remain cached for a later retry. A selector failure keeps
+that branch collapsed with `LoadError` set while other successfully loaded branches can
+commit. `NodeLoading`/`NodeLoaded` occur as each load completes, followed by the single
+`FlattenedChanged` notification and preorder `NodeExpanded` events. Concurrent bulk
+operations are serialized. The typed and untyped models and adapters expose the same API.
 
 For persistent expansion/selection scenarios, configure:
 

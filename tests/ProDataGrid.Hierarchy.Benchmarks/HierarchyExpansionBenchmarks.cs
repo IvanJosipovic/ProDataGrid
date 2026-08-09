@@ -1,3 +1,4 @@
+using System.Collections;
 using Avalonia.Controls.DataGridHierarchical;
 using BenchmarkDotNet.Attributes;
 
@@ -67,6 +68,90 @@ public class HierarchyExpansionBenchmarks
         });
         model.SetRoots(roots);
         return model;
+    }
+}
+
+public enum AsyncExpansionStrategy
+{
+    IncrementalInteractive,
+    Batched,
+}
+
+[MemoryDiagnoser(displayGenColumns: false)]
+[RankColumn]
+public class AsyncHierarchyExpansionBenchmarks
+{
+    private IReadOnlyList<BenchmarkNode> _roots = null!;
+    private HierarchicalModel _model = null!;
+    private int _expectedCount;
+
+    [Params(
+        HierarchyShape.Wide2555Depth3,
+        HierarchyShape.Binary4094Depth11,
+        HierarchyShape.VeryDeep512Depth128)]
+    public HierarchyShape Shape { get; set; }
+
+    [Params(AsyncExpansionStrategy.IncrementalInteractive, AsyncExpansionStrategy.Batched)]
+    public AsyncExpansionStrategy Strategy { get; set; }
+
+    [GlobalSetup]
+    public void GlobalSetup()
+    {
+        _roots = BenchmarkTreeFactory.Create(Shape);
+        _expectedCount = BenchmarkTreeFactory.ExpectedCount(Shape);
+    }
+
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        _model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = static (item, _) =>
+                Task.FromResult<IEnumerable?>(((BenchmarkNode)item).Children),
+            IsLeafSelector = static item => ((BenchmarkNode)item).Children.Count == 0,
+            VirtualizeChildren = true,
+        });
+        _model.SetRoots(_roots);
+    }
+
+    [Benchmark]
+    public async Task<int> ExpandAllAsync()
+    {
+        if (Strategy == AsyncExpansionStrategy.Batched)
+        {
+            await _model.ExpandAllAsync().ConfigureAwait(false);
+        }
+        else
+        {
+            await ExpandIncrementallyAsync(_model).ConfigureAwait(false);
+        }
+
+        int count = _model.Count;
+        if (count != _expectedCount)
+        {
+            throw new InvalidOperationException(
+                $"Expanded row count mismatch: expected {_expectedCount}, got {count}.");
+        }
+
+        return count;
+    }
+
+    private static async Task ExpandIncrementallyAsync(HierarchicalModel model)
+    {
+        var stack = new Stack<HierarchicalNode>();
+        stack.Push(model.Root!);
+
+        while (stack.Count > 0)
+        {
+            HierarchicalNode current = stack.Pop();
+            await model.ExpandAsync(current).ConfigureAwait(false);
+
+            IReadOnlyList<HierarchicalNode> children = current.Children;
+            for (int i = children.Count - 1; i >= 0; i--)
+            {
+                stack.Push(children[i]);
+            }
+        }
     }
 }
 

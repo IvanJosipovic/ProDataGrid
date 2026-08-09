@@ -1,8 +1,10 @@
 // Copyright (c) Wiesław Šoltés. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Threading.Tasks;
 using Avalonia.Controls.DataGridHierarchical;
 using Xunit;
 
@@ -92,6 +94,27 @@ public class HierarchicalAdapterTests
         Assert.True(model.Root!.IsExpanded);
         Assert.False(model.GetNode(1).IsExpanded);
         Assert.Equal(2, adapter.Count);
+    }
+
+    [Fact]
+    public async Task ExpandAllAsync_DelegatesToModel()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        root.Children.Add(child);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (item, _) =>
+                Task.FromResult<IEnumerable?>(((Item)item).Children)
+        });
+        var adapter = new DataGridHierarchicalAdapter(model);
+        adapter.SetRoot(root);
+
+        await adapter.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, adapter.Count);
+        Assert.True(model.Root!.IsExpanded);
+        Assert.True(model.GetNode(1).IsExpanded);
     }
 
     [Fact]

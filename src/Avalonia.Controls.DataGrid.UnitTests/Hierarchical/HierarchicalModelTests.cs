@@ -1373,6 +1373,254 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public async Task ExpandAllAsync_LoadsSequentially_AndCommitsOnce()
+    {
+        var root = new Item("root");
+        var first = new Item("first");
+        var second = new Item("second");
+        first.Children.Add(new Item("grand"));
+        root.Children.Add(first);
+        root.Children.Add(second);
+
+        var activeSelectors = 0;
+        var maximumActiveSelectors = 0;
+        var events = new List<string>();
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                var active = Interlocked.Increment(ref activeSelectors);
+                maximumActiveSelectors = Math.Max(maximumActiveSelectors, active);
+                try
+                {
+                    await Task.Yield();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return ((Item)item).Children;
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref activeSelectors);
+                }
+            }
+        });
+        model.SetRoot(root);
+        model.NodeLoading += (_, args) => events.Add($"loading:{((Item)args.Node.Item).Name}");
+        model.NodeLoaded += (_, args) => events.Add($"loaded:{((Item)args.Node.Item).Name}");
+        model.FlattenedChanged += (_, _) => events.Add("flattened");
+        model.NodeExpanded += (_, args) => events.Add($"expanded:{((Item)args.Node.Item).Name}");
+
+        await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, maximumActiveSelectors);
+        Assert.Equal(4, model.Count);
+        Assert.Equal(
+            new[]
+            {
+                "loading:root", "loaded:root",
+                "loading:first", "loaded:first",
+                "loading:grand", "loaded:grand",
+                "loading:second", "loaded:second",
+                "flattened",
+                "expanded:root", "expanded:first", "expanded:grand", "expanded:second"
+            },
+            events);
+    }
+
+    [Fact]
+    public void ExpandAll_WithAsyncSelector_UsesOneCoherentCommit()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        child.Children.Add(new Item("grand"));
+        root.Children.Add(child);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (item, _) =>
+                Task.FromResult<IEnumerable?>(((Item)item).Children)
+        });
+        model.SetRoot(root);
+        var flattenedChanges = 0;
+        model.FlattenedChanged += (_, _) => flattenedChanges++;
+
+        model.ExpandAll();
+
+        Assert.Equal(1, flattenedChanges);
+        Assert.Equal(3, model.Count);
+        Assert.All(model.Flattened, node => Assert.True(node.IsExpanded));
+    }
+
+    [Fact]
+    public async Task ExpandAllAsync_ExpandsOnlyRequestedSubtree()
+    {
+        var root = new Item("root");
+        var first = new Item("first");
+        var second = new Item("second");
+        first.Children.Add(new Item("grand"));
+        root.Children.Add(first);
+        root.Children.Add(second);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (item, _) =>
+                Task.FromResult<IEnumerable?>(((Item)item).Children)
+        });
+        model.SetRoot(root);
+        await model.ExpandAsync(model.Root!, TestContext.Current.CancellationToken);
+        var firstNode = model.GetNode(1);
+
+        await model.ExpandAllAsync(
+            firstNode,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(model.Root!.IsExpanded);
+        Assert.True(firstNode.IsExpanded);
+        Assert.True(model.GetNode(2).IsExpanded);
+        Assert.False(model.GetNode(3).IsExpanded);
+        Assert.Equal(4, model.Count);
+    }
+
+    [Fact]
+    public async Task ExpandAllAsync_CancellationPreservesVisibility_AndLoadedCacheCanRetry()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        child.Children.Add(new Item("grand"));
+        root.Children.Add(child);
+        var childEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var childAttempts = 0;
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                var typed = (Item)item;
+                if (typed.Name == "child" && Interlocked.Increment(ref childAttempts) == 1)
+                {
+                    childEntered.TrySetResult();
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+                }
+
+                return typed.Children;
+            }
+        });
+        model.SetRoot(root);
+        var flattenedChanges = 0;
+        var expandedEvents = 0;
+        model.FlattenedChanged += (_, _) => flattenedChanges++;
+        model.NodeExpanded += (_, _) => expandedEvents++;
+
+        using var cts = new CancellationTokenSource();
+        var expansion = model.ExpandAllAsync(cancellationToken: cts.Token);
+        await childEntered.Task;
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => expansion);
+        Assert.False(model.Root!.IsExpanded);
+        Assert.True(model.Root.HasMaterializedChildren);
+        Assert.Equal(1, model.Count);
+        Assert.Equal(0, flattenedChanges);
+        Assert.Equal(0, expandedEvents);
+
+        await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, childAttempts);
+        Assert.Equal(3, model.Count);
+        Assert.All(model.Flattened, node => Assert.True(node.IsExpanded));
+    }
+
+    [Fact]
+    public async Task ExpandAllAsync_LoadFailureCollapsesFailedBranch_AndCommitsSuccessfulBranches()
+    {
+        var root = new Item("root");
+        var good = new Item("good");
+        var bad = new Item("bad");
+        root.Children.Add(good);
+        root.Children.Add(bad);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (item, _) =>
+            {
+                var typed = (Item)item;
+                return typed.Name == "bad"
+                    ? Task.FromException<IEnumerable?>(new InvalidOperationException("boom"))
+                    : Task.FromResult<IEnumerable?>(typed.Children);
+            }
+        });
+        model.SetRoot(root);
+        var expanded = new List<string>();
+        model.NodeExpanded += (_, args) => expanded.Add(((Item)args.Node.Item).Name);
+
+        await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, model.Count);
+        Assert.True(model.Root!.IsExpanded);
+        Assert.True(model.GetNode(1).IsExpanded);
+        Assert.False(model.GetNode(2).IsExpanded);
+        Assert.IsType<InvalidOperationException>(model.GetNode(2).LoadError);
+        Assert.Equal(new[] { "root", "good" }, expanded);
+    }
+
+    [Fact]
+    public async Task TypedExpandAllAsync_HonorsDepthLimit()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        child.Children.Add(new Item("grand"));
+        root.Children.Add(child);
+        IHierarchicalModel<Item> model = new HierarchicalModel<Item>(new HierarchicalOptions<Item>
+        {
+            ChildrenSelectorAsync = (item, _) => Task.FromResult<IEnumerable<Item>?>(item.Children)
+        });
+        model.SetRoot(root);
+
+        await model.ExpandAllAsync(
+            maxDepth: 0,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(model.Root!.Value.IsExpanded);
+        Assert.False(model.GetTypedNode(1).IsExpanded);
+        Assert.Equal(2, model.Count);
+    }
+
+    [Fact]
+    public async Task ConcurrentExpandAllAsync_OperationsAreSerializedAndIdempotent()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var activeSelectors = 0;
+        var maximumActiveSelectors = 0;
+        var selectorCalls = 0;
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                Interlocked.Increment(ref selectorCalls);
+                var active = Interlocked.Increment(ref activeSelectors);
+                maximumActiveSelectors = Math.Max(maximumActiveSelectors, active);
+                try
+                {
+                    await Task.Delay(5, cancellationToken);
+                    return ((Item)item).Children;
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref activeSelectors);
+                }
+            }
+        });
+        model.SetRoot(root);
+        var expandedEvents = 0;
+        model.NodeExpanded += (_, _) => expandedEvents++;
+
+        await Task.WhenAll(
+            model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken),
+            model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken));
+
+        Assert.Equal(1, maximumActiveSelectors);
+        Assert.Equal(2, selectorCalls);
+        Assert.Equal(2, expandedEvents);
+        Assert.Equal(2, model.Count);
+    }
+
+    [Fact]
     public void CollapseAll_Default_CollapsesEverything()
     {
         var root = new Item("root");

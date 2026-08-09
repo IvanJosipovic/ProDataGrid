@@ -184,6 +184,22 @@ namespace Avalonia.Controls.DataGridHierarchical
             _model.ExpandAll(node, maxDepth);
         }
 
+        /// <summary>
+        /// Asynchronously expands a subtree while retaining the virtualization guard through the coherent commit.
+        /// </summary>
+        /// <param name="node">Starting node; null for the root.</param>
+        /// <param name="maxDepth">Maximum relative depth to expand, or null for no limit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes after the visible-node commit.</returns>
+        public async Task ExpandAllAsync(
+            HierarchicalNode? node = null,
+            int? maxDepth = null,
+            CancellationToken cancellationToken = default)
+        {
+            using var guard = _model.BeginVirtualizationGuard();
+            await _model.ExpandAllAsync(node, maxDepth, cancellationToken).ConfigureAwait(false);
+        }
+
         public void CollapseAll(HierarchicalNode? node = null, int? minDepth = null)
         {
             BeginDebouncedVirtualizationGuard();
@@ -323,6 +339,21 @@ namespace Avalonia.Controls.DataGridHierarchical
         public void ExpandAll(HierarchicalNode<T>? node = null, int? maxDepth = null)
         {
             _inner.ExpandAll(node?.Inner, maxDepth);
+        }
+
+        /// <summary>
+        /// Asynchronously expands a typed subtree while retaining the virtualization guard through the coherent commit.
+        /// </summary>
+        /// <param name="node">Starting node; null for the root.</param>
+        /// <param name="maxDepth">Maximum relative depth to expand, or null for no limit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes after the visible-node commit.</returns>
+        public Task ExpandAllAsync(
+            HierarchicalNode<T>? node = null,
+            int? maxDepth = null,
+            CancellationToken cancellationToken = default)
+        {
+            return _inner.ExpandAllAsync(node?.Inner, maxDepth, cancellationToken);
         }
 
         public void CollapseAll(HierarchicalNode<T>? node = null, int? minDepth = null)

@@ -68,6 +68,18 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         void ExpandAll(HierarchicalNode<T>? node = null, int? maxDepth = null);
 
+        /// <summary>
+        /// Asynchronously expands the specified typed subtree and commits its visible nodes once loading completes.
+        /// </summary>
+        /// <param name="node">Starting node; null for the root.</param>
+        /// <param name="maxDepth">Maximum relative depth to expand, or null for no limit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes after the coherent visible-node commit.</returns>
+        Task ExpandAllAsync(
+            HierarchicalNode<T>? node = null,
+            int? maxDepth = null,
+            CancellationToken cancellationToken = default);
+
         void CollapseAll(HierarchicalNode<T>? node = null, int? minDepth = null);
 
         void Sort(HierarchicalNode<T>? node = null, IComparer<T>? comparer = null, bool recursive = true);
@@ -871,6 +883,19 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         public void ExpandAll(HierarchicalNode<T>? node = null, int? maxDepth = null) =>
             base.ExpandAll(node?.Inner, maxDepth);
+
+        /// <summary>
+        /// Asynchronously expands the specified typed subtree and commits its visible nodes once loading completes.
+        /// </summary>
+        /// <param name="node">Starting node; null for the root.</param>
+        /// <param name="maxDepth">Maximum relative depth to expand, or null for no limit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes after the coherent visible-node commit.</returns>
+        public Task ExpandAllAsync(
+            HierarchicalNode<T>? node = null,
+            int? maxDepth = null,
+            CancellationToken cancellationToken = default) =>
+            base.ExpandAllAsync(node?.Inner, maxDepth, cancellationToken);
 
         public void CollapseAll(HierarchicalNode<T>? node = null, int? minDepth = null) =>
             base.CollapseAll(node?.Inner, minDepth);
