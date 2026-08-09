@@ -171,6 +171,8 @@ public sealed partial class ProDataGridGenerator
                 public Type? MutationHandlerType { get; set; }
                 public Type? NewRowFactoryType { get; set; }
                 public Type? FormulaFillTranslatorType { get; set; }
+                public string? KeySelectorMethod { get; set; }
+                public bool UseReferenceIdentityKey { get; set; }
                 public string? ConfigureMethod { get; set; }
             }
 
@@ -229,6 +231,8 @@ public sealed partial class ProDataGridGenerator
                     global::Avalonia.Controls.DataGridGeneratedFeatures.Operations;
                 public global::Avalonia.Controls.DataGridOperationExecution OperationExecution { get; set; }
                 public string? KeyMember { get; set; }
+                public string? KeySelectorMethod { get; set; }
+                public bool UseReferenceIdentityKey { get; set; }
                 public Type? ImplementationType { get; set; }
                 public string? ConfigureMethod { get; set; }
                 public bool Strict { get; set; } = true;

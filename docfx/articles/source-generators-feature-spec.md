@@ -486,6 +486,8 @@ Requirements:
 
 The generator should use value-type generic key paths where possible and avoid boxing keys on the steady-state selection path. Existing object-key APIs may be bridged at the Avalonia adapter boundary.
 
+Implemented identity API: `[DataGridKey]` and controller `KeyMember` cover direct field/property identity. `KeySelectorMethod` validates and directly invokes one static `TKey Method(TItem item)`, including allocation-free value-tuple composite keys. `UseReferenceIdentityKey` is an explicit reference-type-only mode backed by `ReferenceEqualityComparer`. All modes emit the same `IDataGridItemKey<TItem,TKey>`, key comparer, item index, selection, state, hierarchy, reconciliation, drag/drop, and chart-coordination factories. Invalid or conflicting modes report `PDGSG101`; duplicate values are rejected by the generated runtime index, and captured insertion keys prevent later member mutation from corrupting its dictionaries.
+
 ### F03. Typed operation descriptors, builders, and presets — P0
 
 Manual string paths and repeated descriptor construction should be replaced with generated field references:

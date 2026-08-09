@@ -526,23 +526,7 @@ internal static partial class Discovery
                     continue;
                 }
 
-                string? keyMember = GeneratorUtilities.GetString(arguments, "KeyMember");
-                if (!string.IsNullOrWhiteSpace(keyMember))
-                {
-                    if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) &&
-                        !string.Equals(schema.ExplicitKeyMemberName, keyMember, StringComparison.Ordinal))
-                    {
-                        diagnostics.Add(Diagnostic.Create(
-                            GeneratorDiagnostics.InvalidItemKey,
-                            GetLocation(attribute),
-                            keyMember,
-                            "controllers sharing a schema must use the same key member"));
-                    }
-                    else
-                    {
-                        schema.ExplicitKeyMemberName = keyMember;
-                    }
-                }
+                ApplyControllerKeyOptions(schema, arguments, attribute, diagnostics);
 
                 int sourceKind = GetEnumValue(arguments, "SourceKind", 0);
                 if (sourceKind == 4 || sourceKind == 5)
@@ -1215,21 +1199,9 @@ internal static partial class Discovery
                     schema.IsDirectIncremental = true;
                 }
                 ApplyFastOptions(schema, arguments);
-                string? keyMember = GeneratorUtilities.GetString(arguments, "KeyMember");
-                if (!string.IsNullOrWhiteSpace(keyMember))
+                if (!ApplyControllerKeyOptions(schema, arguments, attribute, diagnostics))
                 {
-                    if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) &&
-                        !string.Equals(schema.ExplicitKeyMemberName, keyMember, StringComparison.Ordinal))
-                    {
-                        diagnostics.Add(Diagnostic.Create(
-                            GeneratorDiagnostics.InvalidItemKey,
-                            GetLocation(attribute),
-                            keyMember,
-                            "controllers sharing a schema must use the same key member"));
-                        continue;
-                    }
-
-                    schema.ExplicitKeyMemberName = keyMember;
+                    continue;
                 }
 
                 string? sourceMember = GeneratorUtilities.GetString(arguments, "SourceMember");
@@ -1581,6 +1553,9 @@ internal static partial class Discovery
             {
                 schema.FormulaFillTranslatorType = formulaFillTranslatorType;
             }
+
+            schema.KeySelectorMethodName = GeneratorUtilities.GetString(arguments, "KeySelectorMethod");
+            schema.UseReferenceIdentityKey = GeneratorUtilities.GetBoolean(arguments, "UseReferenceIdentityKey", false);
         }
 
         ApplyFastOptions(schema, arguments);
@@ -1870,11 +1845,157 @@ internal static partial class Discovery
             .ToImmutableArray();
     }
 
+    private static bool ApplyControllerKeyOptions(
+        SchemaModel schema,
+        Dictionary<string, TypedConstant> arguments,
+        AttributeData attribute,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        string? keyMember = GeneratorUtilities.GetString(arguments, "KeyMember");
+        string? keySelectorMethod = GeneratorUtilities.GetString(arguments, "KeySelectorMethod");
+        bool useReferenceIdentity = GeneratorUtilities.GetBoolean(arguments, "UseReferenceIdentityKey", false);
+        int configuredKinds = (string.IsNullOrWhiteSpace(keyMember) ? 0 : 1) +
+                              (string.IsNullOrWhiteSpace(keySelectorMethod) ? 0 : 1) +
+                              (useReferenceIdentity ? 1 : 0);
+        if (configuredKinds > 1)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidItemKey,
+                GetLocation(attribute),
+                keyMember ?? keySelectorMethod ?? schema.ItemType.ToDisplayString(),
+                "KeyMember, KeySelectorMethod, and UseReferenceIdentityKey are mutually exclusive"));
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(keyMember))
+        {
+            if ((!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) &&
+                 !string.Equals(schema.ExplicitKeyMemberName, keyMember, StringComparison.Ordinal)) ||
+                !string.IsNullOrEmpty(schema.KeySelectorMethodName) ||
+                schema.UseReferenceIdentityKey)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    GetLocation(attribute),
+                    keyMember,
+                    "controllers sharing a schema must use the same key configuration"));
+                return false;
+            }
+
+            schema.ExplicitKeyMemberName = keyMember;
+        }
+        else if (!string.IsNullOrWhiteSpace(keySelectorMethod))
+        {
+            if ((!string.IsNullOrEmpty(schema.KeySelectorMethodName) &&
+                 !string.Equals(schema.KeySelectorMethodName, keySelectorMethod, StringComparison.Ordinal)) ||
+                !string.IsNullOrEmpty(schema.ExplicitKeyMemberName) ||
+                schema.UseReferenceIdentityKey)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    GetLocation(attribute),
+                    keySelectorMethod,
+                    "controllers sharing a schema must use the same key configuration"));
+                return false;
+            }
+
+            schema.KeySelectorMethodName = keySelectorMethod;
+        }
+        else if (useReferenceIdentity)
+        {
+            if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) ||
+                !string.IsNullOrEmpty(schema.KeySelectorMethodName))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    GetLocation(attribute),
+                    schema.ItemType.ToDisplayString(),
+                    "controllers sharing a schema must use the same key configuration"));
+                return false;
+            }
+
+            schema.UseReferenceIdentityKey = true;
+        }
+
+        return true;
+    }
+
     private static KeyMemberModel? DiscoverKeyMember(
         SchemaModel schema,
         ImmutableArray<Diagnostic>.Builder diagnostics,
         CancellationToken cancellationToken)
     {
+        if (schema.UseReferenceIdentityKey)
+        {
+            if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName) ||
+                !string.IsNullOrEmpty(schema.KeySelectorMethodName))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    schema.Location,
+                    schema.ItemType.ToDisplayString(),
+                    "reference identity cannot be combined with KeyMember or KeySelectorMethod"));
+                return null;
+            }
+
+            if (!schema.ItemType.IsReferenceType)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    schema.Location,
+                    schema.ItemType.ToDisplayString(),
+                    "reference identity requires a reference-type item schema"));
+                return null;
+            }
+
+            return new KeyMemberModel
+            {
+                Member = schema.ItemType,
+                Type = schema.ItemType,
+                Kind = KeyAccessorKind.ReferenceIdentity
+            };
+        }
+
+        if (!string.IsNullOrEmpty(schema.KeySelectorMethodName))
+        {
+            if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    schema.Location,
+                    schema.KeySelectorMethodName,
+                    "KeyMember and KeySelectorMethod are mutually exclusive"));
+                return null;
+            }
+
+            IMethodSymbol[] methods = schema.ItemType.GetMembers(schema.KeySelectorMethodName!)
+                .OfType<IMethodSymbol>()
+                .Where(method =>
+                    method.IsStatic &&
+                    !method.IsGenericMethod &&
+                    method.Parameters.Length == 1 &&
+                    SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, schema.ItemType) &&
+                    !method.ReturnsVoid &&
+                    GeneratorUtilities.IsAccessibleFromGeneratedCode(method))
+                .ToArray();
+            if (methods.Length != 1 || IsNullableKeyType(methods[0].ReturnType))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidItemKey,
+                    methods.Length > 0 ? GeneratorUtilities.GetLocation(methods[0]) : schema.Location,
+                    schema.KeySelectorMethodName,
+                    "expected one accessible static non-generic TKey Method(TItem item) returning a non-nullable key"));
+                return null;
+            }
+
+            return new KeyMemberModel
+            {
+                Member = methods[0],
+                Type = methods[0].ReturnType,
+                Kind = KeyAccessorKind.StaticMethod
+            };
+        }
+
         if (!string.IsNullOrEmpty(schema.ExplicitKeyMemberName))
         {
             ISymbol[] explicitMembers = EnumerateMembers(schema.ItemType, schema.IncludeInherited)
@@ -1987,7 +2108,8 @@ internal static partial class Discovery
         {
             Member = member,
             Type = memberType,
-            AccessReceiverType = receiverType
+            AccessReceiverType = receiverType,
+            Kind = KeyAccessorKind.Member
         };
         return true;
     }

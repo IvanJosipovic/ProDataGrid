@@ -190,7 +190,23 @@ SearchDescriptor symbolSearch = TradeGridSchema.Symbol.Search(
     SearchMatchMode.Wildcard);
 ```
 
-`[DataGridKey]` accepts one accessible, non-nullable field or property. The provider implements `IDataGridItemKey<TItem,TKey>`, exposes the default typed key comparer, and creates `DataGridGeneratedItemIndex<TItem,TKey>` instances. The index handles reset, insert, remove, move, and replace changes while preserving allocation-free typed key lookup on reads:
+`[DataGridKey]` accepts one accessible, non-nullable field or property. Composite identity can instead use `KeySelectorMethod` with one accessible static `TKey Method(TItem item)`; a value tuple is an allocation-free composite key:
+
+```csharp
+[GenerateDataGridColumns(KeySelectorMethod = nameof(CreateGridKey))]
+public sealed class Order
+{
+    public int TenantId { get; init; }
+    public long OrderId { get; init; }
+
+    public static (int TenantId, long OrderId) CreateGridKey(Order item) =>
+        (item.TenantId, item.OrderId);
+}
+```
+
+Types whose identity is deliberately the object instance can select `UseReferenceIdentityKey = true`. This option is limited to reference types and emits `ReferenceEqualityComparer`; it never falls back to an overridden value equality implementation. `KeyMember`, `KeySelectorMethod`, and `UseReferenceIdentityKey` are mutually exclusive. The same three options are available on `GenerateDataGridController` so controller-owned schemas can select identity without adding a schema attribute.
+
+The provider implements `IDataGridItemKey<TItem,TKey>`, exposes the matching typed key comparer, and creates `DataGridGeneratedItemIndex<TItem,TKey>` instances. The index handles reset, insert, remove, move, and replace changes while preserving allocation-free typed key lookup on reads:
 
 ```csharp
 DataGridGeneratedItemIndex<Trade, int> index =
@@ -1013,7 +1029,7 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG013` | A generated-view custom base is invalid. |
 | `PDGSG014` | A requested generated-view framework is not referenced. |
 | `PDGSG100` | A stable column key is empty or duplicated. |
-| `PDGSG101` | A `[DataGridKey]` member is invalid, nullable, or ambiguous. |
+| `PDGSG101` | A generated key member, static selector, reference-identity mode, or controller key configuration is invalid, nullable, ambiguous, or conflicting. |
 | `PDGSG103` | A generated controller source member is missing or incompatible. |
 | `PDGSG104` | The source kind and operation owner would execute operations twice or in the wrong layer. |
 | `PDGSG109` | Generated hierarchy metadata is invalid or ambiguous. |

@@ -2164,6 +2164,119 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Static_key_selector_generates_composite_key_for_every_keyed_adapter()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(KeySelectorMethod = nameof(CreateKey))]
+            public sealed class Row
+            {
+                public int TenantId { get; init; }
+                public long OrderId { get; init; }
+                public string Name { get; set; } = "";
+
+                public static (int TenantId, long OrderId) CreateKey(Row item) =>
+                    (item.TenantId, item.OrderId);
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains(
+            "IDataGridItemKey<global::Demo.Row, (int TenantId, long OrderId)>",
+            result.CombinedSource);
+        Assert.Contains("=> global::Demo.Row.CreateKey(item);", result.CombinedSource);
+        Assert.Contains("CreateItemIndex()", result.CombinedSource);
+        Assert.Contains("CreateIdentitySelectionModel()", result.CombinedSource);
+        Assert.Contains("ItemKeySelector = static item => global::Demo.Row.CreateKey(((global::Demo.Row)item))!", result.CombinedSource);
+        Assert.DoesNotContain(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG101");
+    }
+
+    [Fact]
+    public void Reference_identity_key_uses_reference_comparer_and_direct_item_selector()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(UseReferenceIdentityKey = true)]
+            public sealed class Row
+            {
+                public string Name { get; set; } = "";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("IDataGridItemKey<global::Demo.Row, global::Demo.Row>", result.CombinedSource);
+        Assert.Contains("ReferenceEqualityComparer.Instance", result.CombinedSource);
+        Assert.Contains("public global::Demo.Row GetKey(global::Demo.Row item)", result.CombinedSource);
+        Assert.Contains("=> item;", result.CombinedSource);
+        Assert.Contains("\"$reference\"", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Controller_can_select_static_composite_key_method()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn] public int TenantId { get; init; }
+                [DataGridColumn] public long OrderId { get; init; }
+                public static (int, long) CreateKey(Row item) => (item.TenantId, item.OrderId);
+            }
+            [GenerateDataGridController(typeof(Row), "Rows", KeySelectorMethod = nameof(Row.CreateKey))]
+            public sealed partial class RowsViewModel
+            {
+                public IEnumerable<Row> Items { get; } = new List<Row>();
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("global::Demo.Row.CreateKey(item)", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedItemIndex<global::Demo.Row, (int, long)>", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_or_conflicting_generated_key_modes_report_PDGSG101()
+    {
+        GeneratorTestResult invalidMethod = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(KeySelectorMethod = nameof(CreateKey))]
+            public sealed class Row
+            {
+                public int Id { get; init; }
+                private int CreateKey() => Id;
+            }
+            """);
+        GeneratorTestResult invalidReference = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(UseReferenceIdentityKey = true)]
+            public struct Row
+            {
+                public int Id { get; init; }
+            }
+            """);
+        GeneratorTestResult conflicting = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(KeySelectorMethod = nameof(CreateKey), UseReferenceIdentityKey = true)]
+            public sealed class Row
+            {
+                public int Id { get; init; }
+                public static int CreateKey(Row item) => item.Id;
+            }
+            """);
+
+        Assert.Contains(invalidMethod.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG101");
+        Assert.Contains(invalidReference.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG101");
+        Assert.Contains(conflicting.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG101");
+    }
+
+    [Fact]
     public void Streaming_keyed_schema_generates_bounded_buffer_factory()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

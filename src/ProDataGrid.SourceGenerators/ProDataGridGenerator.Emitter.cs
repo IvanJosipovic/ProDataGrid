@@ -439,7 +439,7 @@ internal static class Emitter
         if (schema.KeyMember != null)
         {
             string keyType = schema.KeyMember.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
-            builder.Append("                ").Append(GeneratorUtilities.EscapeString(schema.KeyMember.Member.Name)).AppendLine(",")
+            builder.Append("                ").Append(GeneratorUtilities.EscapeString(GetKeyName(schema))).AppendLine(",")
                 .Append("                typeof(").Append(keyType).AppendLine("));");
         }
         else
@@ -492,7 +492,11 @@ internal static class Emitter
             string keyType = schema.KeyMember.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
             builder.AppendLine()
                 .Append("        public static global::System.Collections.Generic.IEqualityComparer<").Append(keyType)
-                .AppendLine("> KeyComparer { get; } = global::System.Collections.Generic.EqualityComparer<" + keyType + ">.Default;")
+                .Append("> KeyComparer { get; } = ")
+                .Append(schema.KeyMember.Kind == KeyAccessorKind.ReferenceIdentity
+                    ? "global::System.Collections.Generic.ReferenceEqualityComparer.Instance;"
+                    : "global::System.Collections.Generic.EqualityComparer<" + keyType + ">.Default;")
+                .AppendLine()
                 .AppendLine()
                 .Append("        public static global::Avalonia.Controls.DataGridGeneratedItemIndex<").Append(itemType).Append(", ")
                 .Append(keyType).AppendLine("> CreateItemIndex()")
@@ -833,7 +837,8 @@ internal static class Emitter
 
         if (schema.KeyMember != null)
         {
-            canonical.Append(schema.KeyMember.Member.Name).Append(':')
+            canonical.Append(GetKeyName(schema)).Append(':')
+                .Append((int)schema.KeyMember.Kind).Append(':')
                 .Append(schema.KeyMember.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat));
         }
 
@@ -4190,8 +4195,26 @@ internal static class Emitter
     private static string GetKeyAccessExpression(SchemaModel schema, string receiver)
     {
         KeyMemberModel key = schema.KeyMember!;
+        if (key.Kind == KeyAccessorKind.ReferenceIdentity)
+        {
+            return receiver;
+        }
+
+        if (key.Kind == KeyAccessorKind.StaticMethod)
+        {
+            return schema.ItemType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat) + "." +
+                   GeneratorUtilities.EscapeIdentifier(key.Member.Name) + "(" + receiver + ")";
+        }
+
         return GetMemberAccessExpression(key.Member, key.AccessReceiverType, receiver);
     }
+
+    private static string GetKeyName(SchemaModel schema) => schema.KeyMember!.Kind switch
+    {
+        KeyAccessorKind.ReferenceIdentity => "$reference",
+        KeyAccessorKind.StaticMethod => schema.KeyMember.Member.Name + "()",
+        _ => schema.KeyMember.Member.Name
+    };
 
     private static string GetMemberAccessExpression(
         ISymbol member,

@@ -318,6 +318,10 @@ internal sealed class SchemaModel
 
     public string? ExplicitKeyMemberName { get; set; }
 
+    public string? KeySelectorMethodName { get; set; }
+
+    public bool UseReferenceIdentityKey { get; set; }
+
     public HierarchyModel? Hierarchy { get; set; }
 
     public bool IsDirectIncremental { get; set; }
@@ -479,6 +483,15 @@ internal sealed class KeyMemberModel
     public ITypeSymbol Type { get; set; } = null!;
 
     public INamedTypeSymbol? AccessReceiverType { get; set; }
+
+    public KeyAccessorKind Kind { get; set; }
+}
+
+internal enum KeyAccessorKind
+{
+    Member,
+    StaticMethod,
+    ReferenceIdentity
 }
 
 internal sealed class HierarchyModel
