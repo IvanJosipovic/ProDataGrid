@@ -62,6 +62,47 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Schema_emits_validated_named_operation_presets()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.ComponentModel;
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridSorting;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            [GenerateDataGridColumns(OperationPresetMethods = new[] { nameof(CreateRiskPreset) })]
+            public sealed class Row
+            {
+                public decimal Price { get; set; }
+
+                public static DataGridGeneratedOperationPreset CreateRiskPreset() => new(
+                    "risk",
+                    sorting: new[] { new SortingDescriptor("Price", ListSortDirection.Descending) });
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedOperationPreset> OperationPresets", result.CombinedSource);
+        Assert.Contains("global::Demo.Row.CreateRiskPreset()", result.CombinedSource);
+        Assert.Contains("TryGetOperationPreset(string name", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_operation_preset_method_reports_PDGSG004()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(OperationPresetMethods = new[] { "Missing", "Missing" })]
+            public sealed class Row { public decimal Price { get; set; } }
+            """);
+
+        Assert.Equal(2, result.GeneratorDiagnostics.Count(static diagnostic => diagnostic.Id == "PDGSG004"));
+        Assert.DoesNotContain("global::Demo.Row.Missing()", result.CombinedSource);
+    }
+
+    [Fact]
     public void Interface_schema_generates_typed_inherited_accessors()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""
@@ -3554,6 +3595,9 @@ public sealed class ProDataGridGeneratorTests
         AssertNoErrors(result);
         Assert.Contains("class RowDataGridSchema", result.CombinedSource);
         Assert.Contains("DataGridGeneratedOperationController<global::Demo.Row> Trades", result.CombinedSource);
+        Assert.Contains("IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedOperationDescriptor> TradesDescriptors", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedOperationCommandSet<global::Demo.Row> TradesCommands", result.CombinedSource);
+        Assert.Contains("IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedOperationPreset> TradesPresets", result.CombinedSource);
         Assert.Contains("InitializeTrades", result.CombinedSource);
         Assert.Contains("CreateTradesController", result.CombinedSource);
         Assert.Contains("DisposeTrades", result.CombinedSource);

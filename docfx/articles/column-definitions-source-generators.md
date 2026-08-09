@@ -291,6 +291,25 @@ DataGridGeneratedOperationPreset riskPreset = new(
 Trades.ApplyPreset(riskPreset);
 ```
 
+For presets shared across ViewModels and views, declare validated static factories on the schema item. Factories are evaluated lazily once, names are checked for uniqueness, and lookup is ordinal:
+
+```csharp
+[GenerateDataGridColumns(
+    OperationPresetMethods = [nameof(CreateRiskPreset)])]
+public sealed class Trade
+{
+    public static DataGridGeneratedOperationPreset CreateRiskPreset() => new(
+        "risk",
+        sorting: [TradeGridSchema.Price.Descending()],
+        filtering: [TradeGridSchema.Price.GreaterThanOrEqual(100m)]);
+}
+
+TradeGridSchema.TryGetOperationPreset("risk", out DataGridGeneratedOperationPreset preset);
+Trades.ApplyPreset(preset);
+```
+
+Every named controller also projects `TradesDescriptors`, `TradesCommands`, and `TradesPresets`. Descriptor projections are rebuilt only when an operation revision changes and are suitable for chips or summaries. The framework-neutral command set supports apply preset, remove descriptor, clear-all/per-operation, and search navigation; ReactiveUI and other MVVM frameworks can bind these `ICommand` values directly or wrap them when application-specific status composition is required.
+
 `DataGridSample.Pages.GeneratedOperationsControllerPage` combines this named-controller pattern with a generated ReactiveUI grid and search view. Its passive compiled-binding shell supplies only application-specific commands and status presentation.
 
 `ImplementationType` accepts an `IDataGridGeneratedControllerFactory<TItem>`. `ConfigureMethod` names a static method on the partial ViewModel with a `ref DataGridGeneratedControllerOptions<TItem>` parameter. Both shapes are validated before emission.

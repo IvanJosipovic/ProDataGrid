@@ -308,6 +308,10 @@ internal sealed class SchemaModel
 
     public INamedTypeSymbol? FormulaFillTranslatorType { get; set; }
 
+    public ImmutableArray<IMethodSymbol> OperationPresetMethods { get; set; } = ImmutableArray<IMethodSymbol>.Empty;
+
+    public ImmutableArray<string> OperationPresetMethodNames { get; set; } = ImmutableArray<string>.Empty;
+
     public string? ConfigureMethod { get; set; }
 
     public Location Location { get; set; } = Location.None;

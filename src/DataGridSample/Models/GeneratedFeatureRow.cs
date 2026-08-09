@@ -13,7 +13,8 @@ namespace DataGridSample.Models;
     StateVersion = 2,
     Strict = true,
     Streaming = true,
-    PerformanceProfile = DataGridGeneratedPerformanceProfile.HighFrequencyStreaming)]
+    PerformanceProfile = DataGridGeneratedPerformanceProfile.HighFrequencyStreaming,
+    OperationPresetMethods = [nameof(CreateRiskPreset)])]
 public sealed class GeneratedFeatureRow
 {
     [DataGridKey]
@@ -62,4 +63,13 @@ public sealed class GeneratedFeatureRow
         decimal.Round(value, 2, MidpointRounding.AwayFromZero);
 
     public static bool CanEditAmount(GeneratedFeatureRow item) => item.Id != 1;
+
+    public static DataGridGeneratedOperationPreset CreateRiskPreset() => new(
+        "Warsaw high value",
+        sorting: [GeneratedFeatureRowSchema.Amount.Descending()],
+        filtering:
+        [
+            GeneratedFeatureRowSchema.Desk.EqualTo("Warsaw"),
+            GeneratedFeatureRowSchema.Amount.GreaterThanOrEqual(100_000m)
+        ]);
 }

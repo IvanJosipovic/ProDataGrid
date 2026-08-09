@@ -171,6 +171,7 @@ public sealed partial class ProDataGridGenerator
                 public Type? MutationHandlerType { get; set; }
                 public Type? NewRowFactoryType { get; set; }
                 public Type? FormulaFillTranslatorType { get; set; }
+                public string[] OperationPresetMethods { get; set; } = Array.Empty<string>();
                 public string? KeySelectorMethod { get; set; }
                 public bool UseReferenceIdentityKey { get; set; }
                 public string? ConfigureMethod { get; set; }

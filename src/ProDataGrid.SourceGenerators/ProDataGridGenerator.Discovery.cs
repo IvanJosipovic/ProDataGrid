@@ -80,6 +80,7 @@ internal static partial class Discovery
             }
 
             ValidateSchemaServiceImplementations(schema, schemaDiagnostics);
+            schema.OperationPresetMethods = DiscoverOperationPresetMethods(schema, schemaDiagnostics);
 
             if (IsRuntimeDefinedShape(schema.ItemType))
             {
@@ -395,6 +396,7 @@ internal static partial class Discovery
         }
 
         ValidateSchemaServiceImplementations(schema, diagnostics);
+        schema.OperationPresetMethods = DiscoverOperationPresetMethods(schema, diagnostics);
 
         if (IsRuntimeDefinedShape(schema.ItemType))
         {
@@ -1277,6 +1279,9 @@ internal static partial class Discovery
                 }
 
                 bool canGenerate = ValidateGeneratedMember(viewModelType, name, diagnostics, GetLocation(attribute));
+                canGenerate &= ValidateGeneratedMember(viewModelType, name + "Descriptors", diagnostics, GetLocation(attribute));
+                canGenerate &= ValidateGeneratedMember(viewModelType, name + "Commands", diagnostics, GetLocation(attribute));
+                canGenerate &= ValidateGeneratedMember(viewModelType, name + "Presets", diagnostics, GetLocation(attribute));
                 canGenerate &= ValidateGeneratedMember(viewModelType, "Initialize" + name, diagnostics, GetLocation(attribute));
                 canGenerate &= ValidateGeneratedMember(viewModelType, "Create" + name + "Controller", diagnostics, GetLocation(attribute));
                 canGenerate &= ValidateGeneratedMember(viewModelType, "Dispose" + name, diagnostics, GetLocation(attribute));
@@ -1553,6 +1558,8 @@ internal static partial class Discovery
             {
                 schema.FormulaFillTranslatorType = formulaFillTranslatorType;
             }
+
+            schema.OperationPresetMethodNames = GeneratorUtilities.GetStringArray(arguments, "OperationPresetMethods");
 
             schema.KeySelectorMethodName = GeneratorUtilities.GetString(arguments, "KeySelectorMethod");
             schema.UseReferenceIdentityKey = GeneratorUtilities.GetBoolean(arguments, "UseReferenceIdentityKey", false);
@@ -2729,6 +2736,56 @@ internal static partial class Discovery
                     : method.Parameters[0].Type.ToDisplayString(),
                 "Avalonia.Controls.DataGridColumnDefinitionList",
                 StringComparison.Ordinal));
+    }
+
+    private static ImmutableArray<IMethodSymbol> DiscoverOperationPresetMethods(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        if (schema.OperationPresetMethodNames.IsDefaultOrEmpty)
+        {
+            return ImmutableArray<IMethodSymbol>.Empty;
+        }
+
+        var methods = ImmutableArray.CreateBuilder<IMethodSymbol>(schema.OperationPresetMethodNames.Length);
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string configuredName in schema.OperationPresetMethodNames)
+        {
+            if (string.IsNullOrWhiteSpace(configuredName) || !names.Add(configuredName))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidCustomizationMethod,
+                    schema.Location,
+                    configuredName ?? string.Empty,
+                    schema.ItemType.ToDisplayString()));
+                continue;
+            }
+
+            IMethodSymbol[] matches = schema.ItemType.GetMembers(configuredName)
+                .OfType<IMethodSymbol>()
+                .Where(static method =>
+                    method.MethodKind == MethodKind.Ordinary &&
+                    method.IsStatic &&
+                    !method.IsGenericMethod &&
+                    method.Parameters.Length == 0 &&
+                    GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+                    method.ReturnType is INamedTypeSymbol returnType &&
+                    GeneratorUtilities.GetMetadataName(returnType) == "Avalonia.Controls.DataGridGeneratedOperationPreset")
+                .ToArray();
+            if (matches.Length != 1)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidCustomizationMethod,
+                    schema.Location,
+                    configuredName,
+                    schema.ItemType.ToDisplayString()));
+                continue;
+            }
+
+            methods.Add(matches[0]);
+        }
+
+        return methods.ToImmutable();
     }
 
     private static bool HasColumnConfigureMethod(INamedTypeSymbol type, string name, string kind)

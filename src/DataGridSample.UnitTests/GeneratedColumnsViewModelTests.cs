@@ -223,6 +223,8 @@ public sealed class GeneratedColumnsViewModelTests
             viewModel.Operations.Features);
         Assert.True(viewModel.SortingModel.OwnsViewSorts);
         Assert.True(viewModel.FilteringModel.OwnsViewFilter);
+        Assert.Single(viewModel.OperationsPresets);
+        Assert.Equal("Warsaw high value", viewModel.OperationsPresets[0].Name);
 
         viewModel.Query = "rxui";
         Assert.True(viewModel.Operations.SearchPredicate(viewModel.Items[1]));
@@ -231,6 +233,8 @@ public sealed class GeneratedColumnsViewModelTests
         viewModel.ApplyRiskPresetCommand.Execute().Subscribe();
         Assert.Single(viewModel.SortingModel.Descriptors);
         Assert.Equal(2, viewModel.FilteringModel.Descriptors.Count);
+        Assert.Equal(3, viewModel.OperationsDescriptors.Count);
+        Assert.Same(viewModel.Operations.Commands, viewModel.OperationsCommands);
         Assert.True(viewModel.Operations.FilterPredicate(viewModel.Items[0]));
         Assert.False(viewModel.Operations.FilterPredicate(viewModel.Items[2]));
         Assert.True(viewModel.Operations.FilterPredicate(viewModel.Items[4]));

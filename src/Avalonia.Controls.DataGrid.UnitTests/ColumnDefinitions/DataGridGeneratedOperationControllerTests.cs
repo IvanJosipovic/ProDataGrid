@@ -107,6 +107,48 @@ public sealed class DataGridGeneratedOperationControllerTests
         Assert.True(controller.SearchPredicate(new Row(1, "Alpha", 20m)));
     }
 
+    [Fact]
+    public void Descriptor_projections_and_commands_apply_remove_and_clear_operations()
+    {
+        var preset = new DataGridGeneratedOperationPreset(
+            "expensive alpha",
+            new[] { RowSchema.Amount.Descending() },
+            new[] { RowSchema.Amount.GreaterThanOrEqual(10m) },
+            new[] { RowSchema.Name.Search("alpha") });
+        using var controller = new DataGridGeneratedOperationController<Row>(new RowSchema());
+
+        Assert.True(controller.Commands.ApplyPreset.CanExecute(preset));
+        controller.Commands.ApplyPreset.Execute(preset);
+
+        Assert.Collection(
+            controller.Descriptors,
+            descriptor =>
+            {
+                Assert.Equal(DataGridGeneratedOperationDescriptorKind.Sorting, descriptor.Kind);
+                Assert.Equal("amount", descriptor.ColumnId);
+                Assert.Contains("descending", descriptor.Summary, StringComparison.Ordinal);
+            },
+            descriptor =>
+            {
+                Assert.Equal(DataGridGeneratedOperationDescriptorKind.Filtering, descriptor.Kind);
+                Assert.Contains("GreaterThanOrEqual", descriptor.Summary, StringComparison.Ordinal);
+            },
+            descriptor =>
+            {
+                Assert.Equal(DataGridGeneratedOperationDescriptorKind.Searching, descriptor.Kind);
+                Assert.Contains("alpha", descriptor.Summary, StringComparison.Ordinal);
+            });
+
+        DataGridGeneratedOperationDescriptor filter = controller.Descriptors[1];
+        Assert.True(controller.Commands.RemoveDescriptor.CanExecute(filter));
+        controller.Commands.RemoveDescriptor.Execute(filter);
+        Assert.DoesNotContain(controller.Descriptors, static descriptor =>
+            descriptor.Kind == DataGridGeneratedOperationDescriptorKind.Filtering);
+
+        controller.Commands.ClearAll.Execute(null);
+        Assert.Empty(controller.Descriptors);
+    }
+
     private sealed record Row(int Id, string Name, decimal Amount);
 
     private sealed class RowSchema : IDataGridGeneratedSchema<Row>

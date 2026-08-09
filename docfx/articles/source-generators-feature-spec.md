@@ -514,6 +514,8 @@ Requirements:
 - Conversion to existing `SortingDescriptor`, `FilteringDescriptor`, and `SearchDescriptor` only at the UI adapter boundary.
 - Custom comparer/predicate hooks remain supported.
 
+Implemented preset API: `GenerateDataGridColumnsAttribute.OperationPresetMethods` names accessible static parameterless factories returning `DataGridGeneratedOperationPreset`. The generator validates each signature, emits lazy one-time construction, rejects duplicate runtime names, includes the declaration in the schema hash, and exposes `OperationPresets` plus ordinal `TryGetOperationPreset`. Preset descriptors continue to use typed generated field builders and are applied as one controller revision.
+
 ### F04. Generated operation controller — P1
 
 Generate sorting, filtering, and search state plus the correct adapter ownership from one controller declaration.
@@ -531,6 +533,8 @@ Requirements:
 - One controller can be headless-tested without creating a DataGrid.
 
 ReactiveUI mode should use `ReactiveCommand` and activation-aware subscriptions. Plain mode should expose commands through small framework-neutral command interfaces or `ICommand` only in the UI adapter.
+
+Implemented projection/command API: every controller maintains immutable `DataGridGeneratedOperationDescriptor` projections only when its revision changes. Named controller augmentation exposes `<Name>Descriptors`, `<Name>Commands`, and `<Name>Presets`. The command set is framework-neutral `ICommand` and covers apply-preset, exact descriptor removal, clear-all/per-operation, and search navigation; it can be bound directly by ReactiveUI or wrapped in a `ReactiveCommand` when a ViewModel composes additional domain state. The generated operations sample renders the projections as compiled-binding chips and obtains its typed preset from generated schema metadata.
 
 ### F05. DynamicData pipelines — P1
 

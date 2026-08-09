@@ -41,15 +41,6 @@ namespace DataGridSample.ViewModels;
     SearchTextPropertyName = nameof(Query))]
 public sealed partial class GeneratedOperationsControllerViewModel : ReactiveObject, IDisposable
 {
-    private static readonly DataGridGeneratedOperationPreset s_riskPreset = new(
-        "Warsaw high value",
-        sorting: [GeneratedFeatureRowSchema.Amount.Descending()],
-        filtering:
-        [
-            GeneratedFeatureRowSchema.Desk.EqualTo("Warsaw"),
-            GeneratedFeatureRowSchema.Amount.GreaterThanOrEqual(100_000m)
-        ]);
-
     private readonly ObservableCollection<GeneratedFeatureRow> _items;
     private readonly IDisposable _querySubscription;
     private int _nextId = 7;
@@ -109,8 +100,9 @@ public sealed partial class GeneratedOperationsControllerViewModel : ReactiveObj
     private void ApplyRiskPreset()
     {
         Query = string.Empty;
-        Operations.ApplyPreset(s_riskPreset);
-        Status = $"Applied '{s_riskPreset.Name}' as controller revision {Operations.Version}.";
+        DataGridGeneratedOperationPreset preset = GeneratedFeatureRowSchema.OperationPresets[0];
+        Operations.ApplyPreset(preset);
+        Status = $"Applied '{preset.Name}' as controller revision {Operations.Version}.";
     }
 
     private void ClearOperations()

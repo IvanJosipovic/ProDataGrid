@@ -458,6 +458,7 @@ internal static class Emitter
             .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedField> Fields => Instance.Manifest.Fields;");
 
         EmitEditFieldCollection(builder, schema, itemType);
+        EmitOperationPresets(builder, schema, itemType);
         EmitAnalyticsMetadata(builder, schema, itemType);
         EmitDiagnosticsManifest(builder, schema, itemType);
 
@@ -823,6 +824,66 @@ internal static class Emitter
         return "global::Avalonia.Controls.DataGridGeneratedField<" + itemType + ", " + valueType + ">";
     }
 
+    private static void EmitOperationPresets(StringBuilder builder, SchemaModel schema, string itemType)
+    {
+        builder.AppendLine()
+            .AppendLine("        private static readonly global::System.Lazy<global::Avalonia.Controls.DataGridGeneratedOperationPreset[]> s_operationPresets = new(CreateOperationPresets);")
+            .AppendLine()
+            .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedOperationPreset> OperationPresets => s_operationPresets.Value;")
+            .AppendLine()
+            .AppendLine("        public static bool TryGetOperationPreset(string name, out global::Avalonia.Controls.DataGridGeneratedOperationPreset preset)")
+            .AppendLine("        {")
+            .AppendLine("            if (name is not null)")
+            .AppendLine("            {")
+            .AppendLine("                global::Avalonia.Controls.DataGridGeneratedOperationPreset[] presets = s_operationPresets.Value;")
+            .AppendLine("                for (int index = 0; index < presets.Length; index++)")
+            .AppendLine("                {")
+            .AppendLine("                    global::Avalonia.Controls.DataGridGeneratedOperationPreset candidate = presets[index];")
+            .AppendLine("                    if (global::System.String.Equals(candidate.Name, name, global::System.StringComparison.Ordinal))")
+            .AppendLine("                    {")
+            .AppendLine("                        preset = candidate;")
+            .AppendLine("                        return true;")
+            .AppendLine("                    }")
+            .AppendLine("                }")
+            .AppendLine("            }")
+            .AppendLine()
+            .AppendLine("            preset = null!;")
+            .AppendLine("            return false;")
+            .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        private static global::Avalonia.Controls.DataGridGeneratedOperationPreset[] CreateOperationPresets()")
+            .AppendLine("        {");
+
+        if (schema.OperationPresetMethods.IsDefaultOrEmpty)
+        {
+            builder.AppendLine("            return global::System.Array.Empty<global::Avalonia.Controls.DataGridGeneratedOperationPreset>();");
+        }
+        else
+        {
+            builder.AppendLine("            global::Avalonia.Controls.DataGridGeneratedOperationPreset[] presets = new global::Avalonia.Controls.DataGridGeneratedOperationPreset[]")
+                .AppendLine("            {");
+            foreach (IMethodSymbol method in schema.OperationPresetMethods)
+            {
+                builder.Append("                ").Append(itemType).Append('.').Append(method.Name).AppendLine("(),");
+            }
+
+            builder.AppendLine("            };")
+                .AppendLine("            var names = new global::System.Collections.Generic.HashSet<string>(global::System.StringComparer.Ordinal);")
+                .AppendLine("            for (int index = 0; index < presets.Length; index++)")
+                .AppendLine("            {")
+                .AppendLine("                global::Avalonia.Controls.DataGridGeneratedOperationPreset preset = presets[index]")
+                .AppendLine("                    ?? throw new global::System.InvalidOperationException(\"An operation preset factory returned null.\");")
+                .AppendLine("                if (!names.Add(preset.Name))")
+                .AppendLine("                {")
+                .AppendLine("                    throw new global::System.InvalidOperationException(\"Generated operation preset names must be unique.\");")
+                .AppendLine("                }")
+                .AppendLine("            }")
+                .AppendLine("            return presets;");
+        }
+
+        builder.AppendLine("        }");
+    }
+
     private static string GetSchemaHash(SchemaModel schema)
     {
         var canonical = new StringBuilder(1024);
@@ -842,6 +903,11 @@ internal static class Emitter
                 .Append(schema.KeyMember.Type.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat));
         }
 
+        canonical.Append('|');
+        foreach (IMethodSymbol method in schema.OperationPresetMethods)
+        {
+            canonical.Append("preset:").Append(method.Name).Append(';');
+        }
         canonical.Append('|');
         foreach (ColumnModel column in schema.Columns)
         {
@@ -2315,6 +2381,15 @@ internal static class Emitter
             .Append(" ?? throw new global::System.InvalidOperationException(")
             .Append(GeneratorUtilities.EscapeString("Generated controller '" + model.Name + "' has not been initialized."))
             .AppendLine(");")
+            .AppendLine()
+            .Append(prefix).Append("public global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedOperationDescriptor> ")
+            .Append(propertyName).Append("Descriptors => ").Append(propertyName).AppendLine(".Descriptors;")
+            .AppendLine()
+            .Append(prefix).Append("public global::Avalonia.Controls.DataGridGeneratedOperationCommandSet<").Append(itemType).Append("> ")
+            .Append(propertyName).Append("Commands => ").Append(propertyName).AppendLine(".Commands;")
+            .AppendLine()
+            .Append(prefix).Append("public global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridGeneratedOperationPreset> ")
+            .Append(propertyName).Append("Presets => ").Append(providerType).AppendLine(".OperationPresets;")
             .AppendLine()
             .Append(prefix).Append("public bool Is").Append(model.Name).Append("Initialized => ").Append(fieldName).AppendLine(" != null;")
             .AppendLine()

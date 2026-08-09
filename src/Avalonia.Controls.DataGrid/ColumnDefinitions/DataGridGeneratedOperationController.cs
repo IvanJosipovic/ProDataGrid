@@ -367,6 +367,8 @@ namespace Avalonia.Controls
             SortComparer = schema.CreateSortComparer(Array.Empty<SortingDescriptor>());
             FilterPredicate = schema.CreateFilterPredicate(Array.Empty<FilteringDescriptor>());
             SearchPredicate = schema.CreateSearchPredicate(Array.Empty<SearchDescriptor>());
+            Descriptors = Array.Empty<DataGridGeneratedOperationDescriptor>();
+            Commands = new DataGridGeneratedOperationCommandSet<TItem>(this);
 
             if (HasFeature(DataGridGeneratedFeatures.Sorting))
             {
@@ -416,6 +418,12 @@ namespace Avalonia.Controls
 
         /// <summary>Gets the latest compiled search predicate.</summary>
         public Func<TItem, bool> SearchPredicate { get; private set; }
+
+        /// <summary>Gets immutable chip-ready projections of all active descriptors.</summary>
+        public IReadOnlyList<DataGridGeneratedOperationDescriptor> Descriptors { get; private set; }
+
+        /// <summary>Gets reusable framework-neutral operation commands.</summary>
+        public DataGridGeneratedOperationCommandSet<TItem> Commands { get; }
 
         /// <summary>Gets the monotonic compiled-operation version.</summary>
         public long Version { get; private set; }
@@ -498,6 +506,24 @@ namespace Avalonia.Controls
             }
         }
 
+        /// <summary>Removes the exact descriptor represented by a generated projection.</summary>
+        public bool RemoveDescriptor(DataGridGeneratedOperationDescriptor descriptor)
+        {
+            ThrowIfDisposed();
+            ArgumentNullException.ThrowIfNull(descriptor);
+            switch (descriptor.Kind)
+            {
+                case DataGridGeneratedOperationDescriptorKind.Sorting:
+                    return RemoveSortingDescriptor(descriptor.Descriptor as SortingDescriptor);
+                case DataGridGeneratedOperationDescriptorKind.Filtering:
+                    return RemoveFilteringDescriptor(descriptor.Descriptor as FilteringDescriptor);
+                case DataGridGeneratedOperationDescriptorKind.Searching:
+                    return RemoveSearchDescriptor(descriptor.Descriptor as SearchDescriptor);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(descriptor));
+            }
+        }
+
         /// <summary>Defers model events and publishes one combined controller revision.</summary>
         public IDisposable DeferRefresh()
         {
@@ -566,6 +592,10 @@ namespace Avalonia.Controls
                 return;
             }
 
+            Descriptors = DataGridGeneratedOperationProjection.Create(
+                SortingModel.Descriptors,
+                FilteringModel.Descriptors,
+                SearchModel.Descriptors);
             Version++;
             OperationsChanged?.Invoke(this, new DataGridGeneratedOperationsChangedEventArgs(change, Version));
         }
@@ -598,7 +628,72 @@ namespace Avalonia.Controls
             }
         }
 
+        internal bool IsFeatureEnabled(DataGridGeneratedFeatures feature) => HasFeature(feature);
+
+        internal bool HasAnyOperationFeature => (Features & DataGridGeneratedFeatures.Operations) != 0;
+
+        internal bool CanRemoveDescriptor(DataGridGeneratedOperationDescriptor descriptor) =>
+            descriptor != null && descriptor.Kind switch
+            {
+                DataGridGeneratedOperationDescriptorKind.Sorting => HasFeature(DataGridGeneratedFeatures.Sorting),
+                DataGridGeneratedOperationDescriptorKind.Filtering => HasFeature(DataGridGeneratedFeatures.Filtering),
+                DataGridGeneratedOperationDescriptorKind.Searching => HasFeature(DataGridGeneratedFeatures.Searching),
+                _ => false
+            };
+
         private bool HasFeature(DataGridGeneratedFeatures feature) => (Features & feature) == feature;
+
+        private bool RemoveSortingDescriptor(SortingDescriptor descriptor)
+        {
+            if (descriptor == null || !HasFeature(DataGridGeneratedFeatures.Sorting)) return false;
+            SortingDescriptor[] remaining = RemoveFirst(SortingModel.Descriptors, descriptor);
+            if (remaining == null) return false;
+            SortingModel.Apply(remaining);
+            return true;
+        }
+
+        private bool RemoveFilteringDescriptor(FilteringDescriptor descriptor)
+        {
+            if (descriptor == null || !HasFeature(DataGridGeneratedFeatures.Filtering)) return false;
+            FilteringDescriptor[] remaining = RemoveFirst(FilteringModel.Descriptors, descriptor);
+            if (remaining == null) return false;
+            FilteringModel.Apply(remaining);
+            return true;
+        }
+
+        private bool RemoveSearchDescriptor(SearchDescriptor descriptor)
+        {
+            if (descriptor == null || !HasFeature(DataGridGeneratedFeatures.Searching)) return false;
+            SearchDescriptor[] remaining = RemoveFirst(SearchModel.Descriptors, descriptor);
+            if (remaining == null) return false;
+            SearchModel.Apply(remaining);
+            return true;
+        }
+
+        private static TDescriptor[] RemoveFirst<TDescriptor>(IReadOnlyList<TDescriptor> source, TDescriptor descriptor)
+            where TDescriptor : class
+        {
+            int removeIndex = -1;
+            for (int index = 0; index < source.Count; index++)
+            {
+                if (ReferenceEquals(source[index], descriptor) || EqualityComparer<TDescriptor>.Default.Equals(source[index], descriptor))
+                {
+                    removeIndex = index;
+                    break;
+                }
+            }
+
+            if (removeIndex < 0) return null;
+            var result = new TDescriptor[source.Count - 1];
+            for (int sourceIndex = 0, targetIndex = 0; sourceIndex < source.Count; sourceIndex++)
+            {
+                if (sourceIndex != removeIndex)
+                {
+                    result[targetIndex++] = source[sourceIndex];
+                }
+            }
+            return result;
+        }
 
         private void ThrowIfFeatureDisabled(DataGridGeneratedFeatures feature)
         {
