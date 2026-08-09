@@ -20,4 +20,18 @@ dotnet run -c Release --project tests/ProDataGrid.Hierarchy.Benchmarks -- \
   --profiler EP
 ```
 
+Run the binary-tree scaling lane to verify that doubling the expanded node count
+does not reintroduce superlinear work:
+
+```sh
+dotnet run -c Release --project tests/ProDataGrid.Hierarchy.Benchmarks -- \
+  --filter '*HierarchyExpansionScalingBenchmarks*' \
+  --job Short \
+  --allStats
+```
+
+The scaling cases contain 510, 1,022, 2,046, 4,094, 8,190, and 16,382 nodes.
+Retain the complete report so time and allocation ratios can be checked between
+adjacent doubling steps.
+
 Keep complete BenchmarkDotNet artifact directories with the environment, commit, dirty-state, and comparison report. Do not use a profiled run as timing evidence. The external source-linked comparison harness remains responsible for equivalent ProDataGrid/TreeDataGrid UI and native desktop workloads.

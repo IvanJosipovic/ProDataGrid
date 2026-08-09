@@ -71,6 +71,58 @@ public class HierarchyExpansionBenchmarks
     }
 }
 
+[MemoryDiagnoser(displayGenColumns: false)]
+[RankColumn]
+public class HierarchyExpansionScalingBenchmarks
+{
+    private IReadOnlyList<BenchmarkNode> _roots = null!;
+    private HierarchicalModel<BenchmarkNode> _model = null!;
+    private int _expectedCount;
+
+    [Params(8, 9, 10, 11, 12, 13)]
+    public int LevelCount { get; set; }
+
+    public int NodeCount => (2 * ((1 << LevelCount) - 1));
+
+    [GlobalSetup]
+    public void GlobalSetup()
+    {
+        _roots = BenchmarkTreeFactory.CreateBinary(LevelCount);
+        _expectedCount = NodeCount;
+
+        if (BenchmarkTreeFactory.CountNodes(_roots) != _expectedCount)
+        {
+            throw new InvalidOperationException("The generated scaling hierarchy has an unexpected node count.");
+        }
+    }
+
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        _model = new HierarchicalModel<BenchmarkNode>(new HierarchicalOptions<BenchmarkNode>
+        {
+            ChildrenSelector = static node => node.Children,
+            IsLeafSelector = static node => node.Children.Count == 0,
+            VirtualizeChildren = true,
+        });
+        _model.SetRoots(_roots);
+    }
+
+    [Benchmark]
+    public int ExpandAll()
+    {
+        _model.ExpandAll();
+        int count = _model.Count;
+        if (count != _expectedCount)
+        {
+            throw new InvalidOperationException(
+                $"Expanded row count mismatch: expected {_expectedCount}, got {count}.");
+        }
+
+        return count;
+    }
+}
+
 public enum AsyncExpansionStrategy
 {
     IncrementalInteractive,
@@ -216,6 +268,16 @@ public static class BenchmarkTreeFactory
         }
 
         return count;
+    }
+
+    public static IReadOnlyList<BenchmarkNode> CreateBinary(int levelCount)
+    {
+        if (levelCount <= 0 || levelCount >= 31)
+        {
+            throw new ArgumentOutOfRangeException(nameof(levelCount));
+        }
+
+        return BuildUniform(rootCount: 2, branching: 2, levelCount);
     }
 
     private static IReadOnlyList<BenchmarkNode> BuildWide(int rootCount, int branchCount, int leafCount)
