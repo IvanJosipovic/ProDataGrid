@@ -282,22 +282,30 @@ internal
         {
             if (cell is DataGridCustomDrawingCell drawingCell)
             {
-                drawingCell.Theme = CellTheme ?? GetThemeValue(_drawingCellTheme);
-                SyncProperties(drawingCell);
-                drawingCell.ClearValue(DataGridCustomDrawingCell.ValueProperty);
+                drawingCell.BeginDisplayConfiguration();
+                try
+                {
+                    drawingCell.Theme = CellTheme ?? GetThemeValue(_drawingCellTheme);
+                    SyncProperties(drawingCell);
+                    drawingCell.ClearValue(DataGridCustomDrawingCell.ValueProperty);
 
-                var accessor = DataGridColumnMetadata.GetValueAccessor(this);
-                if (CanUseDrawnValueAccessor(accessor, dataItem))
-                {
-                    drawingCell.ConfigureBuiltInRenderer(this, renderer: null);
-                }
-                else
-                {
-                    drawingCell.ConfigureBuiltInRenderer(valueProvider: null, renderer: null);
-                    if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+                    var accessor = DataGridColumnMetadata.GetValueAccessor(this);
+                    if (CanUseDrawnValueAccessor(accessor, dataItem))
                     {
-                        drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, CreateDisplayBinding(Binding));
+                        drawingCell.ConfigureBuiltInRenderer(this, renderer: null);
                     }
+                    else
+                    {
+                        drawingCell.ConfigureBuiltInRenderer(valueProvider: null, renderer: null);
+                        if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+                        {
+                            drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, CreateDisplayBinding(Binding));
+                        }
+                    }
+                }
+                finally
+                {
+                    drawingCell.EndDisplayConfiguration();
                 }
 
                 return null;

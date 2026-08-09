@@ -366,21 +366,28 @@ internal
             }
 
             EnsureInvalidationSourceSubscription();
-            drawingCell.UseDrawingTemplate();
-            drawingCell.Theme = CellCustomDrawingTheme;
-            SyncDisplayProperties(drawingCell);
-            drawingCell.ClearValue(DataGridCustomDrawingCell.ValueProperty);
-            if (CanUseDirectValueAccessor(dataItem))
+            drawingCell.BeginDisplayConfiguration();
+            try
             {
-                drawingCell.ConfigureBuiltInRenderer(this, renderer: null);
-            }
-            else
-            {
-                drawingCell.ConfigureBuiltInRenderer(valueProvider: null, renderer: null);
-                if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+                drawingCell.Theme = CellCustomDrawingTheme;
+                SyncDisplayProperties(drawingCell);
+                drawingCell.ClearValue(DataGridCustomDrawingCell.ValueProperty);
+                if (CanUseDirectValueAccessor(dataItem))
                 {
-                    drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, Binding);
+                    drawingCell.ConfigureBuiltInRenderer(this, renderer: null);
                 }
+                else
+                {
+                    drawingCell.ConfigureBuiltInRenderer(valueProvider: null, renderer: null);
+                    if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+                    {
+                        drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, Binding);
+                    }
+                }
+            }
+            finally
+            {
+                drawingCell.EndDisplayConfiguration();
             }
 
             return null;
@@ -623,26 +630,29 @@ internal
 
         private void SyncDisplayProperties(AvaloniaObject content)
         {
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontFamilyProperty, FontFamilyProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontSizeProperty, FontSizeProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStyleProperty, FontStyleProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontWeightProperty, FontWeightProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStretchProperty, FontStretchProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.ForegroundProperty, ForegroundProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextAlignmentProperty, TextAlignmentProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextTrimmingProperty, TextTrimmingProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationFactoryProperty, DrawOperationFactoryProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawingModeProperty, DrawingModeProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderBackendProperty, RenderBackendProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextLayoutCacheModeProperty, TextLayoutCacheModeProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.SharedTextLayoutCacheCapacityProperty, SharedTextLayoutCacheCapacityProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationLayoutFastPathProperty, DrawOperationLayoutFastPathProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderInvalidationTokenProperty, RenderInvalidationTokenProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.LayoutInvalidationTokenProperty, LayoutInvalidationTokenProperty);
+            var clearUnsetValues = content is not DataGridCustomDrawingCell drawingCell ||
+                                   drawingCell.DisplayPropertiesInitialized;
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontFamilyProperty, FontFamilyProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontSizeProperty, FontSizeProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStyleProperty, FontStyleProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontWeightProperty, FontWeightProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStretchProperty, FontStretchProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.ForegroundProperty, ForegroundProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextAlignmentProperty, TextAlignmentProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextTrimmingProperty, TextTrimmingProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationFactoryProperty, DrawOperationFactoryProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawingModeProperty, DrawingModeProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderBackendProperty, RenderBackendProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextLayoutCacheModeProperty, TextLayoutCacheModeProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.SharedTextLayoutCacheCapacityProperty, SharedTextLayoutCacheCapacityProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationLayoutFastPathProperty, DrawOperationLayoutFastPathProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderInvalidationTokenProperty, RenderInvalidationTokenProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.LayoutInvalidationTokenProperty, LayoutInvalidationTokenProperty, clearUnsetValues);
 
-            if (content is DataGridCustomDrawingCell drawingCell)
+            if (content is DataGridCustomDrawingCell initializedCell)
             {
-                drawingCell.SharedTextLayoutCache = _sharedTextLayoutCache;
+                initializedCell.DisplayPropertiesInitialized = true;
+                initializedCell.SharedTextLayoutCache = _sharedTextLayoutCache;
             }
         }
 

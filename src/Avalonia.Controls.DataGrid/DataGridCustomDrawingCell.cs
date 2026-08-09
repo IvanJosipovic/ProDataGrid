@@ -46,6 +46,10 @@ namespace Avalonia.Controls
         private IBrush _cachedBorderBrush;
         private double _cachedBorderThickness;
         private Pen _cachedBorderPen;
+        private int _configurationDepth;
+        private bool _configurationDirty;
+
+        internal bool DisplayPropertiesInitialized { get; set; }
 
         public static readonly DirectProperty<DataGridCustomDrawingCell, object> ValueProperty =
             AvaloniaProperty.RegisterDirect<DataGridCustomDrawingCell, object>(
@@ -268,12 +272,52 @@ namespace Avalonia.Controls
                 }
 
                 _sharedTextLayoutCache = value;
-                ApplySharedCacheCapacity();
-                InvalidateTextLayout();
+                if (_configurationDepth > 0)
+                {
+                    _configurationDirty = true;
+                }
+                else
+                {
+                    ApplySharedCacheCapacity();
+                    InvalidateTextLayout();
+                }
             }
         }
 
         internal IDataGridBuiltInCellRenderer BuiltInRendererForTesting => _builtInRenderer;
+
+        internal void BeginDisplayConfiguration()
+        {
+            _configurationDepth++;
+        }
+
+        internal void EndDisplayConfiguration()
+        {
+            if (_configurationDepth == 0 || --_configurationDepth != 0 || !_configurationDirty)
+            {
+                return;
+            }
+
+            _configurationDirty = false;
+            _cachedBorderBrush = null;
+            _cachedBorderPen = null;
+            _cachedBorderThickness = 0d;
+            InvalidateResolvedTypeface();
+            ApplySharedCacheCapacity();
+            InvalidateTextLayout();
+            InvalidateMeasure();
+            InvalidateVisual();
+
+            if (ShouldUseCompositionDrawOperationBackend)
+            {
+                _compositionHostUnavailable = false;
+                EnsureCompositionVisualHost();
+            }
+            else
+            {
+                TearDownCompositionVisualHost();
+            }
+        }
 
         internal void UseDrawingTemplate()
         {
@@ -294,8 +338,15 @@ namespace Avalonia.Controls
             _builtInRenderer = renderer;
             UseDrawingTemplate();
             UpdateValueProviderSubscription();
-            InvalidateMeasure();
-            InvalidateVisual();
+            if (_configurationDepth > 0)
+            {
+                _configurationDirty = true;
+            }
+            else
+            {
+                InvalidateMeasure();
+                InvalidateVisual();
+            }
         }
 
         internal void ClearBuiltInRenderer()
@@ -443,6 +494,12 @@ namespace Avalonia.Controls
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
+
+            if (_configurationDepth > 0)
+            {
+                _configurationDirty = true;
+                return;
+            }
 
             if (change.Property == FontFamilyProperty ||
                 change.Property == FontStyleProperty ||
