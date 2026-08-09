@@ -329,13 +329,17 @@ namespace Avalonia.Controls
                 return default;
             }
 
-            EnsureFormattedText(availableSize, text);
+            var contentAvailableSize = DeflateSize(availableSize, Padding);
+            EnsureFormattedText(contentAvailableSize, text);
             if (_formattedText is null)
             {
                 return default;
             }
 
-            return new Size(_formattedText.Width, _formattedText.Height);
+            return InflateSize(
+                new Size(_formattedText.Width, _formattedText.Height),
+                Padding,
+                availableSize);
         }
 
         protected override Size ArrangeOverride(Size finalSize)
@@ -383,11 +387,12 @@ namespace Avalonia.Controls
 
             if (shouldDrawText && !string.IsNullOrEmpty(text))
             {
-                EnsureFormattedText(Bounds.Size, text);
+                var contentBounds = DeflateRect(new Rect(Bounds.Size), Padding);
+                EnsureFormattedText(contentBounds.Size, text);
                 if (_formattedText != null)
                 {
-                    var y = Math.Max(0, (Bounds.Height - _formattedText.Height) * 0.5);
-                    context.DrawText(_formattedText, new Point(0, y));
+                    var y = contentBounds.Y + Math.Max(0, (contentBounds.Height - _formattedText.Height) * 0.5);
+                    context.DrawText(_formattedText, new Point(contentBounds.X, y));
                 }
             }
 
@@ -544,6 +549,31 @@ namespace Avalonia.Controls
                     inset,
                     Math.Max(0d, bounds.Width - thickness),
                     Math.Max(0d, bounds.Height - thickness)));
+        }
+
+        private static Size DeflateSize(Size size, Thickness padding)
+        {
+            return new Size(
+                Math.Max(0d, size.Width - padding.Left - padding.Right),
+                Math.Max(0d, size.Height - padding.Top - padding.Bottom));
+        }
+
+        private static Size InflateSize(Size size, Thickness padding, Size availableSize)
+        {
+            var width = size.Width + padding.Left + padding.Right;
+            var height = size.Height + padding.Top + padding.Bottom;
+            return new Size(
+                double.IsPositiveInfinity(availableSize.Width) ? width : Math.Min(width, availableSize.Width),
+                double.IsPositiveInfinity(availableSize.Height) ? height : Math.Min(height, availableSize.Height));
+        }
+
+        private static Rect DeflateRect(Rect rect, Thickness padding)
+        {
+            return new Rect(
+                padding.Left,
+                padding.Top,
+                Math.Max(0d, rect.Width - padding.Left - padding.Right),
+                Math.Max(0d, rect.Height - padding.Top - padding.Bottom));
         }
 
         private bool TrySendCompositionDrawOperation(ICustomDrawOperation drawOperation)
