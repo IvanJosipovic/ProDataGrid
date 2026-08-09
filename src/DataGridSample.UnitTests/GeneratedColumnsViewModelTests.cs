@@ -304,6 +304,7 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(18, viewModel.Items.Count);
         Assert.Equal(18, viewModel.CacheItemCount);
         Assert.Equal(1, viewModel.BatchCount);
+        Assert.True(viewModel.PipelineTransformBatchCount > 0);
         Assert.Equal(0, viewModel.ErrorCount);
 
         GeneratedTrade original = viewModel.Items.Single(static trade => trade.Id == 8);
@@ -314,6 +315,7 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.NotSame(original, replacement);
         Assert.Equal(999m, replacement.Price);
         Assert.Equal(1, viewModel.ReplacementCount);
+        Assert.True(viewModel.PipelineTransformBatchCount > 1);
         Assert.Equal(8, viewModel.SelectedKey);
         Assert.Equal(999m, viewModel.SelectedPrice);
         Assert.Same(replacement, viewModel.SelectionModel.SelectedItem);

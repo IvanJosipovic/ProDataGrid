@@ -2748,23 +2748,33 @@ internal static class Emitter
                 .Append(prefix).AppendLine("        UseReplaceForUpdates = true,")
                 .Append(prefix).AppendLine("        Scheduler = scheduler")
                 .Append(prefix).AppendLine("    };")
-                .Append(prefix).Append("    var subscription = ").Append(sourceMember).AppendLine(".Connect()")
-                .Append(prefix).Append("        .Filter(").Append(filterField).AppendLine(")")
+                .Append(prefix).Append("    var changes = ").Append(sourceMember).AppendLine(".Connect();");
+            if (!string.IsNullOrEmpty(model.PipelineTransformMethod))
+            {
+                builder.Append(prefix).Append("    changes = ")
+                    .Append(GeneratorUtilities.EscapeIdentifier(model.PipelineTransformMethod!)).AppendLine("(changes);");
+            }
+            builder.Append(prefix).Append("    var subscription = changes.Filter(").Append(filterField).AppendLine(")")
                 .Append(prefix).Append("        .Filter(").Append(searchField).AppendLine(")")
                 .Append(prefix).Append("        .SortAndBind(out global::System.Collections.ObjectModel.ReadOnlyObservableCollection<")
                 .Append(itemType).Append("> items, ").Append(sortField).AppendLine(", options);");
         }
         else
         {
-            builder.Append(prefix).Append("    var changes = ").Append(sourceMember).AppendLine(".Connect()")
-                .Append(prefix).Append("        .Filter(").Append(filterField).AppendLine(")")
+            builder.Append(prefix).Append("    var changes = ").Append(sourceMember).AppendLine(".Connect();");
+            if (!string.IsNullOrEmpty(model.PipelineTransformMethod))
+            {
+                builder.Append(prefix).Append("    changes = ")
+                    .Append(GeneratorUtilities.EscapeIdentifier(model.PipelineTransformMethod!)).AppendLine("(changes);");
+            }
+            builder.Append(prefix).Append("    var filteredChanges = changes.Filter(").Append(filterField).AppendLine(")")
                 .Append(prefix).Append("        .Filter(").Append(searchField).AppendLine(")")
                 .Append(prefix).Append("        .Sort(").Append(sortField).AppendLine(");")
                 .Append(prefix).AppendLine("    if (scheduler != null)")
                 .Append(prefix).AppendLine("    {")
-                .Append(prefix).AppendLine("        changes = changes.ObserveOn(scheduler);")
+                .Append(prefix).AppendLine("        filteredChanges = filteredChanges.ObserveOn(scheduler);")
                 .Append(prefix).AppendLine("    }")
-                .Append(prefix).Append("    var subscription = changes.Bind(out global::System.Collections.ObjectModel.ReadOnlyObservableCollection<")
+                .Append(prefix).Append("    var subscription = filteredChanges.Bind(out global::System.Collections.ObjectModel.ReadOnlyObservableCollection<")
                 .Append(itemType).AppendLine("> items, new global::DynamicData.Binding.BindingOptions(")
                 .Append(prefix).AppendLine("        global::DynamicData.Binding.BindingOptions.DefaultResetThreshold,")
                 .Append(prefix).AppendLine("        true,")

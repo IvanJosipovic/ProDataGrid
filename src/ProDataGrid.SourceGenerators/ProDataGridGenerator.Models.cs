@@ -721,6 +721,8 @@ internal sealed class ControllerModel
 
     public string? ConfigureMethod { get; set; }
 
+    public string? PipelineTransformMethod { get; set; }
+
     public bool IsDirectIncremental { get; set; }
 
     public Location Location { get; set; } = Location.None;

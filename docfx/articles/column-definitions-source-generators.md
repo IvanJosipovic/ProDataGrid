@@ -247,6 +247,7 @@ For a named, ViewModel-owned controller, use `GenerateDataGridController`. Multi
     typeof(Trade),
     "Trades",
     SourceMember = nameof(_source),
+    PipelineTransformMethod = nameof(TransformTrades),
     SourceKind = DataGridGeneratedSourceKind.DynamicDataSourceCache,
     OperationExecution = DataGridOperationExecution.ExternalPipeline,
     Features = DataGridGeneratedFeatures.Columns |
@@ -266,6 +267,10 @@ public sealed partial class TradesViewModel : ReactiveObject, IDisposable
 
     public ReadOnlyObservableCollection<Trade> Items { get; }
 
+    private IObservable<IChangeSet<Trade, int>> TransformTrades(
+        IObservable<IChangeSet<Trade, int>> changes) =>
+        changes.Do(_ => SourceBatchCount++);
+
     public void Dispose()
     {
         DisposeTrades();
@@ -274,7 +279,7 @@ public sealed partial class TradesViewModel : ReactiveObject, IDisposable
 }
 ```
 
-The generated group contains `Trades`, `InitializeTrades`, `CreateTradesController`, and `DisposeTrades`. A DynamicData source additionally gets a one-owner `ConnectTradesPipeline`/`DisconnectTradesPipeline` pair plus `TradesErrors` and `TradesCompletion`. The generated pipeline applies compiled predicates/comparers upstream, uses `UseReplaceForUpdates`, and performs the optional scheduler hop at the final binding boundary.
+The generated group contains `Trades`, `InitializeTrades`, `CreateTradesController`, and `DisposeTrades`. A DynamicData source additionally gets a one-owner `ConnectTradesPipeline`/`DisconnectTradesPipeline` pair plus `TradesErrors` and `TradesCompletion`. The generated pipeline applies compiled predicates/comparers upstream, uses `UseReplaceForUpdates`, and performs the optional scheduler hop at the final binding boundary. `PipelineTransformMethod` is optional; when supplied it must accept and return the exact typed `IObservable<IChangeSet<TItem>>` or `IObservable<IChangeSet<TItem,TKey>>` shape. It runs once between `Connect()` and generated filtering, can be private/static/instance, and supports domain transforms, grouping side projections, telemetry, or incremental summary taps without reflection or an untyped escape hatch.
 
 Local controllers can apply a reusable sort/filter/search preset as one revision while retaining compile-time field types:
 
@@ -942,7 +947,7 @@ The runtime definition surfaces are additive: `ContentBinding`, state-specific c
 
 ## DynamicData, async streams, and snapshot reconciliation
 
-The low-level schema compilers remain available for custom pipelines, but named controllers generate the standard `SourceList<T>` and `SourceCache<T,TKey>` pipeline, descriptor subjects, operation propagation, final scheduler boundary, errors, completion, and disposal automatically. `SourceCache` generation requires its key type to match `[DataGridKey]` or `KeyMember`, and generated external pipelines reject view-owned operation execution at compile time.
+The low-level schema compilers remain available for custom pipelines, but named controllers generate the standard `SourceList<T>` and `SourceCache<T,TKey>` pipeline, descriptor subjects, operation propagation, optional exact-shape typed transform, final scheduler boundary, errors, completion, and disposal automatically. `SourceCache` generation requires its key type to match `[DataGridKey]` or `KeyMember`, and generated external pipelines reject view-owned operation execution at compile time. An invalid transform signature reports `PDGSG004`.
 
 `DataGridSample.Pages.GeneratedDynamicDataSourceListPage` demonstrates the `SourceList<T>` shape end to end: batched edits enter one generated pipeline, sort/filter/search predicates are replaced upstream through the named controller, errors are observable, and the generated ReactiveUI view receives the bound read-only collection. The sample exposes deterministic published-item, batch, and error counters and verifies the complete lifetime in ViewModel and Avalonia Headless tests.
 

@@ -247,6 +247,7 @@ public sealed partial class ProDataGridGenerator
                 public bool UseReferenceIdentityKey { get; set; }
                 public Type? ImplementationType { get; set; }
                 public string? ConfigureMethod { get; set; }
+                public string? PipelineTransformMethod { get; set; }
                 public bool Strict { get; set; } = true;
                 public bool Streaming { get; set; }
             }

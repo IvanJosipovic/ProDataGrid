@@ -3909,11 +3909,14 @@ public sealed class ProDataGridGeneratorTests
                     typeof(Row),
                     "Rows",
                     SourceMember = nameof(Source),
+                    PipelineTransformMethod = nameof(TransformRows),
                     SourceKind = DataGridGeneratedSourceKind.DynamicDataSourceCache,
                     OperationExecution = DataGridOperationExecution.ExternalPipeline)]
                 public sealed partial class RowsViewModel
                 {
                     private readonly global::DynamicData.SourceCache<Row, int> Source = new(static row => row.Id);
+                    private global::System.IObservable<global::DynamicData.IChangeSet<Row, int>> TransformRows(
+                        global::System.IObservable<global::DynamicData.IChangeSet<Row, int>> changes) => changes;
                 }
             }
             """);
@@ -3922,6 +3925,7 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("ConnectRowsPipeline", result.CombinedSource);
         Assert.Contains("SortAndBind", result.CombinedSource);
         Assert.Contains("UseReplaceForUpdates = true", result.CombinedSource);
+        Assert.Contains("changes = TransformRows(changes)", result.CombinedSource);
         Assert.Contains("RowsErrors", result.CombinedSource);
         Assert.Contains("DisconnectRowsPipeline", result.CombinedSource);
     }
@@ -3964,18 +3968,47 @@ public sealed class ProDataGridGeneratorTests
                     typeof(Row),
                     "Rows",
                     SourceMember = nameof(Source),
+                    PipelineTransformMethod = nameof(TransformRows),
                     SourceKind = DataGridGeneratedSourceKind.DynamicDataSourceList,
                     OperationExecution = DataGridOperationExecution.ExternalPipeline)]
                 public sealed partial class RowsViewModel
                 {
                     private readonly global::DynamicData.SourceList<Row> Source = new();
+                    private static global::System.IObservable<global::DynamicData.IChangeSet<Row>> TransformRows(
+                        global::System.IObservable<global::DynamicData.IChangeSet<Row>> changes) => changes;
                 }
             }
             """);
 
         AssertNoErrors(result);
-        Assert.Contains("changes.ObserveOn(scheduler)", result.CombinedSource);
+        Assert.Contains("changes = TransformRows(changes)", result.CombinedSource);
+        Assert.Contains("filteredChanges.ObserveOn(scheduler)", result.CombinedSource);
         Assert.Contains("ReadOnlyObservableCollection<global::Demo.Row> items", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Dynamic_data_pipeline_transform_requires_exact_change_set_shape()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; init; } }
+            [GenerateDataGridController(
+                typeof(Row),
+                "Rows",
+                SourceMember = nameof(Source),
+                PipelineTransformMethod = nameof(TransformRows),
+                SourceKind = DataGridGeneratedSourceKind.DynamicDataSourceList,
+                OperationExecution = DataGridOperationExecution.ExternalPipeline)]
+            public sealed partial class RowsViewModel
+            {
+                private readonly global::DynamicData.SourceList<Row> Source = new();
+                private static int TransformRows(int value) => value;
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG004");
     }
 
     [Fact]

@@ -1278,6 +1278,24 @@ internal static partial class Discovery
                     continue;
                 }
 
+                ITypeSymbol? sourceKeyType = GetSourceCacheKeyType(sourceSymbol, sourceKind);
+                string? pipelineTransformMethod = GeneratorUtilities.GetString(arguments, "PipelineTransformMethod");
+                if (!string.IsNullOrEmpty(pipelineTransformMethod) &&
+                    !HasDynamicDataPipelineTransformMethod(
+                        viewModelType,
+                        itemType,
+                        sourceKeyType,
+                        sourceKind,
+                        pipelineTransformMethod!))
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidCustomizationMethod,
+                        GetLocation(attribute),
+                        pipelineTransformMethod,
+                        viewModelType.ToDisplayString()));
+                    continue;
+                }
+
                 bool canGenerate = ValidateGeneratedMember(viewModelType, name, diagnostics, GetLocation(attribute));
                 canGenerate &= ValidateGeneratedMember(viewModelType, name + "Descriptors", diagnostics, GetLocation(attribute));
                 canGenerate &= ValidateGeneratedMember(viewModelType, name + "Commands", diagnostics, GetLocation(attribute));
@@ -1319,12 +1337,13 @@ internal static partial class Discovery
                     Schema = schema,
                     Name = name,
                     SourceMember = sourceMember,
-                    SourceKeyType = GetSourceCacheKeyType(sourceSymbol, sourceKind),
+                    SourceKeyType = sourceKeyType,
                     SourceKind = sourceKind,
                     Features = GetEnumValue(arguments, "Features", 15),
                     OperationExecution = operationExecution,
                     ImplementationType = implementationType,
                     ConfigureMethod = configureMethod,
+                    PipelineTransformMethod = pipelineTransformMethod,
                     IsDirectIncremental = enableDirectIncremental,
                     Location = GetLocation(attribute)
                 });
@@ -3581,6 +3600,48 @@ internal static partial class Discovery
             }
 
             return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasDynamicDataPipelineTransformMethod(
+        INamedTypeSymbol viewModelType,
+        INamedTypeSymbol itemType,
+        ITypeSymbol? keyType,
+        int sourceKind,
+        string name)
+    {
+        if (sourceKind is not 2 and not 3)
+        {
+            return false;
+        }
+
+        foreach (IMethodSymbol method in viewModelType.GetMembers(name).OfType<IMethodSymbol>())
+        {
+            if (method.Parameters.Length != 1 || method.Parameters[0].RefKind != RefKind.None ||
+                !SymbolEqualityComparer.Default.Equals(method.ReturnType, method.Parameters[0].Type) ||
+                method.Parameters[0].Type is not INamedTypeSymbol observable ||
+                !IsMetadataType(observable.OriginalDefinition, "System.IObservable`1") ||
+                observable.TypeArguments.Length != 1 ||
+                observable.TypeArguments[0] is not INamedTypeSymbol changeSet)
+            {
+                continue;
+            }
+
+            string expectedChangeSet = sourceKind == 2 ? "DynamicData.IChangeSet`1" : "DynamicData.IChangeSet`2";
+            if (!IsMetadataType(changeSet.OriginalDefinition, expectedChangeSet) ||
+                changeSet.TypeArguments.Length != (sourceKind == 2 ? 1 : 2) ||
+                !SymbolEqualityComparer.Default.Equals(changeSet.TypeArguments[0], itemType))
+            {
+                continue;
+            }
+
+            if (sourceKind == 2 ||
+                (keyType != null && SymbolEqualityComparer.Default.Equals(changeSet.TypeArguments[1], keyType)))
+            {
+                return true;
+            }
         }
 
         return false;

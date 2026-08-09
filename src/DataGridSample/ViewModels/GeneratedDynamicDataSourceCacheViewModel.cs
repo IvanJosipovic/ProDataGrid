@@ -26,6 +26,7 @@ namespace DataGridSample.ViewModels;
     "KeyedRows",
     ProviderName = "GeneratedTradeSchema",
     SourceMember = nameof(_source),
+    PipelineTransformMethod = nameof(ObserveKeyedRowsPipeline),
     SourceKind = DataGridGeneratedSourceKind.DynamicDataSourceCache,
     Features = DataGridGeneratedFeatures.Columns |
                DataGridGeneratedFeatures.Sorting |
@@ -76,6 +77,9 @@ public sealed partial class GeneratedDynamicDataSourceCacheViewModel : ReactiveO
 
     [Reactive]
     private int _replacementCount;
+
+    [Reactive]
+    private int _pipelineTransformBatchCount;
 
     [Reactive]
     private int _errorCount;
@@ -148,6 +152,10 @@ public sealed partial class GeneratedDynamicDataSourceCacheViewModel : ReactiveO
     public ReactiveCommand<RxVoid, RxVoid> ApplyLondonFilterCommand { get; }
 
     public ReactiveCommand<RxVoid, RxVoid> ClearOperationsCommand { get; }
+
+    private IObservable<IChangeSet<GeneratedTrade, int>> ObserveKeyedRowsPipeline(
+        IObservable<IChangeSet<GeneratedTrade, int>> changes) =>
+        changes.Do(_ => PipelineTransformBatchCount++);
 
     public void Dispose()
     {
