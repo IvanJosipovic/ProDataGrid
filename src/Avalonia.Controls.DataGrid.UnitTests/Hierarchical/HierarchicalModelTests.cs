@@ -1544,6 +1544,25 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public void BuildIndexMap_MapsOrderedRetainedNodesAcrossInsertions()
+    {
+        var retainedA = (HierarchicalNode)RuntimeHelpers.GetUninitializedObject(typeof(HierarchicalNode));
+        var retainedB = (HierarchicalNode)RuntimeHelpers.GetUninitializedObject(typeof(HierarchicalNode));
+        var insertedA = (HierarchicalNode)RuntimeHelpers.GetUninitializedObject(typeof(HierarchicalNode));
+        var insertedB = (HierarchicalNode)RuntimeHelpers.GetUninitializedObject(typeof(HierarchicalNode));
+
+        var map = HierarchicalModel.BuildIndexMap(
+            new[] { retainedA, retainedB },
+            oldStartIndex: 4,
+            new[] { retainedA, insertedA, insertedB, retainedB },
+            newStartIndex: 7);
+
+        Assert.NotNull(map);
+        Assert.Equal(7, map![4]);
+        Assert.Equal(10, map[5]);
+    }
+
+    [Fact]
     public void ExpandAll_PublishesFinalFlattenedStateBeforeExpandedStateEvents()
     {
         var root = new Item("root");

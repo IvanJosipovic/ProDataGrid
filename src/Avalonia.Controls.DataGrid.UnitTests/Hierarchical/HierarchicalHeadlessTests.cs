@@ -25,6 +25,7 @@ using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Data.Core;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -716,6 +717,67 @@ public class HierarchicalHeadlessTests
     }
 
     [AvaloniaFact]
+    public void Direct_Hierarchical_Definition_Cell_Populates_Typed_Value_After_Realization()
+    {
+        using IDisposable themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var rootItem = new Item("root");
+        rootItem.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+        });
+        model.SetRoot(rootItem);
+        model.ExpandAll();
+
+        var property = new ClrPropertyInfo(
+            "Item.Name",
+            target => ((Item)((HierarchicalNode)target).Item).Name,
+            null,
+            typeof(string));
+        var definition = DataGridColumnDefinitionBuilder.For<HierarchicalNode>().Hierarchical(
+            "Name",
+            property,
+            node => ((Item)node.Item).Name,
+            configure: value =>
+            {
+                value.UseDirectCell = true;
+                value.UseDirectTextContent = true;
+                value.TrackDirectTextValueChanges = false;
+            });
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            ItemsSource = model.Flattened,
+            ColumnDefinitionsSource = new DataGridColumnDefinition[] { definition },
+        };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 180,
+            Content = grid,
+        };
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
+        window.Show();
+        PumpLayout(grid);
+
+        try
+        {
+            DataGridRow row = Assert.IsType<DataGridRow>(
+                grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+            DataGridDirectHierarchicalCell cell = Assert.IsType<DataGridDirectHierarchicalCell>(row.Cells[0]);
+
+            Assert.Equal("root", cell.Value);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Direct_Hierarchical_Lean_Expander_Pointer_And_Keyboard_Toggle_Without_Selecting()
     {
         using IDisposable themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
@@ -762,6 +824,7 @@ public class HierarchicalHeadlessTests
             grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
         DataGridDirectHierarchicalCell cell = Assert.IsType<DataGridDirectHierarchicalCell>(row.Cells[0]);
         cell.ApplyTemplate();
+        Assert.Equal("root", cell.Value);
         Assert.Empty(cell.GetVisualDescendants().OfType<ToggleButton>());
         TextBlock text = Assert.Single(cell.GetVisualDescendants().OfType<TextBlock>());
         Assert.True(text.Bounds.X >= 28);

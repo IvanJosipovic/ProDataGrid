@@ -4126,6 +4126,21 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return null;
             }
 
+            // Expansion normally preserves every previously visible node in the same order and
+            // only inserts newly visible descendants between them. Handle that dominant case in
+            // one linear reference-identity pass. Besides avoiding the general-purpose identity
+            // and item-equality dictionaries, this guarantees that an inserted equal item cannot
+            // steal a retained node's mapping.
+            var orderedIdentityMap = TryBuildOrderedIdentityMap(
+                oldNodes,
+                oldStartIndex,
+                newNodes,
+                newStartIndex);
+            if (orderedIdentityMap != null)
+            {
+                return orderedIdentityMap;
+            }
+
             var matchedOld = new bool[oldNodes.Count];
             var matchedNew = new bool[newNodes.Count];
             var map = new Dictionary<int, int>(Math.Min(oldNodes.Count, newNodes.Count));
@@ -4172,6 +4187,32 @@ namespace Avalonia.Controls.DataGridHierarchical
                 EqualityComparer<object>.Default);
 
             return map.Count > 0 ? map : null;
+        }
+
+        private static IReadOnlyDictionary<int, int>? TryBuildOrderedIdentityMap(
+            IList<HierarchicalNode> oldNodes,
+            int oldStartIndex,
+            IList<HierarchicalNode> newNodes,
+            int newStartIndex)
+        {
+            var map = new Dictionary<int, int>(oldNodes.Count);
+            var oldIndex = 0;
+            for (int newIndex = 0; newIndex < newNodes.Count; newIndex++)
+            {
+                if (!ReferenceEquals(oldNodes[oldIndex], newNodes[newIndex]))
+                {
+                    continue;
+                }
+
+                map.Add(oldStartIndex + oldIndex, newStartIndex + newIndex);
+                oldIndex++;
+                if (oldIndex == oldNodes.Count)
+                {
+                    return map;
+                }
+            }
+
+            return null;
         }
 
         private static void MatchUnmappedItems(
