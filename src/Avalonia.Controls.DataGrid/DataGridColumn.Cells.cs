@@ -31,6 +31,18 @@ namespace Avalonia.Controls
         private static readonly AttachedProperty<bool> CellForegroundBindingAppliedProperty =
             AvaloniaProperty.RegisterAttached<DataGridColumn, DataGridCell, bool>("CellForegroundBindingApplied");
 
+        internal virtual DataGridCell CreateCell()
+        {
+            return new DataGridCell();
+        }
+
+        internal virtual bool CanReuseCellContentOnDataContextChange => false;
+
+        internal virtual ControlTheme ResolveCellTheme(DataGrid grid)
+        {
+            return CellTheme ?? grid?.CellTheme;
+        }
+
         /// <summary>
         /// Gets the value of a cell according to the specified binding.
         /// </summary>
@@ -64,7 +76,12 @@ namespace Avalonia.Controls
                 DataGridCell dataGridCell = dataGridRow.Cells[Index];
                 if (dataGridCell != null)
                 {
-                    return dataGridCell.Content as Control;
+                    return dataGridCell.Content as Control ??
+                           (dataGridCell is DataGridDirectTextCell or
+                            DataGridCustomDrawingCell or
+                            DataGridDirectHierarchicalCell
+                               ? dataGridCell
+                               : null);
                 }
             }
             return null;

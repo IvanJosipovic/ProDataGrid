@@ -32,6 +32,8 @@ namespace Avalonia.Controls
         private DataGridCustomDrawingTextLayoutCacheMode? _textLayoutCacheMode;
         private int? _sharedTextLayoutCacheCapacity;
         private bool? _drawOperationLayoutFastPath;
+        private bool _useDirectValueAccessor;
+        private bool _trackDirectValueChanges = true;
 
         public FontFamily FontFamily
         {
@@ -121,6 +123,24 @@ namespace Avalonia.Controls
             set => SetProperty(ref _drawOperationLayoutFastPath, value);
         }
 
+        /// <summary>
+        /// Gets or sets whether generated cells use compatible typed value-accessor metadata directly.
+        /// </summary>
+        public bool UseDirectValueAccessor
+        {
+            get => _useDirectValueAccessor;
+            set => SetProperty(ref _useDirectValueAccessor, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether direct-accessor cells subscribe to row-item property changes.
+        /// </summary>
+        public bool TrackDirectValueChanges
+        {
+            get => _trackDirectValueChanges;
+            set => SetProperty(ref _trackDirectValueChanges, value);
+        }
+
         protected override DataGridColumn CreateColumnCore()
         {
             return new DataGridCustomDrawingColumn();
@@ -134,6 +154,9 @@ namespace Avalonia.Controls
             {
                 return;
             }
+
+            drawingColumn.UseDirectValueAccessor = UseDirectValueAccessor;
+            drawingColumn.TrackDirectValueChanges = TrackDirectValueChanges;
 
             if (FontFamily != null)
             {
@@ -279,6 +302,12 @@ namespace Avalonia.Controls
 
             switch (propertyName)
             {
+                case nameof(UseDirectValueAccessor):
+                    drawingColumn.UseDirectValueAccessor = UseDirectValueAccessor;
+                    return true;
+                case nameof(TrackDirectValueChanges):
+                    drawingColumn.TrackDirectValueChanges = TrackDirectValueChanges;
+                    return true;
                 case nameof(FontFamily):
                     if (FontFamily != null)
                     {

@@ -80,7 +80,7 @@ new DataGridTextColumnDefinition
 
 ## Filter Status Icon
 
-When a column is filtered and the filter button is hidden, the header now shows a filter status icon. This is driven by the header template and the `:filtered` pseudo class, so it stays consistent across themes and re-templating.
+When a column is filtered and the filter button is hidden, the header shows a filter status icon. This is driven by the header template and the `:filtered` pseudo class, so it stays consistent across themes and re-templating.
 
 ## Sample
 

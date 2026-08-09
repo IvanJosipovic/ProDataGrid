@@ -2,26 +2,35 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
+using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Utils;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 
 namespace Avalonia.Controls
 {
     /// <summary>
     /// Presenter used by <see cref="DataGridHierarchicalColumn"/> to render an expander with indent.
     /// </summary>
-    #if !DATAGRID_INTERNAL
+#if !DATAGRID_INTERNAL
     public
-    #else
+#else
     internal
-    #endif
+#endif
     class DataGridHierarchicalPresenter : ContentControl
     {
         private const string PartExpander = "PART_Expander";
         private ToggleButton? _expander;
+        private DataGridHierarchicalColumn? _directColumn;
+        private HierarchicalNode? _node;
+        private INotifyPropertyChanged? _itemNotifier;
+        private WeakPropertyChangedListener<DataGridHierarchicalPresenter>? _nodePropertyChangedListener;
+        private WeakPropertyChangedListener<DataGridHierarchicalPresenter>? _itemPropertyChangedListener;
 
         public static readonly StyledProperty<int> LevelProperty =
             AvaloniaProperty.Register<DataGridHierarchicalPresenter, int>(nameof(Level));
@@ -96,6 +105,50 @@ namespace Avalonia.Controls
             set => SetValue(IsExpandableProperty, value);
         }
 
+        internal bool UsesDirectValues => _directColumn != null;
+
+        internal void ConfigureDirectValues(DataGridHierarchicalColumn column, object? dataItem)
+        {
+            DetachDirectSubscriptions();
+            _directColumn = column;
+            _node = dataItem switch
+            {
+                HierarchicalNode hierarchicalNode => hierarchicalNode,
+                IHierarchicalNodeItem nodeItem => nodeItem.Node,
+                _ => null,
+            };
+
+            UpdateDirectState();
+            UpdateDirectContent();
+            AttachDirectSubscriptions();
+        }
+
+        protected override void OnDataContextChanged(EventArgs e)
+        {
+            base.OnDataContextChanged(e);
+            if (_directColumn != null)
+            {
+                ConfigureDirectValues(_directColumn, DataContext);
+            }
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            if (_directColumn != null)
+            {
+                UpdateDirectState();
+                UpdateDirectContent();
+                AttachDirectSubscriptions();
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            DetachDirectSubscriptions();
+            base.OnDetachedFromVisualTree(e);
+        }
+
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
@@ -126,7 +179,7 @@ namespace Avalonia.Controls
             }
         }
 
-        private void ExpanderOnClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        private void ExpanderOnClick(object? sender, RoutedEventArgs e)
         {
             RaiseEvent(new RoutedEventArgs(ToggleRequestedEvent, this));
         }
@@ -148,7 +201,100 @@ namespace Avalonia.Controls
         private void UpdateIndentPadding()
         {
             var indent = Math.Max(Indent, 0);
-            Padding = new Thickness(Level * indent, 0, 0, 0);
+            SetCurrentValue(PaddingProperty, new Thickness(Level * indent, 0, 0, 0));
+        }
+
+        private void AttachDirectSubscriptions()
+        {
+            DetachDirectSubscriptions();
+            if (_directColumn == null || _node == null || VisualRoot == null)
+            {
+                return;
+            }
+
+            var nodeListener = _nodePropertyChangedListener ??=
+                new WeakPropertyChangedListener<DataGridHierarchicalPresenter>(
+                    this,
+                    static (presenter, sender, e) => presenter.OnNodePropertyChanged(sender, e));
+            _node.PropertyChanged += nodeListener.Handler;
+
+            if (_directColumn.TrackDirectTextValueChanges &&
+                _node.Item is INotifyPropertyChanged itemNotifier)
+            {
+                var itemListener = _itemPropertyChangedListener ??=
+                    new WeakPropertyChangedListener<DataGridHierarchicalPresenter>(
+                        this,
+                        static (presenter, sender, e) => presenter.OnItemPropertyChanged(sender, e));
+                _itemNotifier = itemNotifier;
+                _itemNotifier.PropertyChanged += itemListener.Handler;
+            }
+        }
+
+        private void DetachDirectSubscriptions()
+        {
+            if (_node != null && _nodePropertyChangedListener != null)
+            {
+                _node.PropertyChanged -= _nodePropertyChangedListener.Handler;
+            }
+
+            if (_itemNotifier != null && _itemPropertyChangedListener != null)
+            {
+                _itemNotifier.PropertyChanged -= _itemPropertyChangedListener.Handler;
+                _itemNotifier = null;
+            }
+        }
+
+        private void OnNodePropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (!ReferenceEquals(sender, _node))
+            {
+                return;
+            }
+
+            if (string.IsNullOrEmpty(e.PropertyName) ||
+                e.PropertyName == nameof(HierarchicalNode.Level) ||
+                e.PropertyName == nameof(HierarchicalNode.IsExpanded) ||
+                e.PropertyName == nameof(HierarchicalNode.IsLeaf))
+            {
+                UpdateDirectState();
+            }
+        }
+
+        private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (ReferenceEquals(sender, _itemNotifier))
+            {
+                UpdateDirectContent();
+            }
+        }
+
+        private void UpdateDirectState()
+        {
+            if (_node == null)
+            {
+                SetCurrentValue(LevelProperty, 0);
+                SetCurrentValue(IsExpandedProperty, false);
+                SetCurrentValue(IsExpandableProperty, false);
+                return;
+            }
+
+            SetCurrentValue(LevelProperty, _node.Level);
+            SetCurrentValue(IsExpandedProperty, _node.IsExpanded);
+            SetCurrentValue(IsExpandableProperty, !_node.IsLeaf);
+        }
+
+        private void UpdateDirectContent()
+        {
+            if (_directColumn == null)
+            {
+                return;
+            }
+
+            var value = _directColumn.GetDirectText(_node ?? DataContext);
+            if (!Equals(Content, value))
+            {
+                SetCurrentValue(ContentProperty, value);
+            }
         }
     }
 }

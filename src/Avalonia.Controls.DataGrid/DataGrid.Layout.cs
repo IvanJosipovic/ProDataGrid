@@ -295,17 +295,12 @@ internal
 
         private void AddNewCellPrivate(DataGridRow row, DataGridColumn column)
         {
-            DataGridCell newCell = new DataGridCell();
-            PopulateCellContent(
-                isCellEdited: false,
-                dataGridColumn: column,
-                dataGridRow: row,
-                dataGridCell: newCell);
+            DataGridCell newCell = column.CreateCell();
             if (row.OwningGrid != null)
             {
                 newCell.OwningColumn = column;
                 newCell.IsVisible = column.IsVisible;
-                if (row.OwningGrid.CellTheme is {} cellTheme)
+                if (column.ResolveCellTheme(row.OwningGrid) is {} cellTheme)
                 {
                     newCell.SetValue(ThemeProperty, cellTheme, BindingPriority.Template);
                 }
@@ -315,6 +310,11 @@ internal
                     ApplyConditionalFormattingToCell(newCell, descriptor);
                 }
             }
+            PopulateCellContent(
+                isCellEdited: false,
+                dataGridColumn: column,
+                dataGridRow: row,
+                dataGridCell: newCell);
             row.Cells.Insert(column.Index, newCell);
         }
 

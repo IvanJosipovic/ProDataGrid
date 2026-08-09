@@ -4,21 +4,31 @@
 using System;
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Automation.Peers;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.DataGridSorting;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Data.Core;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -168,6 +178,119 @@ public class HierarchicalHeadlessTests
                 MaxMeasuredHeight = _rowHeightEstimate,
                 AverageMeasuredHeight = _rowHeightEstimate
             };
+        }
+    }
+
+    [AvaloniaFact]
+    public void ExpandAll_WithDelayedAsyncSelector_PublishesAttachedGridStateOnCallingUiThread()
+    {
+        Assert.True(Dispatcher.UIThread.CheckAccess());
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var selectorAccessChecks = new List<bool>();
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                selectorAccessChecks.Add(Dispatcher.UIThread.CheckAccess());
+                await Task.Delay(10, cancellationToken);
+                return ((Item)item).Children;
+            },
+            IsLeafSelector = item => ((Item)item).Children.Count == 0
+        });
+        model.SetRoot(root);
+        var accessChecks = new List<bool>();
+        model.NodeLoading += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeLoaded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeExpanded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.FlattenedChanged += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        ((INotifyCollectionChanged)model.ObservableFlattened).CollectionChanged +=
+            (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 200,
+            Content = grid
+        };
+        window.SetThemeStyles();
+        window.Show();
+
+        try
+        {
+            model.ExpandAll();
+
+            Assert.Equal(2, model.Count);
+            Assert.NotEmpty(selectorAccessChecks);
+            Assert.All(selectorAccessChecks, Assert.True);
+            Assert.NotEmpty(accessChecks);
+            Assert.All(accessChecks, Assert.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ExpandAllAsync_WithWorkerContinuation_PublishesAttachedGridStateOnUiThread()
+    {
+        Assert.True(Dispatcher.UIThread.CheckAccess());
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                return ((Item)item).Children;
+            },
+            IsLeafSelector = item => ((Item)item).Children.Count == 0
+        });
+        model.SetRoot(root);
+        var accessChecks = new List<bool>();
+        model.NodeLoading += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeLoaded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeExpanded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.FlattenedChanged += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        ((INotifyCollectionChanged)model.ObservableFlattened).CollectionChanged +=
+            (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 200,
+            Content = grid
+        };
+        window.SetThemeStyles();
+        window.Show();
+
+        try
+        {
+            await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.True(Dispatcher.UIThread.CheckAccess());
+            Assert.Equal(2, model.Count);
+            Assert.NotEmpty(accessChecks);
+            Assert.All(accessChecks, Assert.True);
+        }
+        finally
+        {
+            window.Close();
         }
     }
 
@@ -394,7 +517,15 @@ public class HierarchicalHeadlessTests
     [AvaloniaFact]
     public void Expander_Click_Does_Not_Select_Row()
     {
-        var items = new[] { new Item("root") };
+        using IDisposable themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var rootItem = new Item("root");
+        rootItem.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+        });
+        model.SetRoot(rootItem);
 
         var grid = new DataGrid
         {
@@ -402,88 +533,437 @@ public class HierarchicalHeadlessTests
             SelectionMode = DataGridSelectionMode.Single,
             IsTabStop = false,
             HierarchicalRowsEnabled = true,
-            ItemsSource = items
+            HierarchicalModel = model,
+            ItemsSource = model.Flattened,
         };
 
-        var column = new DataGridTextColumn
+        var column = new DataGridHierarchicalColumn
         {
             Header = "Name",
-            Binding = new Avalonia.Data.Binding(nameof(Item.Name))
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = false,
         };
         grid.ColumnsInternal.Add(column);
 
-        var row = new DataGridRow
-        {
-            OwningGrid = grid,
-            Slot = 0,
-            Index = 0,
-            DataContext = items[0]
-        };
-
-        var presenter = new DataGridHierarchicalPresenter
-        {
-            Template = new FuncControlTemplate<DataGridHierarchicalPresenter>((owner, scope) =>
-            {
-                var expander = new ToggleButton
-                {
-                    Name = "PART_Expander",
-                    Width = 16,
-                    Height = 16
-                };
-
-                scope.Register(expander.Name, expander);
-
-                return expander;
-            })
-        };
-
-        var cell = new DataGridCell
-        {
-            OwningRow = row,
-            OwningColumn = column,
-            Content = presenter
-        };
-        row.Cells.Insert(0, cell);
-
         var window = new Window
         {
-            Width = 200,
-            Height = 100,
-            Content = new StackPanel
-            {
-                Children =
-                {
-                    grid,
-                    cell
-                }
-            }
+            Width = 320,
+            Height = 180,
+            Content = grid,
         };
 
-        window.SetThemeStyles();
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
         window.Show();
         PumpLayout(grid);
 
+        try
+        {
+            DataGridRow row = Assert.IsType<DataGridRow>(
+                grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+            DataGridCell cell = Assert.IsType<DataGridCell>(row.Cells[0]);
+            DataGridHierarchicalPresenter presenter = GetHierarchicalPresenter(row);
+            cell.ApplyTemplate();
+            presenter.ApplyTemplate();
+            PumpLayout(grid);
+
+            ToggleButton expander = Assert.Single(
+                presenter.GetVisualDescendants()
+                    .OfType<ToggleButton>()
+                    .Where(control => control.Name == "PART_Expander"));
+            var pointer = new Avalonia.Input.Pointer(
+                Avalonia.Input.Pointer.GetNextFreeId(),
+                PointerType.Mouse,
+                isPrimary: true);
+
+            grid.SelectedIndex = -1;
+            cell.RaiseEvent(CreatePointerPressedArgs(
+                cell,
+                window,
+                pointer,
+                new Point(Math.Max(cell.Bounds.Width - 1, 1), 1),
+                KeyModifiers.None));
+            Assert.Equal(0, grid.SelectedIndex);
+
+            grid.SelectedIndex = -1;
+            expander.RaiseEvent(CreatePointerPressedArgs(
+                expander,
+                window,
+                pointer,
+                new Point(1, 1),
+                KeyModifiers.None));
+            Assert.Equal(-1, grid.SelectedIndex);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Optimized_Retained_Hierarchy_Cell_Preserves_Text_And_Toggles_Without_Selecting()
+    {
+        using IDisposable themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var rootItem = new Item("root");
+        rootItem.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+        });
+        model.SetRoot(rootItem);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            IsTabStop = false,
+            ItemsSource = model.Flattened,
+            SelectionMode = DataGridSelectionMode.Single,
+        };
+        var column = new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = false,
+            UseDirectTextContent = true,
+            UseOptimizedPresenter = true,
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                node => ((Item)node.Item).Name));
+        grid.ColumnsInternal.Add(column);
+        var window = new Window
+        {
+            Width = 320,
+            Height = 180,
+            Content = grid,
+        };
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
+        Assert.True(grid.TryFindResource("DataGridOptimizedCellTheme", out object cellTheme));
+        grid.CellTheme = Assert.IsType<ControlTheme>(cellTheme);
+        window.Show();
+        PumpLayout(grid);
+
+        try
+        {
+            DataGridRow row = Assert.IsType<DataGridRow>(
+                grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+            DataGridDirectHierarchicalCell cell =
+                Assert.IsType<DataGridDirectHierarchicalCell>(row.Cells[0]);
+            cell.ApplyTemplate();
+            PumpLayout(grid);
+
+            Assert.False(column.UseDirectCell);
+            Assert.True(cell.UseDirectChrome);
+            Assert.Empty(cell.GetVisualDescendants().OfType<DataGridHierarchicalPresenter>());
+            Assert.Empty(cell.GetVisualDescendants().OfType<ToggleButton>());
+            Assert.Empty(cell.GetVisualDescendants().OfType<ContentPresenter>());
+            Assert.Empty(cell.GetVisualDescendants().OfType<Grid>());
+            Assert.Empty(cell.GetVisualDescendants().OfType<Border>());
+            TextBlock text = Assert.Single(cell.GetVisualDescendants().OfType<TextBlock>());
+            Assert.Equal("root", text.Text);
+            Assert.True(text.Bounds.X >= 28);
+
+            grid.SelectedIndex = -1;
+            DataGridCellInfo current = grid.CurrentCell;
+            var pointer = new Avalonia.Input.Pointer(
+                Avalonia.Input.Pointer.GetNextFreeId(),
+                PointerType.Mouse,
+                isPrimary: true);
+            Point expanderPoint = cell.TranslatePoint(
+                new Point(1, cell.Bounds.Height / 2d),
+                window)!.Value;
+
+            cell.RaiseEvent(CreatePointerPressedArgs(
+                cell,
+                window,
+                pointer,
+                expanderPoint,
+                KeyModifiers.None));
+
+            Assert.Equal(-1, grid.SelectedIndex);
+            Assert.Equal(current, grid.CurrentCell);
+            Assert.False(model.Root!.IsExpanded);
+
+            cell.RaiseEvent(CreatePointerReleasedArgs(
+                cell,
+                window,
+                pointer,
+                expanderPoint,
+                KeyModifiers.None));
+
+            Assert.True(model.Root.IsExpanded);
+            Assert.Equal(2, model.Count);
+            Assert.Equal(-1, grid.SelectedIndex);
+
+            var keyArgs = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Route = InputElement.KeyDownEvent.RoutingStrategies,
+                Key = Key.Space,
+            };
+            cell.RaiseEvent(keyArgs);
+
+            Assert.True(keyArgs.Handled);
+            Assert.False(model.Root.IsExpanded);
+            Assert.Single(model.Flattened);
+            Assert.Equal(-1, grid.SelectedIndex);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Direct_Hierarchical_Definition_Cell_Populates_Typed_Value_After_Realization()
+    {
+        using IDisposable themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var rootItem = new Item("root");
+        rootItem.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+        });
+        model.SetRoot(rootItem);
+        model.ExpandAll();
+
+        var property = new ClrPropertyInfo(
+            "Item.Name",
+            target => ((Item)((HierarchicalNode)target).Item).Name,
+            null,
+            typeof(string));
+        var definition = DataGridColumnDefinitionBuilder.For<HierarchicalNode>().Hierarchical(
+            "Name",
+            property,
+            node => ((Item)node.Item).Name,
+            configure: value =>
+            {
+                value.UseDirectCell = true;
+                value.UseDirectTextContent = true;
+                value.TrackDirectTextValueChanges = false;
+            });
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            ItemsSource = model.Flattened,
+            ColumnDefinitionsSource = new DataGridColumnDefinition[] { definition },
+        };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 180,
+            Content = grid,
+        };
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
+        window.Show();
+        PumpLayout(grid);
+
+        try
+        {
+            DataGridRow row = Assert.IsType<DataGridRow>(
+                grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+            DataGridDirectHierarchicalCell cell = Assert.IsType<DataGridDirectHierarchicalCell>(row.Cells[0]);
+
+            Assert.Equal("root", cell.Value);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Direct_Hierarchical_Lean_Expander_Pointer_And_Keyboard_Toggle_Without_Selecting()
+    {
+        using IDisposable themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var rootItem = new Item("root");
+        rootItem.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+        });
+        model.SetRoot(rootItem);
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            IsTabStop = false,
+            ItemsSource = model.Flattened,
+            SelectionMode = DataGridSelectionMode.Single,
+        };
+        var column = new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = true,
+            UseDirectTextContent = true,
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                node => ((Item)node.Item).Name));
+        grid.ColumnsInternal.Add(column);
+        var window = new Window
+        {
+            Width = 320,
+            Height = 180,
+            Content = grid,
+        };
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
+        window.Show();
+        PumpLayout(grid);
+
+        DataGridRow row = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(0)));
+        DataGridDirectHierarchicalCell cell = Assert.IsType<DataGridDirectHierarchicalCell>(row.Cells[0]);
         cell.ApplyTemplate();
-        presenter.ApplyTemplate();
-        presenter.UpdateLayout();
-
-        var expander = presenter.GetTemplateChildren()
-            .OfType<ToggleButton>()
-            .FirstOrDefault(control => control.Name == "PART_Expander");
-        Assert.NotNull(expander);
-
-        Assert.True(expander!.GetVisualAncestors().OfType<DataGridHierarchicalPresenter>().Any());
-
-        var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
-
+        Assert.Equal("root", cell.Value);
+        Assert.Empty(cell.GetVisualDescendants().OfType<ToggleButton>());
+        TextBlock text = Assert.Single(cell.GetVisualDescendants().OfType<TextBlock>());
+        Assert.True(text.Bounds.X >= 28);
         grid.SelectedIndex = -1;
-        cell.RaiseEvent(CreatePointerPressedArgs(cell, window, pointer, new Point(1, 1), KeyModifiers.None));
-        Assert.Equal(0, grid.SelectedIndex);
+        DataGridCellInfo current = grid.CurrentCell;
+        var pointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(),
+            PointerType.Mouse,
+            isPrimary: true);
+        Point expanderPoint = cell.TranslatePoint(
+            new Point(1, cell.Bounds.Height / 2d),
+            window)!.Value;
 
-        grid.SelectedIndex = -1;
-        expander.RaiseEvent(CreatePointerPressedArgs(expander, window, pointer, new Point(1, 1), KeyModifiers.None));
+        cell.RaiseEvent(CreatePointerPressedArgs(
+            cell,
+            window,
+            pointer,
+            expanderPoint,
+            KeyModifiers.None));
+
+        Assert.Equal(-1, grid.SelectedIndex);
+        Assert.Equal(current, grid.CurrentCell);
+        Assert.False(model.Root!.IsExpanded);
+
+        cell.RaiseEvent(CreatePointerReleasedArgs(
+            cell,
+            window,
+            pointer,
+            expanderPoint,
+            KeyModifiers.None));
+
+        Assert.True(model.Root!.IsExpanded);
+        Assert.Equal(2, model.Count);
         Assert.Equal(-1, grid.SelectedIndex);
 
+        var keyArgs = new KeyEventArgs
+        {
+            RoutedEvent = InputElement.KeyDownEvent,
+            Route = InputElement.KeyDownEvent.RoutingStrategies,
+            Key = Key.Space,
+        };
+        cell.RaiseEvent(keyArgs);
+
+        Assert.True(keyArgs.Handled);
+        Assert.False(model.Root.IsExpanded);
+        Assert.Single(model.Flattened);
+        Assert.Equal(-1, grid.SelectedIndex);
+
+        var touchPointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(),
+            PointerType.Touch,
+            isPrimary: true);
+        var touchScrollPress = CreatePointerPressedArgs(
+            cell,
+            window,
+            touchPointer,
+            expanderPoint,
+            KeyModifiers.None);
+        cell.RaiseEvent(touchScrollPress);
+
+        Assert.False(touchScrollPress.Handled);
+        Assert.Equal(-1, grid.SelectedIndex);
+
+        var touchScrollRelease = CreatePointerReleasedArgs(
+            cell,
+            window,
+            touchPointer,
+            expanderPoint + new Vector(0, 12),
+            KeyModifiers.None);
+        cell.RaiseEvent(touchScrollRelease);
+
+        Assert.False(touchScrollRelease.Handled);
+        Assert.False(model.Root.IsExpanded);
+        Assert.Single(model.Flattened);
+
+        var touchTapPress = CreatePointerPressedArgs(
+            cell,
+            window,
+            touchPointer,
+            expanderPoint,
+            KeyModifiers.None);
+        cell.RaiseEvent(touchTapPress);
+        var touchTapRelease = CreatePointerReleasedArgs(
+            cell,
+            window,
+            touchPointer,
+            expanderPoint,
+            KeyModifiers.None);
+        cell.RaiseEvent(touchTapRelease);
+
+        Assert.False(touchTapPress.Handled);
+        Assert.True(touchTapRelease.Handled);
+        Assert.True(model.Root.IsExpanded);
+        Assert.Equal(2, model.Count);
+        Assert.Equal(-1, grid.SelectedIndex);
+
+        var rootPeer = new DataGridRowAutomationPeer(row);
+        IExpandCollapseProvider rootProvider = Assert.IsAssignableFrom<IExpandCollapseProvider>(
+            rootPeer.GetProvider<IExpandCollapseProvider>());
+        Assert.Equal(ExpandCollapseState.Expanded, rootProvider.ExpandCollapseState);
+
+        PumpLayout(grid);
+        DataGridRow leafRow = Assert.IsType<DataGridRow>(
+            grid.DisplayData.GetDisplayedElement(grid.SlotFromRowIndex(1)));
+        DataGridDirectHierarchicalCell leafCell =
+            Assert.IsType<DataGridDirectHierarchicalCell>(leafRow.Cells[0]);
+        Assert.False(leafCell.IsExpandable);
+        double leafExpanderX = Math.Max(leafCell.Level, 0) * Math.Max(leafCell.Indent, 0) + 1;
+        Assert.True(leafCell.IsLeanExpanderHit(new Point(leafExpanderX, leafCell.Bounds.Height / 2d)));
+        grid.SelectedIndex = -1;
+        DataGridCellInfo leafCurrent = grid.CurrentCell;
+        Point leafExpanderPoint = leafCell.TranslatePoint(
+            new Point(leafExpanderX, leafCell.Bounds.Height / 2d),
+            window)!.Value;
+        var leafPointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(),
+            PointerType.Mouse,
+            isPrimary: true);
+        var leafPress = CreatePointerPressedArgs(
+            leafCell,
+            window,
+            leafPointer,
+            leafExpanderPoint,
+            KeyModifiers.None);
+        leafCell.RaiseEvent(leafPress);
+        Assert.Equal(-1, grid.SelectedIndex);
+        Assert.Equal(leafCurrent, grid.CurrentCell);
+        var leafRelease = CreatePointerReleasedArgs(
+            leafCell,
+            window,
+            leafPointer,
+            leafExpanderPoint,
+            KeyModifiers.None);
+        leafCell.RaiseEvent(leafRelease);
+
+        Assert.False(leafRelease.Handled);
+        Assert.Equal(2, model.Count);
+        Assert.Equal(-1, grid.SelectedIndex);
+        Assert.Null(new DataGridRowAutomationPeer(leafRow).GetProvider<IExpandCollapseProvider>());
         window.Close();
     }
 
@@ -542,6 +1022,75 @@ public class HierarchicalHeadlessTests
             Assert.Equal(1, model.Count);
             ValidateDisplayedRows(grid, model);
         }
+    }
+
+    [AvaloniaFact]
+    public void Attached_Large_Expand_And_Collapse_Refreshes_Rows_Coherently()
+    {
+        var root = CreateTree("Root", childCount: 300, grandchildCount: 0);
+        using var themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = value => ((Item)value).Children,
+            VirtualizeChildren = false
+        });
+        model.SetRoot(root);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.Flattened,
+            UseLogicalScrollable = true,
+            RowHeight = 24
+        };
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name")
+        });
+
+        var window = new Window
+        {
+            Width = 420,
+            Height = 260,
+            Content = grid
+        };
+
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
+        window.Show();
+        PumpLayout(grid);
+        Assert.NotEmpty(GetVisibleRows(grid));
+
+        grid.SelectedItem = root;
+        Assert.Same(root, grid.SelectedItem);
+
+        model.ExpandAll();
+        PumpLayout(grid);
+
+        Assert.Equal(301, model.Count);
+        Assert.Equal(301, grid.SlotCount);
+        Assert.Same(root, grid.SelectedItem);
+        Assert.NotEmpty(GetVisibleRows(grid));
+        ValidateDisplayedRows(grid, model);
+        AssertNoVisibleRowsOutsideDisplayData(grid);
+
+        model.CollapseAll();
+        PumpLayout(grid);
+
+        Assert.Single(model.Flattened);
+        var collapsedRows = GetVisibleRows(grid);
+        var collapsedPresenter = GetRowsPresenter(grid);
+        Assert.True(
+            collapsedRows.Count == 1,
+            $"Expected one collapsed row, found {collapsedRows.Count}; " +
+            $"offset={collapsedPresenter.Offset}, extent={collapsedPresenter.Extent}, " +
+            $"viewport={collapsedPresenter.Viewport}, slots={grid.SlotCount}.");
+        Assert.Same(root, grid.SelectedItem);
+        ValidateDisplayedRows(grid, model);
+
+        window.Close();
     }
 
     [AvaloniaFact]
@@ -1736,6 +2285,12 @@ public class HierarchicalHeadlessTests
     {
         var properties = new PointerPointProperties(RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed);
         return new PointerPressedEventArgs(source, pointer, root, position, 0, properties, modifiers);
+    }
+
+    private static PointerReleasedEventArgs CreatePointerReleasedArgs(Control source, Visual root, IPointer pointer, Point position, KeyModifiers modifiers)
+    {
+        var properties = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonReleased);
+        return new PointerReleasedEventArgs(source, pointer, root, position, 0, properties, modifiers, MouseButton.Left);
     }
 
     private static Item CreateTree(string name, int childCount, int grandchildCount)

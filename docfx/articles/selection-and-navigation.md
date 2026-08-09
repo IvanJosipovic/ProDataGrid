@@ -80,7 +80,7 @@ Enable column header selection with `SelectionUnit=CellOrColumnHeader` (or `Cell
 
 ## Large Dataset Index Resolution
 
-For large lists, DataGrid now includes optimized item-to-index lookup for selection and currency updates.
+For large lists, DataGrid provides optimized item-to-index lookup for selection and currency updates.
 See [Selection Index Resolution Performance](selection-index-resolution-performance.md) for:
 
 - built-in cache behavior (default),

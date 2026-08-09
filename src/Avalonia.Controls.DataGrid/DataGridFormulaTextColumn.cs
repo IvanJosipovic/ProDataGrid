@@ -18,6 +18,8 @@ namespace Avalonia.Controls
     {
         internal DataGridFormulaColumnDefinition? FormulaDefinition { get; set; }
 
+        internal override bool CanReuseCellContentOnDataContextChange => true;
+
         protected override object PrepareCellForEdit(Control editingElement, RoutedEventArgs editingEventArgs)
         {
             var unedited = base.PrepareCellForEdit(editingElement, editingEventArgs);

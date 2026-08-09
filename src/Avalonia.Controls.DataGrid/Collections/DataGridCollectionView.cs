@@ -64,6 +64,25 @@ internal
         IDataGridCollectionView CreateView();
     }
 
+    internal sealed class DataGridCollectionViewSourceMutationEventArgs : EventArgs
+    {
+        public DataGridCollectionViewSourceMutationEventArgs(
+            NotifyCollectionChangedEventArgs collectionChange,
+            IEnumerable prospectiveSource,
+            bool isViewProjectionStable)
+        {
+            CollectionChange = collectionChange;
+            ProspectiveSource = prospectiveSource;
+            IsViewProjectionStable = isViewProjectionStable;
+        }
+
+        public NotifyCollectionChangedEventArgs CollectionChange { get; }
+
+        public IEnumerable ProspectiveSource { get; }
+
+        public bool IsViewProjectionStable { get; }
+    }
+
     /// <summary>
     /// DataGrid-readable view over an IEnumerable.
     /// </summary>
@@ -75,6 +94,10 @@ internal
 #endif
     sealed partial class DataGridCollectionView : IDataGridCollectionView, IDataGridEditableCollectionView, IList, INotifyPropertyChanged, ITypedList
     {
+        internal event EventHandler<DataGridCollectionViewSourceMutationEventArgs> SourceMutationStarting;
+
+        internal event EventHandler<DataGridCollectionViewSourceMutationEventArgs> SourceMutationCompleted;
+
         /// <summary>
         /// Since there's nothing in the un-cancelable event args that is mutable,
         /// just create one instance to be used universally.

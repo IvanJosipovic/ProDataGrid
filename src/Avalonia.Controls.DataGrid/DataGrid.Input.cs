@@ -1300,40 +1300,7 @@ internal
                             (wasInEdit || CurrentColumnIndex == columnIndex) &&
                             !GetColumnEffectiveReadOnlyState(ColumnsItemsInternal[columnIndex]);
 
-                DataGridSelectionAction action;
-                if (SelectionMode == DataGridSelectionMode.Extended && shift)
-                {
-                    // Shift select multiple rows
-                    action = DataGridSelectionAction.SelectFromAnchorToCurrent;
-                }
-                else if (GetRowSelection(slot))  // Unselecting single row or Selecting a previously multi-selected row
-                {
-                    if (!ctrl && SelectionMode == DataGridSelectionMode.Extended && _selectedItems.Count != 0)
-                    {
-                        // Unselect everything except the row that was clicked on
-                        action = DataGridSelectionAction.SelectCurrent;
-                    }
-                    else if (ctrl && EditingRow == null)
-                    {
-                        action = DataGridSelectionAction.RemoveCurrentFromSelection;
-                    }
-                    else
-                    {
-                        action = DataGridSelectionAction.None;
-                    }
-                }
-                else // Selecting a single row or multi-selecting with Ctrl
-                {
-                    if (SelectionMode == DataGridSelectionMode.Single || !ctrl)
-                    {
-                        // Unselect the currently selected rows except the new selected row
-                        action = DataGridSelectionAction.SelectCurrent;
-                    }
-                    else
-                    {
-                        action = DataGridSelectionAction.AddCurrentToSelection;
-                    }
-                }
+                DataGridSelectionAction action = GetPointerRowSelectionAction(slot, shift, ctrl);
 
                 UpdateSelectionAndCurrency(columnIndex, slot, action, scrollIntoView: false);
             }
@@ -1352,6 +1319,7 @@ internal
 
         private bool UpdateCellSelectionOnMouseLeftButtonDown(PointerPressedEventArgs pointerPressedEventArgs, int columnIndex, int slot, bool allowEdit, bool shift, bool ctrl)
         {
+            _successfullyUpdatedSelection = false;
             bool beginEdit;
 
             Debug.Assert(slot >= 0);
@@ -1369,6 +1337,26 @@ internal
                 return true;
             }
 
+            SelectionCommitScope selectionCommit = default;
+            if (HasSelectionChangingHandlers)
+            {
+                List<DataGridCellInfo> proposed = BuildPointerCellSelectionProposal(
+                    pointerPressedEventArgs,
+                    columnIndex,
+                    slot,
+                    shift,
+                    ctrl,
+                    out DataGridSelectionAnchorInfo proposedAnchor);
+
+                if (!TryPreviewCellSelection(proposed, CreateCellInfo(columnIndex, slot), proposedAnchor))
+                {
+                    return true;
+                }
+
+                selectionCommit = BeginSelectionCommit();
+            }
+
+            using var selectionTransaction = selectionCommit;
             if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
             {
                 return true;
@@ -1473,6 +1461,100 @@ internal
             return true;
         }
 
+        private DataGridSelectionAction GetPointerRowSelectionAction(int slot, bool shift, bool ctrl)
+        {
+            if (SelectionMode == DataGridSelectionMode.Extended && shift)
+            {
+                return DataGridSelectionAction.SelectFromAnchorToCurrent;
+            }
+
+            if (GetRowSelection(slot))
+            {
+                if (!ctrl && SelectionMode == DataGridSelectionMode.Extended && _selectedItems.Count != 0)
+                {
+                    return DataGridSelectionAction.SelectCurrent;
+                }
+
+                if (ctrl && EditingRow == null)
+                {
+                    return DataGridSelectionAction.RemoveCurrentFromSelection;
+                }
+
+                return DataGridSelectionAction.None;
+            }
+
+            return SelectionMode == DataGridSelectionMode.Single || !ctrl
+                ? DataGridSelectionAction.SelectCurrent
+                : DataGridSelectionAction.AddCurrentToSelection;
+        }
+
+        private List<DataGridCellInfo> BuildPointerCellSelectionProposal(
+            PointerPressedEventArgs pointerPressedEventArgs,
+            int columnIndex,
+            int slot,
+            bool shift,
+            bool ctrl,
+            out DataGridSelectionAnchorInfo proposedAnchor)
+        {
+            int targetRowIndex = RowIndexFromSlot(slot);
+            proposedAnchor = CreateAnchorInfo(slot, columnIndex);
+            if (SelectionMode == DataGridSelectionMode.Single)
+            {
+                return BuildCellSelectionProposal(
+                    append: false,
+                    targetRowIndex,
+                    targetRowIndex,
+                    columnIndex,
+                    columnIndex,
+                    columnIndexesAreDisplayIndexes: false);
+            }
+
+            if (SelectionMode == DataGridSelectionMode.Extended && shift && _cellAnchor.Slot != -1 &&
+                TryGetSelectionDisplayIndexes(
+                    _cellAnchor.ColumnIndex,
+                    columnIndex,
+                    out int anchorDisplayIndex,
+                    out int targetDisplayIndex))
+            {
+                int anchorRowIndex = RowIndexFromSlot(_cellAnchor.Slot);
+                var anchorCell = new DataGridCellPosition(anchorRowIndex, anchorDisplayIndex);
+                var targetCell = new DataGridCellPosition(targetRowIndex, targetDisplayIndex);
+                DataGridCellRange range = RangeInteractionModel != null
+                    ? RangeInteractionModel.BuildSelectionRange(new DataGridSelectionRangeContext(
+                        this,
+                        anchorCell,
+                        targetCell,
+                        pointerPressedEventArgs.KeyModifiers))
+                    : new DataGridCellRange(
+                        Math.Min(anchorRowIndex, targetRowIndex),
+                        Math.Max(anchorRowIndex, targetRowIndex),
+                        Math.Min(anchorDisplayIndex, targetDisplayIndex),
+                        Math.Max(anchorDisplayIndex, targetDisplayIndex));
+                proposedAnchor = GetCurrentSelectionAnchorInfo();
+                return BuildCellSelectionProposal(
+                    append: ctrl,
+                    range.StartRow,
+                    range.EndRow,
+                    range.StartColumn,
+                    range.EndColumn,
+                    columnIndexesAreDisplayIndexes: true);
+            }
+
+            List<DataGridCellInfo> proposed = BuildCellSelectionProposal(
+                append: ctrl,
+                targetRowIndex,
+                targetRowIndex,
+                columnIndex,
+                columnIndex,
+                columnIndexesAreDisplayIndexes: false);
+            if (ctrl && GetCellSelectionFromSlot(slot, columnIndex))
+            {
+                RemoveCellFromProposal(proposed, targetRowIndex, columnIndex);
+            }
+
+            return proposed;
+        }
+
 
 
 
@@ -1480,6 +1562,7 @@ internal
         private bool UpdateStateOnMouseRightButtonDown(PointerPressedEventArgs pointerPressedEventArgs, int columnIndex, int slot, bool allowEdit, bool shift, bool ctrl)
         {
             using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, pointerPressedEventArgs);
+            _successfullyUpdatedSelection = true;
 
             Debug.Assert(slot >= 0);
 
@@ -1487,6 +1570,13 @@ internal
             {
                 if (CurrentSlot != slot || CurrentColumnIndex != columnIndex)
                 {
+                    if (!TryPreviewCurrentCell(CreateCellInfo(columnIndex, slot)))
+                    {
+                        _successfullyUpdatedSelection = false;
+                        return true;
+                    }
+
+                    using var commit = BeginSelectionCommit();
                     SetCurrentCellCore(columnIndex, slot, commitEdit: true, endRowEdit: false);
                 }
                 return true;

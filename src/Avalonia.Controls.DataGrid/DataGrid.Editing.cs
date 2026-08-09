@@ -473,6 +473,8 @@ internal
             // Cache these to see if they change later
             int currentSlot = CurrentSlot;
             int currentColumnIndex = CurrentColumnIndex;
+            object committedValue = null;
+            bool raiseCommittedValueChanged = false;
 
             // We're ready to start ending, so raise the event
             DataGridCell editingCell = TryGetCell(editingRow, _editingColumnIndex);
@@ -618,6 +620,12 @@ internal
                 {
                     ResetValidationStatus(editingCell);
                 }
+
+                if (_hasUneditedCellSourceValue && HasCellValueChangedHandlers)
+                {
+                    committedValue = GetCommittedCellValue(CurrentColumn, editingRow.DataContext);
+                    raiseCommittedValueChanged = !Equals(_uneditedCellSourceValue, committedValue);
+                }
             }
 
             if (editAction != DataGridEditAction.Commit)
@@ -683,11 +691,24 @@ internal
                 }
             }
 
-            // We're done, so raise the CellEditEnded event
+            if (raiseCommittedValueChanged)
+            {
+                NotifyCommittedCellValueChanged(
+                    editingCell,
+                    editingRow,
+                    _uneditedCellSourceValue,
+                    committedValue);
+            }
+
+            // CellValueChanged is raised first while the committed cell still has its original
+            // row association. CellEditEnded remains the final edit lifecycle notification.
             if (raiseEvents)
             {
                 OnCellEditEnded(new DataGridCellEditEndedEventArgs(CurrentColumn, editingRow, editAction));
             }
+
+            _uneditedCellSourceValue = null;
+            _hasUneditedCellSourceValue = false;
 
             // There's a chance that somebody reopened this cell for edit within the CellEditEnded handler,
             // so we should return false if we were supposed to exit editing mode, but we didn't
@@ -1145,6 +1166,16 @@ internal
 
             // Prepare the cell for editing and raise the PreparingCellForEdit event for all columns
             DataGridColumn dataGridColumn = CurrentColumn;
+            if (HasCellValueChangedHandlers)
+            {
+                _uneditedCellSourceValue = GetCommittedCellValue(dataGridColumn, EditingRow.DataContext);
+                _hasUneditedCellSourceValue = true;
+            }
+            else
+            {
+                _uneditedCellSourceValue = null;
+                _hasUneditedCellSourceValue = false;
+            }
             _uneditedValue = dataGridColumn.PrepareCellForEditInternal(editingElement, _editingEventArgs);
             OnPreparingCellForEdit(new DataGridPreparingCellForEditEventArgs(dataGridColumn, EditingRow, _editingEventArgs, editingElement));
             ApplyPendingTextInput(editingElement);
@@ -1469,6 +1500,8 @@ internal
         private int _editingColumnIndex;
 
         private object _uneditedValue; // Represents the original current cell value at the time it enters editing mode.
+        private object _uneditedCellSourceValue;
+        private bool _hasUneditedCellSourceValue;
 
         private RoutedEventArgs _editingEventArgs;
 

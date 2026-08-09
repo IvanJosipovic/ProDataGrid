@@ -33,9 +33,44 @@ _idColumn = new DataGridTextColumnDefinition
 
 `SortMemberPath` is optional, but it helps map model descriptors back to columns when you want explicit ids or persistence.
 
+## Optimized retained hierarchy cells
+
+For large fixed-height hierarchies whose display value is supplied by typed accessor
+metadata, the hierarchical definition can keep a real Avalonia expander and text block
+while removing the extra presenter and binding expression:
+
+```csharp
+var nameColumn = new DataGridHierarchicalColumnDefinition
+{
+    Header = "Item",
+    Binding = CreateNodeBinding<string>("Name", item => item.Name),
+    UseDirectCell = true,
+    UseDirectTextContent = true,
+    TrackDirectTextValueChanges = false,
+    Width = new DataGridLength(2, DataGridLengthUnitType.Star)
+};
+```
+
+`TrackDirectTextValueChanges` defaults to `true`. Disable it only when the displayed
+item value is immutable; expansion, level, loading, recycling, and expander state still
+update. A custom `CellTemplateKey`, explicit-source binding, or incompatible accessor
+uses the retained content-presenter fallback. The direct path supports both
+`HierarchicalNode` and `HierarchicalNode<T>` sources.
+
+Use this column setting together with the opt-in row/cell/header themes described in
+[Column Definitions: Hot Path Integration](column-definitions-hot-path.md). The
+existing generic theme dictionaries are unchanged and remain the compatibility path.
+
 ## XAML wiring
 
 ```xml
+<UserControl xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid">
+  <UserControl.Resources>
+    <filtering:DataGridHierarchicalFilteringAdapterFactory
+        x:Key="HierarchicalFilteringAdapterFactory"
+        Policy="KeepAncestorsOfMatches" />
+  </UserControl.Resources>
+
 <DataGrid ColumnDefinitionsSource="{Binding ColumnDefinitions}"
           HierarchicalModel="{Binding Model}"
           HierarchicalRowsEnabled="True"
@@ -43,9 +78,10 @@ _idColumn = new DataGridTextColumnDefinition
           FilteringModel="{Binding FilteringModel}"
           SearchModel="{Binding SearchModel}"
           SortingAdapterFactory="{StaticResource HierarchicalSortingAdapterFactory}"
-          FilteringAdapterFactory="{StaticResource AccessorFilteringAdapterFactory}"
+          FilteringAdapterFactory="{StaticResource HierarchicalFilteringAdapterFactory}"
           SearchAdapterFactory="{StaticResource AccessorSearchAdapterFactory}"
           AutoGenerateColumns="False" />
+</UserControl>
 ```
 
 The sorting adapter is optional; it is useful when you want header clicks to update the sorting model but apply sorting inside the hierarchical model instead of the flattened view. The accessor adapter factory names are examples; implement them in your app to avoid reflection.
@@ -79,17 +115,21 @@ If you handle sorting in the model, use a sorting adapter that short-circuits vi
 
 ## Filtering while keeping parents
 
-Hierarchical filters often keep ancestor nodes of matches so users can see the path. Build a match set and use a custom predicate:
+`DataGridHierarchicalFilteringAdapterFactory` builds one match set across the
+materialized hierarchy and keeps ancestor paths by default:
 
 ```csharp
-var matches = BuildMatchSet(RootItems, filterText);
 FilteringModel.SetOrUpdate(new FilteringDescriptor(
     columnId: _nameColumn,
-    @operator: FilteringOperator.Custom,
-    predicate: item => MatchesFilter(item, matches)));
+    @operator: FilteringOperator.Contains,
+    value: filterText));
 ```
 
-Use an accessor-based filtering adapter so filtering does not fall back to reflection.
+Set the factory policy to `SelfOnly`, `KeepAncestorsOfMatches`,
+`KeepDescendantsOfMatches`, or a combination of the last two. The adapter never
+loads or expands nodes. Only materialized descendants participate, and clearing a
+filter does not change expansion state. Item-typed and explicitly node-typed column
+accessors are both supported without reflection.
 
 ## Searching and highlights
 

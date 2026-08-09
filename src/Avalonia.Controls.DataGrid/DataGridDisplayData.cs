@@ -11,13 +11,23 @@ using System.Diagnostics;
 
 namespace Avalonia.Controls
 {
+    internal enum DataGridRecycleReuseOrder
+    {
+        TopDown,
+        BottomUp,
+    }
+
     internal class DataGridDisplayData
     {
         private readonly Stack<DataGridRow> _recycledRows;
         private readonly Stack<DataGridRowGroupHeader> _recycledGroupHeaders;
         private readonly Stack<DataGridRowGroupFooter> _recycledGroupFooters;
+        private HashSet<Control>? _deferredHideElements;
         private readonly List<Control> _scrollingElements;
         private readonly DataGrid _owner;
+        private bool _deferRecycledElementHiding;
+        private DataGridRecycleReuseOrder _deferredReuseOrder;
+        private int _deferredRecycleScopeDepth;
         private int _headScrollingElements;
 
         public DataGridDisplayData(DataGrid owner)
@@ -27,7 +37,6 @@ namespace Avalonia.Controls
             _recycledRows = new Stack<DataGridRow>();
             _recycledGroupHeaders = new Stack<DataGridRowGroupHeader>();
             _recycledGroupFooters = new Stack<DataGridRowGroupFooter>();
-
             ResetSlotIndexes();
             FirstDisplayedScrollingCol = -1;
             LastTotallyDisplayedScrollingCol = -1;
@@ -66,7 +75,7 @@ namespace Avalonia.Controls
 
         internal DataGridRow? GetRecycledRow()
         {
-            return PopFromRecyclePool(_recycledRows, RestoreElementVisibility);
+            return PopFromRecyclePool(_recycledRows, RestoreElementForReuse);
         }
 
         internal void TrimRecycledPools(DataGridRowsPresenter owner, int maxRecycledRows, int maxRecycledGroupHeaders, int maxRecycledGroupFooters)
@@ -107,7 +116,7 @@ namespace Avalonia.Controls
 
         internal DataGridRowGroupHeader? GetRecycledGroupHeader()
         {
-            return PopFromRecyclePool(_recycledGroupHeaders, RestoreElementVisibility);
+            return PopFromRecyclePool(_recycledGroupHeaders, RestoreElementForReuse);
         }
 
         internal void RecycleGroupFooter(DataGridRowGroupFooter groupFooter)
@@ -120,7 +129,7 @@ namespace Avalonia.Controls
 
         internal DataGridRowGroupFooter? GetRecycledGroupFooter()
         {
-            return PopFromRecyclePool(_recycledGroupFooters, RestoreElementVisibility);
+            return PopFromRecyclePool(_recycledGroupFooters, RestoreElementForReuse);
         }
 
         #endregion
@@ -147,33 +156,67 @@ namespace Avalonia.Controls
 
         private void RecycleAllScrollingElements()
         {
+            if (_deferRecycledElementHiding)
+            {
+                if (_deferredReuseOrder == DataGridRecycleReuseOrder.TopDown)
+                {
+                    for (int i = _scrollingElements.Count - 1; i >= 0; i--)
+                    {
+                        RecycleScrollingElement(GetLogicalScrollingElement(i));
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < _scrollingElements.Count; i++)
+                    {
+                        RecycleScrollingElement(GetLogicalScrollingElement(i));
+                    }
+                }
+
+                return;
+            }
+
             foreach (Control element in _scrollingElements)
             {
-                switch (element)
-                {
-                    case DataGridRow row:
-                        if (row.IsRecyclable)
-                        {
-                            RecycleRow(row);
-                        }
-                        else
-                        {
-                            HideElement(row);
-                            row.Clip = new RectangleGeometry();
-                        }
-                        break;
-                        
-                    case DataGridRowGroupHeader groupHeader:
-                        HideElement(groupHeader);
-                        groupHeader.IsRecycled = true;
-                        PushToRecyclePool(_recycledGroupHeaders, groupHeader);
-                        break;
-                    case DataGridRowGroupFooter groupFooter:
-                        HideElement(groupFooter);
-                        groupFooter.IsRecycled = true;
-                        PushToRecyclePool(_recycledGroupFooters, groupFooter);
-                        break;
-                }
+                RecycleScrollingElement(element);
+            }
+        }
+
+        private Control GetLogicalScrollingElement(int logicalIndex)
+        {
+            return _scrollingElements[(_headScrollingElements + logicalIndex) % _scrollingElements.Count];
+        }
+
+        private void RecycleScrollingElement(Control element)
+        {
+            switch (element)
+            {
+                case DataGridRow row:
+                    // A row that is leaving the displayed range cannot remain pointer-over.
+                    // Clear the transient state before testing recyclability so a stationary
+                    // pointer does not strand an otherwise reusable offscreen row.
+                    row.ClearPointerOverState();
+                    if (row.IsRecyclable)
+                    {
+                        RecycleRow(row);
+                    }
+                    else
+                    {
+                        HideElement(row);
+                        row.Clip = new RectangleGeometry();
+                    }
+                    break;
+
+                case DataGridRowGroupHeader groupHeader:
+                    HideElement(groupHeader);
+                    groupHeader.IsRecycled = true;
+                    PushToRecyclePool(_recycledGroupHeaders, groupHeader);
+                    break;
+                case DataGridRowGroupFooter groupFooter:
+                    HideElement(groupFooter);
+                    groupFooter.IsRecycled = true;
+                    PushToRecyclePool(_recycledGroupFooters, groupFooter);
+                    break;
             }
         }
 
@@ -337,14 +380,77 @@ namespace Avalonia.Controls
 
         #region Private Helpers
 
+        internal DeferredRecycleScope BeginDeferredRecycleScope()
+        {
+            _deferredRecycleScopeDepth++;
+            return new DeferredRecycleScope(this);
+        }
+
+        internal void ActivateDeferredRecycleHiding(DataGridRecycleReuseOrder reuseOrder)
+        {
+            if (_deferredRecycleScopeDepth <= 0)
+            {
+                return;
+            }
+
+            if (!_deferRecycledElementHiding)
+            {
+                _deferRecycledElementHiding = true;
+                _deferredReuseOrder = reuseOrder;
+            }
+        }
+
+        internal bool TryDeferElementHide(Control element)
+        {
+            if (!_deferRecycledElementHiding)
+            {
+                return false;
+            }
+
+            (_deferredHideElements ??= new HashSet<Control>()).Add(element);
+            return true;
+        }
+
+        private void EndDeferredRecycleScope()
+        {
+            Debug.Assert(_deferredRecycleScopeDepth > 0);
+            if (--_deferredRecycleScopeDepth > 0)
+            {
+                return;
+            }
+
+            _deferRecycledElementHiding = false;
+            HashSet<Control>? deferredHideElements = _deferredHideElements;
+            if (deferredHideElements == null || deferredHideElements.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                foreach (Control element in deferredHideElements)
+                {
+                    _owner.HideRecycledElement(element);
+                }
+            }
+            finally
+            {
+                deferredHideElements.Clear();
+            }
+        }
+
         private void HideElement(Control element)
         {
             _owner?.HideRecycledElement(element);
         }
 
-        private static void RestoreElementVisibility(Control element)
+        private void RestoreElementForReuse(Control element)
         {
-            element.ClearValue(Visual.IsVisibleProperty);
+            _deferredHideElements?.Remove(element);
+            if (!element.IsVisible)
+            {
+                element.ClearValue(Visual.IsVisibleProperty);
+            }
         }
 
         private static void PushToRecyclePool<T>(Stack<T> pool, T element) where T : Control
@@ -398,6 +504,21 @@ namespace Avalonia.Controls
             if (LastScrollingSlot < FirstScrollingSlot)
             {
                 ResetSlotIndexes();
+            }
+        }
+
+        internal readonly struct DeferredRecycleScope : IDisposable
+        {
+            private readonly DataGridDisplayData? _owner;
+
+            internal DeferredRecycleScope(DataGridDisplayData owner)
+            {
+                _owner = owner;
+            }
+
+            public void Dispose()
+            {
+                _owner?.EndDeferredRecycleScope();
             }
         }
 

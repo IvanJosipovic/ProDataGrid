@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
+using Avalonia.Threading;
 
 namespace Avalonia.Controls
 {
@@ -26,6 +27,8 @@ internal
 #endif
     partial class DataGrid
     {
+        private bool _selectionModelSourceLayoutPending;
+        private List<int> _selectionModelSourceIndexesPending;
 
         /// <summary>
         /// ItemsSourceProperty property changed handler.
@@ -33,36 +36,35 @@ internal
         /// <param name="e">The event arguments.</param>
         private void OnItemsSourcePropertyChanged(AvaloniaPropertyChangedEventArgs e)
         {
-            using var selectionScope = BeginSelectionChangeScope(DataGridSelectionChangeSource.ItemsSourceChange, sticky: true);
+            using var selectionScope = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.ItemsSourceChange,
+                sticky: true,
+                guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
 
             _pendingGroupingState = null;
 
             var oldValue = (IEnumerable)e.OldValue;
             var newItemsSource = (IEnumerable)e.NewValue;
-            var switchingFromOwnedHierarchical = ReferenceEquals(oldValue, _hierarchicalItemsSource) && _ownsHierarchicalItemsSource && !ReferenceEquals(oldValue, newItemsSource);
-
+            List<int> selectionIndexesSnapshot = _selectionModelExplicitlySet &&
+                _selectionModelAdapter?.Model.SelectedIndexes is { Count: > 0 } selectedIndexes
+                ? new List<int>(selectedIndexes)
+                : null;
+            _selectionModelSourceLayoutPending = selectionIndexesSnapshot is { Count: > 0 };
+            _selectionModelSourceIndexesPending = selectionIndexesSnapshot;
             _ownsHierarchicalItemsSource = ReferenceEquals(newItemsSource, _hierarchicalItemsSource);
             if (!_ownsHierarchicalItemsSource && !ReferenceEquals(newItemsSource, _hierarchicalItemsSource))
             {
                 _hierarchicalItemsSource = null;
             }
 
-            if (switchingFromOwnedHierarchical && _selectionModelAdapter?.Model != null)
-            {
-                _syncingSelectionModel = true;
-                try
-                {
-                    _selectionModelAdapter.Model.Source = null;
-                }
-                finally
-                {
-                    _syncingSelectionModel = false;
-                }
-            }
-
             if (!_areHandlersSuspended)
             {
                 Debug.Assert(DataConnection != null);
+
+                // Keep transient row/column refreshes from synchronizing an empty realized
+                // selection back into the external selection model before the replacement
+                // source has populated its slots and current cell.
+                _makeFirstDisplayedCellCurrentCellPending = true;
 
                 var oldCollectionView = DataConnection.CollectionView;
 
@@ -78,6 +80,38 @@ internal
                     CancelEdit(DataGridEditingUnit.Row, false);
                 }
 
+                // Build the replacement view once and use that same materialization for both
+                // the proposal and commit. A SelectionChanging subscriber must not cause a
+                // lazy or single-pass ItemsSource to be enumerated an extra time.
+                bool setDefaultSelection = false;
+                IDataGridCollectionView newCollectionView;
+                if (newItemsSource is IDataGridCollectionView suppliedCollectionView)
+                {
+                    setDefaultSelection = true;
+                    newCollectionView = suppliedCollectionView;
+                }
+                else
+                {
+                    newCollectionView = newItemsSource is not null
+                        ? DataGridDataConnection.CreateView(newItemsSource)
+                        : default;
+                }
+
+                List<object> selectionSnapshot = CaptureSelectionSnapshot();
+                ItemsSourceSelectionTransaction selectionTransaction =
+                    oldValue != null || selectionSnapshot != null || CurrentCell.IsValid
+                        ? BeginItemsSourceSelectionTransaction(
+                            selectionSnapshot,
+                            newCollectionView,
+                            preserveSelection: false)
+                        : null;
+                using var selectionCommit = selectionTransaction != null
+                    ? BeginSelectionCommit()
+                    : default;
+                using var sourceMutationDeferral = selectionTransaction != null
+                    ? BeginItemsSourceMutationDeferral()
+                    : default;
+
                 DataConnection.UnWireEvents(DataConnection.DataSource);
                 DataConnection.ClearDataProperties();
                 ClearRowGroupHeadersTable();
@@ -88,19 +122,6 @@ internal
                 DataConnection.DataSource = null;
                 _selectedItems.UpdateIndexes();
                 CoerceSelectedItem();
-
-                // Wrap an IEnumerable in an ICollectionView if it's not already one
-                bool setDefaultSelection = false;
-                if (newItemsSource is IDataGridCollectionView newCollectionView)
-                {
-                    setDefaultSelection = true;
-                }
-                else
-                {
-                    newCollectionView =  newItemsSource is not null
-                        ? DataGridDataConnection.CreateView(newItemsSource)
-                        : default;
-                }
 
                 DataConnection.DataSource = newCollectionView;
 
@@ -115,6 +136,41 @@ internal
                 UpdateFilteringAdapterView();
                 UpdateSearchAdapterView();
                 UpdateConditionalFormattingAdapterView();
+
+                // SelectionModel must observe source mutations before DataConnection. Its
+                // SourceReset preflight computes the single public SelectionChanging proposal;
+                // the DataConnection handler then consumes that pending transaction while it
+                // performs the structural row update. Wiring in the opposite order exposes a
+                // first proposal from DataConnection followed by reset/selection proposals.
+                UpdateSelectionModelSource();
+
+                if (selectionTransaction == null &&
+                    selectionIndexesSnapshot is { Count: > 0 } &&
+                    _selectionModelAdapter?.Model is { SelectedIndexes.Count: 0 } selectionModel)
+                {
+                    _syncingSelectionModel = true;
+                    try
+                    {
+                        using (selectionModel.BatchUpdate())
+                        {
+                            int sourceCount = selectionModel.Source is ICollection collection
+                                ? collection.Count
+                                : DataConnection?.Count ?? 0;
+                            for (int i = 0; i < selectionIndexesSnapshot.Count; i++)
+                            {
+                                int index = selectionIndexesSnapshot[i];
+                                if (index >= 0 && index < sourceCount)
+                                {
+                                    selectionModel.Select(index);
+                                }
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        _syncingSelectionModel = false;
+                    }
+                }
 
                 if (DataConnection.DataSource != null)
                 {
@@ -132,14 +188,9 @@ internal
                     DataConnection.WireEvents(DataConnection.DataSource);
                 }
 
-                UpdateSelectionModelSource();
-
                 var modelSelectionPending = _selectionModelAdapter?.Model != null &&
                     (_selectionModelAdapter.Model.SelectedIndex >= 0 ||
                      _selectionModelAdapter.Model.SelectedItems.Count > 0);
-
-                // Wait for the current cell to be set before we raise any SelectionChanged events
-                _makeFirstDisplayedCellCurrentCellPending = true;
 
                 // Clear out the old rows and remove the generated columns
                 bool previousSelectionSync = false;
@@ -194,8 +245,17 @@ internal
                 InvalidateMeasure();
 
                 UpdatePseudoClasses();
+                CompleteItemsSourceSelectionTransaction(selectionTransaction);
                 OnDataSourceChangedForSummaries();
                 OnDataSourceChangedForValidation();
+                RaiseAutomationStructureChanged();
+
+                if (_selectionModelSourceLayoutPending)
+                {
+                    Dispatcher.UIThread.Post(
+                        CompletePendingSelectionModelSourceLayout,
+                        DispatcherPriority.SystemIdle);
+                }
             }
         }
 
@@ -209,13 +269,13 @@ internal
                     var view = DataConnection?.CollectionView;
                     IEnumerable source = view;
 
-                    if (view is DataGridCollectionView paged && paged.PageSize > 0)
+                    if (view is DataGridCollectionView projected && projected.PageSize > 0)
                     {
-                        if (_pagedSelectionSource == null || !ReferenceEquals(_pagedSelectionSourceView, paged))
+                        if (_pagedSelectionSource == null || !ReferenceEquals(_pagedSelectionSourceView, projected))
                         {
                             _pagedSelectionSource?.Dispose();
-                            _pagedSelectionSource = new DataGridSelection.DataGridPagedSelectionSource(paged);
-                            _pagedSelectionSourceView = paged;
+                            _pagedSelectionSource = new DataGridSelection.DataGridPagedSelectionSource(projected);
+                            _pagedSelectionSourceView = projected;
                         }
                         source = _pagedSelectionSource;
                     }
@@ -307,6 +367,20 @@ internal
             }
 
             using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.SelectionModelSync);
+            var proposedItems = selectedItems as IList ?? selectedItems.ToList();
+            HashSet<int> proposedRows = BuildRowSelectionProposal(proposedItems, out int proposedSlot);
+            int proposedColumnIndex = CurrentColumnIndex >= 0
+                ? CurrentColumnIndex
+                : FirstDisplayedNonFillerColumnIndex;
+            if (!TryPreviewRowSet(
+                    proposedRows,
+                    CreateCellInfo(proposedColumnIndex, proposedSlot),
+                    CreateAnchorInfo(proposedSlot, proposedColumnIndex)))
+            {
+                return;
+            }
+
+            using var commit = BeginSelectionCommit();
             _syncingSelectionModel = true;
             try
             {
@@ -357,7 +431,10 @@ internal
 
         private void SyncSelectionModelFromGridSelection()
         {
-            if (_selectionModelAdapter == null || DataConnection?.CollectionView == null || _syncingSelectionModel)
+            if (_selectionModelAdapter == null ||
+                DataConnection?.CollectionView == null ||
+                _syncingSelectionModel ||
+                _selectionModelSourceLayoutPending)
             {
                 return;
             }
@@ -391,7 +468,7 @@ internal
         }
 
 
-        internal void RefreshRowsAndColumns(bool clearRows)
+        internal void RefreshRowsAndColumns(bool clearRows, bool recycleDisplayedRows = false)
         {
             using var activity = DataGridDiagnostics.RefreshRowsAndColumns();
             using var _ = DataGridDiagnostics.BeginDataGridRefresh();
@@ -427,7 +504,10 @@ internal
                         }
                     }
 
-                    RefreshRows(recycleRows: false, clearRows: false);
+                    RefreshRows(
+                        recycleRows: recycleDisplayedRows,
+                        clearRows: false,
+                        recycleDisplayedRows: recycleDisplayedRows);
 
                     if (ColumnDefinitions.Count > 0 && CurrentColumnIndex == -1)
                     {
@@ -435,6 +515,7 @@ internal
                     }
                     else
                     {
+                        RestoreSelectionModelBeforeCompletingPendingLayout();
                         _makeFirstDisplayedCellCurrentCellPending = false;
                         _desiredCurrentColumnIndex = -1;
                         FlushCurrentCellChanged();
@@ -465,7 +546,9 @@ internal
 
         internal void UpdateStateOnCurrentChanged(object currentItem, int currentPosition)
         {
-            using var selectionScope = BeginSelectionChangeScope(DataGridSelectionChangeSource.ItemsSourceChange);
+            using var selectionScope = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.ItemsSourceChange,
+                guarantee: DataGridSelectionChangingGuarantee.PostChangeReconciliation);
 
             var currentSelectionIndex = currentPosition;
             if (_selectionModelAdapter != null && TryGetPagingInfo(out _, out var pageStart))
@@ -501,6 +584,12 @@ internal
 
             if (currentItem != null && (slot < 0 || slot >= SlotCount))
             {
+                if (!TryPreviewClearSelectionAndCurrent())
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ClearRowSelection(true);
                 SetCurrentCellCore(-1, -1);
                 return;
@@ -510,6 +599,12 @@ internal
                 _selectionModelAdapter.Model.SelectedIndexes.Count > 0 &&
                 !currentInSelection)
             {
+                if (!TryPreviewSelectionModelSelection())
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 ApplySelectionFromSelectionModel();
                 return;
             }
@@ -519,13 +614,18 @@ internal
                 _noSelectionChangeCount++;
                 _noCurrentCellChangeCount++;
 
-                if (!CommitEdit())
-                {
-                    CancelEdit(DataGridEditingUnit.Row, false);
-                }
-
                 if (currentItem == null)
                 {
+                    if (!TryPreviewClearSelectionAndCurrent())
+                    {
+                        return;
+                    }
+
+                    using var commit = BeginSelectionCommit();
+                    if (!CommitEdit())
+                    {
+                        CancelEdit(DataGridEditingUnit.Row, false);
+                    }
                     ClearRowSelection(true);
                     SetCurrentCellCore(-1, -1);
                 }
@@ -535,6 +635,16 @@ internal
                 }
                 else
                 {
+                    if (!TryPreviewRowSelection(columnIndex, slot, DataGridSelectionAction.SelectCurrent))
+                    {
+                        return;
+                    }
+
+                    using var commit = BeginSelectionCommit();
+                    if (!CommitEdit())
+                    {
+                        CancelEdit(DataGridEditingUnit.Row, false);
+                    }
                     ClearRowSelection(true);
                     ProcessSelectionAndCurrency(columnIndex, currentItem, slot, DataGridSelectionAction.SelectCurrent, false);
                 }

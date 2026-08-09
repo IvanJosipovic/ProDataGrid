@@ -298,6 +298,10 @@ internal
                 OwningGrid?.OnColumnVisibleStateChanged(this);
                 NotifyPropertyChanged(change.Property.Name);
             }
+            else if (change.Property == DisplayModeProperty)
+            {
+                OwningGrid?.OnColumnDisplayModeChanged(this);
+            }
             else if (change.Property == WidthProperty)
             {
                 if (!_settingWidthInternally)
@@ -935,9 +939,9 @@ internal
         /// </summary>
         /// <param name="resourceKey">Resource key to search for.</param>
         /// <returns>The located <see cref="ControlTheme" /> or <c>null</c>.</returns>
-        protected ControlTheme GetColumnControlTheme(string resourceKey)
+        protected ControlTheme GetColumnControlTheme(object resourceKey)
         {
-            if (OwningGrid == null || string.IsNullOrEmpty(resourceKey))
+            if (OwningGrid == null || resourceKey == null)
             {
                 return null;
             }

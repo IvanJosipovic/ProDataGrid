@@ -523,7 +523,13 @@ internal
             return IsSlotVisible(slot) ? DisplayData.GetDisplayedElement(slot) as DataGridRow : null;
         }
 
-        internal void InsertElementAt(int slot, int rowIndex, object item, DataGridRowGroupInfo groupInfo, bool isCollapsed)
+        internal void InsertElementAt(
+            int slot,
+            int rowIndex,
+            object item,
+            DataGridRowGroupInfo groupInfo,
+            bool isCollapsed,
+            bool deferLayout = false)
         {
             Debug.Assert(slot >= 0 && slot <= SlotCount);
 
@@ -534,14 +540,21 @@ internal
                     element: null,
                     updateVerticalScrollBarOnly: true,
                     isCollapsed: true,
-                    isRow: isRow);
+                    isRow: isRow,
+                    deferLayout: deferLayout);
             }
             else if (SlotIsDisplayed(slot))
             {
                 // Row at that index needs to be displayed
                 if (isRow)
                 {
-                    InsertElement(slot, GenerateRow(rowIndex, slot, item), false /*updateVerticalScrollBarOnly*/, false /*isCollapsed*/, isRow);
+                    InsertElement(
+                        slot,
+                        GenerateRow(rowIndex, slot, item),
+                        updateVerticalScrollBarOnly: false,
+                        isCollapsed: false,
+                        isRow,
+                        deferLayout);
                 }
                 else
                 {
@@ -551,7 +564,8 @@ internal
                     InsertElement(slot, element,
                         updateVerticalScrollBarOnly: false,
                         isCollapsed: false,
-                        isRow: isRow);
+                        isRow: isRow,
+                        deferLayout: deferLayout);
                 }
             }
             else
@@ -560,7 +574,8 @@ internal
                     element: null,
                     updateVerticalScrollBarOnly: !HasLegacyVerticalScrollBar || IsLegacyVerticalScrollBarVisible,
                     isCollapsed: false,
-                    isRow: isRow);
+                    isRow: isRow,
+                    deferLayout: deferLayout);
             }
         }
 
@@ -574,6 +589,32 @@ internal
 
             // isCollapsed below is always false because we only use the method if we're not grouping
             InsertElementAt(slot, rowIndex, item, null/*DataGridRowGroupInfo*/, false /*isCollapsed*/);
+            RequestPointerOverRefresh();
+        }
+
+        private void InsertRowsAt(int rowIndex, int count)
+        {
+            Debug.Assert(rowIndex >= 0);
+            Debug.Assert(count > 0);
+
+            var slot = SlotFromRowIndex(rowIndex);
+            RowHeightEstimator?.OnItemsInserted(slot, count);
+
+            for (var offset = 0; offset < count; offset++)
+            {
+                var currentRowIndex = rowIndex + offset;
+                var currentSlot = SlotFromRowIndex(currentRowIndex);
+                var item = DataConnection.GetDataItem(currentRowIndex);
+                InsertElementAt(
+                    currentSlot,
+                    currentRowIndex,
+                    item,
+                    groupInfo: null,
+                    isCollapsed: false,
+                    deferLayout: true);
+            }
+
+            CompleteDeferredRowInsertLayout();
             RequestPointerOverRefresh();
         }
 
@@ -597,9 +638,18 @@ internal
 
             var previousItem = row.DataContext;
             var wasPlaceholder = row.IsPlaceholder;
+            var assignmentChanged = !ReferenceEquals(previousItem, newItem);
             var hasPlaceholderTransition =
-                !ReferenceEquals(previousItem, newItem) &&
+                assignmentChanged &&
                 (wasPlaceholder || ReferenceEquals(newItem, DataGridCollectionView.NewItemPlaceholder));
+
+            if (assignmentChanged)
+            {
+                // This path keeps the realized row/cell containers while replacing their
+                // logical assignment. Preserve the same clearing/prepared boundary used by
+                // ordinary recycling: clearing observes the old item and content.
+                NotifyCellsClearing(row);
+            }
 
             if (hasPlaceholderTransition)
             {
@@ -624,6 +674,12 @@ internal
             }
 
             row.ApplyState();
+            if (assignmentChanged)
+            {
+                // Prepared handlers must observe the final item, regenerated content, and
+                // non-placeholder row state rather than the stale placeholder assignment.
+                NotifyPreparedRowCells(row);
+            }
             row.InvalidateMeasure();
             RequestPointerOverRefresh();
             return true;
@@ -682,7 +738,10 @@ internal
             _rowsPresenter.RaiseScrollInvalidated(EventArgs.Empty);
         }
 
-        internal void RefreshRows(bool recycleRows, bool clearRows)
+        internal void RefreshRows(
+            bool recycleRows,
+            bool clearRows,
+            bool recycleDisplayedRows = false)
         {
             using var activity = DataGridDiagnostics.RefreshRows();
             using var _ = DataGridDiagnostics.BeginRowsRefresh();
@@ -735,6 +794,13 @@ internal
                     ClearRowGroupHeadersTable();
                     PopulateRowGroupHeadersTable();
                 }
+                else if (recycleDisplayedRows)
+                {
+                    // A bulk hierarchy change invalidates most realized row-to-item mappings.
+                    // Recycle the current viewport before AddSlots so it can reuse those rows
+                    // instead of realizing a second viewport and discarding the old one later.
+                    ResetDisplayedRows();
+                }
 
                 RefreshRowGroupHeaders();
 
@@ -759,7 +825,6 @@ internal
                 {
                     if (DataConnection != null && ColumnsItemsInternal.Count > 0)
                     {
-                        AddSlots(DataConnection.Count);
                         AddSlots(DataConnection.Count + RowGroupHeadersTable.IndexCount + RowGroupFootersTable.IndexCount);
 
                         InvalidateMeasure();
@@ -1775,6 +1840,7 @@ internal
 #endif
         virtual void OnUnloadingRow(DataGridRowEventArgs e)
         {
+            NotifyCellsClearing(e.Row);
             LoadingOrUnloadingRow = true;
             e.RoutedEvent ??= UnloadingRowEvent;
             e.Source ??= this;

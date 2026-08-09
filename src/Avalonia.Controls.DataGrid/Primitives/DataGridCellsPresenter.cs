@@ -77,7 +77,11 @@ internal
 
         bool IChildIndexProvider.TryGetTotalCount(out int count)
         {
-            count = Children.Count - 1; // Adjust for filler column
+            count = Children.Count;
+            if (OwningRow?.ExistingFillerCell is { } fillerCell && Children.Contains(fillerCell))
+            {
+                count--;
+            }
             return true;
         }
 
@@ -153,7 +157,10 @@ internal
 
             _fillerLeftEdge = lastScrollingRightEdge;
 
-            OwningRow.FillerCell.Arrange(new Rect(_fillerLeftEdge, 0, OwningGrid.ColumnsInternal.FillerColumn.FillerWidth, finalSize.Height));
+            if (!OwningGrid.UseLightweightFiller && OwningGrid.ColumnsInternal.FillerColumn.IsActive)
+            {
+                OwningRow.FillerCell.Arrange(new Rect(_fillerLeftEdge, 0, OwningGrid.ColumnsInternal.FillerColumn.FillerWidth, finalSize.Height));
+            }
 
             return finalSize;
         }
@@ -220,12 +227,26 @@ internal
         {
             DataGridFillerColumn fillerColumn = OwningGrid.ColumnsInternal.FillerColumn;
             bool newVisibility = fillerColumn.IsActive;
-            if (OwningRow.FillerCell.IsVisible != newVisibility)
+            if (OwningGrid.UseLightweightFiller)
             {
-                OwningRow.FillerCell.IsVisible = newVisibility;
+                if (OwningRow.ExistingFillerCell is { } existingFiller)
+                {
+                    existingFiller.IsVisible = false;
+                }
+                newVisibility = false;
+            }
+            DataGridCell fillerCell = OwningRow.ExistingFillerCell;
+            if (fillerCell == null && newVisibility)
+            {
+                fillerCell = OwningRow.FillerCell;
+            }
+
+            if (fillerCell != null && fillerCell.IsVisible != newVisibility)
+            {
+                fillerCell.IsVisible = newVisibility;
                 if (newVisibility)
                 {
-                    OwningRow.FillerCell.Arrange(new Rect(_fillerLeftEdge, 0, fillerColumn.FillerWidth, Bounds.Height));
+                    fillerCell.Arrange(new Rect(_fillerLeftEdge, 0, fillerColumn.FillerWidth, Bounds.Height));
                 }
             }
 
@@ -372,7 +393,10 @@ internal
 
             // Measure FillerCell, we're doing it unconditionally here because we don't know if we'll need the filler
             // column and we don't want to cause another Measure if we do
-            OwningRow.FillerCell.Measure(new Size(double.PositiveInfinity, DesiredHeight));
+            if (!OwningGrid.UseLightweightFiller && OwningGrid.ColumnsInternal.FillerColumn.IsActive)
+            {
+                OwningRow.FillerCell.Measure(new Size(double.PositiveInfinity, DesiredHeight));
+            }
 
             OwningGrid.ColumnsInternal.EnsureVisibleEdgedColumnsWidth();
             return new Size(OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth, DesiredHeight);

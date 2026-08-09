@@ -68,6 +68,18 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         void ExpandAll(HierarchicalNode<T>? node = null, int? maxDepth = null);
 
+        /// <summary>
+        /// Asynchronously expands the specified typed subtree and commits its visible nodes once loading completes.
+        /// </summary>
+        /// <param name="node">Starting node; null for the root.</param>
+        /// <param name="maxDepth">Maximum relative depth to expand, or null for no limit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes after the coherent visible-node commit.</returns>
+        Task ExpandAllAsync(
+            HierarchicalNode<T>? node = null,
+            int? maxDepth = null,
+            CancellationToken cancellationToken = default);
+
         void CollapseAll(HierarchicalNode<T>? node = null, int? minDepth = null);
 
         void Sort(HierarchicalNode<T>? node = null, IComparer<T>? comparer = null, bool recursive = true);
@@ -750,12 +762,12 @@ namespace Avalonia.Controls.DataGridHierarchical
     #endif
     class HierarchicalModel<T> : HierarchicalModel, IHierarchicalModel<T>
     {
+        private ProjectedObservableNodes<T>? _observableFlattened;
+
         public HierarchicalModel(HierarchicalOptions<T>? options = null)
             : base(PrepareOptions(options ??= new HierarchicalOptions<T>()))
         {
             TypedOptions = options;
-            ObservableFlattened = new ProjectedObservableNodes<T>(base.ObservableFlattened);
-            WireTypedEvents();
         }
 
         private static HierarchicalOptions PrepareOptions(HierarchicalOptions<T> typed)
@@ -763,16 +775,102 @@ namespace Avalonia.Controls.DataGridHierarchical
             return typed.EnsureUntyped();
         }
 
-        private void WireTypedEvents()
+        protected override void OnNodeExpanded(HierarchicalNode node)
         {
-            NodeExpanded += (_, e) => NodeExpandedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeCollapsed += (_, e) => NodeCollapsedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeLoading += (_, e) => NodeLoadingTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeLoaded += (_, e) => NodeLoadedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(e.Node)));
-            NodeLoadFailed += (_, e) => NodeLoadFailedTyped?.Invoke(this, new HierarchicalNodeLoadFailedEventArgs<T>(new HierarchicalNode<T>(e.Node), e.Error));
-            NodeLoadRetryScheduled += (_, e) => NodeLoadRetryScheduledTyped?.Invoke(this, new HierarchicalNodeRetryEventArgs<T>(new HierarchicalNode<T>(e.Node), e.Delay));
-            HierarchyChanged += (_, e) => HierarchyChangedTyped?.Invoke(this, new HierarchyChangedEventArgs<T>(new HierarchicalNode<T>(e.Node), e.Action));
-            FlattenedChanged += (_, e) => FlattenedChangedTyped?.Invoke(this, new FlattenedChangedEventArgs<T>(e, ObservableFlattened));
+            base.OnNodeExpanded(node);
+            NodeExpandedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override bool HasNodeExpandedObservers =>
+            base.HasNodeExpandedObservers || NodeExpandedTyped != null;
+
+        protected override bool DetermineInitialLeaf(object item)
+        {
+            if (!TypedOptions.TreatGroupsAsNodes &&
+                item is T typed &&
+                TypedOptions.IsLeafSelector is { } selector)
+            {
+                try
+                {
+                    return selector(typed);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+
+            return base.DetermineInitialLeaf(item);
+        }
+
+        protected override IEnumerable? ResolveChildrenSynchronously(object item)
+        {
+            if (item is T typed)
+            {
+                if (TypedOptions.ChildrenSelector is { } childrenSelector)
+                {
+                    return childrenSelector(typed);
+                }
+
+                if (!TypedOptions.TreatGroupsAsNodes &&
+                    TypedOptions.ItemsSelector is { } itemsSelector)
+                {
+                    return itemsSelector(typed);
+                }
+            }
+
+            return base.ResolveChildrenSynchronously(item);
+        }
+
+        protected override void OnNodeCollapsed(HierarchicalNode node)
+        {
+            base.OnNodeCollapsed(node);
+            NodeCollapsedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override void OnNodeLoading(HierarchicalNode node)
+        {
+            base.OnNodeLoading(node);
+            NodeLoadingTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override void OnNodeLoaded(HierarchicalNode node)
+        {
+            base.OnNodeLoaded(node);
+            NodeLoadedTyped?.Invoke(this, new HierarchicalNodeEventArgs<T>(new HierarchicalNode<T>(node)));
+        }
+
+        protected override void OnNodeLoadFailed(HierarchicalNode node, Exception error)
+        {
+            base.OnNodeLoadFailed(node, error);
+            NodeLoadFailedTyped?.Invoke(
+                this,
+                new HierarchicalNodeLoadFailedEventArgs<T>(new HierarchicalNode<T>(node), error));
+        }
+
+        protected override void OnNodeLoadRetryScheduled(HierarchicalNode node, TimeSpan delay)
+        {
+            base.OnNodeLoadRetryScheduled(node, delay);
+            NodeLoadRetryScheduledTyped?.Invoke(
+                this,
+                new HierarchicalNodeRetryEventArgs<T>(new HierarchicalNode<T>(node), delay));
+        }
+
+        protected override void OnHierarchyChanged(HierarchicalNode node, NotifyCollectionChangedAction action)
+        {
+            base.OnHierarchyChanged(node, action);
+            HierarchyChangedTyped?.Invoke(
+                this,
+                new HierarchyChangedEventArgs<T>(new HierarchicalNode<T>(node), action));
+        }
+
+        protected override void OnFlattenedChangedTyped(FlattenedChangedEventArgs args)
+        {
+            base.OnFlattenedChangedTyped(args);
+            if (FlattenedChangedTyped is { } handler)
+            {
+                handler(this, new FlattenedChangedEventArgs<T>(args, ObservableFlattened));
+            }
         }
 
         public HierarchicalOptions<T> TypedOptions { get; }
@@ -787,7 +885,8 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         public new IReadOnlyList<HierarchicalNode<T>> Flattened => new TypedNodeList(base.Flattened);
 
-        public new IReadOnlyList<HierarchicalNode<T>> ObservableFlattened { get; }
+        public new IReadOnlyList<HierarchicalNode<T>> ObservableFlattened =>
+            _observableFlattened ??= new ProjectedObservableNodes<T>(base.ObservableFlattened);
 
         public event EventHandler<HierarchicalNodeEventArgs<T>>? NodeExpandedTyped;
 
@@ -848,6 +947,19 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         public void ExpandAll(HierarchicalNode<T>? node = null, int? maxDepth = null) =>
             base.ExpandAll(node?.Inner, maxDepth);
+
+        /// <summary>
+        /// Asynchronously expands the specified typed subtree and commits its visible nodes once loading completes.
+        /// </summary>
+        /// <param name="node">Starting node; null for the root.</param>
+        /// <param name="maxDepth">Maximum relative depth to expand, or null for no limit.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>A task that completes after the coherent visible-node commit.</returns>
+        public Task ExpandAllAsync(
+            HierarchicalNode<T>? node = null,
+            int? maxDepth = null,
+            CancellationToken cancellationToken = default) =>
+            base.ExpandAllAsync(node?.Inner, maxDepth, cancellationToken);
 
         public void CollapseAll(HierarchicalNode<T>? node = null, int? minDepth = null) =>
             base.CollapseAll(node?.Inner, minDepth);
@@ -940,6 +1052,8 @@ namespace Avalonia.Controls.DataGridHierarchical
             : throw new InvalidCastException($"Node item is not of type {typeof(T).FullName}.");
 
         object IHierarchicalNodeItem.Item => Inner.Item;
+
+        HierarchicalNode IHierarchicalNodeItem.Node => Inner;
 
         public HierarchicalNode<T>? Parent => Inner.Parent != null ? new HierarchicalNode<T>(Inner.Parent) : null;
 

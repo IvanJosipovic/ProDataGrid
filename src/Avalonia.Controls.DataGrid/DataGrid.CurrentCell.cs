@@ -315,6 +315,13 @@ internal
 
             if (!cellInfo.IsValid)
             {
+                using var origin = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                if (!TryPreviewCurrentCell(DataGridCellInfo.Unset))
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 NoCurrentCellChangeCount++;
                 try
                 {
@@ -433,6 +440,10 @@ internal
             }
 
             _currentCell = info;
+            if (_itemsSourceMutationDeferralDepth > 0)
+            {
+                return;
+            }
             RaisePropertyChanged(CurrentCellProperty, old, info);
         }
 

@@ -114,6 +114,33 @@ public class DataGridCustomDrawingColumnTests
     }
 
     [AvaloniaFact]
+    public void CustomDrawingCell_RetainedTemplate_TearsDownCompositionVisual()
+    {
+        var cell = new DataGridCustomDrawingCell
+        {
+            DrawOperationFactory = new TestDrawOperationFactory(),
+            DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+            RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual
+        };
+        var window = new Window { Width = 160, Height = 80, Content = cell };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            Assert.True(cell.HasCompositionVisualForTesting);
+
+            cell.UseRetainedTemplate();
+
+            Assert.False(cell.HasCompositionVisualForTesting);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void CustomDrawingColumn_SharedTextCache_Reuses_FormattedText_Between_Cells()
     {
         var column = new TestCustomDrawingColumn

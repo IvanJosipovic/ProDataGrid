@@ -12,7 +12,7 @@
         Margin="12">
     <StackPanel Spacing="4">
       <TextBlock Classes="h2">Custom Drawing Columns (Editing)</TextBlock>
-      <TextBlock Text="This sample shows DataGridCustomDrawingColumn rendering through the CompositionCustomVisual backend with Skia draw operations while still supporting in-place text editing. Double-click a Title, Notes, or Category cell, or press F2."
+      <TextBlock Text="ID and Title use the built-in numeric/text drawn display mode; Notes and Category use custom Skia draw operations. All editable columns materialize the normal retained editor only while editing. Double-click a Title, Notes, or Category cell, or press F2."
                  TextWrapping="Wrap" />
     </StackPanel>
 

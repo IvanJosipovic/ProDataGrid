@@ -279,11 +279,25 @@ internal
                     return;
                 }
 
+                _dragLastModifiers = e.KeyModifiers;
+                _dragTriggerEvent = e;
+                if (!UpdateSelectionForDrag(current.Position, e.KeyModifiers, force: false))
+                {
+                    // The first drag proposal is still transactional. A veto (or an invalid
+                    // target) must not capture the pointer or leave a latent drag/autoscroll
+                    // session behind.
+                    EndSelectionDrag();
+                    return;
+                }
+
                 _dragCapturePending = false;
                 if (_dragPointer != null && _dragPointer.Captured == null)
                 {
                     _dragPointer.Capture(this);
                 }
+
+                e.Handled = true;
+                return;
             }
 
             _dragLastModifiers = e.KeyModifiers;
@@ -323,15 +337,21 @@ internal
                 return false;
             }
 
-            _dragLastPoint = position;
-
             var updated = _headerSelectionDragMode != HeaderSelectionDragMode.None
                 ? UpdateHeaderSelectionForDrag(position, modifiers)
                 : _isRowSelectionDragging
                     ? UpdateRowSelectionForDrag(position, modifiers)
                     : UpdateCellSelectionForDrag(position, modifiers);
 
-            UpdateDragAutoScroll(position);
+            if (updated)
+            {
+                _dragLastPoint = position;
+                UpdateDragAutoScroll(position);
+            }
+            else
+            {
+                StopDragAutoScroll();
+            }
             return updated;
         }
 
@@ -354,7 +374,9 @@ internal
 
                 if (slot == _dragLastSlot)
                 {
-                    return false;
+                    // A force tick can legitimately resolve to the same edge row while the
+                    // viewport continues scrolling. This is an accepted no-op, not a veto.
+                    return true;
                 }
 
                 var rowIndex = RowIndexFromSlot(slot);
@@ -368,7 +390,11 @@ internal
                 var endRow = Math.Max(anchorRowIndex, rowIndex);
                 var range = new DataGridCellRange(startRow, endRow, 0, ColumnsItemsInternal.Count - 1);
 
-                if (!ApplyCellSelectionRange(range, append, DataGridSelectionChangeSource.Pointer, _dragTriggerEvent))
+                if (!ApplyCellSelectionRange(
+                        range,
+                        append,
+                        DataGridSelectionChangeSource.Pointer | DataGridSelectionChangeSource.DragInteraction,
+                        _dragTriggerEvent))
                 {
                     return false;
                 }
@@ -397,7 +423,7 @@ internal
 
                 if (columnIndex == _dragLastColumnIndex)
                 {
-                    return false;
+                    return true;
                 }
 
                 var anchorDisplayIndex = _dragHeaderAnchorColumnIndex >= 0
@@ -417,7 +443,12 @@ internal
                 var startDisplayIndex = Math.Min(anchorDisplayIndex, currentDisplayIndex);
                 var endDisplayIndex = Math.Max(anchorDisplayIndex, currentDisplayIndex);
 
-                if (!ApplyColumnHeaderSelectionRange(startDisplayIndex, endDisplayIndex, append, DataGridSelectionChangeSource.Pointer, _dragTriggerEvent))
+                if (!ApplyColumnHeaderSelectionRange(
+                        startDisplayIndex,
+                        endDisplayIndex,
+                        append,
+                        DataGridSelectionChangeSource.Pointer | DataGridSelectionChangeSource.DragInteraction,
+                        _dragTriggerEvent))
                 {
                     return false;
                 }
@@ -507,16 +538,61 @@ internal
 
             if (slot == _dragLastSlot)
             {
-                return false;
+                return true;
             }
 
             var previousSlot = _dragLastSlot;
 
-            using var selectionScope = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, _dragTriggerEvent);
+            using var selectionScope = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.Pointer | DataGridSelectionChangeSource.DragInteraction,
+                _dragTriggerEvent);
+            KeyboardHelper.GetMetaKeyState(this, modifiers, out bool ctrl, out _);
+            int anchorSlot = _dragAnchorSlot != -1
+                ? _dragAnchorSlot
+                : AnchorSlot != -1
+                    ? AnchorSlot
+                    : slot;
+            int rangeStart = Math.Min(anchorSlot, slot);
+            int rangeEnd = Math.Max(anchorSlot, slot);
+            SelectionCommitScope selectionCommit = default;
+            if (HasSelectionChangingHandlers)
+            {
+                HashSet<int> proposedRows = CaptureSelectedRowIndexes();
+                if (!ctrl)
+                {
+                    proposedRows.Clear();
+                }
+                AddSlotRange(proposedRows, rangeStart, rangeEnd);
+                if (ctrl && previousSlot >= 0)
+                {
+                    if (previousSlot < rangeStart)
+                    {
+                        RemoveSlotRange(proposedRows, previousSlot, rangeStart - 1);
+                    }
+                    else if (previousSlot > rangeEnd)
+                    {
+                        RemoveSlotRange(proposedRows, rangeEnd + 1, previousSlot);
+                    }
+                }
+
+                int proposedColumnIndex = CurrentColumnIndex >= 0
+                    ? CurrentColumnIndex
+                    : FirstDisplayedNonFillerColumnIndex;
+                if (!TryPreviewRowSet(
+                        proposedRows,
+                        CreateCellInfo(proposedColumnIndex, slot),
+                        CreateAnchorInfo(anchorSlot, proposedColumnIndex)))
+                {
+                    return false;
+                }
+
+                selectionCommit = BeginSelectionCommit();
+            }
+
+            using var selectionTransaction = selectionCommit;
             _noSelectionChangeCount++;
             try
             {
-                KeyboardHelper.GetMetaKeyState(this, modifiers, out bool ctrl, out _);
                 var selectionAction = ctrl
                     ? DataGridSelectionAction.None
                     : DataGridSelectionAction.SelectFromAnchorToCurrent;
@@ -526,13 +602,6 @@ internal
                     return false;
                 }
 
-                var anchorSlot = _dragAnchorSlot != -1
-                    ? _dragAnchorSlot
-                    : AnchorSlot != -1
-                        ? AnchorSlot
-                        : slot;
-                var rangeStart = Math.Min(anchorSlot, slot);
-                var rangeEnd = Math.Max(anchorSlot, slot);
                 if (SelectionMode == DataGridSelectionMode.Extended)
                 {
                     if (ctrl)
@@ -569,10 +638,12 @@ internal
 
             if (slot == _dragLastSlot && columnIndex == _dragLastColumnIndex)
             {
-                return false;
+                return true;
             }
 
-            using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, _dragTriggerEvent);
+            using var _ = BeginSelectionChangeScope(
+                DataGridSelectionChangeSource.Pointer | DataGridSelectionChangeSource.DragInteraction,
+                _dragTriggerEvent);
             _successfullyUpdatedSelection = false;
             UpdateCellSelectionForDragCore(slot, columnIndex, modifiers);
             if (_successfullyUpdatedSelection)
@@ -781,12 +852,99 @@ internal
                 return;
             }
 
+            KeyboardHelper.GetMetaKeyState(this, modifiers, out bool ctrl, out _);
+
+            SelectionCommitScope selectionCommit = default;
+            if (HasSelectionChangingHandlers)
+            {
+                int targetRowIndex = RowIndexFromSlot(slot);
+                List<DataGridCellInfo> proposed;
+                DataGridSelectionAnchorInfo proposedAnchor = GetCurrentSelectionAnchorInfo();
+                if (SelectionMode == DataGridSelectionMode.Single)
+                {
+                    proposed = BuildCellSelectionProposal(
+                        append: false,
+                        targetRowIndex,
+                        targetRowIndex,
+                        columnIndex,
+                        columnIndex,
+                        columnIndexesAreDisplayIndexes: false);
+                }
+                else if (_dragAnchorCell.HasValue || _cellAnchor.Slot != -1)
+                {
+                    DataGridCellPosition? anchorCell = _dragAnchorCell;
+                    if (!anchorCell.HasValue && _cellAnchor.Slot != -1 && _cellAnchor.ColumnIndex >= 0)
+                    {
+                        int resolvedAnchorRowIndex = RowIndexFromSlot(_cellAnchor.Slot);
+                        if (resolvedAnchorRowIndex >= 0)
+                        {
+                            anchorCell = new DataGridCellPosition(resolvedAnchorRowIndex, _cellAnchor.ColumnIndex);
+                        }
+                    }
+
+                    proposed = BuildNormalizedCellSelectionProposal(_selectedCellsView);
+                    if (anchorCell.HasValue &&
+                        TryGetSelectionDisplayIndexes(anchorCell.Value.ColumnIndex, columnIndex, out int anchorDisplayIndex, out int targetDisplayIndex))
+                    {
+                        var selectionAnchorCell = new DataGridCellPosition(anchorCell.Value.RowIndex, anchorDisplayIndex);
+                        var targetCell = new DataGridCellPosition(targetRowIndex, targetDisplayIndex);
+                        DataGridCellRange range = RangeInteractionModel != null
+                            ? RangeInteractionModel.BuildSelectionRange(new DataGridSelectionRangeContext(this, selectionAnchorCell, targetCell, modifiers))
+                            : new DataGridCellRange(
+                                Math.Min(anchorCell.Value.RowIndex, targetRowIndex),
+                                Math.Max(anchorCell.Value.RowIndex, targetRowIndex),
+                                Math.Min(anchorDisplayIndex, targetDisplayIndex),
+                                Math.Max(anchorDisplayIndex, targetDisplayIndex));
+                        if (!ctrl)
+                        {
+                            proposed.Clear();
+                        }
+                        else if (_dragLastSlot >= 0 && _dragLastColumnIndex >= 0)
+                        {
+                            int previousRowIndex = RowIndexFromSlot(_dragLastSlot);
+                            int previousDisplayIndex = GetColumnDisplayIndex(_dragLastColumnIndex);
+                            RemoveDisplayRangeFromProposal(
+                                proposed,
+                                anchorCell.Value.RowIndex,
+                                previousRowIndex,
+                                anchorDisplayIndex,
+                                previousDisplayIndex);
+                        }
+
+                        List<DataGridCellInfo> rangeCells = BuildCellSelectionProposal(
+                            append: false,
+                            range.StartRow,
+                            range.EndRow,
+                            range.StartColumn,
+                            range.EndColumn,
+                            columnIndexesAreDisplayIndexes: true);
+                        AddCellsToProposal(proposed, rangeCells);
+                    }
+                }
+                else
+                {
+                    proposed = BuildCellSelectionProposal(
+                        append: ctrl,
+                        targetRowIndex,
+                        targetRowIndex,
+                        columnIndex,
+                        columnIndex,
+                        columnIndexesAreDisplayIndexes: false);
+                }
+
+                if (!TryPreviewCellSelection(proposed, CreateCellInfo(columnIndex, slot), proposedAnchor))
+                {
+                    return;
+                }
+
+                selectionCommit = BeginSelectionCommit();
+            }
+
+            using var selectionTransaction = selectionCommit;
             if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
             {
                 return;
             }
-
-            KeyboardHelper.GetMetaKeyState(this, modifiers, out bool ctrl, out _);
 
             var added = new List<DataGridCellInfo>();
             var removed = new List<DataGridCellInfo>();

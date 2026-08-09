@@ -512,6 +512,21 @@ internal
         }
 
         /// <summary>
+        /// Identifies the <see cref="UseLightweightFiller"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseLightweightFillerProperty =
+            AvaloniaProperty.Register<DataGrid, bool>(nameof(UseLightweightFiller));
+
+        /// <summary>
+        /// Gets or sets whether unused trailing row width is represented by the row background instead of a filler cell control.
+        /// </summary>
+        public bool UseLightweightFiller
+        {
+            get { return GetValue(UseLightweightFillerProperty); }
+            set { SetValue(UseLightweightFillerProperty, value); }
+        }
+
+        /// <summary>
         /// Identifies the <see cref="ColumnHeaderTheme"/> dependency property.
         /// </summary>
         public static readonly StyledProperty<ControlTheme> ColumnHeaderThemeProperty =
@@ -1180,7 +1195,7 @@ internal
         public int SelectedIndex
         {
             get { return _selectedIndex; }
-            set { SetAndRaise(SelectedIndexProperty, ref _selectedIndex, value); }
+            set { SetSelectedIndexWithPreview(value); }
         }
 
         public static readonly DirectProperty<DataGrid, object> SelectedItemProperty =
@@ -1196,7 +1211,7 @@ internal
         public object SelectedItem
         {
             get { return _selectedItem; }
-            set { SetAndRaise(SelectedItemProperty, ref _selectedItem, value); }
+            set { SetSelectedItemWithPreview(value); }
         }
 
         public static readonly DirectProperty<DataGrid, IList> SelectedItemsProperty =

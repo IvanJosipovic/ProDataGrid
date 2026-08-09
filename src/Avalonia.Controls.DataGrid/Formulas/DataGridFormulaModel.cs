@@ -117,6 +117,7 @@ namespace Avalonia.Controls.DataGridFormulas
         private INotifyCollectionChanged? _collectionChanged;
         private IDisposable? _nameSubscription;
         private int _formulaVersion;
+        private bool _tracksItemChanges;
         private string _sheetName = DefaultSheetName;
         private string _workbookName = DefaultWorkbookName;
 
@@ -538,6 +539,11 @@ namespace Avalonia.Controls.DataGridFormulas
                     Items_CollectionChanged);
             }
 
+            if (!_tracksItemChanges)
+            {
+                return;
+            }
+
             foreach (var item in source)
             {
                 AddItemSubscription(item);
@@ -555,15 +561,7 @@ namespace Avalonia.Controls.DataGridFormulas
                 _collectionChanged = null;
             }
 
-            foreach (var item in _itemSubscriptionCounts.Keys)
-            {
-                WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridFormulaModel>(
-                    item,
-                    nameof(INotifyPropertyChanged.PropertyChanged),
-                    Item_PropertyChanged);
-            }
-
-            _itemSubscriptionCounts.Clear();
+            ClearItemSubscriptions();
         }
 
         private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -579,7 +577,7 @@ namespace Avalonia.Controls.DataGridFormulas
                 return;
             }
 
-            if (e.OldItems != null)
+            if (_tracksItemChanges && e.OldItems != null)
             {
                 foreach (var item in e.OldItems)
                 {
@@ -587,7 +585,7 @@ namespace Avalonia.Controls.DataGridFormulas
                 }
             }
 
-            if (e.NewItems != null)
+            if (_tracksItemChanges && e.NewItems != null)
             {
                 foreach (var item in e.NewItems)
                 {
@@ -885,8 +883,47 @@ namespace Avalonia.Controls.DataGridFormulas
             }
 
             _columnsDirty = false;
+            UpdateItemChangeTracking(_formulaColumnIndexMap.Count > 0);
             HandleColumnRenames(previousNames);
             BuildNameExpressions();
+        }
+
+        private void UpdateItemChangeTracking(bool shouldTrack)
+        {
+            if (_tracksItemChanges == shouldTrack)
+            {
+                return;
+            }
+
+            _tracksItemChanges = shouldTrack;
+            if (!shouldTrack)
+            {
+                ClearItemSubscriptions();
+                return;
+            }
+
+            if (_grid?.ItemsSource is not IEnumerable source)
+            {
+                return;
+            }
+
+            foreach (var item in source)
+            {
+                AddItemSubscription(item);
+            }
+        }
+
+        private void ClearItemSubscriptions()
+        {
+            foreach (var item in _itemSubscriptionCounts.Keys)
+            {
+                WeakEventHandlerManager.Unsubscribe<PropertyChangedEventArgs, DataGridFormulaModel>(
+                    item,
+                    nameof(INotifyPropertyChanged.PropertyChanged),
+                    Item_PropertyChanged);
+            }
+
+            _itemSubscriptionCounts.Clear();
         }
 
         private void InitializeFormulas()

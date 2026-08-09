@@ -4,6 +4,7 @@
 
   <!-- Include Generic.xaml with all ControlThemes -->
   <StyleInclude Source="/Themes/Generic.xaml" />
+  <StyleInclude Source="/Themes/Optimized.xaml" />
 
   <Styles.Resources>
     <ResourceDictionary>

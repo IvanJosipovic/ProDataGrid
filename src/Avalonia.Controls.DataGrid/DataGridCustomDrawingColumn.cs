@@ -4,8 +4,10 @@
 #nullable disable
 
 using System;
+using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Utils;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -24,9 +26,12 @@ public
 #else
 internal
 #endif
-    class DataGridCustomDrawingColumn : DataGridBoundColumn
+    class DataGridCustomDrawingColumn : DataGridBoundColumn,
+        IDataGridDrawnCellValueProvider,
+        IDataGridDrawnCellValueChangeTracking
     {
         private readonly Lazy<ControlTheme> _cellCustomDrawingTheme;
+        private readonly Lazy<ControlTheme> _retainedCellTheme;
         private readonly Lazy<ControlTheme> _cellTextBoxTheme;
         private readonly DataGridCustomDrawingTextLayoutCache _sharedTextLayoutCache;
         private IDataGridCellDrawOperationFactory _subscribedInvalidationFactory;
@@ -41,9 +46,47 @@ internal
         {
             BindingTarget = TextBox.TextProperty;
             IsReadOnly = true;
-            _cellCustomDrawingTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme("DataGridCellCustomDrawingTheme"));
+            _cellCustomDrawingTheme = new Lazy<ControlTheme>(() =>
+                GetColumnControlTheme("DataGridOptimizedDrawingCellTheme") ??
+                GetColumnControlTheme("DataGridCellCustomDrawingTheme"));
+            _retainedCellTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme(typeof(DataGridCell)));
             _cellTextBoxTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme("DataGridCellTextBoxTheme"));
             _sharedTextLayoutCache = new DataGridCustomDrawingTextLayoutCache(DataGridCustomDrawingCell.DefaultSharedTextLayoutCacheCapacity);
+        }
+
+        internal override bool CanReuseCellContentOnDataContextChange =>
+            GetType() == typeof(DataGridCustomDrawingColumn);
+
+        /// <summary>
+        /// Defines the <see cref="UseDirectValueAccessor"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectValueAccessorProperty =
+            AvaloniaProperty.Register<DataGridCustomDrawingColumn, bool>(nameof(UseDirectValueAccessor));
+
+        /// <summary>
+        /// Gets or sets whether compatible typed column metadata supplies display values directly,
+        /// avoiding one binding expression per realized drawing cell.
+        /// </summary>
+        public bool UseDirectValueAccessor
+        {
+            get => GetValue(UseDirectValueAccessorProperty);
+            set => SetValue(UseDirectValueAccessorProperty, value);
+        }
+
+        /// <summary>
+        /// Defines the <see cref="TrackDirectValueChanges"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> TrackDirectValueChangesProperty =
+            AvaloniaProperty.Register<DataGridCustomDrawingColumn, bool>(nameof(TrackDirectValueChanges), true);
+
+        /// <summary>
+        /// Gets or sets whether direct-accessor drawing cells subscribe to row-item property changes.
+        /// Disable this only when displayed values are immutable.
+        /// </summary>
+        public bool TrackDirectValueChanges
+        {
+            get => GetValue(TrackDirectValueChangesProperty);
+            set => SetValue(TrackDirectValueChangesProperty, value);
         }
 
         public static readonly AttachedProperty<FontFamily> FontFamilyProperty =
@@ -280,6 +323,10 @@ internal
             {
                 _sharedTextLayoutCache.Capacity = SharedTextLayoutCacheCapacity;
             }
+            else if (change.Property == UseDirectValueAccessorProperty)
+            {
+                OwningGrid?.OnColumnDisplayModeChanged(this);
+            }
             else if (change.Property == FontFamilyProperty ||
                      change.Property == FontSizeProperty ||
                      change.Property == FontStyleProperty ||
@@ -310,7 +357,8 @@ internal
                 change.Property == SharedTextLayoutCacheCapacityProperty ||
                 change.Property == DrawOperationLayoutFastPathProperty ||
                 change.Property == RenderInvalidationTokenProperty ||
-                change.Property == LayoutInvalidationTokenProperty)
+                     change.Property == LayoutInvalidationTokenProperty ||
+                     change.Property == TrackDirectValueChangesProperty)
             {
                 NotifyPropertyChanged(change.Property.Name);
             }
@@ -318,12 +366,90 @@ internal
 
         protected override Control GenerateElement(DataGridCell cell, object dataItem)
         {
-            return CreateDisplayElement(cell, dataItem, bindValue: true);
+            if (cell is not DataGridCustomDrawingCell drawingCell)
+            {
+                return CreateDisplayElement(cell, dataItem, bindValue: true);
+            }
+
+            EnsureInvalidationSourceSubscription();
+            drawingCell.BeginDisplayConfiguration();
+            try
+            {
+                drawingCell.Theme = CellCustomDrawingTheme;
+                SyncDisplayProperties(drawingCell);
+                drawingCell.ClearValue(DataGridCustomDrawingCell.ValueProperty);
+                if (CanUseDirectValueAccessor(dataItem))
+                {
+                    drawingCell.ConfigureBuiltInRenderer(this, renderer: null);
+                }
+                else
+                {
+                    drawingCell.ConfigureBuiltInRenderer(valueProvider: null, renderer: null);
+                    if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+                    {
+                        drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, Binding);
+                    }
+                }
+            }
+            finally
+            {
+                drawingCell.EndDisplayConfiguration();
+            }
+
+            return null;
         }
 
         protected override Control GenerateEditingElementDirect(DataGridCell cell, object dataItem)
         {
+            if (cell is DataGridCustomDrawingCell drawingCell)
+            {
+                drawingCell.Theme = OwningGrid?.CellTheme ?? GetThemeValue(_retainedCellTheme);
+                drawingCell.UseRetainedTemplate();
+            }
             return CreateEditingElement();
+        }
+
+        internal override DataGridCell CreateCell()
+        {
+            return new DataGridCustomDrawingCell();
+        }
+
+        internal override ControlTheme ResolveCellTheme(DataGrid grid)
+        {
+            return CellTheme ?? CellCustomDrawingTheme ?? base.ResolveCellTheme(grid);
+        }
+
+        object IDataGridDrawnCellValueProvider.GetDrawnCellValue(object item)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this) as IDataGridColumnTextAccessor;
+            if (accessor == null || item == null)
+            {
+                return null;
+            }
+
+            var culture = BindingCloneHelper.GetConverterCulture(Binding) ?? CultureInfo.CurrentCulture;
+            return accessor.TryGetText(
+                item,
+                BindingCloneHelper.GetConverter(Binding),
+                BindingCloneHelper.GetConverterParameter(Binding),
+                BindingCloneHelper.GetStringFormat(Binding),
+                culture,
+                culture,
+                out var text)
+                ? text
+                : null;
+        }
+
+        bool IDataGridDrawnCellValueChangeTracking.TrackDrawnCellValueChanges => TrackDirectValueChanges;
+
+        private bool CanUseDirectValueAccessor(object dataItem)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this);
+            return UseDirectValueAccessor &&
+                   dataItem != null &&
+                   accessor is IDataGridColumnTextAccessor &&
+                   accessor.ItemType.IsInstanceOfType(dataItem) &&
+                   BindingCloneHelper.SupportsDirectTextDataContextRead(Binding);
         }
 
         protected override void CancelCellEdit(Control editingElement, object uneditedValue)
@@ -388,8 +514,7 @@ internal
 
             var drawingCell = new DataGridCustomDrawingCell
             {
-                Name = "CellCustomDrawing",
-                OwningCell = cell
+                Name = "CellCustomDrawing"
             };
 
             if (CellCustomDrawingTheme is { } theme)
@@ -476,6 +601,9 @@ internal
                 case nameof(LayoutInvalidationToken):
                     DataGridHelper.SyncColumnProperty(this, drawingCell, DataGridCustomDrawingCell.LayoutInvalidationTokenProperty, LayoutInvalidationTokenProperty);
                     break;
+                case nameof(TrackDirectValueChanges):
+                    drawingCell.RefreshValueProviderSubscription();
+                    break;
             }
 
             drawingCell.SharedTextLayoutCache = _sharedTextLayoutCache;
@@ -511,26 +639,29 @@ internal
 
         private void SyncDisplayProperties(AvaloniaObject content)
         {
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontFamilyProperty, FontFamilyProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontSizeProperty, FontSizeProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStyleProperty, FontStyleProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontWeightProperty, FontWeightProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStretchProperty, FontStretchProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.ForegroundProperty, ForegroundProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextAlignmentProperty, TextAlignmentProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextTrimmingProperty, TextTrimmingProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationFactoryProperty, DrawOperationFactoryProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawingModeProperty, DrawingModeProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderBackendProperty, RenderBackendProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextLayoutCacheModeProperty, TextLayoutCacheModeProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.SharedTextLayoutCacheCapacityProperty, SharedTextLayoutCacheCapacityProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationLayoutFastPathProperty, DrawOperationLayoutFastPathProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderInvalidationTokenProperty, RenderInvalidationTokenProperty);
-            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.LayoutInvalidationTokenProperty, LayoutInvalidationTokenProperty);
+            var clearUnsetValues = content is not DataGridCustomDrawingCell drawingCell ||
+                                   drawingCell.DisplayPropertiesInitialized;
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontFamilyProperty, FontFamilyProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontSizeProperty, FontSizeProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStyleProperty, FontStyleProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontWeightProperty, FontWeightProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.FontStretchProperty, FontStretchProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.ForegroundProperty, ForegroundProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextAlignmentProperty, TextAlignmentProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextTrimmingProperty, TextTrimmingProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationFactoryProperty, DrawOperationFactoryProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawingModeProperty, DrawingModeProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderBackendProperty, RenderBackendProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.TextLayoutCacheModeProperty, TextLayoutCacheModeProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.SharedTextLayoutCacheCapacityProperty, SharedTextLayoutCacheCapacityProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.DrawOperationLayoutFastPathProperty, DrawOperationLayoutFastPathProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.RenderInvalidationTokenProperty, RenderInvalidationTokenProperty, clearUnsetValues);
+            DataGridHelper.SyncColumnProperty(this, content, DataGridCustomDrawingCell.LayoutInvalidationTokenProperty, LayoutInvalidationTokenProperty, clearUnsetValues);
 
-            if (content is DataGridCustomDrawingCell drawingCell)
+            if (content is DataGridCustomDrawingCell initializedCell)
             {
-                drawingCell.SharedTextLayoutCache = _sharedTextLayoutCache;
+                initializedCell.DisplayPropertiesInitialized = true;
+                initializedCell.SharedTextLayoutCache = _sharedTextLayoutCache;
             }
         }
 

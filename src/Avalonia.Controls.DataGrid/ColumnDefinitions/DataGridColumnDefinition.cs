@@ -91,6 +91,7 @@ namespace Avalonia.Controls
         private string _sortMemberPath;
         private object _tag;
         private object _columnKey;
+        private DataGridColumnDisplayMode _displayMode;
         private string _widthSharingGroup;
         private System.Collections.IComparer _customSortComparer;
         private IDataGridColumnValueAccessor _valueAccessor;
@@ -277,6 +278,15 @@ namespace Avalonia.Controls
         }
 
         /// <summary>
+        /// Gets or sets the requested display-cell realization mode for the generated column.
+        /// </summary>
+        public DataGridColumnDisplayMode DisplayMode
+        {
+            get => _displayMode;
+            set => SetProperty(ref _displayMode, value);
+        }
+
+        /// <summary>
         /// Gets or sets the name of the column width-sharing group.
         /// </summary>
         public string WidthSharingGroup
@@ -422,6 +432,7 @@ namespace Avalonia.Controls
             column.SortMemberPath = SortMemberPath;
             column.Tag = Tag;
             column.CustomSortComparer = CustomSortComparer;
+            column.DisplayMode = DisplayMode;
 
             if (HeaderTemplateKey != null)
             {
@@ -654,6 +665,9 @@ namespace Avalonia.Controls
                     return true;
                 case nameof(CustomSortComparer):
                     column.CustomSortComparer = CustomSortComparer;
+                    return true;
+                case nameof(DisplayMode):
+                    column.DisplayMode = DisplayMode;
                     return true;
                 case nameof(HeaderTemplateKey):
                     column.HeaderTemplate = HeaderTemplateKey != null

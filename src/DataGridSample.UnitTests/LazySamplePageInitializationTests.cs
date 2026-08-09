@@ -60,6 +60,8 @@ public sealed class LazySamplePageInitializationTests
         yield return () => new RightFrozenColumnsPage();
         yield return () => new RecycleDiagnosticsPage();
         yield return () => new LargeUniformPage();
+        yield return () => new OptimizedFlatCellPathsPage();
+        yield return () => new OptimizedHierarchyCellPathsPage();
     }
 
     private static IEnumerable<(Func<Control> pageFactory, Type expectedViewModelType)> AttachableLazyPages()
@@ -68,6 +70,8 @@ public sealed class LazySamplePageInitializationTests
         yield return (() => new FrozenColumnsPage(), typeof(FrozenColumnsViewModel));
         yield return (() => new RightFrozenColumnsPage(), typeof(RightFrozenColumnsViewModel));
         yield return (() => new RecycleDiagnosticsPage(), typeof(RecycleDiagnosticsViewModel));
+        yield return (() => new OptimizedFlatCellPathsPage(), typeof(OptimizedFlatCellPathsViewModel));
+        yield return (() => new OptimizedHierarchyCellPathsPage(), typeof(OptimizedHierarchyCellPathsViewModel));
     }
 
     private static Window CreateHostWindow(Control content)

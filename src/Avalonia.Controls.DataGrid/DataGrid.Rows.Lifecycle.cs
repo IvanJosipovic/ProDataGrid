@@ -17,7 +17,13 @@ namespace Avalonia.Controls
     partial class DataGrid
     {
 
-        private void InsertElement(int slot, Control element, bool updateVerticalScrollBarOnly, bool isCollapsed, bool isRow)
+        private void InsertElement(
+            int slot,
+            Control element,
+            bool updateVerticalScrollBarOnly,
+            bool isCollapsed,
+            bool isRow,
+            bool deferLayout = false)
         {
             Debug.Assert(slot >= 0 && slot <= SlotCount);
 
@@ -29,7 +35,7 @@ namespace Avalonia.Controls
             {
                 VisibleSlotCount++;
             }
-            OnInsertedElement_Phase2(slot, updateVerticalScrollBarOnly, isCollapsed);
+            OnInsertedElement_Phase2(slot, updateVerticalScrollBarOnly, isCollapsed, deferLayout);
         }
 
 
@@ -47,7 +53,7 @@ namespace Avalonia.Controls
 
 
 
-        private void OnAddedElement_Phase2(int slot, bool updateVerticalScrollBarOnly)
+        private void OnAddedElement_Phase2(int slot, bool updateVerticalScrollBarOnly, bool deferLayout = false)
         {
             if (_suppressVerticalOffsetAdjustments == 0 && slot < DisplayData.FirstScrollingSlot - 1)
             {
@@ -70,6 +76,11 @@ namespace Avalonia.Controls
 
                 SetVerticalOffset(_verticalOffset + elementHeight);
             }
+            if (deferLayout)
+            {
+                return;
+            }
+
             if (updateVerticalScrollBarOnly)
             {
                 UpdateVerticalScrollBar();
@@ -131,15 +142,25 @@ namespace Avalonia.Controls
 
 
 
-        private void OnInsertedElement_Phase2(int slot, bool updateVerticalScrollBarOnly, bool isCollapsed)
+        private void OnInsertedElement_Phase2(
+            int slot,
+            bool updateVerticalScrollBarOnly,
+            bool isCollapsed,
+            bool deferLayout)
         {
             Debug.Assert(slot >= 0);
 
             if (!isCollapsed)
             {
                 // Same effect as adding a row
-                OnAddedElement_Phase2(slot, updateVerticalScrollBarOnly);
+                OnAddedElement_Phase2(slot, updateVerticalScrollBarOnly, deferLayout);
             }
+        }
+
+        private void CompleteDeferredRowInsertLayout()
+        {
+            ComputeScrollBarsLayout();
+            InvalidateRowsArrange();
         }
 
 
