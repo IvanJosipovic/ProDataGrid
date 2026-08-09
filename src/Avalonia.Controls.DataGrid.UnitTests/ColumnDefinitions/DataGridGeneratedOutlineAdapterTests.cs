@@ -74,5 +74,21 @@ public sealed class DataGridGeneratedOutlineAdapterTests
         Assert.NotEmpty(model.ColumnDefinitions);
     }
 
+    [Fact]
+    public void Invalid_generated_aggregate_is_rejected_instead_of_defaulting_to_sum()
+    {
+        var field = new DataGridGeneratedAnalyticsField<Row, decimal>(
+            "planned",
+            DataGridGeneratedAnalyticsRole.OutlineDetail,
+            0,
+            static row => row.Planned,
+            aggregate: int.MaxValue);
+
+        ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(
+            () => DataGridGeneratedOutlineAdapter.CreateValueField(field));
+
+        Assert.Equal("aggregate", error.ParamName);
+    }
+
     private sealed record Row(string Region, string Team, decimal Planned, decimal Actual);
 }

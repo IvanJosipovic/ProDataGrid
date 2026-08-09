@@ -55,7 +55,13 @@ namespace ProDataGrid.FormulaEngine.Excel
             int targetColumn,
             out string translatedFormula)
         {
-            translatedFormula = formulaText ?? string.Empty;
+            if (formulaText is null)
+            {
+                translatedFormula = string.Empty;
+                return false;
+            }
+
+            translatedFormula = formulaText;
             IPreparedFormulaFillTranslation? prepared = Prepare(formulaText, sourceRow, sourceColumn);
             return prepared != null && prepared.TryTranslate(targetRow, targetColumn, out translatedFormula);
         }

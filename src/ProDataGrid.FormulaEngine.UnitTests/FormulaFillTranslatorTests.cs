@@ -72,6 +72,15 @@ namespace ProDataGrid.FormulaEngine.UnitTests
         }
 
         [Fact]
+        public void Null_formula_text_is_rejected_without_throwing()
+        {
+            var translator = new ExcelFormulaFillTranslator();
+
+            Assert.False(translator.TryTranslate(null!, 0, 0, 1, 1, out string result));
+            Assert.Equal(string.Empty, result);
+        }
+
+        [Fact]
         public void Parsed_expression_translation_covers_arrays_unary_nodes_and_overflow()
         {
             var relative = new FormulaReferenceAddress(

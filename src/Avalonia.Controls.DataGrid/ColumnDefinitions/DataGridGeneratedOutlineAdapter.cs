@@ -148,6 +148,7 @@ namespace Avalonia.Controls
         private static PivotAggregateType ToPivotAggregate(DataGridAggregateType aggregate) => aggregate switch
         {
             DataGridAggregateType.None => PivotAggregateType.None,
+            DataGridAggregateType.Sum => PivotAggregateType.Sum,
             DataGridAggregateType.Average => PivotAggregateType.Average,
             DataGridAggregateType.Count => PivotAggregateType.Count,
             DataGridAggregateType.CountDistinct => PivotAggregateType.CountDistinct,
@@ -156,7 +157,10 @@ namespace Avalonia.Controls
             DataGridAggregateType.First => PivotAggregateType.First,
             DataGridAggregateType.Last => PivotAggregateType.Last,
             DataGridAggregateType.Custom => PivotAggregateType.Custom,
-            _ => PivotAggregateType.Sum
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(aggregate),
+                aggregate,
+                "Unsupported generated outline aggregate type.")
         };
     }
 }
