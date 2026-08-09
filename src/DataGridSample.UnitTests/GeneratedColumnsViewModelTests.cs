@@ -428,18 +428,18 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(8, viewModel.Items.Count);
         Assert.Equal(64, viewModel.TotalCount);
         Assert.Equal(0, viewModel.PageIndex);
-        Assert.Equal(1, viewModel.RequestCount);
+        Assert.Equal(2, viewModel.RequestCount);
         Assert.Equal(Enumerable.Range(57, 8).Reverse(), viewModel.Items.Select(static item => item.Id));
         Assert.Contains("gross_total", viewModel.TranslatedField, StringComparison.Ordinal);
 
         await viewModel.NextPageCommand.Execute().ToTask();
         Assert.Equal(1, viewModel.PageIndex);
-        Assert.Equal(2, viewModel.RequestCount);
+        Assert.Equal(3, viewModel.RequestCount);
         Assert.Equal(Enumerable.Range(49, 8).Reverse(), viewModel.Items.Select(static item => item.Id));
 
         await viewModel.PreviousPageCommand.Execute().ToTask();
         Assert.Equal(0, viewModel.PageIndex);
-        Assert.Equal(2, viewModel.RequestCount);
+        Assert.Equal(3, viewModel.RequestCount);
 
         viewModel.Query = "Contoso";
         await viewModel.LoadFirstPageCommand.Execute().ToTask();

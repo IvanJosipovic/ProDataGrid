@@ -274,6 +274,7 @@ public sealed partial class GeneratedRemoteQueryViewModel : ReactiveObject, IDis
             if (page != null)
             {
                 ApplyPage(page, pageIndex);
+                await PrefetchNextPageAsync(page, pageIndex, cancellationToken);
             }
         }
         catch (Exception error) when (error is not OperationCanceledException)
@@ -296,6 +297,25 @@ public sealed partial class GeneratedRemoteQueryViewModel : ReactiveObject, IDis
             DataGridPageRequest.FromOffset(pageIndex * PageSize, PageSize),
             cacheKey: cacheKey,
             cancellationToken: cancellationToken);
+    }
+
+    private async ValueTask PrefetchNextPageAsync(
+        DataGridQueryPage<GeneratedRemoteOrder, int> page,
+        int pageIndex,
+        CancellationToken cancellationToken)
+    {
+        if (!page.HasMore)
+        {
+            return;
+        }
+
+        int nextPage = pageIndex + 1;
+        string cacheKey = $"v{Orders.Version}:page:{nextPage}:size:{PageSize}";
+        await PrefetchOrdersAsync(
+            DataGridPageRequest.FromOffset(nextPage * PageSize, PageSize),
+            cacheKey,
+            cancellationToken: cancellationToken);
+        this.RaisePropertyChanged(nameof(RequestCount));
     }
 
     private void ApplyPage(DataGridQueryPage<GeneratedRemoteOrder, int> page, int pageIndex)

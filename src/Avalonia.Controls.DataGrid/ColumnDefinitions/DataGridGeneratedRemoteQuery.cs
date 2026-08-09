@@ -225,9 +225,11 @@ namespace Avalonia.Controls
         private readonly IDataGridQueryProvider<TItem, TKey> _provider;
         private readonly Dictionary<string, DataGridQueryPage<TItem, TKey>> _cache = new(StringComparer.Ordinal);
         private readonly Queue<string> _cacheOrder = new();
+        private readonly CancellationTokenSource _lifetimeCancellation = new();
         private CancellationTokenSource _activeCancellation;
         private bool _disposed;
         private long _revision;
+        private long _issuedRevision;
 
         /// <summary>Initializes a remote query controller.</summary>
         public DataGridGeneratedRemoteQueryController(
@@ -263,8 +265,10 @@ namespace Avalonia.Controls
         public Exception LastError { get; private set; }
         /// <summary>Gets the latest accepted page.</summary>
         public DataGridQueryPage<TItem, TKey> LastPage { get; private set; }
-        /// <summary>Gets the latest issued revision.</summary>
+        /// <summary>Gets the latest foreground revision.</summary>
         public long Revision => Interlocked.Read(ref _revision);
+        /// <summary>Gets the latest foreground or prefetch revision reserved from the monotonic sequence.</summary>
+        public long IssuedRevision => Interlocked.Read(ref _issuedRevision);
 
         /// <summary>Occurs whenever observable remote-query state changes.</summary>
         public event EventHandler<DataGridRemoteQueryStateChangedEventArgs> StateChanged;
@@ -289,7 +293,8 @@ namespace Avalonia.Controls
             lock (_gate)
             {
                 ThrowIfDisposed();
-                revision = ++_revision;
+                revision = ++_issuedRevision;
+                _revision = revision;
                 _activeCancellation?.Cancel();
                 requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 _activeCancellation = requestCancellation;
@@ -369,6 +374,66 @@ namespace Avalonia.Controls
             }
         }
 
+        /// <summary>
+        /// Executes a cache-only prefetch without canceling, superseding, or changing observable foreground state.
+        /// </summary>
+        public async ValueTask<bool> PrefetchAsync(
+            Func<long, DataGridRemoteQuery<TItem>> queryFactory,
+            string cacheKey,
+            CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(queryFactory);
+            if (string.IsNullOrWhiteSpace(cacheKey))
+            {
+                throw new ArgumentException("A stable cache key is required for prefetch.", nameof(cacheKey));
+            }
+            if (PageCacheCapacity == 0)
+            {
+                return false;
+            }
+            if (TryGetCachedPage(cacheKey, out _))
+            {
+                return true;
+            }
+
+            long revision;
+            lock (_gate)
+            {
+                ThrowIfDisposed();
+                revision = ++_issuedRevision;
+            }
+
+            using CancellationTokenSource prefetchCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifetimeCancellation.Token);
+            try
+            {
+                DataGridRemoteQuery<TItem> query = queryFactory(revision) ??
+                    throw new InvalidOperationException("The generated remote prefetch query factory returned null.");
+                if (query.Revision != revision)
+                {
+                    throw new InvalidOperationException("The generated remote prefetch query revision does not match its reserved revision.");
+                }
+
+                DataGridQueryPage<TItem, TKey> page =
+                    await _provider.ExecuteAsync(query, prefetchCancellation.Token).ConfigureAwait(false);
+                if (page == null)
+                {
+                    throw new InvalidOperationException("The remote query provider returned null during prefetch.");
+                }
+                if (page.Revision != revision)
+                {
+                    throw new InvalidOperationException("The remote query provider returned a mismatched prefetch revision.");
+                }
+
+                return CachePage(cacheKey, page);
+            }
+            catch (OperationCanceledException) when (prefetchCancellation.IsCancellationRequested)
+            {
+                return false;
+            }
+        }
+
         /// <summary>Attempts to get a cached page by caller-defined stable key.</summary>
         public bool TryGetCachedPage(string cacheKey, out DataGridQueryPage<TItem, TKey> page)
         {
@@ -407,6 +472,7 @@ namespace Avalonia.Controls
                 _disposed = true;
                 _activeCancellation?.Cancel();
                 _activeCancellation = null;
+                _lifetimeCancellation.Cancel();
                 _cache.Clear();
                 _cacheOrder.Clear();
                 IsLoading = false;
@@ -418,7 +484,7 @@ namespace Avalonia.Controls
             bool stale;
             lock (_gate)
             {
-                stale = revision != _revision;
+                stale = _disposed || revision != _revision;
                 if (!stale)
                 {
                     LastPage = page;
@@ -430,15 +496,19 @@ namespace Avalonia.Controls
             return stale ? null : page;
         }
 
-        private void CachePage(string cacheKey, DataGridQueryPage<TItem, TKey> page)
+        private bool CachePage(string cacheKey, DataGridQueryPage<TItem, TKey> page)
         {
             if (PageCacheCapacity == 0)
             {
-                return;
+                return false;
             }
 
             lock (_gate)
             {
+                if (_disposed)
+                {
+                    return false;
+                }
                 if (!_cache.ContainsKey(cacheKey))
                 {
                     _cacheOrder.Enqueue(cacheKey);
@@ -449,6 +519,7 @@ namespace Avalonia.Controls
                     string oldest = _cacheOrder.Dequeue();
                     _cache.Remove(oldest);
                 }
+                return true;
             }
         }
 

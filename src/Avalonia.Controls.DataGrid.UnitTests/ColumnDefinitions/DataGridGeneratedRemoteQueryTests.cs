@@ -53,6 +53,76 @@ public sealed class DataGridGeneratedRemoteQueryTests
     }
 
     [Fact]
+    public async Task Prefetch_populates_cache_without_superseding_foreground_state()
+    {
+        var provider = new ImmediateProvider();
+        using var controller = new DataGridGeneratedRemoteQueryController<Row, int>(
+            provider,
+            pageCacheCapacity: 2);
+        DataGridQueryPage<Row, int> foreground = await controller.ExecuteLatestAsync(CreateQuery, "page-0");
+
+        bool prefetched = await controller.PrefetchAsync(
+            revision => new DataGridRemoteQuery<Row>(
+                revision, null, null, null, DataGridPageRequest.FromOffset(25, 25)),
+            "page-1",
+            TestContext.Current.CancellationToken);
+
+        Assert.True(prefetched);
+        Assert.Equal(1, foreground.Revision);
+        Assert.Equal(1, controller.Revision);
+        Assert.Equal(2, controller.IssuedRevision);
+        Assert.Equal(2, provider.CallCount);
+        Assert.True(controller.TryGetCachedPage("page-1", out DataGridQueryPage<Row, int> cached));
+        Assert.Equal(2, cached.Revision);
+
+        DataGridQueryPage<Row, int> acceptedCache = await controller.ExecuteLatestAsync(
+            revision => new DataGridRemoteQuery<Row>(
+                revision, null, null, null, DataGridPageRequest.FromOffset(25, 25)),
+            "page-1");
+        Assert.Equal(3, acceptedCache.Revision);
+        Assert.Equal(2, provider.CallCount);
+    }
+
+    [Fact]
+    public async Task Prefetch_without_cache_is_a_no_op()
+    {
+        var provider = new ImmediateProvider();
+        using var controller = new DataGridGeneratedRemoteQueryController<Row, int>(provider);
+        bool factoryCalled = false;
+
+        bool prefetched = await controller.PrefetchAsync(
+            revision =>
+            {
+                factoryCalled = true;
+                return CreateQuery(revision);
+            },
+            "page-1");
+
+        Assert.False(prefetched);
+        Assert.False(factoryCalled);
+        Assert.Equal(0, provider.CallCount);
+    }
+
+    [Fact]
+    public async Task Prefetch_failures_propagate_without_changing_foreground_state()
+    {
+        var expected = new InvalidOperationException("prefetch failed");
+        using var controller = new DataGridGeneratedRemoteQueryController<Row, int>(
+            new FailingProvider(expected),
+            pageCacheCapacity: 1);
+
+        InvalidOperationException thrown = await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await controller.PrefetchAsync(CreateQuery, "page-1"));
+
+        Assert.Same(expected, thrown);
+        Assert.Equal(0, controller.Revision);
+        Assert.Equal(1, controller.IssuedRevision);
+        Assert.False(controller.IsLoading);
+        Assert.Null(controller.LastError);
+        Assert.Null(controller.LastPage);
+    }
+
+    [Fact]
     public async Task Provider_errors_are_exposed_and_rethrown()
     {
         var expected = new InvalidOperationException("remote failure");

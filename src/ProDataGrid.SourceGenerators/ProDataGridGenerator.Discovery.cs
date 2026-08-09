@@ -1305,6 +1305,7 @@ internal static partial class Discovery
                     canGenerate &= ValidateGeneratedMember(viewModelType, "Create" + name + "RemoteQueryController", diagnostics, GetLocation(attribute));
                     canGenerate &= ValidateGeneratedMember(viewModelType, "Initialize" + name + "RemoteQuery", diagnostics, GetLocation(attribute));
                     canGenerate &= ValidateGeneratedMember(viewModelType, "Query" + name + "Async", diagnostics, GetLocation(attribute));
+                    canGenerate &= ValidateGeneratedMember(viewModelType, "Prefetch" + name + "Async", diagnostics, GetLocation(attribute));
                     canGenerate &= ValidateGeneratedMember(viewModelType, "Dispose" + name + "RemoteQuery", diagnostics, GetLocation(attribute));
                 }
                 if (!canGenerate)

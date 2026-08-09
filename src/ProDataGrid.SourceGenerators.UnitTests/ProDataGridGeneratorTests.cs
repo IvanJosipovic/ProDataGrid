@@ -4049,6 +4049,7 @@ public sealed class ProDataGridGeneratorTests
         AssertNoErrors(result);
         Assert.Contains("CreateRowsRemoteQueryController", result.CombinedSource);
         Assert.Contains("QueryRowsAsync", result.CombinedSource);
+        Assert.Contains("PrefetchRowsAsync", result.CombinedSource);
         Assert.Contains("DataGridRemoteQuery<global::Demo.Row>", result.CombinedSource);
         Assert.Contains("DisposeRowsRemoteQuery", result.CombinedSource);
     }

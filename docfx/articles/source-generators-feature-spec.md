@@ -608,6 +608,8 @@ Requirements:
 - Provider errors exposed as state suitable for ReactiveUI binding/interactions.
 - No network or persistence implementation in generated code.
 
+Implemented prefetch API: remote controller augmentation emits `Prefetch<Name>Async` beside `Query<Name>Async`. Prefetch reserves the shared monotonic issued-revision sequence, uses the current immutable generated descriptors, writes only to the bounded caller-keyed page cache, and never cancels or supersedes foreground work or mutates loading/error/content state. Cancellation follows the caller and controller lifetime; failures propagate to the explicit caller. The formal remote sample implements next-page offset prefetch, while the same hook accepts cursor requests built from an accepted page's `NextCursor`.
+
 ### F08. Hierarchical schemas and typed node bindings — P1
 
 **Proposed metadata:**
