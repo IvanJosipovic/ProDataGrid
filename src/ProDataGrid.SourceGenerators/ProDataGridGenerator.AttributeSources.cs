@@ -117,6 +117,13 @@ public sealed partial class ProDataGridGenerator
                 EndsWith
             }
 
+            internal enum DataGridFrozenPlacement
+            {
+                None,
+                Left,
+                Right
+            }
+
             [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = false)]
             internal sealed class GenerateDataGridRegistryAttribute : Attribute
             {
@@ -425,6 +432,8 @@ public sealed partial class ProDataGridGenerator
                 public string? HeaderProviderMethod { get; set; }
                 public string? DescriptionProviderMethod { get; set; }
                 public int Order { get; set; }
+                public int DisplayIndex { get; set; } = -1;
+                public DataGridFrozenPlacement FrozenPlacement { get; set; }
                 public string? ColumnKey { get; set; }
                 public string[]? PreviousColumnKeys { get; set; }
                 public string? SortMemberPath { get; set; }

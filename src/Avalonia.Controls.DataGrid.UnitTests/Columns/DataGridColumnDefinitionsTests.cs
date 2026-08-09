@@ -1245,6 +1245,57 @@ public class DataGridColumnDefinitionsTests
     }
 
     [AvaloniaFact]
+    public void Generated_definition_list_applies_left_and_right_frozen_defaults()
+    {
+        var definitions = new DataGridColumnDefinitionList
+        {
+            FrozenColumnCount = 1,
+            FrozenColumnCountRight = 1
+        };
+        definitions.Add(new DataGridTextColumnDefinition { Header = "Left" });
+        definitions.Add(new DataGridTextColumnDefinition { Header = "Center" });
+        definitions.Add(new DataGridTextColumnDefinition { Header = "Right" });
+
+        var grid = new DataGrid { ColumnDefinitionsSource = definitions };
+
+        Assert.Equal(1, grid.FrozenColumnCount);
+        Assert.Equal(1, grid.FrozenColumnCountRight);
+    }
+
+    [AvaloniaFact]
+    public void Generated_definition_list_rejects_impossible_frozen_defaults()
+    {
+        var definitions = new DataGridColumnDefinitionList
+        {
+            FrozenColumnCount = 1,
+            FrozenColumnCountRight = 1
+        };
+        definitions.Add(new DataGridTextColumnDefinition());
+
+        Assert.Throws<InvalidOperationException>(() => new DataGrid { ColumnDefinitionsSource = definitions });
+        Assert.Throws<ArgumentOutOfRangeException>(() => definitions.FrozenColumnCount = -1);
+    }
+
+    [AvaloniaFact]
+    public void Definition_list_without_frozen_defaults_preserves_grid_configuration()
+    {
+        var definitions = new DataGridColumnDefinitionList
+        {
+            new DataGridTextColumnDefinition(),
+            new DataGridTextColumnDefinition(),
+            new DataGridTextColumnDefinition()
+        };
+        var grid = new DataGrid
+        {
+            FrozenColumnCount = 2,
+            ColumnDefinitionsSource = definitions
+        };
+
+        Assert.Equal(2, grid.FrozenColumnCount);
+        Assert.Equal(0, grid.FrozenColumnCountRight);
+    }
+
+    [AvaloniaFact]
     public void ColumnDefinitionsSource_Keeps_DisplayIndex_On_Collection_Changes()
     {
         var definitions = new ObservableCollection<DataGridColumnDefinition>

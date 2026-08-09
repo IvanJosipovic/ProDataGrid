@@ -1780,6 +1780,20 @@ internal static partial class Discovery
             ImmutableArray<BandModel> bands = DiscoverBands(sourceProperty, diagnostics);
             ImmutableArray<AnalyticsRoleModel> analyticsRoles = DiscoverAnalyticsRoles(sourceProperty, diagnostics);
             bool searchable = GeneratorUtilities.GetBoolean(options, "IsSearchable", true);
+            int frozenPlacement = GetEnumValue(options, "FrozenPlacement", 0);
+            if (frozenPlacement is < 0 or > 2)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), kind, "a valid FrozenPlacement"));
+                frozenPlacement = 0;
+            }
+            if (options.ContainsKey("DisplayIndex") && GeneratorUtilities.GetInt32(options, "DisplayIndex", -1) < 0)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property), property.ToDisplayString(), kind, "a non-negative DisplayIndex"));
+            }
 
             if (!string.IsNullOrEmpty(configureMethod) &&
                 !HasColumnConfigureMethod(schema.ItemType, configureMethod!, kind))
@@ -1819,6 +1833,7 @@ internal static partial class Discovery
                 DescriptionProviderAcceptsFormatProvider = descriptionProviderAcceptsFormatProvider,
                 Order = GeneratorUtilities.GetInt32(options, "Order", 0),
                 SourceOrder = sourceOrder,
+                FrozenPlacement = frozenPlacement,
                 Options = options.ToImmutableDictionary(StringComparer.Ordinal),
                 ColumnKey = columnKey,
                 PreviousColumnKeys = previousColumnKeys,
@@ -1852,7 +1867,8 @@ internal static partial class Discovery
         }
 
         return columns
-            .OrderBy(static column => column.Order)
+            .OrderBy(static column => column.FrozenPlacement == 1 ? 0 : column.FrozenPlacement == 2 ? 2 : 1)
+            .ThenBy(static column => column.Order)
             .ThenBy(static column => column.SourceOrder)
             .ThenBy(static column => column.Property.Name, StringComparer.Ordinal)
             .ToImmutableArray();

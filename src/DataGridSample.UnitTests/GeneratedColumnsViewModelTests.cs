@@ -28,6 +28,18 @@ namespace DataGridSample.Tests;
 public sealed class GeneratedColumnsViewModelTests
 {
     [Fact]
+    public void Generated_feature_schema_carries_complete_column_layout_defaults()
+    {
+        DataGridColumnDefinitionList definitions = GeneratedFeatureRowSchema.Instance.CreateColumnDefinitions();
+
+        Assert.Equal(1, definitions.FrozenColumnCount);
+        Assert.Equal(1, definitions.FrozenColumnCountRight);
+        Assert.Equal("id", definitions[0].ColumnKey);
+        Assert.Equal("timestamp", definitions[^1].ColumnKey);
+        Assert.Equal(1, definitions.Single(static column => Equals(column.ColumnKey, "symbol")).DisplayIndex);
+    }
+
+    [Fact]
     public void Attribute_view_model_exposes_generated_schema_columns_and_fast_options()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

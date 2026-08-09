@@ -18,11 +18,11 @@ namespace DataGridSample.Models;
 public sealed class GeneratedFeatureRow
 {
     [DataGridKey]
-    [DataGridColumn(DataGridColumnKind.Numeric, Header = "ID", ColumnKey = "id", IsReadOnly = true, Width = "70")]
+    [DataGridColumn(DataGridColumnKind.Numeric, Header = "ID", ColumnKey = "id", IsReadOnly = true, Width = "70", FrozenPlacement = DataGridFrozenPlacement.Left)]
     public int Id { get; init; }
 
     [Required, StringLength(12, MinimumLength = 2)]
-    [DataGridColumn(Header = "Symbol", ColumnKey = "symbol", PreviousColumnKeys = ["ticker"], Width = "*")]
+    [DataGridColumn(Header = "Symbol", ColumnKey = "symbol", PreviousColumnKeys = ["ticker"], Width = "*", DisplayIndex = 1)]
     [DataGridBand("Identity", Order = 0)]
     public string Symbol { get; set; } = string.Empty;
 
@@ -46,7 +46,7 @@ public sealed class GeneratedFeatureRow
     [DataGridBand("Trading/Risk", Order = 0)]
     public decimal Amount { get; set; }
 
-    [DataGridColumn(DataGridColumnKind.DatePicker, Header = "Timestamp", ColumnKey = "timestamp", IsReadOnly = true)]
+    [DataGridColumn(DataGridColumnKind.DatePicker, Header = "Timestamp", ColumnKey = "timestamp", IsReadOnly = true, FrozenPlacement = DataGridFrozenPlacement.Right)]
     [DataGridBand("Trading/Audit", Order = 0)]
     public DateTimeOffset Timestamp { get; init; }
 

@@ -4258,6 +4258,53 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Column_layout_emits_display_indexes_and_left_right_frozen_defaults()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(DisplayIndex = 1)]
+                public string Center { get; set; } = "";
+
+                [DataGridColumn(FrozenPlacement = DataGridFrozenPlacement.Right)]
+                public int Right { get; set; }
+
+                [DataGridColumn(FrozenPlacement = DataGridFrozenPlacement.Left)]
+                public int Left { get; set; }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("FrozenColumnCount = 1", result.CombinedSource);
+        Assert.Contains("FrozenColumnCountRight = 1", result.CombinedSource);
+        Assert.Contains("column.DisplayIndex = 1", result.CombinedSource);
+        Assert.True(result.CombinedSource.IndexOf("columns.Add(CreateLeftColumn", StringComparison.Ordinal) <
+                    result.CombinedSource.IndexOf("columns.Add(CreateCenterColumn", StringComparison.Ordinal));
+        Assert.True(result.CombinedSource.IndexOf("columns.Add(CreateCenterColumn", StringComparison.Ordinal) <
+                    result.CombinedSource.IndexOf("columns.Add(CreateRightColumn", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Column_layout_rejects_invalid_display_index_and_frozen_placement()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(DisplayIndex = -2, FrozenPlacement = (DataGridFrozenPlacement)42)]
+                public int Value { get; set; }
+            }
+            """);
+
+        Assert.Equal(2, result.GeneratorDiagnostics.Count(diagnostic => diagnostic.Id == "PDGSG009"));
+    }
+
+    [Fact]
     public void Generated_view_configures_total_and_group_summary_placement()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

@@ -336,7 +336,11 @@ internal static class Emitter
             .AppendLine("        {")
             .Append("            var builder = global::Avalonia.Controls.DataGridColumnDefinitionBuilder.For<")
             .Append(itemType).AppendLine(">();")
-            .AppendLine("            var columns = new global::Avalonia.Controls.DataGridColumnDefinitionList();");
+            .AppendLine("            var columns = new global::Avalonia.Controls.DataGridColumnDefinitionList")
+            .AppendLine("            {")
+            .Append("                FrozenColumnCount = ").Append(schema.Columns.Count(static column => column.FrozenPlacement == 1).ToString(CultureInfo.InvariantCulture)).AppendLine(",")
+            .Append("                FrozenColumnCountRight = ").Append(schema.Columns.Count(static column => column.FrozenPlacement == 2).ToString(CultureInfo.InvariantCulture)).AppendLine()
+            .AppendLine("            };");
         foreach (ColumnModel column in schema.Columns)
         {
             builder.Append("            columns.Add(Create").Append(GetMethodSuffix(column.Property)).AppendLine("Column(builder));");
@@ -2041,6 +2045,13 @@ internal static class Emitter
         EmitBooleanAssignment(builder, column.Options, "IsReadOnly");
         EmitBooleanAssignment(builder, column.Options, "IsVisible");
         EmitBooleanAssignment(builder, column.Options, "ShowFilterButton");
+
+        if (column.Options.TryGetValue("DisplayIndex", out TypedConstant displayIndexConstant) &&
+            displayIndexConstant.Value is int displayIndex && displayIndex >= 0)
+        {
+            builder.Append("            column.DisplayIndex = ")
+                .Append(displayIndex.ToString(CultureInfo.InvariantCulture)).AppendLine(";");
+        }
 
         if (column.Options.TryGetValue("Width", out TypedConstant widthConstant) && widthConstant.Value is string width)
         {

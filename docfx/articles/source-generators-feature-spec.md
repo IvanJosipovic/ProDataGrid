@@ -771,6 +771,8 @@ Requirements:
 - Generate column chooser items and commands keyed by schema column ID.
 - Support fixed property columns and runtime indexed/method-backed column families.
 
+Implemented layout API: `DataGridColumnAttribute` exposes deterministic `Order`, explicit non-negative `DisplayIndex`, and `DataGridFrozenPlacement.Left`/`Right` metadata in addition to visibility, resize/reorder/hide permissions and width-sharing groups. Generated definitions are partitioned left/scrolling/right and carry validated `FrozenColumnCount` defaults on `DataGridColumnDefinitionList`; binding the list applies both DataGrid frozen edges without view code-behind. Generated `BandFields`, `DataGridGeneratedColumnLayoutController`, live keyed chooser entries, header commands, and reset restore visibility, display index, and width defaults. Custom schema implementations can use the same list contract.
+
 **Implemented indexed-column API:**
 
 ```csharp

@@ -22,6 +22,8 @@ namespace Avalonia.Controls
     {
         private int _suspendNotifications;
         private bool _hasPendingChanges;
+        private int? _frozenColumnCount;
+        private int? _frozenColumnCountRight;
 
         public DataGridColumnDefinitionList()
         {
@@ -30,6 +32,24 @@ namespace Avalonia.Controls
         public DataGridColumnDefinitionList(IEnumerable<DataGridColumnDefinition> items)
             : base(items)
         {
+        }
+
+        /// <summary>Gets or sets the initial number of left-frozen columns applied when this list is bound.</summary>
+        public int? FrozenColumnCount
+        {
+            get => _frozenColumnCount;
+            set => _frozenColumnCount = !value.HasValue || value.Value >= 0
+                ? value
+                : throw new ArgumentOutOfRangeException(nameof(value));
+        }
+
+        /// <summary>Gets or sets the initial number of right-frozen columns applied when this list is bound.</summary>
+        public int? FrozenColumnCountRight
+        {
+            get => _frozenColumnCountRight;
+            set => _frozenColumnCountRight = !value.HasValue || value.Value >= 0
+                ? value
+                : throw new ArgumentOutOfRangeException(nameof(value));
         }
 
         public void AddRange(IEnumerable<DataGridColumnDefinition> items)

@@ -533,6 +533,8 @@ internal sealed class ColumnModel
 
     public int SourceOrder { get; set; }
 
+    public int FrozenPlacement { get; set; }
+
     public ImmutableDictionary<string, TypedConstant> Options { get; set; } = ImmutableDictionary<string, TypedConstant>.Empty;
 
     public string ColumnKey { get; set; } = string.Empty;

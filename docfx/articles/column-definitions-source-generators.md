@@ -857,6 +857,23 @@ Built-in rules convert `Operand` and, for `Between`, `Operand2` at compile time 
 
 The schema exposes `IReadOnlyList<IDataGridGeneratedConditionalRule> ConditionalRules` for inspection or custom composition and `CreateConditionalFormattingModel()` for the normal runtime model. The factory creates `ConditionalFormattingDescriptor` instances whose cached predicates call the generated getter directly; rule ordering, `StopIfTrue`, theme keys, stable column keys, and cell/row targets are preserved.
 
+### Generated column layout defaults
+
+Column metadata also owns the initial layout. `Order` controls deterministic generation order within a placement, while `DisplayIndex` can reserve an explicit initial display slot. `FrozenPlacement` partitions generated definitions into left, scrolling, and right groups and records the two frozen counts on `DataGridColumnDefinitionList`:
+
+```csharp
+[DataGridColumn(ColumnKey = "id", Order = 0, FrozenPlacement = DataGridFrozenPlacement.Left)]
+public int Id { get; init; }
+
+[DataGridColumn(ColumnKey = "symbol", DisplayIndex = 1, Width = "*")]
+public string Symbol { get; set; } = string.Empty;
+
+[DataGridColumn(ColumnKey = "updated", FrozenPlacement = DataGridFrozenPlacement.Right)]
+public DateTimeOffset Updated { get; init; }
+```
+
+Binding that list through `ColumnDefinitionsSource` applies `FrozenColumnCount` and `FrozenColumnCountRight` without view code-behind. Custom `IDataGridGeneratedSchema<TItem>` implementations can set the same list properties. Negative display indexes, invalid placement values, and frozen counts larger than the definition list fail deterministically. Visibility, resize/reorder/hide permissions, width sharing, band trees, chooser entries, header commands, and reset continue to use stable column keys through `DataGridGeneratedColumnLayoutController`.
+
 A generated view can bind an application-owned model without a runtime binding path:
 
 ```csharp
