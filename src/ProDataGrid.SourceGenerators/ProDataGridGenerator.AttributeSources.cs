@@ -493,8 +493,16 @@ public sealed partial class ProDataGridGenerator
                 public string? FilterThemeKey { get; set; }
                 public string? FilterFlyoutKey { get; set; }
                 public string? WidthSharingGroup { get; set; }
+                public global::Avalonia.Controls.DataGridColumnDisplayMode DisplayMode { get; set; }
                 public string? FormatString { get; set; }
                 public string? Watermark { get; set; }
+                public bool UseDirectTextCell { get; set; }
+                public bool UseDirectCell { get; set; }
+                public bool UseDirectTextContent { get; set; }
+                public bool UseOptimizedPresenter { get; set; }
+                public bool TrackDirectTextValueChanges { get; set; } = true;
+                public bool UseDirectValueAccessor { get; set; }
+                public bool TrackDirectValueChanges { get; set; } = true;
                 public string? TemplateKey { get; set; }
                 public string? EditingTemplateKey { get; set; }
                 public string? TemplateFactoryMethod { get; set; }

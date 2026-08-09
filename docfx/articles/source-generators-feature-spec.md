@@ -1174,7 +1174,7 @@ PR #335 adds reflection-free runtime lanes that generated schemas and generated 
 
 Column attributes remain explicit instead of silently mapping a performance profile to drawn cells. Drawn/direct modes can change visuals, template participation, notification costs, and editing behavior; the schema author owns the choice. `PerformanceProfile` continues to configure grid-wide virtualization/input behavior.
 
-Kind-specific options are compile-time validated. A direct text option on a numeric column, a hierarchy presenter option on a flat text column, or a direct custom-drawing option on a built-in column produces `PDG002`. `DisplayMode=Drawn` remains legal for every kind because the runtime contract deliberately falls back to retained realization when the specific column configuration cannot draw.
+Kind-specific options are compile-time validated. A direct text option on a numeric column, a hierarchy presenter option on a flat text column, or a direct custom-drawing option on a built-in column produces `PDGSG009`. `DisplayMode=Drawn` remains legal for every kind because the runtime contract deliberately falls back to retained realization when the specific column configuration cannot draw.
 
 Generated event snapshots are immutable except for `Cancel` and `Handled`. Collections project event-owned storage where safe; no per-item reflection, member lookup, or copied selection list is introduced. Generated views subscribe only to selected flags and detach on DataContext or activation disposal.
 

@@ -2254,6 +2254,7 @@ internal static class Emitter
         EmitStringAssignment(builder, column.Options, "FilterThemeKey");
         EmitStringAssignment(builder, column.Options, "FilterFlyoutKey");
         EmitStringAssignment(builder, column.Options, "WidthSharingGroup");
+        EmitEnumAssignment(builder, column.Options, "DisplayMode", "global::Avalonia.Controls.DataGridColumnDisplayMode");
         EmitDoubleAssignment(builder, column.Options, "MinWidth");
         EmitDoubleAssignment(builder, column.Options, "MaxWidth");
         EmitBooleanAssignment(builder, column.Options, "CanUserSort");
@@ -2347,6 +2348,15 @@ internal static class Emitter
                 EmitOptionalString(builder, "Watermark", watermark);
                 break;
             case "Text":
+                EmitBooleanAssignment(builder, column.Options, "UseDirectTextCell");
+                EmitBooleanAssignment(builder, column.Options, "UseDirectTextContent");
+                EmitBooleanAssignment(builder, column.Options, "TrackDirectTextValueChanges");
+                EmitOptionalString(builder, "Watermark", watermark);
+                if (format != null)
+                {
+                    builder.Append("            column.Binding.StringFormat = ").Append(GeneratorUtilities.EscapeString(format)).AppendLine(";");
+                }
+                break;
             case "Hyperlink":
             case "Image":
             case "DatePicker":
@@ -2384,6 +2394,8 @@ internal static class Emitter
                 EmitOptionalString(builder, "CellEditingTemplateKey", GetStringOption(column.Options, "EditingTemplateKey"));
                 break;
             case "CustomDrawing":
+                EmitBooleanAssignment(builder, column.Options, "UseDirectValueAccessor");
+                EmitBooleanAssignment(builder, column.Options, "TrackDirectValueChanges");
                 EmitEnumAssignment(builder, column.Options, "DrawingMode", "global::Avalonia.Controls.DataGridCustomDrawingMode");
                 EmitEnumAssignment(builder, column.Options, "RenderBackend", "global::Avalonia.Controls.DataGridCustomDrawingRenderBackend");
                 EmitEnumAssignment(builder, column.Options, "TextLayoutCacheMode", "global::Avalonia.Controls.DataGridCustomDrawingTextLayoutCacheMode");
@@ -2407,6 +2419,10 @@ internal static class Emitter
                 EmitAuxiliaryColumnBindings(builder, column);
                 break;
             case "Hierarchical":
+                EmitBooleanAssignment(builder, column.Options, "UseDirectCell");
+                EmitBooleanAssignment(builder, column.Options, "UseDirectTextContent");
+                EmitBooleanAssignment(builder, column.Options, "UseOptimizedPresenter");
+                EmitBooleanAssignment(builder, column.Options, "TrackDirectTextValueChanges");
                 EmitOptionalString(builder, "CellTemplateKey", GetStringOption(column.Options, "TemplateKey"));
                 break;
         }

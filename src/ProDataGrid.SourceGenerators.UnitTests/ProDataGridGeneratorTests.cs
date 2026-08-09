@@ -3290,6 +3290,74 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Optimized_column_realization_options_are_generated_by_kind()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            using Avalonia.Controls;
+            namespace Demo;
+
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(DataGridColumnKind.Text,
+                    DisplayMode = DataGridColumnDisplayMode.Drawn,
+                    UseDirectTextCell = true,
+                    UseDirectTextContent = true,
+                    TrackDirectTextValueChanges = false)]
+                public string Name { get; set; } = "";
+
+                [DataGridColumn(DataGridColumnKind.Hierarchical,
+                    DisplayMode = DataGridColumnDisplayMode.Drawn,
+                    UseDirectCell = true,
+                    UseDirectTextContent = true,
+                    UseOptimizedPresenter = true,
+                    TrackDirectTextValueChanges = false)]
+                public string TreeName { get; set; } = "";
+
+                [DataGridColumn(DataGridColumnKind.CustomDrawing,
+                    UseDirectValueAccessor = true,
+                    TrackDirectValueChanges = false)]
+                public double Activity { get; set; }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("column.DisplayMode = (global::Avalonia.Controls.DataGridColumnDisplayMode)1;", result.CombinedSource);
+        Assert.Contains("column.UseDirectTextCell = true;", result.CombinedSource);
+        Assert.Contains("column.UseDirectCell = true;", result.CombinedSource);
+        Assert.Contains("column.UseDirectTextContent = true;", result.CombinedSource);
+        Assert.Contains("column.UseOptimizedPresenter = true;", result.CombinedSource);
+        Assert.Contains("column.TrackDirectTextValueChanges = false;", result.CombinedSource);
+        Assert.Contains("column.UseDirectValueAccessor = true;", result.CombinedSource);
+        Assert.Contains("column.TrackDirectValueChanges = false;", result.CombinedSource);
+    }
+
+    [Theory]
+    [InlineData("UseDirectTextCell = true")]
+    [InlineData("UseDirectCell = true")]
+    [InlineData("UseDirectTextContent = true")]
+    [InlineData("UseOptimizedPresenter = true")]
+    [InlineData("TrackDirectTextValueChanges = false")]
+    [InlineData("UseDirectValueAccessor = true")]
+    [InlineData("TrackDirectValueChanges = false")]
+    public void Optimized_options_on_unsupported_column_kinds_report_diagnostic(string option)
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run($$"""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridColumn(DataGridColumnKind.Numeric, {{option}})]
+                public double Value { get; set; }
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG009");
+    }
+
+    [Fact]
     public void Custom_drawing_factory_method_is_generated_and_validated()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

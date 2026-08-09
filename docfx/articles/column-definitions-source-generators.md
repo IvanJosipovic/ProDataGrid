@@ -790,7 +790,9 @@ public sealed partial class Quote
         RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
         TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
         SharedTextLayoutCacheCapacity = 1024,
-        DrawOperationLayoutFastPath = true)]
+        DrawOperationLayoutFastPath = true,
+        UseDirectValueAccessor = true,
+        TrackDirectValueChanges = false)]
     public decimal Price { get; set; }
 
     public static IDataGridCellDrawOperationFactory CreatePriceFactory() =>
@@ -805,6 +807,21 @@ public sealed partial class Quote
 `DrawOperationFactoryType` is useful for a stateless factory with a public parameterless constructor. `DrawOperationFactoryMethod` supports configured instances and must be static, parameterless, accessible, and return `IDataGridCellDrawOperationFactory`. Assigning the factory through the generated definition preserves automatic `IDataGridCellDrawOperationInvalidationSource` subscription.
 
 `GenerateDataGridCellDrawCache` is an independent incremental pipeline for partial row classes. It emits `IDataGridCellDrawOperationItemCache`, deterministic `{Property}CellDrawCacheSlot` constants for attributed custom-drawing columns, array-backed O(1) storage, and whole-cache/per-slot clear methods. `InitialCapacity` avoids first-use growth; `MaximumCapacity` bounds retained entries and rejects out-of-range slots without allocation. Set `GenerateSlotConstants = false` when slot ownership is entirely external.
+
+Built-in columns can opt into PR #335's drawn display path without becoming custom-drawing columns:
+
+```csharp
+[DataGridColumn(DataGridColumnKind.Numeric,
+    DisplayMode = DataGridColumnDisplayMode.Drawn)]
+public decimal Amount { get; set; }
+
+[DataGridColumn(DataGridColumnKind.Text,
+    UseDirectTextCell = true,
+    TrackDirectTextValueChanges = false)]
+public string ImmutableSymbol { get; init; } = string.Empty;
+```
+
+`DisplayMode` is common metadata and relies on the runtime's retained fallback for unsupported configurations. `UseDirectTextCell`, `UseDirectTextContent`, and `TrackDirectTextValueChanges` are valid for text columns. Hierarchical columns use `UseDirectCell`, `UseDirectTextContent`, `UseOptimizedPresenter`, and `TrackDirectTextValueChanges`. Custom-drawing columns use `UseDirectValueAccessor` and `TrackDirectValueChanges`. The generator reports `PDGSG009` when a kind-specific option is applied to the wrong definition type. Disable tracking only when the displayed value is immutable or refreshed by replacing/recycling the row.
 
 ### Generated paging, currency, and selection lifetime
 

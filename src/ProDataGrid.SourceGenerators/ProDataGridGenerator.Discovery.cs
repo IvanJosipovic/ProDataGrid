@@ -1853,6 +1853,7 @@ internal static partial class Discovery
             }
 
             ValidateRequiredKindOptions(sourceProperty, kind, options, diagnostics);
+            ValidateOptimizedColumnOptions(sourceProperty, kind, options, diagnostics);
 
             int sourceOrder = sourceProperty.Locations.FirstOrDefault(static location => location.IsInSource)?.SourceSpan.Start ?? int.MaxValue;
             columns.Add(new ColumnModel
@@ -2695,6 +2696,42 @@ internal static partial class Discovery
                 kind,
                 required));
         }
+    }
+
+    private static void ValidateOptimizedColumnOptions(
+        IPropertySymbol property,
+        string kind,
+        Dictionary<string, TypedConstant> options,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "UseDirectTextCell", "Text");
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "UseDirectCell", "Hierarchical");
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "UseDirectTextContent", "Text", "Hierarchical");
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "UseOptimizedPresenter", "Hierarchical");
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "TrackDirectTextValueChanges", "Text", "Hierarchical");
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "UseDirectValueAccessor", "CustomDrawing");
+        ValidateKindSpecificOption(property, kind, options, diagnostics, "TrackDirectValueChanges", "CustomDrawing");
+    }
+
+    private static void ValidateKindSpecificOption(
+        IPropertySymbol property,
+        string kind,
+        Dictionary<string, TypedConstant> options,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string option,
+        params string[] supportedKinds)
+    {
+        if (!options.ContainsKey(option) || supportedKinds.Contains(kind, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidColumnConfiguration,
+            GeneratorUtilities.GetLocation(property),
+            property.ToDisplayString(),
+            kind,
+            $"{option} is supported only by {string.Join(" or ", supportedKinds)} columns"));
     }
 
     private static IPropertySymbol? ValidateAuxiliaryColumnBinding(

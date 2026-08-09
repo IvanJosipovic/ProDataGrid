@@ -73,7 +73,7 @@ public sealed partial class CustomDrawingEditingViewModel : ReactiveObject
     }
 }
 
-[GenerateDataGridCellDrawCache(InitialCapacity = 4, MaximumCapacity = 4)]
+[GenerateDataGridCellDrawCache(InitialCapacity = 2, MaximumCapacity = 2)]
 public sealed partial class CustomDrawingEditingRow : ReactiveObject
 {
     private int _id;
@@ -82,17 +82,12 @@ public sealed partial class CustomDrawingEditingRow : ReactiveObject
     private string _category = string.Empty;
 
     [DataGridColumn(
-        DataGridColumnKind.CustomDrawing,
+        DataGridColumnKind.Numeric,
         Header = "ID",
         Order = 0,
         Width = "90",
         IsReadOnly = true,
-        DrawOperationFactoryMethod = nameof(CreateIdFactory),
-        DrawingMode = DataGridCustomDrawingMode.DrawOperation,
-        RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
-        TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
-        SharedTextLayoutCacheCapacity = 1024,
-        DrawOperationLayoutFastPath = true)]
+        DisplayMode = DataGridColumnDisplayMode.Drawn)]
     public int Id
     {
         get => _id;
@@ -100,17 +95,12 @@ public sealed partial class CustomDrawingEditingRow : ReactiveObject
     }
 
     [DataGridColumn(
-        DataGridColumnKind.CustomDrawing,
+        DataGridColumnKind.Text,
         Header = "Title",
         Order = 1,
         Width = "220",
         IsReadOnly = false,
-        DrawOperationFactoryMethod = nameof(CreateTitleFactory),
-        DrawingMode = DataGridCustomDrawingMode.DrawOperation,
-        RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
-        TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
-        SharedTextLayoutCacheCapacity = 1024,
-        DrawOperationLayoutFastPath = true)]
+        DisplayMode = DataGridColumnDisplayMode.Drawn)]
     public string Title
     {
         get => _title;
@@ -123,6 +113,7 @@ public sealed partial class CustomDrawingEditingRow : ReactiveObject
         Order = 2,
         Width = "*",
         IsReadOnly = false,
+        UseDirectValueAccessor = true,
         DrawOperationFactoryMethod = nameof(CreateNotesFactory),
         DrawingMode = DataGridCustomDrawingMode.DrawOperation,
         RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
@@ -141,6 +132,7 @@ public sealed partial class CustomDrawingEditingRow : ReactiveObject
         Order = 3,
         Width = "140",
         IsReadOnly = false,
+        UseDirectValueAccessor = true,
         DrawOperationFactoryMethod = nameof(CreateCategoryFactory),
         DrawingMode = DataGridCustomDrawingMode.DrawOperation,
         RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
@@ -162,10 +154,6 @@ public sealed partial class CustomDrawingEditingRow : ReactiveObject
             UseItemCacheContract = true,
             ItemCacheSlot = cacheSlot
         };
-
-    public static IDataGridCellDrawOperationFactory CreateIdFactory() => CreateFactory(IdCellDrawCacheSlot);
-
-    public static IDataGridCellDrawOperationFactory CreateTitleFactory() => CreateFactory(TitleCellDrawCacheSlot);
 
     public static IDataGridCellDrawOperationFactory CreateNotesFactory() => CreateFactory(NotesCellDrawCacheSlot);
 
