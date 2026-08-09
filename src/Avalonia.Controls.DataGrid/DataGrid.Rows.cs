@@ -523,7 +523,13 @@ internal
             return IsSlotVisible(slot) ? DisplayData.GetDisplayedElement(slot) as DataGridRow : null;
         }
 
-        internal void InsertElementAt(int slot, int rowIndex, object item, DataGridRowGroupInfo groupInfo, bool isCollapsed)
+        internal void InsertElementAt(
+            int slot,
+            int rowIndex,
+            object item,
+            DataGridRowGroupInfo groupInfo,
+            bool isCollapsed,
+            bool deferLayout = false)
         {
             Debug.Assert(slot >= 0 && slot <= SlotCount);
 
@@ -534,14 +540,21 @@ internal
                     element: null,
                     updateVerticalScrollBarOnly: true,
                     isCollapsed: true,
-                    isRow: isRow);
+                    isRow: isRow,
+                    deferLayout: deferLayout);
             }
             else if (SlotIsDisplayed(slot))
             {
                 // Row at that index needs to be displayed
                 if (isRow)
                 {
-                    InsertElement(slot, GenerateRow(rowIndex, slot, item), false /*updateVerticalScrollBarOnly*/, false /*isCollapsed*/, isRow);
+                    InsertElement(
+                        slot,
+                        GenerateRow(rowIndex, slot, item),
+                        updateVerticalScrollBarOnly: false,
+                        isCollapsed: false,
+                        isRow,
+                        deferLayout);
                 }
                 else
                 {
@@ -551,7 +564,8 @@ internal
                     InsertElement(slot, element,
                         updateVerticalScrollBarOnly: false,
                         isCollapsed: false,
-                        isRow: isRow);
+                        isRow: isRow,
+                        deferLayout: deferLayout);
                 }
             }
             else
@@ -560,7 +574,8 @@ internal
                     element: null,
                     updateVerticalScrollBarOnly: !HasLegacyVerticalScrollBar || IsLegacyVerticalScrollBarVisible,
                     isCollapsed: false,
-                    isRow: isRow);
+                    isRow: isRow,
+                    deferLayout: deferLayout);
             }
         }
 
@@ -574,6 +589,32 @@ internal
 
             // isCollapsed below is always false because we only use the method if we're not grouping
             InsertElementAt(slot, rowIndex, item, null/*DataGridRowGroupInfo*/, false /*isCollapsed*/);
+            RequestPointerOverRefresh();
+        }
+
+        private void InsertRowsAt(int rowIndex, int count)
+        {
+            Debug.Assert(rowIndex >= 0);
+            Debug.Assert(count > 0);
+
+            var slot = SlotFromRowIndex(rowIndex);
+            RowHeightEstimator?.OnItemsInserted(slot, count);
+
+            for (var offset = 0; offset < count; offset++)
+            {
+                var currentRowIndex = rowIndex + offset;
+                var currentSlot = SlotFromRowIndex(currentRowIndex);
+                var item = DataConnection.GetDataItem(currentRowIndex);
+                InsertElementAt(
+                    currentSlot,
+                    currentRowIndex,
+                    item,
+                    groupInfo: null,
+                    isCollapsed: false,
+                    deferLayout: true);
+            }
+
+            CompleteDeferredRowInsertLayout();
             RequestPointerOverRefresh();
         }
 
@@ -759,7 +800,6 @@ internal
                 {
                     if (DataConnection != null && ColumnsItemsInternal.Count > 0)
                     {
-                        AddSlots(DataConnection.Count);
                         AddSlots(DataConnection.Count + RowGroupHeadersTable.IndexCount + RowGroupFootersTable.IndexCount);
 
                         InvalidateMeasure();

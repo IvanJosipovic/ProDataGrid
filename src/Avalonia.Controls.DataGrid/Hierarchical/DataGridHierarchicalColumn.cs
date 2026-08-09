@@ -2,8 +2,10 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
+using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Controls.Utils;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
@@ -29,6 +31,7 @@ internal
 
         private readonly Lazy<IDataTemplate?> _cellTemplate;
         private readonly Lazy<ControlTheme?> _directCellTheme;
+        private readonly Lazy<ControlTheme?> _directTextCellTheme;
         private bool _refreshingBinding;
 
         public DataGridHierarchicalColumn()
@@ -41,6 +44,7 @@ internal
                     ? (IDataTemplate)template
                     : null);
             _directCellTheme = new Lazy<ControlTheme?>(() => GetColumnControlTheme("DataGridOptimizedDirectHierarchicalCellTheme"));
+            _directTextCellTheme = new Lazy<ControlTheme?>(() => GetColumnControlTheme("DataGridOptimizedDirectTextHierarchicalCellTheme"));
         }
 
         /// <summary>
@@ -57,6 +61,47 @@ internal
             get => GetValue(UseDirectCellProperty);
             set => SetValue(UseDirectCellProperty, value);
         }
+
+        /// <summary>
+        /// Defines the <see cref="UseDirectTextContent"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectTextContentProperty =
+            AvaloniaProperty.Register<DataGridHierarchicalColumn, bool>(nameof(UseDirectTextContent));
+
+        /// <summary>
+        /// Gets or sets whether a direct cell with a typed value accessor uses the retained
+        /// text-only hierarchy theme instead of a content presenter. Custom cell templates
+        /// continue to use the content-presenter path.
+        /// </summary>
+        public bool UseDirectTextContent
+        {
+            get => GetValue(UseDirectTextContentProperty);
+            set => SetValue(UseDirectTextContentProperty, value);
+        }
+
+        /// <summary>
+        /// Defines the <see cref="TrackDirectTextValueChanges"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> TrackDirectTextValueChangesProperty =
+            AvaloniaProperty.Register<DataGridHierarchicalColumn, bool>(nameof(TrackDirectTextValueChanges), true);
+
+        /// <summary>
+        /// Gets or sets whether the optimized hierarchy text path subscribes to changes on
+        /// the wrapped item. Disable this only when the displayed item text is immutable.
+        /// Hierarchy expansion and level state continue to update independently.
+        /// </summary>
+        public bool TrackDirectTextValueChanges
+        {
+            get => GetValue(TrackDirectTextValueChangesProperty);
+            set => SetValue(TrackDirectTextValueChangesProperty, value);
+        }
+
+        internal bool CanUseDirectTextContent =>
+            UseDirectCell &&
+            UseDirectTextContent &&
+            CellTemplate == null &&
+            BindingCloneHelper.SupportsDirectDataContextRead(Binding) &&
+            DataGridColumnMetadata.GetValueAccessor(this) is IDataGridColumnTextAccessor;
 
         /// <summary>
         /// Identifies the <see cref="Indent"/> property.
@@ -115,8 +160,16 @@ internal
             if (cell is DataGridDirectHierarchicalCell directCell)
             {
                 directCell.Content = null;
-                directCell.Theme = CellTheme ?? GetDirectCellTheme();
                 directCell.Indent = Indent;
+                directCell.ClearValue(DataGridDirectHierarchicalCell.ValueProperty);
+                if (directCell.ConfigureTextAccessor(this))
+                {
+                    directCell.ContentTemplate = null;
+                    directCell.Theme = CellTheme ?? GetDirectTextCellTheme();
+                    return null;
+                }
+
+                directCell.Theme = CellTheme ?? GetDirectCellTheme();
                 BindContent(directCell, dataItem);
                 return null;
             }
@@ -197,7 +250,9 @@ internal
         internal override ControlTheme ResolveCellTheme(DataGrid grid)
         {
             return UseDirectCell
-                ? CellTheme ?? GetDirectCellTheme() ?? base.ResolveCellTheme(grid)
+                ? CellTheme ??
+                  (CanUseDirectTextContent ? GetDirectTextCellTheme() : GetDirectCellTheme()) ??
+                  base.ResolveCellTheme(grid)
                 : base.ResolveCellTheme(grid);
         }
 
@@ -208,6 +263,34 @@ internal
                 : OwningGrid == null ? null : _directCellTheme.Value;
         }
 
+        private ControlTheme? GetDirectTextCellTheme()
+        {
+            return _directTextCellTheme.IsValueCreated
+                ? _directTextCellTheme.Value
+                : OwningGrid == null ? null : _directTextCellTheme.Value;
+        }
+
+        internal string? GetDirectText(object? item)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this) as IDataGridColumnTextAccessor;
+            if (accessor == null || item == null)
+            {
+                return null;
+            }
+
+            var culture = BindingCloneHelper.GetConverterCulture(Binding) ?? CultureInfo.CurrentCulture;
+            return accessor.TryGetText(
+                item,
+                BindingCloneHelper.GetConverter(Binding),
+                BindingCloneHelper.GetConverterParameter(Binding),
+                BindingCloneHelper.GetStringFormat(Binding),
+                culture,
+                culture,
+                out var text)
+                ? text
+                : null;
+        }
+
         private void PresenterOnToggleRequested(object? sender, EventArgs e)
         {
             if (OwningGrid?.HierarchicalModel == null)
@@ -215,8 +298,19 @@ internal
                 return;
             }
 
-            if (sender is Control presenter && presenter.DataContext is HierarchicalNode node)
+            if (sender is Control presenter)
             {
+                var node = presenter.DataContext switch
+                {
+                    HierarchicalNode directNode => directNode,
+                    IHierarchicalNodeItem nodeItem => nodeItem.Node,
+                    _ => null
+                };
+                if (node == null)
+                {
+                    return;
+                }
+
                 var row = presenter.FindAncestorOfType<DataGridRow>();
                 if (row != null)
                 {

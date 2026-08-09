@@ -989,6 +989,8 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         object IHierarchicalNodeItem.Item => Inner.Item;
 
+        HierarchicalNode IHierarchicalNodeItem.Node => Inner;
+
         public HierarchicalNode<T>? Parent => Inner.Parent != null ? new HierarchicalNode<T>(Inner.Parent) : null;
 
         public IReadOnlyList<HierarchicalNode<T>> Children => new ReadOnlyCollection<HierarchicalNode<T>>(

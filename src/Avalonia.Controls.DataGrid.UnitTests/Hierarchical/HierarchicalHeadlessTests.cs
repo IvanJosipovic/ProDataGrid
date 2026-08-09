@@ -545,6 +545,75 @@ public class HierarchicalHeadlessTests
     }
 
     [AvaloniaFact]
+    public void Attached_Large_Expand_And_Collapse_Refreshes_Rows_Coherently()
+    {
+        var root = CreateTree("Root", childCount: 300, grandchildCount: 0);
+        using var themeScope = UseApplicationTheme(DataGridTheme.SimpleV2);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = value => ((Item)value).Children,
+            VirtualizeChildren = false
+        });
+        model.SetRoot(root);
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.Flattened,
+            UseLogicalScrollable = true,
+            RowHeight = 24
+        };
+        grid.ColumnsInternal.Add(new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Binding = new Binding("Item.Name")
+        });
+
+        var window = new Window
+        {
+            Width = 420,
+            Height = 260,
+            Content = grid
+        };
+
+        window.SetThemeStyles(DataGridTheme.SimpleV2);
+        window.Show();
+        PumpLayout(grid);
+        Assert.NotEmpty(GetVisibleRows(grid));
+
+        grid.SelectedItem = root;
+        Assert.Same(root, grid.SelectedItem);
+
+        model.ExpandAll();
+        PumpLayout(grid);
+
+        Assert.Equal(301, model.Count);
+        Assert.Equal(301, grid.SlotCount);
+        Assert.Same(root, grid.SelectedItem);
+        Assert.NotEmpty(GetVisibleRows(grid));
+        ValidateDisplayedRows(grid, model);
+        AssertNoVisibleRowsOutsideDisplayData(grid);
+
+        model.CollapseAll();
+        PumpLayout(grid);
+
+        Assert.Single(model.Flattened);
+        var collapsedRows = GetVisibleRows(grid);
+        var collapsedPresenter = GetRowsPresenter(grid);
+        Assert.True(
+            collapsedRows.Count == 1,
+            $"Expected one collapsed row, found {collapsedRows.Count}; " +
+            $"offset={collapsedPresenter.Offset}, extent={collapsedPresenter.Extent}, " +
+            $"viewport={collapsedPresenter.Viewport}, slots={grid.SlotCount}.");
+        Assert.Same(root, grid.SelectedItem);
+        ValidateDisplayedRows(grid, model);
+
+        window.Close();
+    }
+
+    [AvaloniaFact]
     public void LogicalScrollOffset_Remains_Aligned_After_Expand_And_Collapse()
     {
         var root = CreateTree("Root", childCount: 200, grandchildCount: 5);

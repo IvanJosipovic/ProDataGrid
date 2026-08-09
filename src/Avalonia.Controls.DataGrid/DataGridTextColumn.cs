@@ -29,7 +29,9 @@ public
 #else
 internal
 #endif
-    class DataGridTextColumn : DataGridBoundColumn, IDataGridDrawnCellValueProvider
+    class DataGridTextColumn : DataGridBoundColumn,
+        IDataGridDrawnCellValueProvider,
+        IDataGridDrawnCellValueChangeTracking
     {
         private readonly Lazy<ControlTheme> _cellTextBoxTheme;
         private readonly Lazy<ControlTheme> _cellTextBlockTheme;
@@ -75,6 +77,23 @@ internal
         {
             get => GetValue(UseDirectTextCellProperty);
             set => SetValue(UseDirectTextCellProperty, value);
+        }
+
+        /// <summary>
+        /// Defines the <see cref="TrackDirectTextValueChanges"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> TrackDirectTextValueChangesProperty =
+            AvaloniaProperty.Register<DataGridTextColumn, bool>(nameof(TrackDirectTextValueChanges), true);
+
+        /// <summary>
+        /// Gets or sets whether direct retained text cells subscribe to property changes on their
+        /// row data and wrapped hierarchy item. Disable this for immutable row data to avoid the
+        /// subscription cost; recycled cells still refresh when their data context changes.
+        /// </summary>
+        public bool TrackDirectTextValueChanges
+        {
+            get => GetValue(TrackDirectTextValueChangesProperty);
+            set => SetValue(TrackDirectTextValueChangesProperty, value);
         }
 
         internal bool CanUseDirectValueAccessor =>
@@ -198,7 +217,8 @@ internal
                 || change.Property == FontWeightProperty
                 || change.Property == ForegroundProperty
                 || change.Property == WatermarkProperty
-                || change.Property == UseDirectTextCellProperty)
+                || change.Property == UseDirectTextCellProperty
+                || change.Property == TrackDirectTextValueChangesProperty)
             {
                 NotifyPropertyChanged(change.Property.Name);
             }
@@ -414,6 +434,8 @@ internal
         internal override bool SupportsDrawnDisplay => true;
 
         object IDataGridDrawnCellValueProvider.GetDrawnCellValue(object item) => GetDirectCellText(item);
+
+        bool IDataGridDrawnCellValueChangeTracking.TrackDrawnCellValueChanges => TrackDirectTextValueChanges;
 
         internal string GetDirectCellText(object item)
         {

@@ -49,6 +49,8 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// </summary>
         public object Item { get; }
 
+        HierarchicalNode IHierarchicalNodeItem.Node => this;
+
         /// <summary>
         /// Gets the parent node or null when at the root.
         /// </summary>

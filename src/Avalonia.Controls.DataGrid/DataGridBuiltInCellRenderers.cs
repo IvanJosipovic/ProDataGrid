@@ -13,6 +13,11 @@ namespace Avalonia.Controls
         object GetDrawnCellValue(object item);
     }
 
+    internal interface IDataGridDrawnCellValueChangeTracking
+    {
+        bool TrackDrawnCellValueChanges { get; }
+    }
+
     internal interface IDataGridBuiltInCellRenderer
     {
         bool TryMeasure(DataGridCustomDrawingCell cell, Size availableSize, out Size desiredSize);

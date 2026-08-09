@@ -17,6 +17,8 @@ namespace Avalonia.Controls
         private double? _indent;
         private string _cellTemplateKey;
         private bool _useDirectCell;
+        private bool _useDirectTextContent;
+        private bool _trackDirectTextValueChanges = true;
 
         public double? Indent
         {
@@ -39,6 +41,26 @@ namespace Avalonia.Controls
             set => SetProperty(ref _useDirectCell, value);
         }
 
+        /// <summary>
+        /// Gets or sets whether the optimized direct hierarchy cell uses its typed accessor
+        /// with a retained text-only template instead of a content presenter.
+        /// </summary>
+        public bool UseDirectTextContent
+        {
+            get => _useDirectTextContent;
+            set => SetProperty(ref _useDirectTextContent, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether the generated optimized hierarchy text cells subscribe to
+        /// wrapped-item property changes. Disable this only for immutable display values.
+        /// </summary>
+        public bool TrackDirectTextValueChanges
+        {
+            get => _trackDirectTextValueChanges;
+            set => SetProperty(ref _trackDirectTextValueChanges, value);
+        }
+
         protected override DataGridColumn CreateColumnCore()
         {
             return new DataGridHierarchicalColumn();
@@ -51,6 +73,8 @@ namespace Avalonia.Controls
             if (column is DataGridHierarchicalColumn hierarchicalColumn)
             {
                 hierarchicalColumn.UseDirectCell = UseDirectCell;
+                hierarchicalColumn.UseDirectTextContent = UseDirectTextContent;
+                hierarchicalColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;
                 hierarchicalColumn.CellTemplate = CellTemplateKey != null
                     ? context?.ResolveResource<IDataTemplate>(CellTemplateKey)
                     : null;
@@ -85,6 +109,12 @@ namespace Avalonia.Controls
             {
                 case nameof(UseDirectCell):
                     hierarchicalColumn.UseDirectCell = UseDirectCell;
+                    return true;
+                case nameof(UseDirectTextContent):
+                    hierarchicalColumn.UseDirectTextContent = UseDirectTextContent;
+                    return true;
+                case nameof(TrackDirectTextValueChanges):
+                    hierarchicalColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;
                     return true;
                 case nameof(CellTemplateKey):
                     hierarchicalColumn.CellTemplate = CellTemplateKey != null

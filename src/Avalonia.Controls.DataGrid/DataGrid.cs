@@ -2958,7 +2958,8 @@ internal
                 _pendingHierarchicalAnchorHint = null;
             }
 
-            var canApplyChanges = CanApplyHierarchicalFlattenedChanges(e);
+            var canApplyChanges = CanApplyHierarchicalFlattenedChanges(e) &&
+                                  !RequiresHierarchicalBulkRefresh(e.Changes);
             var hasAnchor = false;
             HierarchicalAnchor anchor = default;
 
@@ -3154,6 +3155,23 @@ internal
             return hasChanges;
         }
 
+        private static bool RequiresHierarchicalBulkRefresh(IReadOnlyList<FlattenedChange> changes)
+        {
+            const int incrementalChangeLimit = 256;
+            var changedRows = 0L;
+
+            foreach (var change in changes)
+            {
+                changedRows += (long)change.OldCount + change.NewCount;
+                if (changedRows > incrementalChangeLimit)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private void ApplyHierarchicalFlattenedChanges(IReadOnlyList<FlattenedChange> changes)
         {
             if (changes == null || changes.Count == 0)
@@ -3168,9 +3186,9 @@ internal
                     RemoveRowAt(change.Index, null);
                 }
 
-                for (var i = 0; i < change.NewCount; i++)
+                if (change.NewCount > 0)
                 {
-                    InsertRowAt(change.Index + i);
+                    InsertRowsAt(change.Index, change.NewCount);
                 }
             }
         }

@@ -33,6 +33,34 @@ _idColumn = new DataGridTextColumnDefinition
 
 `SortMemberPath` is optional, but it helps map model descriptors back to columns when you want explicit ids or persistence.
 
+## Optimized retained hierarchy cells
+
+For large fixed-height hierarchies whose display value is supplied by typed accessor
+metadata, the hierarchical definition can keep a real Avalonia expander and text block
+while removing the extra presenter and binding expression:
+
+```csharp
+var nameColumn = new DataGridHierarchicalColumnDefinition
+{
+    Header = "Item",
+    Binding = CreateNodeBinding<string>("Name", item => item.Name),
+    UseDirectCell = true,
+    UseDirectTextContent = true,
+    TrackDirectTextValueChanges = false,
+    Width = new DataGridLength(2, DataGridLengthUnitType.Star)
+};
+```
+
+`TrackDirectTextValueChanges` defaults to `true`. Disable it only when the displayed
+item value is immutable; expansion, level, loading, recycling, and expander state still
+update. A custom `CellTemplateKey`, explicit-source binding, or incompatible accessor
+uses the retained content-presenter fallback. The direct path supports both
+`HierarchicalNode` and `HierarchicalNode<T>` sources.
+
+Use this column setting together with the opt-in row/cell/header themes described in
+[Column Definitions: Hot Path Integration](column-definitions-hot-path.md). The
+existing generic theme dictionaries are unchanged and remain the compatibility path.
+
 ## XAML wiring
 
 ```xml

@@ -185,6 +185,37 @@ formattingModel.Apply(new[]
 
 `DataGridPathGroupDescription` uses property paths and reflection. For AOT scenarios, implement a custom `DataGridGroupDescription` that reads values through your accessors.
 
+## 9. Optimized retained display path
+
+For immutable display data, `DataGridTextColumnDefinition.UseDirectTextCell=true`
+removes the nested retained presenter and
+`TrackDirectTextValueChanges=false` avoids a per-realized-cell property-change
+subscription. Leave change tracking enabled for mutable values; recycled cells still
+refresh when their row data changes.
+
+`DataGridCustomDrawingColumnDefinition.UseDirectValueAccessor=true` lets a custom
+drawing cell read compatible typed accessor metadata without creating a display
+binding expression. Set `TrackDirectValueChanges=false` only when the displayed value
+is immutable.
+
+The normal generic themes remain the compatibility default. Applications with simple,
+fixed-height data surfaces can opt into the partial themes from `Themes/Optimized.xaml`:
+
+```xml
+<DataGrid RowTheme="{StaticResource DataGridOptimizedUnfrozenRowTheme}"
+          CellTheme="{StaticResource DataGridOptimizedCellTheme}"
+          ColumnHeaderTheme="{StaticResource DataGridOptimizedColumnHeaderTheme}"
+          UseLightweightFiller="True" />
+```
+
+`DataGridOptimizedUnfrozenRowTheme` uses one normal
+`DataGridCellsPresenter` and is intended only when both frozen-column counts are zero.
+Use `DataGridOptimizedRowTheme` when left or right frozen columns are enabled. These
+themes preserve Avalonia controls and layout; they do not switch cells to custom
+drawing. Editing, arbitrary templates, and the original generic themes remain
+available. Optimized resources use static resource lookup, so use the generic themes
+when application code must replace theme resources dynamically at runtime.
+
 ## Related articles
 
 - [Column Definitions](column-definitions.md)

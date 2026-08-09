@@ -4,8 +4,10 @@
 #nullable disable
 
 using System;
+using System.Globalization;
 using Avalonia.Collections;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Utils;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -24,7 +26,9 @@ public
 #else
 internal
 #endif
-    class DataGridCustomDrawingColumn : DataGridBoundColumn
+    class DataGridCustomDrawingColumn : DataGridBoundColumn,
+        IDataGridDrawnCellValueProvider,
+        IDataGridDrawnCellValueChangeTracking
     {
         private readonly Lazy<ControlTheme> _cellCustomDrawingTheme;
         private readonly Lazy<ControlTheme> _retainedCellTheme;
@@ -48,6 +52,38 @@ internal
             _retainedCellTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme(typeof(DataGridCell)));
             _cellTextBoxTheme = new Lazy<ControlTheme>(() => GetColumnControlTheme("DataGridCellTextBoxTheme"));
             _sharedTextLayoutCache = new DataGridCustomDrawingTextLayoutCache(DataGridCustomDrawingCell.DefaultSharedTextLayoutCacheCapacity);
+        }
+
+        /// <summary>
+        /// Defines the <see cref="UseDirectValueAccessor"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> UseDirectValueAccessorProperty =
+            AvaloniaProperty.Register<DataGridCustomDrawingColumn, bool>(nameof(UseDirectValueAccessor));
+
+        /// <summary>
+        /// Gets or sets whether compatible typed column metadata supplies display values directly,
+        /// avoiding one binding expression per realized drawing cell.
+        /// </summary>
+        public bool UseDirectValueAccessor
+        {
+            get => GetValue(UseDirectValueAccessorProperty);
+            set => SetValue(UseDirectValueAccessorProperty, value);
+        }
+
+        /// <summary>
+        /// Defines the <see cref="TrackDirectValueChanges"/> property.
+        /// </summary>
+        public static readonly StyledProperty<bool> TrackDirectValueChangesProperty =
+            AvaloniaProperty.Register<DataGridCustomDrawingColumn, bool>(nameof(TrackDirectValueChanges), true);
+
+        /// <summary>
+        /// Gets or sets whether direct-accessor drawing cells subscribe to row-item property changes.
+        /// Disable this only when displayed values are immutable.
+        /// </summary>
+        public bool TrackDirectValueChanges
+        {
+            get => GetValue(TrackDirectValueChangesProperty);
+            set => SetValue(TrackDirectValueChangesProperty, value);
         }
 
         public static readonly AttachedProperty<FontFamily> FontFamilyProperty =
@@ -314,7 +350,9 @@ internal
                 change.Property == SharedTextLayoutCacheCapacityProperty ||
                 change.Property == DrawOperationLayoutFastPathProperty ||
                 change.Property == RenderInvalidationTokenProperty ||
-                change.Property == LayoutInvalidationTokenProperty)
+                change.Property == LayoutInvalidationTokenProperty ||
+                change.Property == UseDirectValueAccessorProperty ||
+                change.Property == TrackDirectValueChangesProperty)
             {
                 NotifyPropertyChanged(change.Property.Name);
             }
@@ -331,9 +369,18 @@ internal
             drawingCell.UseDrawingTemplate();
             drawingCell.Theme = CellCustomDrawingTheme;
             SyncDisplayProperties(drawingCell);
-            if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+            drawingCell.ClearValue(DataGridCustomDrawingCell.ValueProperty);
+            if (CanUseDirectValueAccessor(dataItem))
             {
-                drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, Binding);
+                drawingCell.ConfigureBuiltInRenderer(this, renderer: null);
+            }
+            else
+            {
+                drawingCell.ConfigureBuiltInRenderer(valueProvider: null, renderer: null);
+                if (Binding != null && dataItem != DataGridCollectionView.NewItemPlaceholder)
+                {
+                    drawingCell.Bind(DataGridCustomDrawingCell.ValueProperty, Binding);
+                }
             }
 
             return null;
@@ -357,6 +404,39 @@ internal
         internal override ControlTheme ResolveCellTheme(DataGrid grid)
         {
             return CellTheme ?? CellCustomDrawingTheme ?? base.ResolveCellTheme(grid);
+        }
+
+        object IDataGridDrawnCellValueProvider.GetDrawnCellValue(object item)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this) as IDataGridColumnTextAccessor;
+            if (accessor == null || item == null)
+            {
+                return null;
+            }
+
+            var culture = BindingCloneHelper.GetConverterCulture(Binding) ?? CultureInfo.CurrentCulture;
+            return accessor.TryGetText(
+                item,
+                BindingCloneHelper.GetConverter(Binding),
+                BindingCloneHelper.GetConverterParameter(Binding),
+                BindingCloneHelper.GetStringFormat(Binding),
+                culture,
+                culture,
+                out var text)
+                ? text
+                : null;
+        }
+
+        bool IDataGridDrawnCellValueChangeTracking.TrackDrawnCellValueChanges => TrackDirectValueChanges;
+
+        private bool CanUseDirectValueAccessor(object dataItem)
+        {
+            var accessor = DataGridColumnMetadata.GetValueAccessor(this);
+            return UseDirectValueAccessor &&
+                   dataItem != null &&
+                   accessor is IDataGridColumnTextAccessor &&
+                   accessor.ItemType.IsInstanceOfType(dataItem) &&
+                   BindingCloneHelper.SupportsDirectDataContextRead(Binding);
         }
 
         protected override void CancelCellEdit(Control editingElement, object uneditedValue)

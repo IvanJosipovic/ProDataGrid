@@ -899,6 +899,14 @@ namespace Avalonia.Controls
             }
 
             UpdateValueFromProvider();
+            if (_valueProvider is IDataGridDrawnCellValueChangeTracking
+                {
+                    TrackDrawnCellValueChanges: false
+                })
+            {
+                return;
+            }
+
             if (DataContext is INotifyPropertyChanged notifier)
             {
                 _valueNotifier = notifier;

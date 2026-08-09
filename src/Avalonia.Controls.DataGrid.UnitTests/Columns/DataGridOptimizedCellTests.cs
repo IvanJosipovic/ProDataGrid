@@ -8,9 +8,11 @@ using Avalonia.Controls;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
@@ -44,6 +46,32 @@ public sealed class DataGridOptimizedCellTests
     }
 
     [AvaloniaFact]
+    public void DirectTextCell_TracksChanges_From_HierarchicalNodeItem()
+    {
+        var item = new NotifyItem("First");
+        var node = new HierarchicalNode(item, isLeaf: true);
+        var column = new DataGridTextColumn
+        {
+            Binding = new Binding("Item.Name"),
+            UseDirectTextCell = true
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                value => ((NotifyItem)value.Item).Name));
+
+        var cell = Assert.IsType<DataGridDirectTextCell>(column.CreateCell());
+        cell.DataContext = node;
+
+        Assert.True(cell.ConfigureValueAccessor(column));
+        Assert.Equal("First", cell.Value);
+
+        item.Name = "Second";
+
+        Assert.Equal("Second", cell.Value);
+    }
+
+    [AvaloniaFact]
     public void DirectTextCell_FallsBackToBinding_ForExplicitSource()
     {
         var item = new NotifyItem("First");
@@ -59,6 +87,31 @@ public sealed class DataGridOptimizedCellTests
         var cell = Assert.IsType<DataGridDirectTextCell>(column.CreateCell());
 
         Assert.False(cell.ConfigureValueAccessor(column));
+    }
+
+    [AvaloniaFact]
+    public void DirectTextCell_Can_Skip_Change_Subscriptions_For_Immutable_Data()
+    {
+        var item = new NotifyItem("First");
+        var column = new DataGridTextColumn
+        {
+            Binding = new Binding(nameof(NotifyItem.Name)),
+            UseDirectTextCell = true,
+            TrackDirectTextValueChanges = false
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<NotifyItem, string>(value => value.Name));
+
+        var cell = Assert.IsType<DataGridDirectTextCell>(column.CreateCell());
+        cell.DataContext = item;
+        Assert.True(cell.ConfigureValueAccessor(column));
+
+        item.Name = "Second";
+
+        Assert.Equal("First", cell.Value);
+        cell.DataContext = new NotifyItem("Third");
+        Assert.Equal("Third", cell.Value);
     }
 
     [AvaloniaFact]
@@ -79,6 +132,84 @@ public sealed class DataGridOptimizedCellTests
         node.IsExpanded = true;
 
         Assert.True(cell.IsExpanded);
+    }
+
+    [AvaloniaFact]
+    public void DirectHierarchicalTextCell_UsesTypedAccessor_AndTracksItemChanges()
+    {
+        var item = new NotifyItem("First");
+        var node = new HierarchicalNode(item, isLeaf: true);
+        var column = new DataGridHierarchicalColumn
+        {
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = true,
+            UseDirectTextContent = true
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                value => ((NotifyItem)value.Item).Name));
+
+        var cell = Assert.IsType<DataGridDirectHierarchicalCell>(column.CreateCell());
+        cell.DataContext = node;
+
+        Assert.True(cell.ConfigureTextAccessor(column));
+        Assert.Equal("First", cell.Value);
+
+        item.Name = "Second";
+
+        Assert.Equal("Second", cell.Value);
+    }
+
+    [AvaloniaFact]
+    public void DirectHierarchicalTextCell_Can_Skip_Item_Change_Subscriptions_For_Immutable_Data()
+    {
+        var item = new NotifyItem("First");
+        var node = new HierarchicalNode(item, isLeaf: true);
+        var column = new DataGridHierarchicalColumn
+        {
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = true,
+            UseDirectTextContent = true,
+            TrackDirectTextValueChanges = false
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                value => ((NotifyItem)value.Item).Name));
+
+        var cell = Assert.IsType<DataGridDirectHierarchicalCell>(column.CreateCell());
+        cell.DataContext = node;
+        Assert.True(cell.ConfigureTextAccessor(column));
+
+        item.Name = "Second";
+
+        Assert.Equal("First", cell.Value);
+        var replacement = new HierarchicalNode(new NotifyItem("Third"), isLeaf: true);
+        cell.DataContext = replacement;
+        Assert.Equal("Third", cell.Value);
+
+        replacement.IsExpanded = true;
+        Assert.True(cell.IsExpanded);
+    }
+
+    [AvaloniaFact]
+    public void DirectHierarchicalTextCell_Preserves_CustomTemplate_Path()
+    {
+        var column = new DataGridHierarchicalColumn
+        {
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = true,
+            UseDirectTextContent = true,
+            CellTemplate = new FuncDataTemplate<HierarchicalNode>((_, _) => new TextBlock())
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(value => value.Item.ToString()!));
+
+        var cell = Assert.IsType<DataGridDirectHierarchicalCell>(column.CreateCell());
+
+        Assert.False(cell.ConfigureTextAccessor(column));
     }
 
     [AvaloniaFact]
@@ -153,6 +284,57 @@ public sealed class DataGridOptimizedCellTests
         item.Name = "Second";
 
         Assert.Equal("Second", cell.Value);
+    }
+
+    [AvaloniaFact]
+    public void DrawnText_Can_Skip_Change_Subscriptions_For_Immutable_Data()
+    {
+        var item = new NotifyItem("First");
+        var column = new TestTextColumn
+        {
+            Binding = new Binding(nameof(NotifyItem.Name)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            TrackDirectTextValueChanges = false
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<NotifyItem, string>(value => value.Name));
+
+        var cell = Assert.IsType<DataGridCustomDrawingCell>(column.CreateCell());
+        cell.DataContext = item;
+        Assert.Null(column.GenerateDisplay(cell, item));
+
+        item.Name = "Second";
+
+        Assert.Equal("First", cell.Value);
+        cell.DataContext = new NotifyItem("Third");
+        Assert.Equal("Third", cell.Value);
+    }
+
+    [AvaloniaFact]
+    public void CustomDrawingCell_Can_Use_Typed_Accessor_Without_Change_Subscription()
+    {
+        var item = new NotifyItem("First");
+        var column = new TestCustomDrawingColumn
+        {
+            Binding = new Binding(nameof(NotifyItem.Name)),
+            UseDirectValueAccessor = true,
+            TrackDirectValueChanges = false
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<NotifyItem, string>(value => value.Name));
+
+        var cell = Assert.IsType<DataGridCustomDrawingCell>(column.CreateCell());
+        cell.DataContext = item;
+        Assert.Null(column.GenerateDisplay(cell, item));
+        Assert.Equal("First", cell.Value);
+
+        item.Name = "Second";
+        Assert.Equal("First", cell.Value);
+
+        cell.DataContext = new NotifyItem("Third");
+        Assert.Equal("Third", cell.Value);
     }
 
     [AvaloniaFact]
@@ -433,6 +615,69 @@ public sealed class DataGridOptimizedCellTests
     }
 
     [AvaloniaFact]
+    public void OptimizedUnfrozenRowTheme_Preserves_Retained_Cells_And_Horizontal_Scrolling()
+    {
+        var items = Enumerable.Range(0, 20).Select(index => new NotifyItem($"Item {index}")).ToList();
+        var grid = new DataGrid
+        {
+            Width = 280,
+            Height = 160,
+            RowHeight = 24,
+            ItemsSource = items,
+            AutoGenerateColumns = false,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            UseLogicalScrollable = true,
+            UseLightweightFiller = true
+        };
+        for (var index = 0; index < 4; index++)
+        {
+            grid.ColumnsInternal.Add(new DataGridTextColumn
+            {
+                Header = $"Column {index}",
+                Binding = new Binding(nameof(NotifyItem.Name)),
+                Width = new DataGridLength(180)
+            });
+        }
+
+        var window = new Window { Width = 320, Height = 200 };
+        window.SetThemeStyles(DataGridTheme.FluentV2);
+        window.Content = grid;
+        try
+        {
+            Assert.True(grid.TryFindResource("DataGridOptimizedUnfrozenRowTheme", out var rowTheme));
+            grid.RowTheme = Assert.IsType<ControlTheme>(rowTheme);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            var row = Assert.IsType<DataGridRow>(grid.GetRowFromItem(items[0]));
+            Assert.Empty(row.GetVisualDescendants().OfType<DataGridFrozenGrid>());
+            Assert.Single(row.GetVisualDescendants().OfType<DataGridCellsPresenter>());
+            Assert.Equal(4, row.Cells.Count);
+            foreach (DataGridCell cell in row.Cells)
+            {
+                Assert.NotNull(cell.Content);
+            }
+
+            var scrollViewer = grid.GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .First(viewer => viewer.Name == "PART_ScrollViewer");
+            scrollViewer.Offset = new Vector(120, scrollViewer.Offset.Y);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            Assert.True(scrollViewer.Offset.X > 0);
+            Assert.Equal(4, row.Cells.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void RecycledRetainedCells_UpdateIndexerBindingWithoutRegeneration()
     {
         var items = Enumerable.Range(0, 200)
@@ -596,5 +841,10 @@ public sealed class DataGridOptimizedCellTests
         public Control? GenerateDisplay(DataGridCell cell, object item) => GenerateElement(cell, item);
 
         public Control GenerateEditor(DataGridCell cell, object item) => GenerateEditingElementDirect(cell, item);
+    }
+
+    private sealed class TestCustomDrawingColumn : DataGridCustomDrawingColumn
+    {
+        public Control? GenerateDisplay(DataGridCell cell, object item) => GenerateElement(cell, item);
     }
 }

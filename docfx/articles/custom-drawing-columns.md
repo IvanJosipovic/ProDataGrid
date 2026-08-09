@@ -79,6 +79,8 @@ Primary column properties:
 | `DrawOperationLayoutFastPath` | `bool` | `false` | Opt-in measure/arrange fast path driven by draw-operation provider interfaces. |
 | `RenderInvalidationToken` | `int` | `0` | Increment to force redraw of realized custom drawing display cells. |
 | `LayoutInvalidationToken` | `int` | `0` | Increment to force measure/arrange + redraw of realized custom drawing display cells. |
+| `UseDirectValueAccessor` | `bool` | `false` | Uses compatible typed accessor metadata directly instead of creating a display binding expression. |
+| `TrackDirectValueChanges` | `bool` | `true` | Subscribes direct-accessor cells to row-item property changes; disable only for immutable values. |
 | `FontFamily`, `FontSize`, `FontStyle`, `FontWeight`, `FontStretch`, `Foreground`, `TextAlignment`, `TextTrimming` | standard text properties | inherited/default | Applied to `DataGridCustomDrawingCell`. |
 
 ## Rendering and Layout Pipeline
@@ -226,7 +228,9 @@ public MyViewModel(IDataGridCellDrawOperationFactory factory)
             DrawOperationFactory = factory,
             TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
             SharedTextLayoutCacheCapacity = 4096,
-            DrawOperationLayoutFastPath = true
+            DrawOperationLayoutFastPath = true,
+            UseDirectValueAccessor = true,
+            TrackDirectValueChanges = false
         }
     };
 }
@@ -256,8 +260,15 @@ var definition = builder.CustomDrawing(
         d.TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared;
         d.SharedTextLayoutCacheCapacity = 4096;
         d.DrawOperationLayoutFastPath = true;
+        d.UseDirectValueAccessor = true;
+        d.TrackDirectValueChanges = false;
     });
 ```
+
+The direct accessor option requires compatible typed metadata, such as the accessor
+created by `DataGridBindingDefinition` or the typed builder. Keep change tracking at
+its default for mutable rows. Unsupported bindings preserve the normal Avalonia
+binding path.
 
 ## Text Layout Caching
 

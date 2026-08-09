@@ -614,6 +614,12 @@ internal
             _cellsElement = e.NameScope.Find<DataGridCellsPresenter>(DATAGRIDROW_elementCells);
             if (_cellsElement != null)
             {
+                if (RootElement == null)
+                {
+                    RootElement = _cellsElement;
+                    ApplyState();
+                }
+
                 _cellsElement.OwningRow = this;
                 // Cells that were already added before the Template was applied need to
                 // be added to the Canvas

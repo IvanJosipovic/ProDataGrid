@@ -6,5 +6,7 @@ namespace Avalonia.Controls.DataGridHierarchical
     internal interface IHierarchicalNodeItem
     {
         object Item { get; }
+
+        HierarchicalNode Node { get; }
     }
 }

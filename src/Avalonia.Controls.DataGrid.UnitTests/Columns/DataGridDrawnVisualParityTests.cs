@@ -5,13 +5,16 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridConditionalFormatting;
+using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -24,6 +27,17 @@ public sealed class DataGridDrawnVisualParityTests
 {
     public static IEnumerable<object[]> ThemeAndScalingCases()
     {
+        foreach (bool useDirectRetainedCells in new[] { false, true })
+        {
+            yield return new object[] { DataGridTheme.FluentV2, 1.0, useDirectRetainedCells };
+            yield return new object[] { DataGridTheme.FluentV2, 1.5, useDirectRetainedCells };
+            yield return new object[] { DataGridTheme.SimpleV2, 1.0, useDirectRetainedCells };
+            yield return new object[] { DataGridTheme.SimpleV2, 1.5, useDirectRetainedCells };
+        }
+    }
+
+    public static IEnumerable<object[]> HierarchyThemeAndScalingCases()
+    {
         yield return new object[] { DataGridTheme.FluentV2, 1.0 };
         yield return new object[] { DataGridTheme.FluentV2, 1.5 };
         yield return new object[] { DataGridTheme.SimpleV2, 1.0 };
@@ -34,7 +48,8 @@ public sealed class DataGridDrawnVisualParityTests
     [MemberData(nameof(ThemeAndScalingCases))]
     public void Retained_And_Drawn_Cells_Preserve_Visual_State(
         DataGridTheme theme,
-        double renderScaling)
+        double renderScaling,
+        bool useDirectRetainedCells)
     {
         var items = new[]
         {
@@ -43,10 +58,26 @@ public sealed class DataGridDrawnVisualParityTests
             new VisualItem("Gamma", -3),
             new VisualItem("Delta", 8)
         };
-        var retainedText = CreateTextColumn("Retained text", drawn: false, 180);
-        var drawnText = CreateTextColumn("Drawn text", drawn: true, 180);
-        var retainedNumber = CreateNumericColumn("Retained number", drawn: false, 120);
-        var drawnNumber = CreateNumericColumn("Drawn number", drawn: true, 120);
+        var retainedText = CreateTextColumn(
+            "Retained text",
+            drawn: false,
+            useDirectRetainedCells: useDirectRetainedCells,
+            width: 180);
+        var drawnText = CreateTextColumn(
+            "Drawn text",
+            drawn: true,
+            useDirectRetainedCells: false,
+            width: 180);
+        var retainedNumber = CreateNumericColumn(
+            "Retained number",
+            drawn: false,
+            useTextColumn: useDirectRetainedCells,
+            width: 120);
+        var drawnNumber = CreateNumericColumn(
+            "Drawn number",
+            drawn: true,
+            useTextColumn: useDirectRetainedCells,
+            width: 120);
         var grid = new DataGrid
         {
             Width = 720,
@@ -82,7 +113,7 @@ public sealed class DataGridDrawnVisualParityTests
         try
         {
             ApplyOptimizedThemes(grid);
-            ApplyConditionalFormatting(grid, retainedNumber, drawnNumber);
+            ApplyConditionalFormatting(grid, retainedNumber, drawnNumber, useDirectRetainedCells);
             window.Show();
             window.ApplyTemplate();
             grid.ApplyTemplate();
@@ -112,9 +143,17 @@ public sealed class DataGridDrawnVisualParityTests
             window.UpdateLayout();
             grid.UpdateLayout();
 
-            Assert.IsNotType<DataGridCustomDrawingCell>(retainedTextCell);
+            if (useDirectRetainedCells)
+            {
+                Assert.IsType<DataGridDirectTextCell>(retainedTextCell);
+                Assert.IsType<DataGridDirectTextCell>(retainedNumberCell);
+            }
+            else
+            {
+                Assert.IsNotType<DataGridCustomDrawingCell>(retainedTextCell);
+                Assert.IsNotType<DataGridCustomDrawingCell>(retainedNumberCell);
+            }
             Assert.IsType<DataGridCustomDrawingCell>(drawnTextCell);
-            Assert.IsNotType<DataGridCustomDrawingCell>(retainedNumberCell);
             Assert.IsType<DataGridCustomDrawingCell>(drawnNumberCell);
             Assert.True(retainedTextCell.OwningColumn.IsFrozenLeft);
             Assert.False(drawnTextCell.OwningColumn.IsFrozenLeft);
@@ -142,7 +181,125 @@ public sealed class DataGridDrawnVisualParityTests
 
             SaveScreenshotWhenRequested(
                 window,
-                $"drawn-parity-{theme.ToString().ToLowerInvariant()}-{renderScaling.ToString("0.0", CultureInfo.InvariantCulture)}.png");
+                $"drawn-parity-{(useDirectRetainedCells ? "direct" : "ordinary")}-{theme.ToString().ToLowerInvariant()}-{renderScaling.ToString("0.0", CultureInfo.InvariantCulture)}.png");
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [MemberData(nameof(HierarchyThemeAndScalingCases))]
+    public void Standard_And_Direct_Hierarchy_Cells_Preserve_Retained_Visual_State(
+        DataGridTheme theme,
+        double renderScaling)
+    {
+        var root = new HierarchyVisualItem("Root");
+        root.Children.Add(new HierarchyVisualItem("Child one"));
+        root.Children.Add(new HierarchyVisualItem("Child two"));
+        var model = new HierarchicalModel<HierarchyVisualItem>(new HierarchicalOptions<HierarchyVisualItem>
+        {
+            ChildrenSelector = item => item.Children,
+            VirtualizeChildren = false
+        });
+        model.SetRoot(root);
+        model.ExpandAll();
+
+        var standardColumn = new DataGridHierarchicalColumn
+        {
+            Header = "Standard hierarchy",
+            Binding = new Binding("Item.Name"),
+            Width = new DataGridLength(280)
+        };
+        var directColumn = new DataGridHierarchicalColumn
+        {
+            Header = "Direct hierarchy",
+            Binding = new Binding("Item.Name"),
+            UseDirectCell = true,
+            UseDirectTextContent = true,
+            Width = new DataGridLength(280)
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            directColumn,
+            new DataGridColumnValueAccessor<HierarchicalNode<HierarchyVisualItem>, string>(
+                node => node.Item.Name));
+
+        var grid = new DataGrid
+        {
+            Width = 600,
+            Height = 180,
+            RowHeight = 32,
+            AutoGenerateColumns = false,
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            ItemsSource = model.Flattened,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            SelectionUnit = DataGridSelectionUnit.FullRow,
+            UseLogicalScrollable = true,
+            UseLightweightFiller = true
+        };
+        grid.ColumnsInternal.Add(standardColumn);
+        grid.ColumnsInternal.Add(directColumn);
+
+        var window = new Window
+        {
+            Width = 640,
+            Height = 210,
+            Background = Brushes.White
+        };
+        using IDisposable themeScope = UseApplicationTheme(theme);
+        window.SetThemeStyles(theme);
+        window.SetRenderScaling(renderScaling);
+        window.Content = grid;
+        try
+        {
+            ApplyOptimizedThemes(grid);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            int selectedSlot = grid.SlotFromRowIndex(1);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                columnIndex: 0,
+                slot: selectedSlot,
+                action: DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            var row = Assert.IsType<DataGridRow>(grid.DisplayData.GetDisplayedRow(1));
+            var standardCell = row.Cells[0];
+            var directCell = Assert.IsType<DataGridDirectHierarchicalCell>(row.Cells[1]);
+            SetValidationError(standardCell);
+            SetValidationError(directCell);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            var standardText = standardCell.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .First(text => text.Text == "Child one");
+            Assert.IsType<HierarchicalNode<HierarchyVisualItem>>(directCell.DataContext);
+            Assert.Equal("Child one", directCell.Value);
+            var directText = directCell.GetVisualDescendants()
+                .OfType<TextBlock>()
+                .First(text => text.Text == "Child one");
+            Assert.Equal(standardText.Text, directText.Text);
+            Assert.Equal(standardCell.Bounds.Height, directCell.Bounds.Height);
+            Assert.Equal(standardCell.ValidationSeverity, directCell.ValidationSeverity);
+            Assert.False(standardCell.IsValid);
+            Assert.False(directCell.IsValid);
+            Assert.Equal(renderScaling, window.RenderScaling);
+
+            SaveScreenshotWhenRequested(
+                window,
+                $"hierarchy-parity-{theme.ToString().ToLowerInvariant()}-{renderScaling.ToString("0.0", CultureInfo.InvariantCulture)}.png");
+
+            var rootRow = Assert.IsType<DataGridRow>(grid.DisplayData.GetDisplayedRow(0));
+            var rootDirectCell = Assert.IsType<DataGridDirectHierarchicalCell>(rootRow.Cells[1]);
+            rootDirectCell.RaiseEvent(new RoutedEventArgs(
+                DataGridDirectHierarchicalCell.ToggleRequestedEvent,
+                rootDirectCell));
+            Assert.Single(model.Flattened);
         }
         finally
         {
@@ -153,6 +310,7 @@ public sealed class DataGridDrawnVisualParityTests
     private static DataGridTextColumn CreateTextColumn(
         object header,
         bool drawn,
+        bool useDirectRetainedCells,
         double width)
     {
         var column = new DataGridTextColumn
@@ -162,6 +320,7 @@ public sealed class DataGridDrawnVisualParityTests
             DisplayMode = drawn
                 ? DataGridColumnDisplayMode.Drawn
                 : DataGridColumnDisplayMode.Retained,
+            UseDirectTextCell = useDirectRetainedCells,
             Width = new DataGridLength(width)
         };
         DataGridColumnMetadata.SetValueAccessor(
@@ -170,11 +329,30 @@ public sealed class DataGridDrawnVisualParityTests
         return column;
     }
 
-    private static DataGridNumericColumn CreateNumericColumn(
+    private static DataGridColumn CreateNumericColumn(
         object header,
         bool drawn,
+        bool useTextColumn,
         double width)
     {
+        if (useTextColumn)
+        {
+            var directColumn = new DataGridTextColumn
+            {
+                Header = header,
+                Binding = new Binding(nameof(VisualItem.Number)),
+                DisplayMode = drawn
+                    ? DataGridColumnDisplayMode.Drawn
+                    : DataGridColumnDisplayMode.Retained,
+                UseDirectTextCell = !drawn,
+                Width = new DataGridLength(width)
+            };
+            DataGridColumnMetadata.SetValueAccessor(
+                directColumn,
+                new DataGridColumnValueAccessor<VisualItem, decimal>(item => item.Number));
+            return directColumn;
+        }
+
         var column = new DataGridNumericColumn
         {
             Header = header,
@@ -200,11 +378,14 @@ public sealed class DataGridDrawnVisualParityTests
     private static void ApplyConditionalFormatting(
         DataGrid grid,
         DataGridColumn retainedColumn,
-        DataGridColumn drawnColumn)
+        DataGridColumn drawnColumn,
+        bool useDirectRetainedCells)
     {
         var retainedTheme = CreateConditionalTheme(
-            typeof(DataGridCell),
-            grid.CellTheme!);
+            useDirectRetainedCells ? typeof(DataGridDirectTextCell) : typeof(DataGridCell),
+            useDirectRetainedCells
+                ? FindTheme(grid, "DataGridOptimizedDirectTextCellTheme")
+                : grid.CellTheme!);
         var drawnTheme = CreateConditionalTheme(
             typeof(DataGridCustomDrawingCell),
             FindTheme(grid, "DataGridOptimizedDrawingCellTheme"));
@@ -286,6 +467,15 @@ public sealed class DataGridDrawnVisualParityTests
     }
 
     private sealed record VisualItem(string Text, decimal Number);
+
+    private sealed class HierarchyVisualItem
+    {
+        public HierarchyVisualItem(string name) => Name = name;
+
+        public string Name { get; }
+
+        public List<HierarchyVisualItem> Children { get; } = new();
+    }
 
     private sealed class ThemeScope : IDisposable
     {
