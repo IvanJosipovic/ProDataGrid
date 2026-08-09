@@ -37,10 +37,10 @@ public sealed class GeneratedCodeViewTests
     public void Generated_paging_page_uses_typed_columns_and_preserves_keyed_currency()
     {
         var view = new PagingSelectionPage();
-        var viewModel = Assert.IsType<PagingSelectionViewModel>(view.DataContext);
         var window = new Window { Width = 1120, Height = 720, Content = view };
         window.Show();
         Dispatcher.UIThread.RunJobs();
+        var viewModel = Assert.IsType<PagingSelectionViewModel>(view.DataContext);
 
         try
         {
