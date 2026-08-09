@@ -5,6 +5,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Interactivity;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
@@ -22,7 +24,69 @@ public sealed class DataGridGeneratedViewEventTests
         Assert.Equal(32, (int)DataGridGeneratedViewEventKinds.CellEditEnded);
         Assert.Equal(64, (int)DataGridGeneratedViewEventKinds.RowEditEnding);
         Assert.Equal(128, (int)DataGridGeneratedViewEventKinds.RowEditEnded);
-        Assert.Equal(255, (int)DataGridGeneratedViewEventKinds.All);
+        Assert.Equal(256, (int)DataGridGeneratedViewEventKinds.SelectionChanging);
+        Assert.Equal(512, (int)DataGridGeneratedViewEventKinds.CellPrepared);
+        Assert.Equal(1024, (int)DataGridGeneratedViewEventKinds.CellClearing);
+        Assert.Equal(2048, (int)DataGridGeneratedViewEventKinds.CellValueChanged);
+        Assert.Equal(1536, (int)DataGridGeneratedViewEventKinds.CellLifecycle);
+        Assert.Equal(4095, (int)DataGridGeneratedViewEventKinds.All);
+    }
+
+    [Fact]
+    public void Read_only_item_projection_remains_zero_copy()
+    {
+        var first = new Item(1);
+        var second = new Item(2);
+        var items = new List<object> { first };
+        var projection = new DataGridGeneratedItemList<Item>((IReadOnlyList<object>)items);
+
+        items.Add(second);
+
+        Assert.Equal(2, projection.Count);
+        Assert.Same(first, projection[0]);
+        Assert.Same(second, projection[1]);
+        Assert.Equal(new[] { first, second }, projection);
+    }
+
+    [Fact]
+    public void Selection_changing_snapshot_preserves_complete_typed_proposal_and_feedback()
+    {
+        var item = new Item(7);
+        var added = new List<object> { item };
+        var trigger = new RoutedEventArgs();
+        var args = new DataGridSelectionChangingEventArgs(
+            added,
+            Array.Empty<object>(),
+            Array.Empty<DataGridSelectionRowInfo>(),
+            Array.Empty<DataGridSelectionRowInfo>(),
+            Array.Empty<DataGridCellInfo>(),
+            Array.Empty<DataGridCellInfo>(),
+            Array.Empty<DataGridColumn>(),
+            Array.Empty<DataGridColumn>(),
+            item,
+            DataGridCellInfo.Unset,
+            DataGridSelectionAnchorInfo.Unset,
+            null,
+            Array.Empty<HierarchicalNode>(),
+            DataGridSelectionChangeSource.Keyboard,
+            trigger,
+            DataGridSelectionChangingGuarantee.AtomicPreflight);
+
+        DataGridGeneratedViewEvent<Item> snapshot =
+            DataGridGeneratedViewEvent<Item>.CreateSelectionChanging(args);
+        added.Add(new Item(8));
+        snapshot.Cancel = true;
+        snapshot.Handled = true;
+
+        Assert.Equal(DataGridGeneratedViewEventKinds.SelectionChanging, snapshot.Kind);
+        Assert.Equal(2, snapshot.AddedItems.Count);
+        Assert.Same(item, snapshot.ProposedCurrentItem);
+        Assert.Equal(DataGridSelectionChangeSource.Keyboard, snapshot.SelectionSource);
+        Assert.Equal(DataGridSelectionChangingGuarantee.AtomicPreflight, snapshot.SelectionGuarantee);
+        Assert.True(snapshot.IsUserInitiated);
+        Assert.Same(trigger, snapshot.TriggerEvent);
+        Assert.True(snapshot.Cancel);
+        Assert.True(snapshot.Handled);
     }
 
     [Fact]

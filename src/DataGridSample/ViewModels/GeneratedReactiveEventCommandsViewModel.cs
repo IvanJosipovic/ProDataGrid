@@ -41,6 +41,9 @@ public sealed partial class GeneratedReactiveEventCommandsViewModel : ReactiveOb
     [Reactive]
     private bool _handleSortingRequests;
 
+    [Reactive]
+    private bool _cancelSelectionChanges;
+
     public GeneratedReactiveEventCommandsViewModel()
     {
         _items =
@@ -79,6 +82,11 @@ public sealed partial class GeneratedReactiveEventCommandsViewModel : ReactiveOb
 
         if (CancelPendingEdits &&
             (eventData.Kind & DataGridGeneratedViewEventKinds.Editing) != 0)
+        {
+            eventData.Cancel = true;
+        }
+
+        if (CancelSelectionChanges && eventData.Kind == DataGridGeneratedViewEventKinds.SelectionChanging)
         {
             eventData.Cancel = true;
         }

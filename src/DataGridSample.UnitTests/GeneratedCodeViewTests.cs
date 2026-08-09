@@ -204,6 +204,17 @@ public sealed class GeneratedCodeViewTests
             Assert.True(viewModel.LastEventData.IsUserInitiated);
             Assert.StartsWith("SelectionChanged #", first.LastEvent);
 
+            viewModel.CancelSelectionChanges = true;
+            int selectedIndex = grid.SelectedIndex;
+            grid.SelectedIndex = 1;
+
+            Assert.Equal(selectedIndex, grid.SelectedIndex);
+            Assert.Equal(DataGridGeneratedViewEventKinds.SelectionChanging, viewModel.LastEventData.Kind);
+            Assert.True(viewModel.LastEventData.Cancel);
+            Assert.Equal(DataGridSelectionChangingGuarantee.AtomicPreflight, viewModel.LastEventData.SelectionGuarantee);
+            Assert.Same(second, viewModel.LastEventData.ProposedCurrentItem);
+            viewModel.CancelSelectionChanges = false;
+
             var current = new DataGridCurrentCellChangedEventArgs(
                 firstColumn,
                 first,

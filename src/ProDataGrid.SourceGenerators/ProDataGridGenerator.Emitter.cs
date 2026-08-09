@@ -3601,6 +3601,10 @@ internal static class Emitter
         const int cellEditEnded = 1 << 5;
         const int rowEditEnding = 1 << 6;
         const int rowEditEnded = 1 << 7;
+        const int selectionChanging = 1 << 8;
+        const int cellPrepared = 1 << 9;
+        const int cellClearing = 1 << 10;
+        const int cellValueChanged = 1 << 11;
         string itemType = model.ItemType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string viewModelType = model.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
         string commandProperty = GeneratorUtilities.EscapeIdentifier(model.RoutedEventCommand.PropertyName);
@@ -3639,6 +3643,22 @@ internal static class Emitter
         {
             builder.AppendLine("            dataGrid.RowEditEnded += OnGeneratedRowEditEnded;");
         }
+        if ((model.RoutedEvents & selectionChanging) != 0)
+        {
+            builder.AppendLine("            dataGrid.SelectionChanging += OnGeneratedSelectionChanging;");
+        }
+        if ((model.RoutedEvents & cellPrepared) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellPrepared += OnGeneratedCellPrepared;");
+        }
+        if ((model.RoutedEvents & cellClearing) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellClearing += OnGeneratedCellClearing;");
+        }
+        if ((model.RoutedEvents & cellValueChanged) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellValueChanged += OnGeneratedCellValueChanged;");
+        }
         builder.AppendLine("        }")
             .AppendLine()
             .AppendLine("        protected virtual void DetachGeneratedRoutedEventCommands(global::Avalonia.Controls.DataGrid dataGrid)")
@@ -3674,6 +3694,22 @@ internal static class Emitter
         if ((model.RoutedEvents & rowEditEnded) != 0)
         {
             builder.AppendLine("            dataGrid.RowEditEnded -= OnGeneratedRowEditEnded;");
+        }
+        if ((model.RoutedEvents & selectionChanging) != 0)
+        {
+            builder.AppendLine("            dataGrid.SelectionChanging -= OnGeneratedSelectionChanging;");
+        }
+        if ((model.RoutedEvents & cellPrepared) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellPrepared -= OnGeneratedCellPrepared;");
+        }
+        if ((model.RoutedEvents & cellClearing) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellClearing -= OnGeneratedCellClearing;");
+        }
+        if ((model.RoutedEvents & cellValueChanged) != 0)
+        {
+            builder.AppendLine("            dataGrid.CellValueChanged -= OnGeneratedCellValueChanged;");
         }
         builder.AppendLine("        }")
             .AppendLine()
@@ -3805,6 +3841,57 @@ internal static class Emitter
                 hasColumn: false,
                 isCancelable: false);
         }
+        if ((model.RoutedEvents & selectionChanging) != 0)
+        {
+            builder.AppendLine("        private void OnGeneratedSelectionChanging(object? sender, global::Avalonia.Controls.DataGridSelectionChangingEventArgs e)")
+                .AppendLine("        {")
+                .Append("            var eventData = global::Avalonia.Controls.DataGridGeneratedViewEvent<").Append(itemType).AppendLine(">.CreateSelectionChanging(e);")
+                .AppendLine("            ExecuteGeneratedRoutedEventCommand(eventData);")
+                .AppendLine("            e.Cancel = eventData.Cancel;")
+                .AppendLine("            if (e.TriggerEvent is not null)")
+                .AppendLine("            {")
+                .AppendLine("                e.TriggerEvent.Handled = eventData.Handled;")
+                .AppendLine("            }")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+        if ((model.RoutedEvents & cellPrepared) != 0)
+        {
+            EmitGeneratedCellLifecycleEventHandler(builder, itemType, "CellPrepared");
+        }
+        if ((model.RoutedEvents & cellClearing) != 0)
+        {
+            EmitGeneratedCellLifecycleEventHandler(builder, itemType, "CellClearing");
+        }
+        if ((model.RoutedEvents & cellValueChanged) != 0)
+        {
+            builder.AppendLine("        private void OnGeneratedCellValueChanged(object? sender, global::Avalonia.Controls.DataGridCellValueChangedEventArgs e)")
+                .AppendLine("        {")
+                .Append("            var eventData = global::Avalonia.Controls.DataGridGeneratedViewEvent<").Append(itemType).AppendLine(">.CreateCellValueChanged(")
+                .AppendLine("                e,")
+                .AppendLine("                GetGeneratedEventColumnKey(e.Column));")
+                .AppendLine("            ExecuteGeneratedRoutedEventCommand(eventData);")
+                .AppendLine("        }")
+                .AppendLine();
+        }
+    }
+
+    private static void EmitGeneratedCellLifecycleEventHandler(
+        StringBuilder builder,
+        string itemType,
+        string eventName)
+    {
+        builder.Append("        private void OnGenerated").Append(eventName)
+            .AppendLine("(object? sender, global::Avalonia.Controls.DataGridCellLifecycleEventArgs e)")
+            .AppendLine("        {")
+            .Append("            var eventData = global::Avalonia.Controls.DataGridGeneratedViewEvent<").Append(itemType)
+            .AppendLine(">.CreateCellLifecycle(")
+            .Append("                global::Avalonia.Controls.DataGridGeneratedViewEventKinds.").Append(eventName).AppendLine(",")
+            .AppendLine("                e,")
+            .AppendLine("                GetGeneratedEventColumnKey(e.Column));")
+            .AppendLine("            ExecuteGeneratedRoutedEventCommand(eventData);")
+            .AppendLine("        }")
+            .AppendLine();
     }
 
     private static void EmitGeneratedPerformanceIntegrationMembers(StringBuilder builder, ViewModelViewModel model)

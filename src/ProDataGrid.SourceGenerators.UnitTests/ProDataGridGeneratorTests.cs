@@ -1553,8 +1553,11 @@ public sealed class ProDataGridGeneratorTests
             [GenerateDataGridView(
                 typeof(Row),
                 RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanged |
+                               DataGridGeneratedViewEventKinds.SelectionChanging |
                                DataGridGeneratedViewEventKinds.BeginningEdit |
-                               DataGridGeneratedViewEventKinds.RowEditEnded,
+                               DataGridGeneratedViewEventKinds.RowEditEnded |
+                               DataGridGeneratedViewEventKinds.CellLifecycle |
+                               DataGridGeneratedViewEventKinds.CellValueChanged,
                 RoutedEventCommandPropertyName = nameof(GridEventCommand))]
             public sealed partial class RowsViewModel
             {
@@ -1566,11 +1569,18 @@ public sealed class ProDataGridGeneratorTests
         AssertNoErrors(result);
         Assert.Contains("ConfigureGeneratedRoutedEventCommands", result.CombinedSource);
         Assert.Contains("dataGrid.SelectionChanged += OnGeneratedSelectionChanged", result.CombinedSource);
+        Assert.Contains("dataGrid.SelectionChanging += OnGeneratedSelectionChanging", result.CombinedSource);
         Assert.Contains("dataGrid.BeginningEdit += OnGeneratedBeginningEdit", result.CombinedSource);
         Assert.Contains("dataGrid.RowEditEnded += OnGeneratedRowEditEnded", result.CombinedSource);
+        Assert.Contains("dataGrid.CellPrepared += OnGeneratedCellPrepared", result.CombinedSource);
+        Assert.Contains("dataGrid.CellClearing += OnGeneratedCellClearing", result.CombinedSource);
+        Assert.Contains("dataGrid.CellValueChanged += OnGeneratedCellValueChanged", result.CombinedSource);
         Assert.Contains("DataGridGeneratedViewEvent<global::Demo.Row>", result.CombinedSource);
         Assert.Contains("viewModel.GridEventCommand", result.CombinedSource);
         Assert.Contains("e.Cancel = eventData.Cancel", result.CombinedSource);
+        Assert.Contains("CreateSelectionChanging(e)", result.CombinedSource);
+        Assert.Contains("CreateCellLifecycle(", result.CombinedSource);
+        Assert.Contains("CreateCellValueChanged(", result.CombinedSource);
         Assert.DoesNotContain("OnGeneratedCurrentCellChanged", result.CombinedSource);
         Assert.DoesNotContain("OnGeneratedCellEditEnding", result.CombinedSource);
     }
@@ -1628,7 +1638,7 @@ public sealed class ProDataGridGeneratorTests
                 ViewName = "InvalidFlagsView",
                 ColumnDefinitionsPropertyName = "Columns4",
                 FastPathOptionsPropertyName = "Fast4",
-                RoutedEvents = (DataGridGeneratedViewEventKinds)512,
+                RoutedEvents = (DataGridGeneratedViewEventKinds)4096,
                 RoutedEventCommandPropertyName = nameof(GridEventCommand))]
             public sealed partial class InvalidFlagsViewModel
             {

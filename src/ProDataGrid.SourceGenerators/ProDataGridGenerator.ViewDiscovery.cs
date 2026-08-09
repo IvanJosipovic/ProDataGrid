@@ -554,7 +554,7 @@ internal static partial class Discovery
 
         if (request.HasRoutedEventConfiguration)
         {
-            const int allRoutedEvents = (1 << 8) - 1;
+            const int allRoutedEvents = (1 << 12) - 1;
             if (request.RoutedEvents == 0)
             {
                 ReportInvalidViewEventBridge(request, diagnostics, "RoutedEvents must select at least one supported event");
