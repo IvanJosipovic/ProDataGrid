@@ -37,6 +37,7 @@ Code blocks labelled **Proposed API** preserve the original conceptual design sh
 | F21 collection views/dynamic shapes | Implemented | Typed collection-view factories, range-aware domain mutation and new-row services, interface and explicit-interface schemas, dynamic-shape detection, validated runtime field/provider adapters, implementation-manifest forwarding, and deterministic diagnostics are available. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
 | F23 performance/input diagnostics | Implemented | Explicit performance profiles, platform-aware keyboard maps, typed input-command feedback, compile-time high-frequency/details compatibility validation, stable-key current-cell and XY navigation, scroll-state interactions, diagnostics metric-name manifests, replaceable renderer metric sinks, and ReactiveUI/Avalonia lifetime management are available. |
+| F24 optimized realization and hierarchy contracts | In progress | PR #335 adds drawn/direct retained column lanes, transactional selection preview, cell lifecycle/value notifications, hierarchy-aware filtering, transactional async bulk expansion, hierarchy automation, and optimized themes. Generator parity is defined in F24; runtime-only automation/theme behavior is validated through generated views instead of duplicated. |
 
 ## 2. Existing baseline
 
@@ -1152,6 +1153,74 @@ Implemented API:
 - `PDGSG128` rejects unsupported profiles, invalid input maps or sinks, missing/incompatible input commands, and the provably unbounded combination of `HighFrequencyStreaming` with always-visible row details. `PDGSG127` rejects invalid navigation interaction contracts. ReactiveUI custom bases that need activation remain validated through `PDGSG013`.
 
 The built-in meter does not currently tag samples with a DataGrid instance identity. A generated subscription therefore attaches schema/profile context for its owning view but intentionally documents that process-wide boundary rather than claiming per-grid attribution.
+
+### F24. Optimized realization and hierarchy contracts — P1
+
+PR #335 adds reflection-free runtime lanes that generated schemas and generated C# views must expose without handwritten column definitions or event code.
+
+| PR #335 capability | Generator surface | Generated behavior | Validation |
+|---|---|---|---|
+| Built-in drawn display | `DataGridColumnAttribute.DisplayMode` | Assign `DataGridColumnDefinition.DisplayMode`; unsupported runtime configurations retain the documented fallback | text, numeric, image, progress, hierarchy, and fallback tests |
+| Direct retained text | `UseDirectTextCell`, `UseDirectTextContent`, `TrackDirectTextValueChanges` | Assign options only for text columns | generated-source and realized-cell tests |
+| Direct hierarchy cells | `UseDirectCell`, `UseDirectTextContent`, `UseOptimizedPresenter`, `TrackDirectTextValueChanges` | Assign options only for hierarchical columns | generated-source and hierarchy headless tests |
+| Direct custom drawing values | `UseDirectValueAccessor`, `TrackDirectValueChanges` | Reuse the generated typed accessor and optionally suppress mutable-item subscriptions | generated-source, cache, and rendering tests |
+| Transactional selection preview | `DataGridGeneratedViewEventKinds.SelectionChanging` | Forward a typed, zero-copy proposal and copy `Cancel` back before commit | generator and headless cancellation tests |
+| Cell realization lifecycle | `CellPrepared`, `CellClearing` event flags | Forward typed item, column key, row index, hierarchy node/path, and container metadata | recycling headless tests |
+| Committed cell value | `CellValueChanged` event flag | Forward typed item plus old/new values and change origin | editing headless tests |
+| Hierarchical filtering | generated `CreateHierarchicalFilteringAdapter(...)` factory | Construct `DataGridHierarchicalFilteringAdapter` from the generated schema/model with an explicit relative policy and fast-path options | generator and runtime filter tests |
+| Transactional bulk expansion | generated hierarchy helpers | Delegate to `IHierarchicalModel.ExpandAllAsync` for model-owned transactional loading; retain source-item expansion helpers for domain state | cancellation/retry/deep-tree tests |
+| Hierarchy automation | no new metadata model | Generated automation IDs and hierarchy bindings enable runtime realized/unrealized row peers | generated-view headless automation tests |
+| Optimized theme/lightweight filler | existing theme-key, class-token, and resource composition surfaces | Apps merge `Themes/Optimized.xaml`; generated views select caller-owned themes/classes | generated-view theme test and sample documentation |
+
+Column attributes remain explicit instead of silently mapping a performance profile to drawn cells. Drawn/direct modes can change visuals, template participation, notification costs, and editing behavior; the schema author owns the choice. `PerformanceProfile` continues to configure grid-wide virtualization/input behavior.
+
+Kind-specific options are compile-time validated. A direct text option on a numeric column, a hierarchy presenter option on a flat text column, or a direct custom-drawing option on a built-in column produces `PDG002`. `DisplayMode=Drawn` remains legal for every kind because the runtime contract deliberately falls back to retained realization when the specific column configuration cannot draw.
+
+Generated event snapshots are immutable except for `Cancel` and `Handled`. Collections project event-owned storage where safe; no per-item reflection, member lookup, or copied selection list is introduced. Generated views subscribe only to selected flags and detach on DataContext or activation disposal.
+
+```csharp
+[GenerateDataGridColumns(
+    PerformanceProfile = DataGridGeneratedPerformanceProfile.Tree,
+    HierarchicalRows = true)]
+public sealed partial class ExplorerNode
+{
+    [DataGridColumn(DataGridColumnKind.Hierarchical,
+        DisplayMode = DataGridColumnDisplayMode.Drawn,
+        UseDirectCell = true,
+        UseDirectTextContent = true,
+        TrackDirectTextValueChanges = false)]
+    public string Name { get; init; } = string.Empty;
+
+    [DataGridColumn(DataGridColumnKind.CustomDrawing,
+        UseDirectValueAccessor = true,
+        TrackDirectValueChanges = false,
+        DrawOperationFactoryType = typeof(ActivityDrawOperationFactory))]
+    public double Activity { get; init; }
+}
+```
+
+```csharp
+[GenerateDataGridView(typeof(ExplorerViewModel), typeof(ExplorerNode),
+    Framework = DataGridViewFramework.ReactiveUI,
+    HierarchicalModelPropertyName = nameof(ExplorerViewModel.Model),
+    FilteringModelPropertyName = nameof(ExplorerViewModel.Filtering),
+    RoutedEvents = DataGridGeneratedViewEventKinds.SelectionChanging |
+                   DataGridGeneratedViewEventKinds.CellValueChanged,
+    RoutedEventCommandPropertyName = nameof(ExplorerViewModel.GridEventCommand),
+    DataGridThemeKey = "ExplorerOptimizedGridTheme")]
+internal static partial class ExplorerViewGeneration
+{
+}
+```
+
+The command receives `DataGridGeneratedViewEvent<ExplorerNode>`. For `SelectionChanging`, setting `Cancel = true` rejects an atomic proposal before commit. For `CellValueChanged`, `OldValue`, `NewValue`, `Origin`, and the typed `Item` describe the completed editor commit.
+
+Implementation order:
+
+1. optimized column metadata, emission, diagnostics, and the mixed built-in/custom drawing sample;
+2. typed generated-view event snapshots and subscription bridges;
+3. hierarchy-aware filtering factory and async bulk expansion helpers;
+4. generated-view headless automation/theme/lifecycle validation and documentation closure.
 
 ## 8. End-to-end proposed usages
 
