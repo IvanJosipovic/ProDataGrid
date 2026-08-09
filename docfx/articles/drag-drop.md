@@ -63,7 +63,7 @@ Key properties include:
 
 ## Lifecycle Events
 
-Row drag/drop now exposes the full lifecycle:
+Row drag/drop exposes the full lifecycle:
 
 - `RowDragStarting`
 - `RowDragStarted`
@@ -71,7 +71,7 @@ Row drag/drop now exposes the full lifecycle:
 - `RowDragCanceled`
 - `RowDragCompleted`
 
-`RowDragCompleted` now means a committed drop. Canceled or aborted drags raise only `RowDragCanceled`.
+`RowDragCompleted` means a committed drop. Canceled or aborted drags raise only `RowDragCanceled`.
 
 ## Live Operation Recalculation
 

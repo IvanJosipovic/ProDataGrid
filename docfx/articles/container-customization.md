@@ -1,8 +1,7 @@
-# Container customization and the element-factory decision
+# Container customization
 
-ProDataGrid deliberately does not expose a public row/cell container factory.
-The supported extension points cover the concrete customization scenarios without
-allowing an external factory to bypass the grid's ownership and recycling invariants.
+ProDataGrid owns and recycles its row and cell containers. Customize their appearance,
+content, behavior, and lifecycle through the supported extension points below.
 
 | Scenario | Supported extension point |
 |---|---|
@@ -19,18 +18,13 @@ That ownership is significant: the containers carry frozen-region membership,
 row/column indexes, selection and current-cell state, validation, automation,
 editing overlays, diagnostics, and recycle-pool identity.
 
-## Decision
+## Container ownership
 
-The Phase 5 review did not find an important user outcome that requires replacing
-those containers. A general `TreeDataGridElementFactory`-style API would therefore
-duplicate existing customization paths while making incompatible ownership and stale
-recycled state public failure modes. No container factory is added.
-
-This is an explicit API decision rather than a permanent prohibition. A future proposal
-should identify a concrete outcome that cannot be expressed with the table above and
-must demonstrate keyboard navigation, validation, selection, row details, accessibility,
-diagnostics, frozen regions, and recycling correctness before introducing a focused
-factory contract.
+There is no public row or cell container factory. Grid-owned containers preserve
+keyboard navigation, validation, selection, row details, accessibility, diagnostics,
+frozen-region behavior, and recycling correctness. Use a template, theme, column,
+draw-operation, or lifecycle event from the table above instead of replacing the
+container itself.
 
 ## Compatibility
 

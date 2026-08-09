@@ -368,7 +368,7 @@ When draw output depends on external mutable state (animation phase, external di
 
 ### Column API
 
-`DataGridCustomDrawingColumn` now exposes:
+`DataGridCustomDrawingColumn` exposes:
 
 - `InvalidateCustomDrawingCells(bool invalidateMeasure = false, bool clearSharedTextLayoutCache = false)`
 - `RenderInvalidationToken`
