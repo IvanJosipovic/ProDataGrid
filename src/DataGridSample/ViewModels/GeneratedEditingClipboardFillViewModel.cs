@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Reactive.Linq;
 using System.Threading.Tasks;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -31,6 +32,7 @@ namespace DataGridSample.ViewModels;
     SelectionMode = DataGridSelectionMode.Extended,
     SelectionUnit = DataGridSelectionUnit.CellOrRowHeader,
     EditTriggers = DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput | DataGridEditTriggers.F2,
+    RestrictTextInputEditToCells = true,
     ClipboardCopyMode = DataGridClipboardCopyMode.IncludeHeader)]
 public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObject, IDisposable
 {
@@ -46,6 +48,7 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
     ];
 
     private readonly Dictionary<int, GeneratedEditableOrder> _byId = new();
+    private readonly IDisposable _validationSubscription;
     private int _exportFormatIndex;
     private bool _disposed;
 
@@ -70,6 +73,9 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
     [Reactive]
     private int _lastErrorCount;
 
+    [Reactive]
+    private int _validationChangeCount;
+
     public GeneratedEditingClipboardFillViewModel()
     {
         Items = new ObservableCollection<GeneratedEditableOrder>(CreateInitialOrders());
@@ -80,6 +86,8 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
 
         ItemsView = GeneratedEditableOrderSchema.CreateCollectionView(Items);
         EditController = GeneratedEditableOrderSchema.CreateEditController(key => _byId[key]);
+        ValidationProjection = GeneratedEditableOrderSchema.CreateValidationProjection(EditController);
+        _validationSubscription = ValidationProjection.Subscribe(_ => ValidationChangeCount++);
         ClipboardController = GeneratedEditableOrderSchema.CreateClipboardController(EditController);
         FillController = GeneratedEditableOrderSchema.CreateFillController(EditController);
         ClipboardImportModel = GeneratedEditableOrderSchema.CreateClipboardImportModel(
@@ -110,6 +118,8 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
 
     public DataGridGeneratedEditController<GeneratedEditableOrder, int> EditController { get; }
 
+    public DataGridGeneratedValidationProjection<GeneratedEditableOrder, int> ValidationProjection { get; }
+
     public DataGridGeneratedClipboardController<GeneratedEditableOrder, int> ClipboardController { get; }
 
     public DataGridGeneratedFillController<GeneratedEditableOrder, int> FillController { get; }
@@ -138,9 +148,9 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
 
     private void ApplyValidEdit()
     {
-        DataGridGeneratedEditResult product = EditController.TrySetText(
+        DataGridGeneratedEditResult product = ValidationProjection.TrySetText(
             Items[0], "product", "  catalyst  ".AsSpan(), CultureInfo.InvariantCulture);
-        DataGridGeneratedEditResult price = EditController.TrySetText(
+        DataGridGeneratedEditResult price = ValidationProjection.TrySetText(
             Items[0], "unit-price", "123.456".AsSpan(), CultureInfo.InvariantCulture);
         RefreshRows();
         Status = $"Typed parser/coercion: product={product.Status}, price={price.Status}, stored={Items[0].UnitPrice:0.00}.";
@@ -148,9 +158,9 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
 
     private void ApplyInvalidEdit()
     {
-        DataGridGeneratedEditResult range = EditController.TrySetText(
+        DataGridGeneratedEditResult range = ValidationProjection.TrySetText(
             Items[1], "quantity", "0".AsSpan(), CultureInfo.InvariantCulture);
-        DataGridGeneratedEditResult locked = EditController.TrySetText(
+        DataGridGeneratedEditResult locked = ValidationProjection.TrySetText(
             Items[^1], "unit-price", "99".AsSpan(), CultureInfo.InvariantCulture);
         LastErrorCount = (range.IsApplied ? 0 : 1) + (locked.IsApplied ? 0 : 1);
         Status = $"Validation={range.Status}: {range.Error} Locked-row policy={locked.Status}.";
@@ -158,9 +168,9 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
 
     private async Task ValidateAsync()
     {
-        DataGridGeneratedEditResult rejected = await EditController.TrySetValueAsync(
+        DataGridGeneratedEditResult rejected = await ValidationProjection.TrySetValueAsync(
             Items[0], "unit-price", 6_000m).ConfigureAwait(true);
-        DataGridGeneratedEditResult accepted = await EditController.TrySetValueAsync(
+        DataGridGeneratedEditResult accepted = await ValidationProjection.TrySetValueAsync(
             Items[0], "unit-price", 148.678m).ConfigureAwait(true);
         RefreshRows();
         LastErrorCount = rejected.IsApplied ? 0 : 1;
@@ -254,6 +264,8 @@ public sealed partial class GeneratedEditingClipboardFillViewModel : ReactiveObj
             return;
         }
         EditController.Changed -= OnEditControllerChanged;
+        _validationSubscription.Dispose();
+        ValidationProjection.Dispose();
         EditController.Dispose();
         _disposed = true;
     }

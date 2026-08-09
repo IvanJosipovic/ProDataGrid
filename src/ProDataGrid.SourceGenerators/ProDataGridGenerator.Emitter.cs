@@ -538,6 +538,14 @@ internal static class Emitter
                     .AppendLine("                itemResolver,")
                     .AppendLine("                KeyComparer);")
                     .AppendLine()
+                    .Append("        public static global::Avalonia.Controls.DataGridGeneratedValidationProjection<")
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine("> CreateValidationProjection(")
+                    .Append("            global::Avalonia.Controls.DataGridGeneratedEditController<").Append(itemType).Append(", ")
+                    .Append(keyType).AppendLine("> editController,")
+                    .AppendLine("            bool ownsController = false)")
+                    .Append("            => new global::Avalonia.Controls.DataGridGeneratedValidationProjection<")
+                    .Append(itemType).Append(", ").Append(keyType).AppendLine(">(Instance, editController, KeyComparer, ownsController);")
+                    .AppendLine()
                     .Append("        public static global::Avalonia.Controls.DataGridGeneratedClipboardController<")
                     .Append(itemType).Append(", ").Append(keyType).AppendLine("> CreateClipboardController(")
                     .Append("            global::Avalonia.Controls.DataGridGeneratedEditController<").Append(itemType).Append(", ")
@@ -1235,7 +1243,8 @@ internal static class Emitter
         builder.AppendLine(",")
             .Append("                ").Append(EmitOptionalMethod(schema, column.AsyncValidatorMethod)).AppendLine(",")
             .Append("                ").Append(EmitOptionalMethod(schema, column.CoerceMethod)).AppendLine(",")
-            .Append("                ").Append(EmitOptionalMethod(schema, column.CanEditMethod)).AppendLine(");")
+            .Append("                ").Append(EmitOptionalMethod(schema, column.CanEditMethod)).AppendLine(",")
+            .Append("                ").Append(GeneratorUtilities.EscapeString(property.Name)).AppendLine(");")
             .AppendLine();
     }
 
@@ -3063,6 +3072,7 @@ internal static class Emitter
             .Append("                CanUserDeleteRows = ").Append(model.CanUserDeleteRows ? "true" : "false").AppendLine(",")
             .Append("                EditTriggers = (global::Avalonia.Controls.DataGridEditTriggers)")
             .Append(model.EditTriggers.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
+            .Append("                RestrictTextInputEditToCells = ").Append(model.RestrictTextInputEditToCells ? "true" : "false").AppendLine(",")
             .Append("                ClipboardCopyMode = (global::Avalonia.Controls.DataGridClipboardCopyMode)")
             .Append(model.ClipboardCopyMode.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
             .Append("                ShowTotalSummary = ").Append(model.ShowTotalSummary ? "true" : "false").AppendLine(",")
@@ -3073,6 +3083,9 @@ internal static class Emitter
             .Append(model.GroupSummaryPosition.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
             .AppendLine("                GridLinesVisibility = global::Avalonia.Controls.DataGridGridLinesVisibility.Horizontal")
             .AppendLine("            };")
+            .AppendLine("            var editingInteractionModelFactory = CreateGeneratedEditingInteractionModelFactory();")
+            .AppendLine("            dataGrid.EditingInteractionModelFactory = editingInteractionModelFactory;")
+            .AppendLine("            dataGrid.EditingInteractionModel = editingInteractionModelFactory.Create();")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(dataGrid, GeneratedAutomationId);")
             .Append("            global::Avalonia.Automation.AutomationProperties.SetName(dataGrid, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetHelpText(dataGrid, \"Generated reflection-free ProDataGrid view.\");");
@@ -3128,6 +3141,14 @@ internal static class Emitter
             .AppendLine("        protected virtual void ConfigureGeneratedDataGrid(global::Avalonia.Controls.DataGrid dataGrid)")
             .AppendLine("        {")
             .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        protected virtual global::Avalonia.Controls.DataGridEditing.IDataGridEditingInteractionModelFactory CreateGeneratedEditingInteractionModelFactory()")
+            .AppendLine("            => new global::Avalonia.Controls.DataGridEditing.DataGridGeneratedEditingInteractionModelFactory(")
+            .AppendLine("                new global::Avalonia.Controls.DataGridEditing.DataGridGeneratedEditingInteractionProfile(")
+            .Append("                    (global::Avalonia.Controls.DataGridEditTriggers)").Append(model.EditTriggers.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
+            .Append("                    ").Append(model.RestrictTextInputEditToCells ? "true" : "false").AppendLine(",")
+            .Append("                    (global::Avalonia.Input.KeyModifiers)").Append(model.RequiredPointerEditModifiers.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
+            .Append("                    ").Append(model.RequireExactPointerEditModifiers ? "true" : "false").AppendLine("));")
             .AppendLine();
 
         EmitGeneratedRoutedEventMembers(builder, model);

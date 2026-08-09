@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -126,6 +127,82 @@ public sealed class DataGridGeneratedEditingTests
         Assert.Equal(3m, row.Amount);
     }
 
+    [Fact]
+    public void Validation_projection_exposes_keyed_notify_and_observable_errors()
+    {
+        Row row = new(7, 5m);
+        DataGridGeneratedEditField<Row, decimal> field = CreateAmountField(
+            validator: static (_, value) => value > 100m ? "too large" : null);
+        using var controller = new DataGridGeneratedEditController<Row, int>(
+            new RowKey(),
+            new IDataGridGeneratedEditField<Row>[] { field });
+        using var projection = new DataGridGeneratedValidationProjection<Row, int>(
+            new RowKey(),
+            controller);
+        var observer = new RecordingObserver<DataGridGeneratedValidationChange<int>>();
+        using IDisposable subscription = projection.Subscribe(observer);
+        string? changedProperty = null;
+        projection.ErrorsChanged += (_, args) => changedProperty = args.PropertyName;
+
+        DataGridGeneratedEditResult rejected = projection.TrySetValue(row, "amount", 101m);
+
+        Assert.Equal(DataGridGeneratedEditStatus.ValidationFailed, rejected.Status);
+        Assert.True(projection.HasErrors);
+        Assert.Equal("too large", projection.GetError(7, "amount"));
+        Assert.Equal("Amount", changedProperty);
+        Assert.Equal(["too large"], projection.GetErrors("Amount").Cast<string>());
+        DataGridGeneratedValidationChange<int> change = Assert.Single(observer.Values);
+        Assert.True(change.HasError);
+        Assert.Equal(
+            new DataGridGeneratedValidationChange<int>(7, "amount", "Amount", rejected, hasError: true),
+            change);
+
+        DataGridGeneratedEditResult applied = projection.TrySetText(
+            row,
+            "amount",
+            "12.5".AsSpan(),
+            CultureInfo.InvariantCulture);
+
+        Assert.True(applied.IsApplied);
+        Assert.False(projection.HasErrors);
+        Assert.Null(projection.GetError(7, "amount"));
+        Assert.False(observer.Values[^1].HasError);
+    }
+
+    [Fact]
+    public void Validation_projection_clears_keyed_errors_and_honors_controller_ownership()
+    {
+        Row first = new(1, 1m);
+        Row second = new(2, 2m);
+        DataGridGeneratedEditField<Row, decimal> field = CreateAmountField(
+            validator: static (_, value) => value < 0m ? "negative" : null);
+        var controller = new DataGridGeneratedEditController<Row, int>(
+            new RowKey(),
+            new IDataGridGeneratedEditField<Row>[] { field });
+        var projection = new DataGridGeneratedValidationProjection<Row, int>(
+            new RowKey(),
+            controller,
+            ownsController: true);
+        var observer = new RecordingObserver<DataGridGeneratedValidationChange<int>>();
+        using IDisposable subscription = projection.Subscribe(observer);
+
+        projection.TrySetValue(first, "amount", -1m);
+        projection.TrySetValue(second, "amount", -2m);
+        Assert.True(projection.ClearError(1, "amount"));
+        Assert.False(projection.ClearError(1, "amount"));
+        Assert.Null(projection.GetError(1, "amount"));
+        Assert.NotNull(projection.GetError(2, "amount"));
+
+        projection.ClearErrors();
+        Assert.False(projection.HasErrors);
+        Assert.Empty(projection.GetErrors(null).Cast<string>());
+
+        projection.Dispose();
+        Assert.True(observer.Completed);
+        Assert.Throws<ObjectDisposedException>(() => projection.TrySetValue(first, "amount", 1m));
+        Assert.Throws<ObjectDisposedException>(() => controller.TrySetValue(first, "amount", 1m));
+    }
+
     private static DataGridGeneratedEditField<Row, decimal> CreateAmountField(
         Func<Row, decimal, string?>? validator = null,
         Func<Row, decimal, CancellationToken, ValueTask<string?>>? asyncValidator = null,
@@ -141,7 +218,21 @@ public sealed class DataGridGeneratedEditingTests
             validator,
             asyncValidator,
             coerce,
-            canEdit);
+            canEdit,
+            "Amount");
+
+    private sealed class RecordingObserver<T> : IObserver<T>
+    {
+        public List<T> Values { get; } = new();
+
+        public bool Completed { get; private set; }
+
+        public void OnCompleted() => Completed = true;
+
+        public void OnError(Exception error) => throw error;
+
+        public void OnNext(T value) => Values.Add(value);
+    }
 
     private sealed class Row
     {

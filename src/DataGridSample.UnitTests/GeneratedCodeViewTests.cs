@@ -1430,6 +1430,11 @@ public sealed class GeneratedCodeViewTests
             Assert.Equal(
                 DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput | DataGridEditTriggers.F2,
                 grid.EditTriggers);
+            Assert.True(grid.RestrictTextInputEditToCells);
+            Assert.IsType<Avalonia.Controls.DataGridEditing.DataGridGeneratedEditingInteractionModelFactory>(
+                grid.EditingInteractionModelFactory);
+            Assert.IsType<Avalonia.Controls.DataGridEditing.DataGridGeneratedEditingInteractionModel>(
+                grid.EditingInteractionModel);
             Assert.Equal(DataGridClipboardCopyMode.IncludeHeader, grid.ClipboardCopyMode);
             Assert.False(grid.IsReadOnly);
             Assert.False(grid.CanUserAddRows);

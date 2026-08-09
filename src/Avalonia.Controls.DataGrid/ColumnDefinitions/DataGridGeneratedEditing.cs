@@ -96,6 +96,9 @@ namespace Avalonia.Controls
         /// <summary>Gets the stable column key.</summary>
         string ColumnKey { get; }
 
+        /// <summary>Gets the CLR property name used by validation consumers.</summary>
+        string PropertyName { get; }
+
         /// <summary>Gets the field value type.</summary>
         Type ValueType { get; }
 
@@ -150,9 +153,11 @@ namespace Avalonia.Controls
             Func<TItem, TValue, string> validator = null,
             Func<TItem, TValue, CancellationToken, ValueTask<string>> asyncValidator = null,
             Func<TItem, TValue, TValue> coerce = null,
-            Predicate<TItem> canEdit = null)
+            Predicate<TItem> canEdit = null,
+            string propertyName = null)
         {
             ColumnKey = columnKey ?? throw new ArgumentNullException(nameof(columnKey));
+            PropertyName = propertyName ?? columnKey;
             _getter = getter ?? throw new ArgumentNullException(nameof(getter));
             _setter = setter;
             _parser = parser;
@@ -165,6 +170,9 @@ namespace Avalonia.Controls
 
         /// <inheritdoc />
         public string ColumnKey { get; }
+
+        /// <inheritdoc />
+        public string PropertyName { get; }
 
         /// <inheritdoc />
         public Type ValueType => typeof(TValue);

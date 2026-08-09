@@ -302,6 +302,9 @@ public sealed partial class ProDataGridGenerator
                 public string? ConditionalFormattingModelPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
                     global::Avalonia.Controls.DataGridEditTriggers.Default;
+                public bool RestrictTextInputEditToCells { get; set; }
+                public global::Avalonia.Input.KeyModifiers RequiredPointerEditModifiers { get; set; }
+                public bool RequireExactPointerEditModifiers { get; set; }
                 public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
                     global::Avalonia.Controls.DataGridClipboardCopyMode.ExcludeHeader;
                 public bool IsReadOnly { get; set; }
@@ -375,6 +378,9 @@ public sealed partial class ProDataGridGenerator
                 public string? ConditionalFormattingModelPropertyName { get; set; }
                 public global::Avalonia.Controls.DataGridEditTriggers EditTriggers { get; set; } =
                     global::Avalonia.Controls.DataGridEditTriggers.Default;
+                public bool RestrictTextInputEditToCells { get; set; }
+                public global::Avalonia.Input.KeyModifiers RequiredPointerEditModifiers { get; set; }
+                public bool RequireExactPointerEditModifiers { get; set; }
                 public global::Avalonia.Controls.DataGridClipboardCopyMode ClipboardCopyMode { get; set; } =
                     global::Avalonia.Controls.DataGridClipboardCopyMode.ExcludeHeader;
                 public bool IsReadOnly { get; set; }

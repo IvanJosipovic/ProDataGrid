@@ -131,6 +131,12 @@ internal sealed class ViewModelViewModel
 
     public int EditTriggers { get; set; }
 
+    public bool RestrictTextInputEditToCells { get; set; }
+
+    public int RequiredPointerEditModifiers { get; set; }
+
+    public bool RequireExactPointerEditModifiers { get; set; }
+
     public int ClipboardCopyMode { get; set; }
 
     public bool IsReadOnly { get; set; }

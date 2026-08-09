@@ -949,6 +949,9 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(originalQuantity, viewModel.Items[1].Quantity);
         Assert.Equal(lockedPrice, viewModel.Items[^1].UnitPrice);
         Assert.Equal(2, viewModel.LastErrorCount);
+        Assert.True(viewModel.ValidationProjection.HasErrors);
+        Assert.NotNull(viewModel.ValidationProjection.GetError(viewModel.Items[1].OrderId, "quantity"));
+        Assert.True(viewModel.ValidationChangeCount >= 4);
         Assert.Contains("Locked-row policy=NotEditable", viewModel.Status, StringComparison.Ordinal);
 
         await viewModel.ValidateAsyncCommand.Execute().ToTask();

@@ -726,7 +726,7 @@ Requirements:
 
 The generator should not create a general-purpose validation framework; it should adapt declared rules to existing DataGrid editing behavior.
 
-Implemented editing API: keyed schemas emit direct typed edit fields, culture-aware parsers/formatters, compiled `Required`, string-length, minimum/maximum-length, and numeric `Range` validators, validated sync/async/coercion/eligibility hooks, a revisioned cancellable edit controller, structured results, explicit multi-cell batches, and keyed undo/redo. Effective `IsReadOnly` columns are excluded from the edit manifest even when their CLR setter is accessible.
+Implemented editing API: keyed schemas emit direct typed edit fields, culture-aware parsers/formatters, compiled `Required`, string-length, minimum/maximum-length, and numeric `Range` validators, validated sync/async/coercion/eligibility hooks, a revisioned cancellable edit controller, structured results, explicit multi-cell batches, and keyed undo/redo. Generated views install a replaceable interaction-model factory from compile-time trigger, text-origin, and pointer-modifier profiles. `CreateValidationProjection` supplies keyed errors, `INotifyDataErrorInfo`, and a framework-neutral observable stream directly consumable by ReactiveUI; stale async revisions cannot overwrite current errors. Effective `IsReadOnly` columns are excluded from the edit manifest even when their CLR setter is accessible.
 
 ### F13. Clipboard import/export and fill — P2
 

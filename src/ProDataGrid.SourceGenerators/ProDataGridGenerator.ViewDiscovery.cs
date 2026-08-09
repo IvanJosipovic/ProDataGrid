@@ -345,6 +345,9 @@ internal static partial class Discovery
             FormulaModelPropertyName = GeneratorUtilities.GetString(arguments, "FormulaModelPropertyName"),
             ConditionalFormattingModelPropertyName = GeneratorUtilities.GetString(arguments, "ConditionalFormattingModelPropertyName"),
             EditTriggers = GetEnumValue(arguments, "EditTriggers", 9),
+            RestrictTextInputEditToCells = GeneratorUtilities.GetBoolean(arguments, "RestrictTextInputEditToCells", false),
+            RequiredPointerEditModifiers = GetEnumValue(arguments, "RequiredPointerEditModifiers", 0),
+            RequireExactPointerEditModifiers = GeneratorUtilities.GetBoolean(arguments, "RequireExactPointerEditModifiers", false),
             ClipboardCopyMode = GetEnumValue(arguments, "ClipboardCopyMode", 1),
             IsReadOnly = GeneratorUtilities.GetBoolean(arguments, "IsReadOnly", false),
             CanUserAddRows = GeneratorUtilities.GetBoolean(arguments, "CanUserAddRows", false),
@@ -439,6 +442,16 @@ internal static partial class Discovery
                 request.Location,
                 metadataName,
                 request.Framework.ToString()));
+            return null;
+        }
+
+        const int supportedKeyModifiers = 1 | 2 | 4 | 8;
+        if ((request.RequiredPointerEditModifiers & ~supportedKeyModifiers) != 0)
+        {
+            ReportInvalidViewPerformanceIntegration(
+                request,
+                diagnostics,
+                "RequiredPointerEditModifiers contains unsupported modifier flags");
             return null;
         }
 
@@ -678,6 +691,9 @@ internal static partial class Discovery
             FormulaModel = ResolveFormulaViewBinding(request, diagnostics),
             ConditionalFormattingModel = ResolveConditionalFormattingViewBinding(request, diagnostics),
             EditTriggers = request.EditTriggers,
+            RestrictTextInputEditToCells = request.RestrictTextInputEditToCells,
+            RequiredPointerEditModifiers = request.RequiredPointerEditModifiers,
+            RequireExactPointerEditModifiers = request.RequireExactPointerEditModifiers,
             ClipboardCopyMode = request.ClipboardCopyMode,
             IsReadOnly = request.IsReadOnly,
             CanUserAddRows = request.CanUserAddRows,
@@ -1476,6 +1492,9 @@ internal static partial class Discovery
         public string? FormulaModelPropertyName { get; set; }
         public string? ConditionalFormattingModelPropertyName { get; set; }
         public int EditTriggers { get; set; } = 9;
+        public bool RestrictTextInputEditToCells { get; set; }
+        public int RequiredPointerEditModifiers { get; set; }
+        public bool RequireExactPointerEditModifiers { get; set; }
         public int ClipboardCopyMode { get; set; } = 1;
         public bool IsReadOnly { get; set; }
         public bool CanUserAddRows { get; set; }

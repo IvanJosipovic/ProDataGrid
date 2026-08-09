@@ -4127,6 +4127,8 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("global::Demo.Row.ValidateAmountAsync", result.CombinedSource);
         Assert.Contains("IReadOnlyList<global::Avalonia.Controls.IDataGridGeneratedEditField<global::Demo.Row>> EditFields", result.CombinedSource);
         Assert.Contains("CreateEditController", result.CombinedSource);
+        Assert.Contains("CreateValidationProjection", result.CombinedSource);
+        Assert.Contains("\"Amount\");", result.CombinedSource);
         Assert.Contains("CreateClipboardController", result.CombinedSource);
         Assert.Contains("CreateFillController", result.CombinedSource);
         Assert.Contains("CreateClipboardImportModel", result.CombinedSource);
@@ -4382,6 +4384,8 @@ public sealed class ProDataGridGeneratorTests
                 FillModelPropertyName = nameof(Fill),
                 SelectionUnit = DataGridSelectionUnit.CellOrRowHeader,
                 EditTriggers = DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput,
+                RestrictTextInputEditToCells = true,
+                RequiredPointerEditModifiers = Avalonia.Input.KeyModifiers.Alt,
                 ClipboardCopyMode = DataGridClipboardCopyMode.IncludeHeader)]
             public sealed partial class GridViewModel
             {
@@ -4395,10 +4399,34 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("DataGrid.ClipboardImportModelProperty", result.CombinedSource);
         Assert.Contains("DataGrid.FillModelProperty", result.CombinedSource);
         Assert.Contains("EditTriggers = (global::Avalonia.Controls.DataGridEditTriggers)6", result.CombinedSource);
+        Assert.Contains("RestrictTextInputEditToCells = true", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedEditingInteractionModelFactory", result.CombinedSource);
+        Assert.Contains(
+            "(global::Avalonia.Input.KeyModifiers)" + ((int)Avalonia.Input.KeyModifiers.Alt).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            result.CombinedSource);
         Assert.Contains("ClipboardCopyMode = (global::Avalonia.Controls.DataGridClipboardCopyMode)2", result.CombinedSource);
         Assert.Contains("dataGrid.SelectionUnit = (global::Avalonia.Controls.DataGridSelectionUnit)2", result.CombinedSource);
         Assert.Contains("CanUserAddRows = false", result.CombinedSource);
         Assert.Contains("CanUserDeleteRows = false", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Generated_view_rejects_unknown_pointer_edit_modifier_flags()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Input;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Value { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), RequiredPointerEditModifiers = (KeyModifiers)32)]
+            public sealed partial class GridViewModel
+            {
+                public System.Collections.Generic.IReadOnlyList<Row> Items { get; } = System.Array.Empty<Row>();
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG128");
     }
 
     [Fact]

@@ -651,6 +651,12 @@ The generated schema owns the standard factories:
 DataGridGeneratedEditController<Order, int> edits =
     OrderSchema.CreateEditController(ResolveOrder);
 
+DataGridGeneratedValidationProjection<Order, int> validation =
+    OrderSchema.CreateValidationProjection(edits);
+
+IDisposable validationSubscription = validation.Subscribe(change =>
+    OnValidationChanged(change.ItemKey, change.ColumnKey, change.Result));
+
 DataGridGeneratedClipboardImportModel<Order, int> clipboard =
     OrderSchema.CreateClipboardImportModel(
         edits,
@@ -698,15 +704,18 @@ Bind the adapters directly from a generated Avalonia or ReactiveUI view:
     EditTriggers = DataGridEditTriggers.CellDoubleClick |
                    DataGridEditTriggers.TextInput |
                    DataGridEditTriggers.F2,
+    RestrictTextInputEditToCells = true,
     ClipboardCopyMode = DataGridClipboardCopyMode.IncludeHeader)]
 public sealed partial class OrdersViewModel : ReactiveObject
 {
 }
 ```
 
-Both named members are compile-time validated against `IDataGridClipboardImportModel` and `IDataGridFillModel`. Generated views disable add/delete rows by default so strict generated grids do not silently enter the DataGrid's reflection-based new-item path. Applications that need spreadsheet-specific formulas or domain transactions can retain a custom adapter while reusing the generated fields and controller.
+Both named members are compile-time validated against `IDataGridClipboardImportModel` and `IDataGridFillModel`. Every generated view installs a `DataGridGeneratedEditingInteractionModelFactory` built from its declared triggers, `RestrictTextInputEditToCells`, `RequiredPointerEditModifiers`, and `RequireExactPointerEditModifiers`; override `CreateGeneratedEditingInteractionModelFactory` to replace it without changing generated view construction. Generated views disable add/delete rows by default so strict generated grids do not silently enter the DataGrid's reflection-based new-item path. Applications that need spreadsheet-specific formulas or domain transactions can retain a custom adapter while reusing the generated fields and controller.
 
-`DataGridSample.Pages.GeneratedEditingClipboardFillPage` demonstrates direct and DataGrid-driven edits, DataAnnotations plus custom synchronous/asynchronous validation, coercion, row eligibility, paste errors, numeric series, relative A1 formula fill, undo/redo, bounded multi-format export, compiled bindings, and a passive ReactiveUI shell.
+`CreateValidationProjection` wraps the typed edit entry points and exposes the latest stable-key/column errors through `INotifyDataErrorInfo`, direct `GetError(itemKey, columnKey)` lookup, and `IObservable<DataGridGeneratedValidationChange<TKey>>`. The observable contract is directly consumable by ReactiveUI while remaining framework-neutral. Successful edits clear the matching error; cancelled or superseded async revisions never overwrite the current projection. The projection only owns the edit controller when explicitly requested.
+
+`DataGridSample.Pages.GeneratedEditingClipboardFillPage` demonstrates direct and DataGrid-driven edits, DataAnnotations plus custom synchronous/asynchronous validation, the ReactiveUI-consumed validation stream, generated editing interaction factory, coercion, row eligibility, paste errors, numeric series, relative A1 formula fill, undo/redo, bounded multi-format export, compiled bindings, and a passive ReactiveUI shell.
 
 Canonical field metadata can also declare export/null formatting, backend names, filter-editor profiles, header/description resource keys, accessibility text, and sensitive-data policy. For reflection-free strongly typed localization, use validated static provider methods:
 
