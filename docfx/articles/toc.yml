@@ -140,8 +140,37 @@
     href: column-definitions-aot.md
   - name: Column Definitions (Source Generators)
     href: column-definitions-source-generators.md
-  - name: Source Generators (Feature Specification)
+  - name: Source Generators
     href: source-generators-feature-spec.md
+    items:
+    - name: Getting Started and Schema Discovery
+      href: source-generators/getting-started.md
+    - name: Schemas, Columns, Accessors, and Manifests
+      href: source-generators/schemas-and-columns.md
+    - name: Operations and Controllers
+      href: source-generators/operations-and-controllers.md
+    - name: Reactive, Streaming, and Remote Data
+      href: source-generators/reactive-streaming-remote.md
+    - name: Hierarchical Data
+      href: source-generators/hierarchy.md
+    - name: Selection, Navigation, and State
+      href: source-generators/selection-navigation-state.md
+    - name: Editing and Data Workflows
+      href: source-generators/editing-and-data-workflows.md
+    - name: Layout, Templates, and Rendering
+      href: source-generators/layout-templates-rendering.md
+    - name: Analytics and Formulas
+      href: source-generators/analytics-and-formulas.md
+    - name: Generated Views
+      href: source-generators/generated-views.md
+    - name: Registries and Customization
+      href: source-generators/registries-and-customization.md
+    - name: Accessibility, Diagnostics, and Validation
+      href: source-generators/diagnostics-performance-testing.md
+    - name: Attribute Reference
+      href: source-generators/attribute-reference.md
+    - name: Samples and Production Validation
+      href: source-generators/samples-and-production-validation.md
   - name: Column Definitions (Fast Path Overview)
     href: column-definitions-fast-path-overview.md
   - name: Column Definitions (Model Integration)
