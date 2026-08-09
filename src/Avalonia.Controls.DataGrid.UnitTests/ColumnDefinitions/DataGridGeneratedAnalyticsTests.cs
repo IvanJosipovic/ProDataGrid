@@ -16,6 +16,40 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedAnalyticsTests
 {
     [Fact]
+    public void Legacy_analytics_constructor_signatures_remain_available()
+    {
+        Type metadataType = typeof(DataGridGeneratedAnalyticsField<Row, decimal>);
+        Type[] commonParameters =
+        [
+            typeof(string),
+            typeof(DataGridGeneratedAnalyticsRole),
+            typeof(int),
+            typeof(Func<Row, decimal>),
+            typeof(string),
+            typeof(string),
+            typeof(int),
+            typeof(PivotValueDisplayMode),
+            typeof(IReadOnlyList<string>)
+        ];
+        Type[] numericParameters =
+        [
+            typeof(string),
+            typeof(DataGridGeneratedAnalyticsRole),
+            typeof(int),
+            typeof(Func<Row, decimal>),
+            typeof(Func<object, double?>),
+            typeof(string),
+            typeof(string),
+            typeof(int),
+            typeof(PivotValueDisplayMode),
+            typeof(IReadOnlyList<string>)
+        ];
+
+        Assert.NotNull(metadataType.GetConstructor(commonParameters));
+        Assert.NotNull(metadataType.GetConstructor(numericParameters));
+    }
+
+    [Fact]
     public void Typed_group_field_adapts_direct_getter_to_collection_view()
     {
         var field = new DataGridGeneratedGroupField<Row, string>(
@@ -145,6 +179,48 @@ public sealed class DataGridGeneratedAnalyticsTests
     }
 
     [Fact]
+    public void Advanced_capability_metadata_applies_formula_aggregator_and_field_hooks()
+    {
+        var aggregator = new TestAggregator();
+        var axisMetadata = new DataGridGeneratedAnalyticsField<Row, string>(
+            "desk",
+            DataGridGeneratedAnalyticsRole.PivotRow,
+            0,
+            static row => row.Desk,
+            new DataGridGeneratedAdvancedAnalyticsOptions
+            {
+                ConfigurePivotAxis = static field =>
+                {
+                    field.ShowItemsWithNoData = true;
+                    field.ShowSubtotals = false;
+                }
+            });
+        var valueMetadata = new DataGridGeneratedAnalyticsField<Row, decimal>(
+            "amount",
+            DataGridGeneratedAnalyticsRole.PivotValue,
+            0,
+            static row => row.Amount,
+            new DataGridGeneratedAdvancedAnalyticsOptions
+            {
+                Formula = "[source] * 2",
+                CustomAggregatorFactory = () => aggregator,
+                ConfigurePivotValue = static field => field.DisplayMode = PivotValueDisplayMode.Index
+            },
+            aggregate: (int)PivotAggregateType.Custom,
+            dependencies: new[] { "source" });
+
+        PivotAxisField axis = DataGridGeneratedPivotAdapter.CreateAxisField(axisMetadata);
+        PivotValueField value = DataGridGeneratedPivotAdapter.CreateValueField(valueMetadata);
+
+        Assert.True(axis.ShowItemsWithNoData);
+        Assert.False(axis.ShowSubtotals);
+        Assert.Equal("[source] * 2", value.Formula);
+        Assert.Same(aggregator, value.CustomAggregator);
+        Assert.Equal(PivotValueDisplayMode.Index, value.DisplayMode);
+        Assert.Equal(new[] { "source" }, valueMetadata.Dependencies);
+    }
+
+    [Fact]
     public void Generated_pivot_factory_orders_fields_and_builds_model_without_property_paths()
     {
         IDataGridGeneratedAnalyticsField[] fields =
@@ -188,4 +264,18 @@ public sealed class DataGridGeneratedAnalyticsTests
     private sealed record Row(string Desk, decimal Amount);
     private sealed record NullableRow(string? Desk);
     private sealed record PivotSourceRow(string Desk, string Region, string Period, decimal Revenue, decimal Profit);
+
+    private sealed class TestAggregator : IPivotAggregator
+    {
+        public PivotAggregateType AggregateType => PivotAggregateType.Custom;
+        public string Name => "Test";
+        public IPivotAggregationState CreateState() => new TestAggregationState();
+    }
+
+    private sealed class TestAggregationState : IPivotAggregationState
+    {
+        public void Add(object? value) { }
+        public void Merge(IPivotAggregationState other) { }
+        public object? GetResult() => null;
+    }
 }

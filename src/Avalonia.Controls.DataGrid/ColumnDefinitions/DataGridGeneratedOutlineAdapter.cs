@@ -28,13 +28,18 @@ namespace Avalonia.Controls
                 throw new ArgumentException("The generated field does not define an outline group role.", nameof(field));
             }
 
-            return new OutlineGroupField
+            var result = new OutlineGroupField
             {
                 Key = field.ColumnKey,
                 Header = field.Name ?? field.ColumnKey,
                 ValueSelector = field.GetValue,
                 StringFormat = field.Format
             };
+            if (field is IDataGridGeneratedAdvancedAnalyticsField advanced)
+            {
+                advanced.ConfigureOutlineGroup?.Invoke(result);
+            }
+            return result;
         }
 
         /// <summary>Creates an outline value/detail field from a generated role.</summary>
@@ -46,7 +51,7 @@ namespace Avalonia.Controls
                 throw new ArgumentException("The generated field does not define an outline detail role.", nameof(field));
             }
 
-            return new OutlineValueField
+            var result = new OutlineValueField
             {
                 Key = field.ColumnKey,
                 Header = field.Name ?? field.ColumnKey,
@@ -54,6 +59,12 @@ namespace Avalonia.Controls
                 StringFormat = field.Format,
                 AggregateType = ToPivotAggregate((DataGridAggregateType)field.Aggregate)
             };
+            if (field is IDataGridGeneratedAdvancedAnalyticsField advanced)
+            {
+                result.CustomAggregator = advanced.CustomAggregatorFactory?.Invoke();
+                advanced.ConfigureOutlineValue?.Invoke(result);
+            }
+            return result;
         }
 
         /// <summary>Creates globally ordered outline grouping fields.</summary>

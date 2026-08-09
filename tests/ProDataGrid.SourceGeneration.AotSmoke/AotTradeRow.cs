@@ -5,6 +5,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridReporting;
 using ProDataGrid.FormulaEngine.Excel;
 using ProDataGrid.SourceGeneration;
 
@@ -16,6 +17,7 @@ namespace ProDataGrid.SourceGeneration.AotSmoke;
     Discovery = DataGridColumnDiscovery.AttributedOnly,
     Strict = true,
     Streaming = true,
+    OutlineConfigureMethod = nameof(ConfigureOutline),
     MutationHandlerType = typeof(AotTradeMutationHandler),
     NewRowFactoryType = typeof(AotTradeNewRowFactory),
     FormulaFillTranslatorType = typeof(ExcelFormulaFillTranslator))]
@@ -31,7 +33,11 @@ internal sealed class AotTradeRow
 
     [DataGridColumn(DataGridColumnKind.Text, Header = "Desk", ColumnKey = "desk", Order = 2, Width = "*")]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartSeries, Order = 0)]
-    [DataGridOutlineField(DataGridGeneratedAnalyticsRole.OutlineGroup, Order = 0, Name = "Desk")]
+    [DataGridOutlineField(
+        DataGridGeneratedAnalyticsRole.OutlineGroup,
+        Order = 0,
+        Name = "Desk",
+        ConfigureMethod = nameof(ConfigureOutlineGroup))]
     public string Desk { get; init; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Price", ColumnKey = "price", Order = 3, FormatString = "N2")]
@@ -41,11 +47,18 @@ internal sealed class AotTradeRow
         Order = 0,
         Name = "Price",
         Format = "N2",
-        Aggregate = DataGridAggregateType.Sum)]
+        Aggregate = DataGridAggregateType.Sum,
+        ConfigureMethod = nameof(ConfigureOutlineValue))]
     public decimal Price { get; init; }
 
     [DataGridColumn(DataGridColumnKind.DatePicker, Header = "Timestamp", ColumnKey = "timestamp", Order = 4, FormatString = "HH:mm:ss")]
     public DateTimeOffset Timestamp { get; init; }
+
+    public static void ConfigureOutlineGroup(OutlineGroupField field) => field.ShowSubtotals = false;
+
+    public static void ConfigureOutlineValue(OutlineValueField field) => field.NullLabel = "AOT empty";
+
+    public static void ConfigureOutline(OutlineReportModel model) => model.Layout.ShowGrandTotal = false;
 }
 
 internal sealed class AotTradeMutationHandler : IDataGridGeneratedCollectionMutationHandler<AotTradeRow>

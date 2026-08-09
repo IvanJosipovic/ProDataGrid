@@ -3491,15 +3491,184 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("CreatePivotAxisFields", result.CombinedSource);
         Assert.Contains("CreatePivotValueFields", result.CombinedSource);
         Assert.Contains("CreatePivotTableModel", result.CombinedSource);
-        Assert.Contains("DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure)", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, model =>", result.CombinedSource);
         Assert.Contains("CreateOutlineReportModel", result.CombinedSource);
-        Assert.Contains("DataGridGeneratedOutlineAdapter.CreateModel(items, AnalyticsFields, configure)", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedOutlineAdapter.CreateModel(items, AnalyticsFields, model =>", result.CombinedSource);
         Assert.Contains("item is global::Demo.Row typed ? (double?)typed.Amount : null", result.CombinedSource);
         Assert.Contains("DataGridGeneratedDiagnosticsManifest Diagnostics", result.CombinedSource);
         Assert.Contains("DataGridGeneratedAnalyticsRole)2120", result.CombinedSource);
         Assert.Contains("CreateColumnLayoutController", result.CombinedSource);
         Assert.Contains("CreateHeaderCommandController", result.CombinedSource);
         Assert.Empty(result.Errors);
+    }
+
+    [Fact]
+    public void Advanced_analytics_emit_calculated_custom_and_schema_configuration_hooks()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridPivoting;
+            using Avalonia.Controls.DataGridReporting;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+
+            public sealed class Aggregator : IPivotAggregator
+            {
+                public PivotAggregateType AggregateType => PivotAggregateType.Custom;
+                public string Name => "Custom";
+                public IPivotAggregationState CreateState() => null!;
+            }
+
+            [GenerateDataGridColumns(
+                PivotConfigureMethod = nameof(ConfigurePivot),
+                OutlineConfigureMethod = nameof(ConfigureOutline))]
+            public sealed class Row
+            {
+                [DataGridPivotAxis(
+                    DataGridGeneratedAnalyticsRole.PivotRow,
+                    ConfigureMethod = nameof(ConfigureAxis))]
+                [DataGridOutlineField(
+                    DataGridGeneratedAnalyticsRole.OutlineGroup,
+                    ConfigureMethod = nameof(ConfigureOutlineGroup))]
+                public string Desk { get; set; } = "";
+
+                [DataGridPivotValue(
+                    PivotAggregateType.Custom,
+                    CustomAggregatorFactoryMethod = nameof(CreateAggregator),
+                    ConfigureMethod = nameof(ConfigureValue))]
+                [DataGridOutlineField(
+                    DataGridGeneratedAnalyticsRole.OutlineDetail,
+                    Aggregate = DataGridAggregateType.Custom,
+                    CustomAggregatorFactoryMethod = nameof(CreateAggregator),
+                    ConfigureMethod = nameof(ConfigureOutlineValue))]
+                public decimal Amount { get; set; }
+
+                [DataGridPivotValue(
+                    PivotAggregateType.None,
+                    Formula = "[Amount] * 2",
+                    Dependencies = new[] { "Amount" })]
+                public decimal DoubleAmount { get; set; }
+
+                public static IPivotAggregator CreateAggregator() => new Aggregator();
+                public static void ConfigureAxis(PivotAxisField field) => field.ShowItemsWithNoData = true;
+                public static void ConfigureValue(PivotValueField field) => field.DisplayMode = PivotValueDisplayMode.Index;
+                public static void ConfigureOutlineGroup(OutlineGroupField field) => field.ShowSubtotals = false;
+                public static void ConfigureOutlineValue(OutlineValueField field) => field.StringFormat = "N1";
+                public static void ConfigurePivot(PivotTableModel model) => model.Layout.ShowRowSubtotals = false;
+                public static void ConfigureOutline(OutlineReportModel model) => model.Layout.ShowSubtotals = false;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("global::Demo.Row.ConfigurePivot(model)", result.CombinedSource);
+        Assert.Contains("global::Demo.Row.ConfigureOutline(model)", result.CombinedSource);
+        Assert.Contains("static () => global::Demo.Row.CreateAggregator()", result.CombinedSource);
+        Assert.Contains("static field => global::Demo.Row.ConfigureAxis(field)", result.CombinedSource);
+        Assert.Contains("static field => global::Demo.Row.ConfigureValue(field)", result.CombinedSource);
+        Assert.Contains("static field => global::Demo.Row.ConfigureOutlineGroup(field)", result.CombinedSource);
+        Assert.Contains("static field => global::Demo.Row.ConfigureOutlineValue(field)", result.CombinedSource);
+        Assert.Contains("new global::Avalonia.Controls.DataGridGeneratedAdvancedAnalyticsOptions", result.CombinedSource);
+        Assert.Contains("\"[Amount] * 2\"", result.CombinedSource);
+        Assert.Contains("new string[] { \"Amount\" }", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Invalid_advanced_analytics_hooks_and_dependencies_report_diagnostics()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridPivoting;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(PivotConfigureMethod = nameof(Invalid))]
+            public sealed class Row
+            {
+                [DataGridPivotValue(
+                    PivotAggregateType.Custom,
+                    CustomAggregatorFactoryMethod = nameof(Invalid),
+                    Formula = "[Missing]",
+                    Dependencies = new[] { "Missing" },
+                    ConfigureMethod = nameof(Invalid))]
+                public decimal Amount { get; set; }
+
+                public static int Invalid(int value) => value;
+            }
+            """);
+
+        Assert.True(result.GeneratorDiagnostics.Count(diagnostic => diagnostic.Id == "PDGSG004") >= 3);
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG121");
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG009");
+    }
+
+    [Fact]
+    public void Namespace_policy_applies_advanced_analytics_model_hooks()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridPivoting;
+            using Avalonia.Controls.DataGridReporting;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridColumnsForNamespace(
+                "Demo.Models",
+                PivotConfigureMethod = "ConfigurePivot",
+                OutlineConfigureMethod = "ConfigureOutline")]
+
+            namespace Demo.Models
+            {
+                public sealed class Row
+                {
+                    [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotRow)]
+                    [DataGridOutlineField(DataGridGeneratedAnalyticsRole.OutlineGroup)]
+                    public string Desk { get; set; } = "";
+
+                    [DataGridPivotValue(PivotAggregateType.Sum)]
+                    [DataGridOutlineField(
+                        DataGridGeneratedAnalyticsRole.OutlineDetail,
+                        Aggregate = DataGridAggregateType.Sum)]
+                    public decimal Amount { get; set; }
+
+                    public static void ConfigurePivot(PivotTableModel model) => model.Layout.ShowRowSubtotals = false;
+                    public static void ConfigureOutline(OutlineReportModel model) => model.Layout.ShowSubtotals = false;
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("global::Demo.Models.Row.ConfigurePivot(model)", result.CombinedSource);
+        Assert.Contains("global::Demo.Models.Row.ConfigureOutline(model)", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Schema_hash_includes_group_summary_band_and_analytics_semantics()
+    {
+        const string source = """
+            using Avalonia.Controls;
+            using Avalonia.Controls.DataGridPivoting;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns]
+            public sealed class Row
+            {
+                [DataGridGroup(Order = 0)]
+                [DataGridBand("Market/Core", Order = 0)]
+                public string Desk { get; set; } = "";
+
+                [DataGridSummary(DataGridAggregateType.Sum, Title = "Total")]
+                [DataGridPivotValue(PivotAggregateType.Sum, DisplayMode = PivotValueDisplayMode.Value)]
+                public decimal Amount { get; set; }
+            }
+            """;
+
+        string baseline = GetGeneratedSchemaHash(GeneratorTestHelper.Run(source));
+        string groupChanged = GetGeneratedSchemaHash(GeneratorTestHelper.Run(source.Replace("[DataGridGroup(Order = 0)]", "[DataGridGroup(Order = 1)]", StringComparison.Ordinal)));
+        string summaryChanged = GetGeneratedSchemaHash(GeneratorTestHelper.Run(source.Replace("Title = \"Total\"", "Title = \"Grand total\"", StringComparison.Ordinal)));
+        string bandChanged = GetGeneratedSchemaHash(GeneratorTestHelper.Run(source.Replace("Market/Core", "Market/Measures", StringComparison.Ordinal)));
+        string analyticsChanged = GetGeneratedSchemaHash(GeneratorTestHelper.Run(source.Replace("PivotValueDisplayMode.Value", "PivotValueDisplayMode.Index", StringComparison.Ordinal)));
+
+        Assert.NotEqual(baseline, groupChanged);
+        Assert.NotEqual(baseline, summaryChanged);
+        Assert.NotEqual(baseline, bandChanged);
+        Assert.NotEqual(baseline, analyticsChanged);
     }
 
     [Fact]
@@ -5164,5 +5333,16 @@ public sealed class ProDataGridGeneratorTests
             !result.Errors.Any(),
             string.Join(Environment.NewLine, result.Errors.Select(static diagnostic => diagnostic.ToString())) +
             Environment.NewLine + result.CombinedSource);
+    }
+
+    private static string GetGeneratedSchemaHash(GeneratorTestResult result)
+    {
+        AssertNoErrors(result);
+        System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(
+            result.CombinedSource,
+            "public const string SchemaHash = \"(?<hash>[0-9a-f]+)\";",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+        Assert.True(match.Success, result.CombinedSource);
+        return match.Groups["hash"].Value;
     }
 }

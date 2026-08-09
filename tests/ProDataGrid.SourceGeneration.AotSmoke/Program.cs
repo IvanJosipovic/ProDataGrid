@@ -78,6 +78,9 @@ if (!AotGeneratedRegistry.TryGetSchema(typeof(AotTradeRow), out IDataGridGenerat
     longFormModel.Snapshot.Series.Count != 2 ||
     outline.GroupFields.Count != 1 ||
     outline.ValueFields.Count != 1 ||
+    outline.GroupFields[0].ShowSubtotals ||
+    outline.ValueFields[0].NullLabel != "AOT empty" ||
+    outline.Layout.ShowGrandTotal ||
     outline.Rows.Count == 0 ||
     !dropApplied ||
     dropHandler.ApplyCount != 1)

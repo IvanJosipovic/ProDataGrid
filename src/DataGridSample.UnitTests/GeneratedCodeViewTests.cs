@@ -1053,8 +1053,8 @@ public sealed class GeneratedCodeViewTests
             Assert.Same(viewModel.Items, sourceGrid.ItemsSource);
             Assert.Same(viewModel.SelectionModel, sourceGrid.Selection);
             Assert.True(sourceGrid.FastPathOptions.StrictMode);
-            Assert.Equal(7, viewModel.ColumnDefinitions.Count);
-            Assert.Equal(7, sourceGrid.Columns.Count(static column => column.ColumnKey != null));
+            Assert.Equal(8, viewModel.ColumnDefinitions.Count);
+            Assert.Equal(8, sourceGrid.Columns.Count(static column => column.ColumnKey != null));
             ProChartView directChart = view.GetVisualDescendants().OfType<ProChartView>().Single();
             Assert.Same(viewModel.DirectChartModel, directChart.ChartModel);
 

@@ -1,6 +1,7 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridPivoting;
 using ProDataGrid.SourceGeneration;
@@ -11,7 +12,8 @@ namespace DataGridSample.Models;
     ProviderName = "GeneratedPivotChartRowSchema",
     SchemaId = "sample/generated-pivot-chart-row/v1",
     Discovery = DataGridColumnDiscovery.AttributedOnly,
-    Strict = true)]
+    Strict = true,
+    PivotConfigureMethod = nameof(ConfigurePivot))]
 public sealed class GeneratedPivotChartRow
 {
     [DataGridKey]
@@ -20,12 +22,20 @@ public sealed class GeneratedPivotChartRow
 
     [DataGridColumn(Header = "Period", ColumnKey = "period", Width = "*", IsReadOnly = true)]
     [DataGridGroup(Order = 0)]
-    [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotColumn, Order = 0, Name = "Period")]
+    [DataGridPivotAxis(
+        DataGridGeneratedAnalyticsRole.PivotColumn,
+        Order = 0,
+        Name = "Period",
+        ConfigureMethod = nameof(ConfigureAxis))]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartCategory, Order = 0)]
     public string Period { get; init; } = string.Empty;
 
     [DataGridColumn(Header = "Region", ColumnKey = "region", Width = "*", IsReadOnly = true)]
-    [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotRow, Order = 0, Name = "Region")]
+    [DataGridPivotAxis(
+        DataGridGeneratedAnalyticsRole.PivotRow,
+        Order = 0,
+        Name = "Region",
+        ConfigureMethod = nameof(ConfigureAxis))]
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartSeries, Order = 0, Series = "Region")]
     public string Region { get; init; } = string.Empty;
 
@@ -43,6 +53,36 @@ public sealed class GeneratedPivotChartRow
     [DataGridChartField(DataGridGeneratedAnalyticsRole.ChartValue, Order = 1, Series = "Profit", Format = "C0", Aggregate = DataGridAggregateType.Sum)]
     public double Profit { get; init; }
 
+    [DataGridColumn(DataGridColumnKind.Numeric, Header = "Margin", ColumnKey = "margin", Width = "*", FormatString = "P1", IsReadOnly = true)]
+    [DataGridPivotValue(
+        PivotAggregateType.None,
+        Order = 2,
+        Name = "Margin",
+        Format = "P1",
+        Formula = "[profit] / [revenue]",
+        Dependencies = new[] { "profit", "revenue" },
+        ConfigureMethod = nameof(ConfigureMargin))]
+    public double Margin => Revenue == 0d ? 0d : Profit / Revenue;
+
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Units", ColumnKey = "units", Width = "*", IsReadOnly = true)]
     public int Units { get; init; }
+
+    public static void ConfigureAxis(PivotAxisField field)
+    {
+        field.SortDirection = ListSortDirection.Ascending;
+        field.ShowSubtotals = false;
+    }
+
+    public static void ConfigureMargin(PivotValueField field) =>
+        field.DisplayMode = PivotValueDisplayMode.Value;
+
+    public static void ConfigurePivot(PivotTableModel pivot)
+    {
+        pivot.Layout.RowLayout = PivotRowLayout.Tabular;
+        pivot.Layout.ValuesPosition = PivotValuesPosition.Columns;
+        pivot.Layout.ShowRowSubtotals = false;
+        pivot.Layout.ShowColumnSubtotals = false;
+        pivot.Layout.ShowRowGrandTotals = true;
+        pivot.Layout.ShowColumnGrandTotals = true;
+    }
 }

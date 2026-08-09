@@ -738,7 +738,7 @@ public sealed class GeneratedColumnsViewModelTests
         using var viewModel = new GeneratedPivotChartViewModel();
 
         Assert.Equal(12, viewModel.SourceRowCount);
-        Assert.Equal(2, GeneratedPivotChartRowSchema.AnalyticsFields.Count(
+        Assert.Equal(3, GeneratedPivotChartRowSchema.AnalyticsFields.Count(
             static field => (field.Role & DataGridGeneratedAnalyticsRole.PivotValue) != 0));
         Assert.All(
             GeneratedPivotChartRowSchema.AnalyticsFields.Where(
@@ -748,7 +748,11 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Single(viewModel.Pivot.RowFields);
         Assert.Single(viewModel.Pivot.ColumnFields);
         Assert.Single(viewModel.Pivot.FilterFields);
-        Assert.Equal(new[] { "Revenue", "Profit" }, viewModel.Pivot.ValueFields.Select(static field => field.Header));
+        Assert.Equal(new[] { "Revenue", "Profit", "Margin" }, viewModel.Pivot.ValueFields.Select(static field => field.Header));
+        Assert.Equal("[profit] / [revenue]", viewModel.Pivot.ValueFields[2].Formula);
+        Assert.All(viewModel.Pivot.RowFields, static field => Assert.False(field.ShowSubtotals));
+        Assert.All(viewModel.Pivot.ColumnFields, static field => Assert.False(field.ShowSubtotals));
+        Assert.Equal(PivotRowLayout.Tabular, viewModel.Pivot.Layout.RowLayout);
         Assert.All(viewModel.Pivot.RowFields, static field => Assert.Null(field.PropertyPath));
         Assert.All(viewModel.Pivot.ValueFields, static field => Assert.Null(field.PropertyPath));
         Assert.Equal(2, viewModel.DirectChartSource.Series.Count);
@@ -802,7 +806,12 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(new[] { "planned", "actual" }, viewModel.Outline.ValueFields.Select(static field => field.Key));
         Assert.All(viewModel.Outline.GroupFields, static field => Assert.Null(field.PropertyPath));
         Assert.All(viewModel.Outline.ValueFields, static field => Assert.Null(field.PropertyPath));
-        Assert.All(viewModel.Outline.ValueFields, static field => Assert.Equal(PivotAggregateType.Sum, field.AggregateType));
+        Assert.Equal(PivotAggregateType.Sum, viewModel.Outline.ValueFields[0].AggregateType);
+        Assert.Equal(PivotAggregateType.Custom, viewModel.Outline.ValueFields[1].AggregateType);
+        Assert.Equal("Range", viewModel.Outline.ValueFields[1].CustomAggregator?.Name);
+        Assert.Equal("No actuals", viewModel.Outline.ValueFields[1].NullLabel);
+        Assert.All(viewModel.Outline.GroupFields, static field => Assert.True(field.ShowSubtotals));
+        Assert.Equal("Region / team", viewModel.Outline.Layout.RowHeaderLabel);
         Assert.NotEmpty(viewModel.Outline.Rows);
 
         bool moved = await viewModel.DropAsync(

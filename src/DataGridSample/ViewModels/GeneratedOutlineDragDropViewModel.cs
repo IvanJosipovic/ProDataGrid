@@ -37,7 +37,7 @@ public sealed partial class GeneratedOutlineDragDropViewModel : ReactiveObject, 
     public GeneratedOutlineDragDropViewModel()
     {
         Items = new ObservableCollection<GeneratedOutlineWorkItem>(CreateInitialItems());
-        Outline = GeneratedOutlineWorkItemSchema.CreateOutlineReportModel(Items, ConfigureOutline);
+        Outline = GeneratedOutlineWorkItemSchema.CreateOutlineReportModel(Items);
         _dropHandler = new GeneratedWorkItemDropHandler(this);
         DragDrop = GeneratedOutlineWorkItemSchema.CreateDragDropController(_dropHandler, ValidateDropAsync);
         DragDrop.StateChanged += OnDragDropStateChanged;
@@ -155,17 +155,6 @@ public sealed partial class GeneratedOutlineDragDropViewModel : ReactiveObject, 
             }
         }
         return null;
-    }
-
-    private static void ConfigureOutline(OutlineReportModel report)
-    {
-        report.Layout.RowHeaderLabel = "Region / team";
-        report.Layout.ShowSubtotals = true;
-        report.Layout.ShowGrandTotal = true;
-        report.Layout.ShowDetailRows = true;
-        report.Layout.AutoExpandGroups = true;
-        report.Layout.DetailLabelSelector = static item =>
-            item is GeneratedOutlineWorkItem workItem ? workItem.WorkItem : string.Empty;
     }
 
     private static GeneratedOutlineWorkItem[] CreateInitialItems() =>

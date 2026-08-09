@@ -906,7 +906,10 @@ internal static class Emitter
             .Append(schema.Strict ? '1' : '0').Append('|')
             .Append(schema.Streaming ? '1' : '0').Append('|')
             .Append(schema.HierarchicalRows ? '1' : '0').Append('|');
-        canonical.Append(schema.PerformanceProfile.ToString(CultureInfo.InvariantCulture)).Append('|');
+        canonical.Append(schema.PerformanceProfile.ToString(CultureInfo.InvariantCulture)).Append('|')
+            .Append(schema.ConfigureMethod).Append('|')
+            .Append(schema.PivotConfigureMethod).Append('|')
+            .Append(schema.OutlineConfigureMethod).Append('|');
 
         if (schema.KeyMember != null)
         {
@@ -951,6 +954,49 @@ internal static class Emitter
                     .Append(rule.StopIfTrue ? '1' : '0').Append(':')
                     .Append(rule.PredicateMethod).Append(':')
                     .Append(rule.Target.ToString(CultureInfo.InvariantCulture)).Append(',');
+            }
+            if (column.Group != null)
+            {
+                canonical.Append("group=")
+                    .Append(column.Group.Order.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(column.Group.Direction.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(column.Group.FormatterMethod).Append(',');
+            }
+            foreach (SummaryModel summary in column.Summaries)
+            {
+                canonical.Append("summary=")
+                    .Append(summary.Aggregate.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(summary.Scope.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(summary.Format).Append(':')
+                    .Append(summary.Title).Append(',');
+            }
+            foreach (BandModel band in column.Bands)
+            {
+                canonical.Append("band=")
+                    .Append(band.Order.ToString(CultureInfo.InvariantCulture)).Append(':');
+                for (int pathIndex = 0; pathIndex < band.Path.Length; pathIndex++)
+                {
+                    canonical.Append(band.Path[pathIndex]).Append('/');
+                }
+                canonical.Append(',');
+            }
+            foreach (AnalyticsRoleModel role in column.AnalyticsRoles)
+            {
+                canonical.Append("analytics=")
+                    .Append(role.Role.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(role.Order.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(role.Name).Append(':')
+                    .Append(role.Format).Append(':')
+                    .Append(role.Aggregate.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(role.PivotDisplayMode.ToString(CultureInfo.InvariantCulture)).Append(':')
+                    .Append(role.Formula).Append(':')
+                    .Append(role.ConfigureMethod).Append(':')
+                    .Append(role.CustomAggregatorFactoryMethod).Append(':');
+                for (int dependencyIndex = 0; dependencyIndex < role.Dependencies.Length; dependencyIndex++)
+                {
+                    canonical.Append(role.Dependencies[dependencyIndex]).Append('+');
+                }
+                canonical.Append(',');
             }
             canonical.Append(';');
         }
@@ -1418,7 +1464,16 @@ internal static class Emitter
             .AppendLine("        public static global::Avalonia.Controls.DataGridPivoting.PivotTableModel CreatePivotTableModel(")
             .AppendLine("            global::System.Collections.IEnumerable items,")
             .AppendLine("            global::System.Action<global::Avalonia.Controls.DataGridPivoting.PivotTableModel>? configure = null)")
-            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, configure);")
+            .AppendLine("        {")
+            .AppendLine("            return global::Avalonia.Controls.DataGridGeneratedPivotAdapter.CreateModel(items, AnalyticsFields, model =>")
+            .AppendLine("            {");
+        if (!string.IsNullOrEmpty(schema.PivotConfigureMethod))
+        {
+            builder.Append("                ").Append(itemType).Append('.').Append(GeneratorUtilities.EscapeIdentifier(schema.PivotConfigureMethod!)).AppendLine("(model);");
+        }
+        builder.AppendLine("                configure?.Invoke(model);")
+            .AppendLine("            });")
+            .AppendLine("        }")
             .AppendLine()
             .AppendLine("        public static global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridReporting.OutlineGroupField> CreateOutlineGroupFields()")
             .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedOutlineAdapter.CreateGroupFields(AnalyticsFields);")
@@ -1429,7 +1484,16 @@ internal static class Emitter
             .AppendLine("        public static global::Avalonia.Controls.DataGridReporting.OutlineReportModel CreateOutlineReportModel(")
             .AppendLine("            global::System.Collections.IEnumerable items,")
             .AppendLine("            global::System.Action<global::Avalonia.Controls.DataGridReporting.OutlineReportModel>? configure = null)")
-            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedOutlineAdapter.CreateModel(items, AnalyticsFields, configure);");
+            .AppendLine("        {")
+            .AppendLine("            return global::Avalonia.Controls.DataGridGeneratedOutlineAdapter.CreateModel(items, AnalyticsFields, model =>")
+            .AppendLine("            {");
+        if (!string.IsNullOrEmpty(schema.OutlineConfigureMethod))
+        {
+            builder.Append("                ").Append(itemType).Append('.').Append(GeneratorUtilities.EscapeIdentifier(schema.OutlineConfigureMethod!)).AppendLine("(model);");
+        }
+        builder.AppendLine("                configure?.Invoke(model);")
+            .AppendLine("            });")
+            .AppendLine("        }");
     }
 
     private static void EmitCollectionMutationFactories(StringBuilder builder, SchemaModel schema, string itemType)
@@ -1491,9 +1555,19 @@ internal static class Emitter
         }
         else
         {
-            builder.Append("null");
+            builder.Append("(global::System.Func<object, double?>?)null");
         }
-        builder.Append(", ")
+        if (HasAdvancedAnalyticsOptions(role))
+        {
+            builder.Append(", new global::Avalonia.Controls.DataGridGeneratedAdvancedAnalyticsOptions { ");
+            AppendAdvancedAnalyticsOptions(builder, role, itemType);
+            builder.Append(" }, ");
+        }
+        else
+        {
+            builder.Append(", ");
+        }
+        builder
             .Append(GeneratorUtilities.EscapeString(role.Name)).Append(", ")
             .Append(GeneratorUtilities.EscapeString(role.Format)).Append(", ")
             .Append(role.Aggregate.ToString(CultureInfo.InvariantCulture)).Append(", (global::Avalonia.Controls.DataGridPivoting.PivotValueDisplayMode)")
@@ -1504,6 +1578,79 @@ internal static class Emitter
             builder.Append(GeneratorUtilities.EscapeString(role.Dependencies[index]));
         }
         builder.AppendLine(" }),");
+    }
+
+    private static bool HasAdvancedAnalyticsOptions(AnalyticsRoleModel role) =>
+        !string.IsNullOrEmpty(role.Formula) ||
+        !string.IsNullOrEmpty(role.CustomAggregatorFactoryMethod) ||
+        !string.IsNullOrEmpty(role.ConfigureMethod);
+
+    private static void AppendAdvancedAnalyticsOptions(
+        StringBuilder builder,
+        AnalyticsRoleModel role,
+        string itemType)
+    {
+        bool needsSeparator = false;
+        if (!string.IsNullOrEmpty(role.Formula))
+        {
+            builder.Append("Formula = ").Append(GeneratorUtilities.EscapeString(role.Formula));
+            needsSeparator = true;
+        }
+        if (!string.IsNullOrEmpty(role.CustomAggregatorFactoryMethod))
+        {
+            if (needsSeparator) builder.Append(", ");
+            builder.Append("CustomAggregatorFactory = ");
+            AppendAnalyticsFactoryDelegate(builder, role.CustomAggregatorFactoryMethod, itemType);
+            needsSeparator = true;
+        }
+        if (string.IsNullOrEmpty(role.ConfigureMethod))
+        {
+            return;
+        }
+        if (needsSeparator) builder.Append(", ");
+        if (role.Role is 1 or 2 or 4)
+        {
+            builder.Append("ConfigurePivotAxis = ");
+        }
+        else if (role.Role == 8)
+        {
+            builder.Append("ConfigurePivotValue = ");
+        }
+        else if (role.Role == 512)
+        {
+            builder.Append("ConfigureOutlineGroup = ");
+        }
+        else
+        {
+            builder.Append("ConfigureOutlineValue = ");
+        }
+        AppendAnalyticsConfigureDelegate(builder, true, role.ConfigureMethod, itemType);
+    }
+
+    private static void AppendAnalyticsFactoryDelegate(StringBuilder builder, string? methodName, string itemType)
+    {
+        if (string.IsNullOrEmpty(methodName))
+        {
+            builder.Append("null");
+            return;
+        }
+        builder.Append("static () => ").Append(itemType).Append('.')
+            .Append(GeneratorUtilities.EscapeIdentifier(methodName!)).Append("()");
+    }
+
+    private static void AppendAnalyticsConfigureDelegate(
+        StringBuilder builder,
+        bool applies,
+        string? methodName,
+        string itemType)
+    {
+        if (!applies || string.IsNullOrEmpty(methodName))
+        {
+            builder.Append("null");
+            return;
+        }
+        builder.Append("static field => ").Append(itemType).Append('.')
+            .Append(GeneratorUtilities.EscapeIdentifier(methodName!)).Append("(field)");
     }
 
     private static void EmitDiagnosticsManifest(StringBuilder builder, SchemaModel schema, string itemType)

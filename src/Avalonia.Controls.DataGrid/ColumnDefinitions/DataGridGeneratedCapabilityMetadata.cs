@@ -7,6 +7,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Avalonia.Controls.DataGridPivoting;
+using Avalonia.Controls.DataGridReporting;
 
 namespace Avalonia.Controls
 {
@@ -75,6 +76,50 @@ namespace Avalonia.Controls
         object GetValue(object item);
     }
 
+    /// <summary>Exposes optional advanced pivot and outline configuration without changing the base analytics contract.</summary>
+#if !DATAGRID_INTERNAL
+    public
+#else
+    internal
+#endif
+    interface IDataGridGeneratedAdvancedAnalyticsField : IDataGridGeneratedAnalyticsField
+    {
+        /// <summary>Gets an optional calculated pivot formula.</summary>
+        string Formula { get; }
+        /// <summary>Gets an optional direct custom pivot/outline aggregator factory.</summary>
+        Func<IPivotAggregator> CustomAggregatorFactory { get; }
+        /// <summary>Gets an optional pivot-axis configuration hook.</summary>
+        Action<PivotAxisField> ConfigurePivotAxis { get; }
+        /// <summary>Gets an optional pivot-value configuration hook.</summary>
+        Action<PivotValueField> ConfigurePivotValue { get; }
+        /// <summary>Gets an optional outline-group configuration hook.</summary>
+        Action<OutlineGroupField> ConfigureOutlineGroup { get; }
+        /// <summary>Gets an optional outline-value configuration hook.</summary>
+        Action<OutlineValueField> ConfigureOutlineValue { get; }
+    }
+
+    /// <summary>Contains additive calculated-field, custom-aggregate, and field-configuration metadata.</summary>
+#if !DATAGRID_INTERNAL
+    public
+#else
+    internal
+#endif
+    sealed class DataGridGeneratedAdvancedAnalyticsOptions
+    {
+        /// <summary>Gets or sets an optional calculated pivot formula.</summary>
+        public string Formula { get; set; }
+        /// <summary>Gets or sets an optional direct custom pivot/outline aggregator factory.</summary>
+        public Func<IPivotAggregator> CustomAggregatorFactory { get; set; }
+        /// <summary>Gets or sets an optional pivot-axis configuration hook.</summary>
+        public Action<PivotAxisField> ConfigurePivotAxis { get; set; }
+        /// <summary>Gets or sets an optional pivot-value configuration hook.</summary>
+        public Action<PivotValueField> ConfigurePivotValue { get; set; }
+        /// <summary>Gets or sets an optional outline-group configuration hook.</summary>
+        public Action<OutlineGroupField> ConfigureOutlineGroup { get; set; }
+        /// <summary>Gets or sets an optional outline-value configuration hook.</summary>
+        public Action<OutlineValueField> ConfigureOutlineValue { get; set; }
+    }
+
     /// <summary>Exposes an optional direct numeric selector without changing the base analytics contract.</summary>
 #if !DATAGRID_INTERNAL
     public
@@ -95,7 +140,9 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    sealed class DataGridGeneratedAnalyticsField<TItem, TValue> : IDataGridGeneratedNumericAnalyticsField
+    sealed class DataGridGeneratedAnalyticsField<TItem, TValue> :
+        IDataGridGeneratedNumericAnalyticsField,
+        IDataGridGeneratedAdvancedAnalyticsField
     {
         private readonly Func<TItem, TValue> _getter;
         private readonly string[] _dependencies;
@@ -116,7 +163,34 @@ namespace Avalonia.Controls
                 role,
                 order,
                 getter,
+                (Func<object, double?>)null,
+                name,
+                format,
+                aggregate,
+                pivotDisplayMode,
+                dependencies)
+        {
+        }
+
+        /// <summary>Initializes capability metadata with additive advanced analytics options.</summary>
+        public DataGridGeneratedAnalyticsField(
+            string columnKey,
+            DataGridGeneratedAnalyticsRole role,
+            int order,
+            Func<TItem, TValue> getter,
+            DataGridGeneratedAdvancedAnalyticsOptions advanced,
+            string name = null,
+            string format = null,
+            int aggregate = 0,
+            PivotValueDisplayMode pivotDisplayMode = PivotValueDisplayMode.Value,
+            IReadOnlyList<string> dependencies = null)
+            : this(
+                columnKey,
+                role,
+                order,
+                getter,
                 null,
+                advanced,
                 name,
                 format,
                 aggregate,
@@ -137,6 +211,34 @@ namespace Avalonia.Controls
             int aggregate = 0,
             PivotValueDisplayMode pivotDisplayMode = PivotValueDisplayMode.Value,
             IReadOnlyList<string> dependencies = null)
+            : this(
+                columnKey,
+                role,
+                order,
+                getter,
+                numericValueSelector,
+                null,
+                name,
+                format,
+                aggregate,
+                pivotDisplayMode,
+                dependencies)
+        {
+        }
+
+        /// <summary>Initializes capability metadata with a numeric selector and additive advanced analytics options.</summary>
+        public DataGridGeneratedAnalyticsField(
+            string columnKey,
+            DataGridGeneratedAnalyticsRole role,
+            int order,
+            Func<TItem, TValue> getter,
+            Func<object, double?> numericValueSelector,
+            DataGridGeneratedAdvancedAnalyticsOptions advanced,
+            string name = null,
+            string format = null,
+            int aggregate = 0,
+            PivotValueDisplayMode pivotDisplayMode = PivotValueDisplayMode.Value,
+            IReadOnlyList<string> dependencies = null)
         {
             ColumnKey = columnKey ?? throw new ArgumentNullException(nameof(columnKey));
             Role = role;
@@ -147,6 +249,12 @@ namespace Avalonia.Controls
             Aggregate = aggregate;
             PivotDisplayMode = pivotDisplayMode;
             NumericValueSelector = numericValueSelector;
+            Formula = advanced?.Formula;
+            CustomAggregatorFactory = advanced?.CustomAggregatorFactory;
+            ConfigurePivotAxis = advanced?.ConfigurePivotAxis;
+            ConfigurePivotValue = advanced?.ConfigurePivotValue;
+            ConfigureOutlineGroup = advanced?.ConfigureOutlineGroup;
+            ConfigureOutlineValue = advanced?.ConfigureOutlineValue;
             if (dependencies == null || dependencies.Count == 0)
             {
                 _dependencies = Array.Empty<string>();
@@ -178,6 +286,18 @@ namespace Avalonia.Controls
         /// <inheritdoc />
         public IReadOnlyList<string> Dependencies => _dependencies;
         /// <inheritdoc />
+        public string Formula { get; }
+        /// <inheritdoc />
+        public Func<IPivotAggregator> CustomAggregatorFactory { get; }
+        /// <inheritdoc />
+        public Action<PivotAxisField> ConfigurePivotAxis { get; }
+        /// <inheritdoc />
+        public Action<PivotValueField> ConfigurePivotValue { get; }
+        /// <inheritdoc />
+        public Action<OutlineGroupField> ConfigureOutlineGroup { get; }
+        /// <inheritdoc />
+        public Action<OutlineValueField> ConfigureOutlineValue { get; }
+        /// <inheritdoc />
         public Func<object, double?> NumericValueSelector { get; }
         /// <summary>Reads a typed value.</summary>
         public TValue GetTypedValue(TItem item) => _getter(item);
@@ -206,13 +326,18 @@ namespace Avalonia.Controls
             {
                 throw new ArgumentException("The generated field does not define a pivot axis role.", nameof(field));
             }
-            return new PivotAxisField
+            var result = new PivotAxisField
             {
                 Key = field.ColumnKey,
                 Header = field.Name ?? field.ColumnKey,
                 ValueSelector = field.GetValue,
                 StringFormat = field.Format
             };
+            if (field is IDataGridGeneratedAdvancedAnalyticsField advanced)
+            {
+                advanced.ConfigurePivotAxis?.Invoke(result);
+            }
+            return result;
         }
 
         /// <summary>Creates a pivot value field from a generated role.</summary>
@@ -223,7 +348,7 @@ namespace Avalonia.Controls
             {
                 throw new ArgumentException("The generated field does not define a pivot value role.", nameof(field));
             }
-            return new PivotValueField
+            var result = new PivotValueField
             {
                 Key = field.ColumnKey,
                 Header = field.Name ?? field.ColumnKey,
@@ -232,6 +357,13 @@ namespace Avalonia.Controls
                 AggregateType = (PivotAggregateType)field.Aggregate,
                 DisplayMode = field.PivotDisplayMode
             };
+            if (field is IDataGridGeneratedAdvancedAnalyticsField advanced)
+            {
+                result.Formula = advanced.Formula;
+                result.CustomAggregator = advanced.CustomAggregatorFactory?.Invoke();
+                advanced.ConfigurePivotValue?.Invoke(result);
+            }
+            return result;
         }
 
         /// <summary>Creates globally ordered pivot axis fields for the requested roles.</summary>

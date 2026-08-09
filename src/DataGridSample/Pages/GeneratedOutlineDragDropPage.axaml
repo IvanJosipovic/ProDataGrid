@@ -11,7 +11,7 @@
         <StackPanel Spacing="4">
           <TextBlock Classes="h2" Text="Generated outline report" />
           <TextBlock TextWrapping="Wrap"
-                     Text="Ordered group and value fields come from the source-generated analytics manifest. Direct selectors build subtotals, grand totals, and detail rows without property paths." />
+                     Text="Ordered group and value fields come from the source-generated analytics manifest. Declarative layout/field hooks and a direct custom range aggregator build the report without property paths." />
         </StackPanel>
         <WrapPanel Grid.Row="1">
           <Button Content="Expand all" Command="{Binding ExpandAllCommand}" />

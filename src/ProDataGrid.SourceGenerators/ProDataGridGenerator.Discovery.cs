@@ -120,6 +120,7 @@ internal static partial class Discovery
                     schema.ItemType.ToDisplayString()));
                 schema.ConfigureMethod = null;
             }
+            ValidateAnalyticsConfigureMethods(schema, schemaDiagnostics);
         }
 
         ValidateControllerKeys(controllers, diagnostics);
@@ -448,6 +449,7 @@ internal static partial class Discovery
                 schema.ItemType.ToDisplayString()));
             schema.ConfigureMethod = null;
         }
+        ValidateAnalyticsConfigureMethods(schema, diagnostics);
 
         return new DirectSchemaGenerationResult(
             candidate.CacheKey,
@@ -1585,6 +1587,15 @@ internal static partial class Discovery
             schema.UseReferenceIdentityKey = GeneratorUtilities.GetBoolean(arguments, "UseReferenceIdentityKey", false);
         }
 
+        if (arguments.ContainsKey("PivotConfigureMethod"))
+        {
+            schema.PivotConfigureMethod = GeneratorUtilities.GetString(arguments, "PivotConfigureMethod");
+        }
+        if (arguments.ContainsKey("OutlineConfigureMethod"))
+        {
+            schema.OutlineConfigureMethod = GeneratorUtilities.GetString(arguments, "OutlineConfigureMethod");
+        }
+
         ApplyFastOptions(schema, arguments);
     }
 
@@ -1797,7 +1808,7 @@ internal static partial class Discovery
             ImmutableArray<SummaryModel> summaries = DiscoverSummaries(sourceProperty);
             ImmutableArray<ConditionalRuleModel> conditionalRules = DiscoverConditionalRules(schema.ItemType, sourceProperty, columnKey, diagnostics);
             ImmutableArray<BandModel> bands = DiscoverBands(sourceProperty, diagnostics);
-            ImmutableArray<AnalyticsRoleModel> analyticsRoles = DiscoverAnalyticsRoles(sourceProperty, diagnostics);
+            ImmutableArray<AnalyticsRoleModel> analyticsRoles = DiscoverAnalyticsRoles(schema.ItemType, sourceProperty, diagnostics);
             bool searchable = GeneratorUtilities.GetBoolean(options, "IsSearchable", true);
             int frozenPlacement = GetEnumValue(options, "FrozenPlacement", 0);
             if (frozenPlacement is < 0 or > 2)
@@ -2774,6 +2785,60 @@ internal static partial class Discovery
                 StringComparison.Ordinal));
     }
 
+    private static void ValidateAnalyticsConfigureMethods(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        ValidateSchemaConfigureMethod(
+            schema,
+            diagnostics,
+            schema.PivotConfigureMethod,
+            "Avalonia.Controls.DataGridPivoting.PivotTableModel",
+            static (target, value) => target.PivotConfigureMethod = value);
+        ValidateSchemaConfigureMethod(
+            schema,
+            diagnostics,
+            schema.OutlineConfigureMethod,
+            "Avalonia.Controls.DataGridReporting.OutlineReportModel",
+            static (target, value) => target.OutlineConfigureMethod = value);
+    }
+
+    private static void ValidateSchemaConfigureMethod(
+        SchemaModel schema,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string? methodName,
+        string parameterMetadataName,
+        Action<SchemaModel, string?> assign)
+    {
+        if (string.IsNullOrEmpty(methodName) ||
+            HasStaticVoidConfigureMethod(schema.ItemType, methodName!, parameterMetadataName))
+        {
+            return;
+        }
+
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidCustomizationMethod,
+            schema.Location,
+            methodName,
+            schema.ItemType.ToDisplayString()));
+        assign(schema, null);
+    }
+
+    private static bool HasStaticVoidConfigureMethod(
+        INamedTypeSymbol type,
+        string name,
+        string parameterMetadataName) =>
+        type.GetMembers(name).OfType<IMethodSymbol>().Any(method =>
+            method.MethodKind == MethodKind.Ordinary &&
+            method.IsStatic &&
+            !method.IsGenericMethod &&
+            GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+            method.ReturnsVoid &&
+            method.Parameters.Length == 1 &&
+            method.Parameters[0].RefKind == RefKind.None &&
+            method.Parameters[0].Type is INamedTypeSymbol parameterType &&
+            string.Equals(GeneratorUtilities.GetMetadataName(parameterType), parameterMetadataName, StringComparison.Ordinal));
+
     private static ImmutableArray<IMethodSymbol> DiscoverOperationPresetMethods(
         SchemaModel schema,
         ImmutableArray<Diagnostic>.Builder diagnostics)
@@ -3046,25 +3111,77 @@ internal static partial class Discovery
     }
 
     private static ImmutableArray<AnalyticsRoleModel> DiscoverAnalyticsRoles(
+        INamedTypeSymbol itemType,
         IPropertySymbol property,
         ImmutableArray<Diagnostic>.Builder diagnostics)
     {
         var roles = ImmutableArray.CreateBuilder<AnalyticsRoleModel>();
-        AddRoleAttributes(property, ProDataGridGenerator.PivotAxisAttributeName, allowedRoles: 1 | 2 | 4, roles, diagnostics);
-        AddRoleAttributes(property, ProDataGridGenerator.ChartFieldAttributeName, allowedRoles: 16 | 32 | 64 | 128 | 256, roles, diagnostics);
-        AddRoleAttributes(property, ProDataGridGenerator.OutlineFieldAttributeName, allowedRoles: 512 | 1024, roles, diagnostics);
+        AddRoleAttributes(itemType, property, ProDataGridGenerator.PivotAxisAttributeName, allowedRoles: 1 | 2 | 4, roles, diagnostics);
+        AddRoleAttributes(itemType, property, ProDataGridGenerator.ChartFieldAttributeName, allowedRoles: 16 | 32 | 64 | 128 | 256, roles, diagnostics);
+        AddRoleAttributes(itemType, property, ProDataGridGenerator.OutlineFieldAttributeName, allowedRoles: 512 | 1024, roles, diagnostics);
 
         foreach (AttributeData attribute in GeneratorUtilities.FindAttributes(property, ProDataGridGenerator.PivotValueAttributeName))
         {
             Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            int aggregate = GetConstructorEnumValue(attribute, 0);
+            string? configureMethod = ValidateAnalyticsFieldConfigureMethod(
+                itemType,
+                property,
+                arguments,
+                "ConfigureMethod",
+                "Avalonia.Controls.DataGridPivoting.PivotValueField",
+                diagnostics);
+            string? aggregatorFactory = ValidateAggregatorFactoryMethod(
+                itemType,
+                property,
+                arguments,
+                diagnostics);
+            string? formula = GeneratorUtilities.GetString(arguments, "Formula");
+            if (string.IsNullOrWhiteSpace(formula))
+            {
+                formula = null;
+            }
+            if (aggregatorFactory != null && aggregate != 15)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    "PivotValue",
+                    "Custom aggregate when CustomAggregatorFactoryMethod is supplied"));
+                aggregatorFactory = null;
+            }
+            if (formula != null && aggregatorFactory != null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    "PivotValue",
+                    "either Formula or CustomAggregatorFactoryMethod"));
+                aggregatorFactory = null;
+            }
+            if (aggregate == 15 && aggregatorFactory == null && configureMethod == null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    "PivotValue",
+                    "CustomAggregatorFactoryMethod or ConfigureMethod for a Custom aggregate"));
+            }
             roles.Add(new AnalyticsRoleModel
             {
                 Role = 8,
                 Order = GeneratorUtilities.GetInt32(arguments, "Order", 0),
                 Name = GeneratorUtilities.GetString(arguments, "Name"),
                 Format = GeneratorUtilities.GetString(arguments, "Format"),
-                Aggregate = GetConstructorEnumValue(attribute, 0),
-                PivotDisplayMode = GetEnumValue(arguments, "DisplayMode", 0)
+                Aggregate = aggregate,
+                PivotDisplayMode = GetEnumValue(arguments, "DisplayMode", 0),
+                Formula = formula,
+                Dependencies = GeneratorUtilities.GetStringArray(arguments, "Dependencies"),
+                ConfigureMethod = configureMethod,
+                CustomAggregatorFactoryMethod = aggregatorFactory
             });
         }
 
@@ -3113,19 +3230,30 @@ internal static partial class Discovery
             for (int roleIndex = 0; roleIndex < column.AnalyticsRoles.Length; roleIndex++)
             {
                 AnalyticsRoleModel role = column.AnalyticsRoles[roleIndex];
-                if ((role.Role & 2048) == 0)
+                bool isFormulaField = (role.Role & 2048) != 0;
+                bool isCalculatedPivotValue = (role.Role & 8) != 0 && role.Formula != null;
+                if (!isFormulaField && !isCalculatedPivotValue)
                 {
                     continue;
                 }
 
-                string name = role.Name ?? string.Empty;
-                if (!formulaNames.Add(name))
+                string name = role.Name ?? column.ColumnKey;
+                if (isFormulaField && !formulaNames.Add(name))
                 {
                     diagnostics.Add(Diagnostic.Create(
                         GeneratorDiagnostics.InvalidFormulaMetadata,
                         GeneratorUtilities.GetLocation(column.Property),
                         name,
                         "formula names must be unique within a schema"));
+                }
+
+                if (isCalculatedPivotValue && role.Dependencies.Length == 0)
+                {
+                    diagnostics.Add(Diagnostic.Create(
+                        GeneratorDiagnostics.InvalidFormulaMetadata,
+                        GeneratorUtilities.GetLocation(column.Property),
+                        name,
+                        "calculated pivot values must declare at least one stable dependency key"));
                 }
 
                 for (int dependencyIndex = 0; dependencyIndex < role.Dependencies.Length; dependencyIndex++)
@@ -3145,6 +3273,7 @@ internal static partial class Discovery
     }
 
     private static void AddRoleAttributes(
+        INamedTypeSymbol itemType,
         IPropertySymbol property,
         string attributeName,
         int allowedRoles,
@@ -3162,15 +3291,128 @@ internal static partial class Discovery
                 continue;
             }
             Dictionary<string, TypedConstant> arguments = GeneratorUtilities.GetNamedArguments(attribute);
+            string? configureParameter = attributeName == ProDataGridGenerator.PivotAxisAttributeName
+                ? "Avalonia.Controls.DataGridPivoting.PivotAxisField"
+                : attributeName == ProDataGridGenerator.OutlineFieldAttributeName
+                    ? role == 512
+                        ? "Avalonia.Controls.DataGridReporting.OutlineGroupField"
+                        : "Avalonia.Controls.DataGridReporting.OutlineValueField"
+                    : null;
+            string? configureMethod = configureParameter == null
+                ? null
+                : ValidateAnalyticsFieldConfigureMethod(
+                    itemType,
+                    property,
+                    arguments,
+                    "ConfigureMethod",
+                    configureParameter,
+                    diagnostics);
+            string? aggregatorFactory = attributeName == ProDataGridGenerator.OutlineFieldAttributeName && role == 1024
+                ? ValidateAggregatorFactoryMethod(itemType, property, arguments, diagnostics)
+                : null;
+            if (attributeName == ProDataGridGenerator.OutlineFieldAttributeName &&
+                role == 512 &&
+                !string.IsNullOrWhiteSpace(GeneratorUtilities.GetString(arguments, "CustomAggregatorFactoryMethod")))
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    "OutlineField",
+                    "CustomAggregatorFactoryMethod only on OutlineDetail roles"));
+            }
+            int aggregate = GetEnumValue(arguments, "Aggregate", 0);
+            if (aggregatorFactory != null && aggregate != 9)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    "OutlineField",
+                    "Custom aggregate when CustomAggregatorFactoryMethod is supplied"));
+                aggregatorFactory = null;
+            }
+            if (attributeName == ProDataGridGenerator.OutlineFieldAttributeName &&
+                role == 1024 && aggregate == 9 && aggregatorFactory == null && configureMethod == null)
+            {
+                diagnostics.Add(Diagnostic.Create(
+                    GeneratorDiagnostics.InvalidColumnConfiguration,
+                    GeneratorUtilities.GetLocation(property),
+                    property.ToDisplayString(),
+                    "OutlineField",
+                    "CustomAggregatorFactoryMethod or ConfigureMethod for a Custom aggregate"));
+            }
             roles.Add(new AnalyticsRoleModel
             {
                 Role = role,
                 Order = GeneratorUtilities.GetInt32(arguments, "Order", 0),
                 Name = GeneratorUtilities.GetString(arguments, attributeName == ProDataGridGenerator.ChartFieldAttributeName ? "Series" : "Name"),
                 Format = GeneratorUtilities.GetString(arguments, "Format"),
-                Aggregate = GetEnumValue(arguments, "Aggregate", 0)
+                Aggregate = aggregate,
+                ConfigureMethod = configureMethod,
+                CustomAggregatorFactoryMethod = aggregatorFactory
             });
         }
+    }
+
+    private static string? ValidateAnalyticsFieldConfigureMethod(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        Dictionary<string, TypedConstant> arguments,
+        string optionName,
+        string parameterMetadataName,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        string? methodName = GeneratorUtilities.GetString(arguments, optionName);
+        if (string.IsNullOrWhiteSpace(methodName))
+        {
+            return null;
+        }
+        if (HasStaticVoidConfigureMethod(itemType, methodName!, parameterMetadataName))
+        {
+            return methodName;
+        }
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidCustomizationMethod,
+            GeneratorUtilities.GetLocation(property),
+            methodName,
+            itemType.ToDisplayString()));
+        return null;
+    }
+
+    private static string? ValidateAggregatorFactoryMethod(
+        INamedTypeSymbol itemType,
+        IPropertySymbol property,
+        Dictionary<string, TypedConstant> arguments,
+        ImmutableArray<Diagnostic>.Builder diagnostics)
+    {
+        string? methodName = GeneratorUtilities.GetString(arguments, "CustomAggregatorFactoryMethod");
+        if (string.IsNullOrWhiteSpace(methodName))
+        {
+            return null;
+        }
+        bool valid = itemType.GetMembers(methodName!).OfType<IMethodSymbol>().Any(method =>
+            method.MethodKind == MethodKind.Ordinary &&
+            method.IsStatic &&
+            !method.IsGenericMethod &&
+            GeneratorUtilities.IsAccessibleFromGeneratedCode(method) &&
+            method.Parameters.Length == 0 &&
+            method.ReturnType is INamedTypeSymbol returnType &&
+            (string.Equals(
+                 GeneratorUtilities.GetMetadataName(returnType),
+                 "Avalonia.Controls.DataGridPivoting.IPivotAggregator",
+                 StringComparison.Ordinal) ||
+             ImplementsMetadataName(returnType, "Avalonia.Controls.DataGridPivoting.IPivotAggregator")));
+        if (valid)
+        {
+            return methodName;
+        }
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidCustomizationMethod,
+            GeneratorUtilities.GetLocation(property),
+            methodName,
+            itemType.ToDisplayString()));
+        return null;
     }
 
     private static int GetConstructorEnumValue(AttributeData attribute, int index) =>

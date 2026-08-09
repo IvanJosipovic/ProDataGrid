@@ -90,5 +90,54 @@ public sealed class DataGridGeneratedOutlineAdapterTests
         Assert.Equal("aggregate", error.ParamName);
     }
 
+    [Fact]
+    public void Advanced_capability_metadata_applies_outline_hooks_and_custom_aggregator()
+    {
+        var aggregator = new TestAggregator();
+        var groupMetadata = new DataGridGeneratedAnalyticsField<Row, string>(
+            "region",
+            DataGridGeneratedAnalyticsRole.OutlineGroup,
+            0,
+            static row => row.Region,
+            new DataGridGeneratedAdvancedAnalyticsOptions
+            {
+                ConfigureOutlineGroup = static field => field.ShowSubtotals = false
+            });
+        var valueMetadata = new DataGridGeneratedAnalyticsField<Row, decimal>(
+            "planned",
+            DataGridGeneratedAnalyticsRole.OutlineDetail,
+            0,
+            static row => row.Planned,
+            new DataGridGeneratedAdvancedAnalyticsOptions
+            {
+                CustomAggregatorFactory = () => aggregator,
+                ConfigureOutlineValue = static field => field.StringFormat = "N3"
+            },
+            aggregate: (int)DataGridAggregateType.Custom,
+            dependencies: null);
+
+        OutlineGroupField group = DataGridGeneratedOutlineAdapter.CreateGroupField(groupMetadata);
+        OutlineValueField value = DataGridGeneratedOutlineAdapter.CreateValueField(valueMetadata);
+
+        Assert.False(group.ShowSubtotals);
+        Assert.Same(aggregator, value.CustomAggregator);
+        Assert.Equal("N3", value.StringFormat);
+        Assert.Equal(PivotAggregateType.Custom, value.AggregateType);
+    }
+
     private sealed record Row(string Region, string Team, decimal Planned, decimal Actual);
+
+    private sealed class TestAggregator : IPivotAggregator
+    {
+        public PivotAggregateType AggregateType => PivotAggregateType.Custom;
+        public string Name => "Test";
+        public IPivotAggregationState CreateState() => new TestAggregationState();
+    }
+
+    private sealed class TestAggregationState : IPivotAggregationState
+    {
+        public void Add(object? value) { }
+        public void Merge(IPivotAggregationState other) { }
+        public object? GetResult() => null;
+    }
 }

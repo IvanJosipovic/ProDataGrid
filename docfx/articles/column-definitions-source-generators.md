@@ -491,7 +491,9 @@ Assign analytics roles to the same attributed properties that define the grid sc
 [GenerateDataGridColumns(
     ProviderName = "SalesSchema",
     Discovery = DataGridColumnDiscovery.AttributedOnly,
-    Strict = true)]
+    Strict = true,
+    PivotConfigureMethod = nameof(ConfigurePivot),
+    OutlineConfigureMethod = nameof(ConfigureOutline))]
 public sealed class Sale
 {
     [DataGridColumn(Header = "Period", ColumnKey = "period")]
@@ -500,8 +502,14 @@ public sealed class Sale
     public string Period { get; init; } = string.Empty;
 
     [DataGridColumn(Header = "Region", ColumnKey = "region")]
-    [DataGridPivotAxis(DataGridGeneratedAnalyticsRole.PivotRow, Order = 0)]
-    [DataGridOutlineField(DataGridGeneratedAnalyticsRole.OutlineGroup, Order = 0)]
+    [DataGridPivotAxis(
+        DataGridGeneratedAnalyticsRole.PivotRow,
+        Order = 0,
+        ConfigureMethod = nameof(ConfigurePivotAxis))]
+    [DataGridOutlineField(
+        DataGridGeneratedAnalyticsRole.OutlineGroup,
+        Order = 0,
+        ConfigureMethod = nameof(ConfigureOutlineGroup))]
     public string Region { get; init; } = string.Empty;
 
     [DataGridColumn(DataGridColumnKind.Numeric, Header = "Revenue", ColumnKey = "revenue")]
@@ -519,6 +527,20 @@ public sealed class Sale
         Format = "C0",
         Aggregate = DataGridAggregateType.Sum)]
     public double Revenue { get; init; }
+
+    [DataGridColumn(DataGridColumnKind.Numeric, Header = "Margin", ColumnKey = "margin")]
+    [DataGridPivotValue(
+        PivotAggregateType.None,
+        Order = 1,
+        Format = "P1",
+        Formula = "[revenue] * 0.2",
+        Dependencies = new[] { "revenue" })]
+    public double Margin { get; init; }
+
+    public static void ConfigurePivotAxis(PivotAxisField field) => field.ShowSubtotals = false;
+    public static void ConfigureOutlineGroup(OutlineGroupField field) => field.ShowSubtotals = true;
+    public static void ConfigurePivot(PivotTableModel model) => model.Layout.RowLayout = PivotRowLayout.Tabular;
+    public static void ConfigureOutline(OutlineReportModel model) => model.Layout.ShowGrandTotal = true;
 }
 ```
 
@@ -535,7 +557,9 @@ PivotTableModel pivot = SalesSchema.CreatePivotTableModel(
     });
 ```
 
-No pivot field receives a property path. Each selector calls the generated field accessor directly. The callback remains the customization boundary for layout, sorting, subtotal policy, filters, calculated fields, and application-specific pivot behavior.
+No pivot field receives a property path. Each selector calls the generated field accessor directly. `PivotConfigureMethod` applies a validated `static void Method(PivotTableModel)` policy before the optional caller callback. `DataGridPivotAxisAttribute.ConfigureMethod` and `DataGridPivotValueAttribute.ConfigureMethod` require exact accessible static methods accepting `PivotAxisField` and `PivotValueField`, respectively. Calculated values declare `Formula` plus stable column-key `Dependencies`; missing dependencies produce `PDGSG121`.
+
+For `PivotAggregateType.Custom`, set `CustomAggregatorFactoryMethod` to an exact accessible `static IPivotAggregator Method()` factory. The generator reports invalid signatures as `PDGSG004` and inconsistent formula/custom-aggregate combinations as `PDGSG009`. These delegates are stored through the additive `IDataGridGeneratedAdvancedAnalyticsField` contract and `DataGridGeneratedAdvancedAnalyticsOptions`, so the base analytics interface and its original public constructors remain binary-compatible for user implementations.
 
 Outline roles use the same ordered direct selectors. Group roles create `OutlineGroupField` instances; detail roles create aggregated `OutlineValueField` instances with explicit `DataGridAggregateType` mapping. The generated provider exposes `CreateOutlineGroupFields`, `CreateOutlineValueFields`, and a customizable model factory:
 
@@ -551,7 +575,9 @@ OutlineReportModel outline = SalesSchema.CreateOutlineReportModel(
     });
 ```
 
-Every generated outline field leaves `PropertyPath` unset. `DataGridGeneratedOutlineAdapter` is also public for custom manifests, while the callback remains the boundary for comparers, custom aggregators, detail labels, layout, culture, and expansion policy.
+Every generated outline field leaves `PropertyPath` unset. `OutlineConfigureMethod` validates and applies a `static void Method(OutlineReportModel)` schema policy; group/detail `ConfigureMethod` hooks accept `OutlineGroupField` and `OutlineValueField`. An outline detail may use `DataGridAggregateType.Custom` with the same parameterless `IPivotAggregator` factory contract. `DataGridGeneratedOutlineAdapter` remains public for custom manifests, and the optional caller callback runs after generated schema configuration.
+
+`SchemaHash` covers column definitions plus group, summary, band, analytics, calculated dependency, factory, and configuration-hook semantics. Persisted state can therefore reject or migrate when any behaviorally relevant generated schema contract changes.
 
 Projects that reference `ProDataGrid.Charting` can create a direct chart projection from the same manifest:
 
@@ -612,7 +638,7 @@ var longFormModel = new ChartModel { DataSource = longForm };
 
 The source walks input once, invokes cached numeric selectors directly, preserves first category/discriminator order, aggregates duplicate category/series pairs according to each generated field, honors exact chart windows, observes collection and item changes, and bounds both input rows and emitted series. One value role names series by discriminator; multiple value roles use `discriminator · value`. Custom sources can implement `IChartDataSource` and consume the same manifest.
 
-`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, ordered row/column/filter/value fields, a configurable generated `PivotTableModel`, a chart driven by the pivot result, a bounded range chart, generated long-form Region series, incremental stable-key selection synchronization, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage. `GeneratedOutlineDragDropPage` demonstrates ordered generated outline groups/values beside a generated ReactiveUI source grid and domain-owned keyed Move/Copy handling with rejection, revision state, and automatic outline refresh.
+`DataGridSample.Pages.GeneratedPivotChartPage` demonstrates an attributed-only strict schema, schema/field configuration hooks, a calculated margin measure with stable dependencies, ordered row/column/filter/value fields, a chart driven by the pivot result, a bounded range chart, generated long-form Region series, incremental stable-key selection synchronization, current ReactiveUI source generation, passive compiled XAML, reactive source changes, metric and series switching, and Avalonia Headless screenshot coverage. `GeneratedOutlineDragDropPage` demonstrates declarative outline layout/field hooks, a generated custom range aggregator, ordered generated outline groups/values, a generated ReactiveUI source grid, and domain-owned keyed Move/Copy handling with rejection, revision state, and automatic outline refresh.
 
 ## Column coverage and customization
 

@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridPivoting;
@@ -62,7 +61,7 @@ public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisp
         AddBaselineRows();
         Items = GeneratedPivotChartRowSchema.CreateCollectionView(_source, sourceIsInGroupOrder: false);
 
-        Pivot = GeneratedPivotChartRowSchema.CreatePivotTableModel(Items, ConfigurePivot);
+        Pivot = GeneratedPivotChartRowSchema.CreatePivotTableModel(Items);
         PivotChart = new PivotChartModel
         {
             Pivot = Pivot,
@@ -189,20 +188,6 @@ public sealed partial class GeneratedPivotChartViewModel : ReactiveObject, IDisp
         PivotChartSource.Dispose();
         PivotChart.Dispose();
         Pivot.Dispose();
-    }
-
-    private static void ConfigurePivot(PivotTableModel pivot)
-    {
-        pivot.RowFields[0].SortDirection = ListSortDirection.Ascending;
-        pivot.RowFields[0].ShowSubtotals = false;
-        pivot.ColumnFields[0].SortDirection = ListSortDirection.Ascending;
-        pivot.ColumnFields[0].ShowSubtotals = false;
-        pivot.Layout.RowLayout = PivotRowLayout.Tabular;
-        pivot.Layout.ValuesPosition = PivotValuesPosition.Columns;
-        pivot.Layout.ShowRowSubtotals = false;
-        pivot.Layout.ShowColumnSubtotals = false;
-        pivot.Layout.ShowRowGrandTotals = true;
-        pivot.Layout.ShowColumnGrandTotals = true;
     }
 
     private void AddPeriod()

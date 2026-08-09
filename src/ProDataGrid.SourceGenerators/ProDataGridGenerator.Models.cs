@@ -320,6 +320,10 @@ internal sealed class SchemaModel
 
     public string? ConfigureMethod { get; set; }
 
+    public string? PivotConfigureMethod { get; set; }
+
+    public string? OutlineConfigureMethod { get; set; }
+
     public Location Location { get; set; } = Location.None;
 
     public ImmutableArray<ColumnModel> Columns { get; set; } = ImmutableArray<ColumnModel>.Empty;
@@ -608,6 +612,9 @@ internal sealed class AnalyticsRoleModel
     public string? Format { get; set; }
     public int Aggregate { get; set; }
     public int PivotDisplayMode { get; set; }
+    public string? Formula { get; set; }
+    public string? ConfigureMethod { get; set; }
+    public string? CustomAggregatorFactoryMethod { get; set; }
     public ImmutableArray<string> Dependencies { get; set; } = ImmutableArray<string>.Empty;
 }
 

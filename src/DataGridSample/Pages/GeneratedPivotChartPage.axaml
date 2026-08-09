@@ -60,7 +60,7 @@
             <Grid RowDefinitions="Auto,*" RowSpacing="6">
               <StackPanel>
                 <TextBlock FontWeight="SemiBold" Text="Pivot-derived chart" />
-                <TextBlock TextWrapping="Wrap" Text="Switch value fields and row/column series at runtime while the generated selectors remain cached." />
+                <TextBlock TextWrapping="Wrap" Text="Switch Revenue, Profit, and the generated [profit] / [revenue] calculated Margin while declarative field/layout hooks and cached selectors remain reflection-free." />
               </StackPanel>
               <charts:ProChartView Grid.Row="1" ChartModel="{Binding PivotChartModel}" ChartStyle="{Binding ChartStyle}" />
             </Grid>

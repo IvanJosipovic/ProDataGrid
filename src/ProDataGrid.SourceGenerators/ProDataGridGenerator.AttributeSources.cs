@@ -186,6 +186,8 @@ public sealed partial class ProDataGridGenerator
                 public string? KeySelectorMethod { get; set; }
                 public bool UseReferenceIdentityKey { get; set; }
                 public string? ConfigureMethod { get; set; }
+                public string? PivotConfigureMethod { get; set; }
+                public string? OutlineConfigureMethod { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
@@ -202,6 +204,8 @@ public sealed partial class ProDataGridGenerator
                 public bool HierarchicalRows { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
                 public int StateVersion { get; set; } = 1;
+                public string? PivotConfigureMethod { get; set; }
+                public string? OutlineConfigureMethod { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Class | AttributeTargets.Assembly, AllowMultiple = true, Inherited = false)]
@@ -581,6 +585,7 @@ public sealed partial class ProDataGridGenerator
                 public int Order { get; set; }
                 public string? Name { get; set; }
                 public string? Format { get; set; }
+                public string? ConfigureMethod { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
@@ -592,6 +597,10 @@ public sealed partial class ProDataGridGenerator
                 public string? Name { get; set; }
                 public string? Format { get; set; }
                 public global::Avalonia.Controls.DataGridPivoting.PivotValueDisplayMode DisplayMode { get; set; }
+                public string? Formula { get; set; }
+                public string[] Dependencies { get; set; } = Array.Empty<string>();
+                public string? CustomAggregatorFactoryMethod { get; set; }
+                public string? ConfigureMethod { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = true, Inherited = true)]
@@ -614,6 +623,8 @@ public sealed partial class ProDataGridGenerator
                 public string? Name { get; set; }
                 public string? Format { get; set; }
                 public global::Avalonia.Controls.DataGridAggregateType Aggregate { get; set; }
+                public string? CustomAggregatorFactoryMethod { get; set; }
+                public string? ConfigureMethod { get; set; }
             }
 
             [AttributeUsage(AttributeTargets.Property, AllowMultiple = false, Inherited = true)]
