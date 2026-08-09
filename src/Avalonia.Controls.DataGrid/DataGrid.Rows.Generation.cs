@@ -111,6 +111,16 @@ namespace Avalonia.Controls
                         cell.InvalidateMeasureForContentChange();
                     }
                 }
+                else if (recycledRow != null && double.IsNaN(RowHeight))
+                {
+                    // Preserve the recycled controls and binding graph, but do not reuse their
+                    // previous item's desired sizes for variable-height rows. Fixed-height grids
+                    // can skip this work because content cannot change the arranged row height.
+                    foreach (DataGridCell cell in dataGridRow.Cells)
+                    {
+                        cell.InvalidateMeasureForContentChange();
+                    }
+                }
                 OnLoadingRow(new DataGridRowEventArgs(dataGridRow));
             }
             else if (isOwnContainer)
