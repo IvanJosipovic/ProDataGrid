@@ -1416,6 +1416,11 @@ internal static class Emitter
             .AppendLine("            }")
             .AppendLine("            return view;")
             .AppendLine("        }")
+            .AppendLine()
+            .AppendLine("        public static void ApplyCollectionViewSorting(")
+            .AppendLine("            global::Avalonia.Collections.DataGridCollectionView view,")
+            .AppendLine("            global::System.Collections.Generic.IReadOnlyList<global::Avalonia.Controls.DataGridSorting.SortingDescriptor> descriptors)")
+            .AppendLine("            => global::Avalonia.Controls.DataGridGeneratedCollectionViewOperations.ApplySorting(view, Instance, descriptors);")
             .AppendLine();
 
         if (schema.KeyMember != null)

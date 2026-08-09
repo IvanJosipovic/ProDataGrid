@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Collections;
@@ -26,16 +25,14 @@ namespace Avalonia.Diagnostics.ViewModels
             AssetsFilter = new FilterViewModel();
             AssetsFilter.RefreshFilter += (_, _) => _assetsView.Refresh();
 
-            _assetsView = new DataGridCollectionView(_assets)
-            {
-                Filter = FilterAsset
-            };
-            _assetsView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                nameof(AssetEntryViewModel.AssemblyName),
-                ListSortDirection.Ascending));
-            _assetsView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                nameof(AssetEntryViewModel.AssetPath),
-                ListSortDirection.Ascending));
+            _assetsView = AssetEntryGridSchema.CreateCollectionView(_assets);
+            _assetsView.Filter = FilterAsset;
+            AssetEntryGridSchema.ApplyCollectionViewSorting(
+                _assetsView,
+                [
+                    AssetEntryGridSchema.AssemblyName.Ascending(),
+                    AssetEntryGridSchema.AssetPath.Ascending()
+                ]);
 
             _ = LoadAssetsAsync();
         }

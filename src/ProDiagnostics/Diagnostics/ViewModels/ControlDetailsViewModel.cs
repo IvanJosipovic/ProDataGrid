@@ -33,17 +33,6 @@ namespace Avalonia.Diagnostics.ViewModels
         private string? _selectedEntityName;
         private string? _selectedEntityType;
         private bool _showImplementedInterfaces;
-        // new DataGridPathGroupDescription(nameof(AvaloniaPropertyViewModel.Group))
-        private readonly static IReadOnlyList<DataGridPathGroupDescription> GroupDescriptors = new DataGridPathGroupDescription[]
-        {
-            new DataGridPathGroupDescription(nameof(AvaloniaPropertyViewModel.Group))
-        };
-
-        private readonly static IReadOnlyList<DataGridSortDescription> SortDescriptions = new DataGridSortDescription[]
-        {
-            new DataGridComparerSortDescription(PropertyComparer.Instance!, ListSortDirection.Ascending),
-        };
-
         public ControlDetailsViewModel(TreePageViewModel treePage, AvaloniaObject avaloniaObject, ISet<string> pinnedProperties)
         {
             _avaloniaObject = avaloniaObject;
@@ -497,9 +486,10 @@ namespace Avalonia.Diagnostics.ViewModels
                 .GroupBy(x => x.Key)
                 .ToDictionary(x => x.Key, x => x.ToArray());
 
-            var view = new DataGridCollectionView(properties);
-            view.GroupDescriptions.AddRange(GroupDescriptors);
-            view.SortDescriptions.AddRange(SortDescriptions);
+            var view = PropertyGridSchema.CreateCollectionView(properties);
+            PropertyGridSchema.ApplyCollectionViewSorting(
+                view,
+                [PropertyGridSchema.Item.Ascending(PropertyComparer.Instance)]);
             view.Filter = FilterProperty;
             PropertiesView = view;
 

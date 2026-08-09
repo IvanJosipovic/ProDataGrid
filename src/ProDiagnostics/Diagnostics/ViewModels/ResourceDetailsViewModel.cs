@@ -115,7 +115,8 @@ namespace Avalonia.Diagnostics.ViewModels
             }
 
             _propertyIndex = BuildPropertyIndex(properties);
-            var view = new DataGridCollectionView(properties);
+            var view = PropertyGridSchema.CreateCollectionView(properties);
+            view.GroupDescriptions.Clear();
             view.Filter = FilterProperty;
             PropertiesView = view;
 

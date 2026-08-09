@@ -5490,6 +5490,8 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("PreserveUnloadedKeys = PreserveSelectionByKey", result.CombinedSource);
         Assert.Contains("view.MoveToPage(initialPageIndex)", result.CombinedSource);
         Assert.Contains("view.MoveCurrentToFirst()", result.CombinedSource);
+        Assert.Contains("ApplyCollectionViewSorting(", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedCollectionViewOperations.ApplySorting(view, Instance, descriptors)", result.CombinedSource);
 
         GeneratorTestResult changedDefault = GeneratorTestHelper.Run("""
             using ProDataGrid.SourceGeneration;

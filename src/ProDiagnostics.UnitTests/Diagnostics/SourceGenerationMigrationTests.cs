@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Diagnostics.Generated;
@@ -21,6 +22,9 @@ public sealed class SourceGenerationMigrationTests
         Assert.True(ProDiagnosticsGeneratedSchemas.TryGetSchema(typeof(ResourceReferenceEntryViewModel), out _));
         Assert.True(ProDiagnosticsGeneratedSchemas.TryGetSchema(typeof(ResourceTreeNode), out _));
         Assert.True(ProDiagnosticsGeneratedSchemas.TryGetSchema(typeof(TreeNode), out _));
+        Assert.All(
+            ProDiagnosticsGeneratedSchemas.Schemas,
+            static schema => Assert.All(schema.Manifest.Fields, static field => Assert.NotNull(field.Accessor)));
     }
 
     [Fact]
@@ -44,6 +48,26 @@ public sealed class SourceGenerationMigrationTests
         Assert.Equal("visual", field.ColumnKey);
         Assert.Equal(nameof(TreeNode.Item), field.PropertyName);
         Assert.Equal(typeof(TreeNode), field.ValueType);
+    }
+
+    [Fact]
+    public void Generated_collection_views_use_compiled_sorting_and_group_fields()
+    {
+        AssetEntryViewModel[] assets =
+        [
+            new(new Uri("avares://Demo/z.png"), "Zeta", "z.png", AssetKind.Image),
+            new(new Uri("avares://Demo/a.png"), "Alpha", "a.png", AssetKind.Image)
+        ];
+        var view = AssetEntryGridSchema.CreateCollectionView(assets);
+
+        AssetEntryGridSchema.ApplyCollectionViewSorting(
+            view,
+            [AssetEntryGridSchema.AssemblyName.Ascending(), AssetEntryGridSchema.AssetPath.Ascending()]);
+
+        Assert.Equal(new[] { "Alpha", "Zeta" }, view.Cast<AssetEntryViewModel>().Select(static asset => asset.AssemblyName));
+        Assert.All(view.SortDescriptions, static description => Assert.False(description.HasPropertyPath));
+        Assert.Equal("group", Assert.Single(PropertyGridSchema.GroupFields).ColumnKey);
+        Assert.Equal("type", Assert.Single(ResourceEntryGridSchema.GroupFields).ColumnKey);
     }
 
     [AvaloniaFact]
@@ -74,6 +98,10 @@ public sealed class SourceGenerationMigrationTests
             view.UpdateLayout();
 
             Assert.True(view.IsAttachedToVisualTree());
+            Control grid = view.FindControl<Control>("tree")!;
+            Assert.Equal("Avalonia.Controls.DataGrid", grid.GetType().FullName);
+            Assert.True(treeViewModel.FastPathOptions.StrictMode);
+            Assert.Equal("visual", Assert.Single(treeViewModel.ColumnDefinitions).ColumnKey);
         }
         finally
         {

@@ -832,6 +832,19 @@ public sealed partial class TradesViewModel : ReactiveObject
 
 `CreateCollectionView` applies generated grouping, page size, initial page, and initial currency in one typed factory. A keyed schema additionally emits `CreateCollectionViewController`. The controller maintains a zero-reflection global key index, an `IdentitySelectionModel`, and a sticky current-item key. `Refresh`, `SetPageSize`, `ReplaceView`, `Capture`, `Restore`, and `TryMoveCurrentToKey` preserve selection and currency across page changes and replacement instances without retaining unloaded row objects. Off-page selection behavior is controlled by `PreserveSelectionByKey`; currency preservation is controlled independently by `PreserveCurrentItemByKey`. Invalid negative paging defaults, an initial page without paging, or an unknown currency value report `PDGSG140`.
 
+Each schema also emits `ApplyCollectionViewSorting(view, descriptors)`. It compiles the descriptor list through the generated `IDataGridSortingCompiler<TItem>` and installs a comparer-based sort description, so a collection view can change multi-column sort direction without `DataGridSortDescription.FromPath` or property lookup:
+
+```csharp
+TradeDataGridSchema.ApplyCollectionViewSorting(
+    Items,
+    [
+        TradeDataGridSchema.Symbol.Ascending(),
+        TradeDataGridSchema.Price.Descending(customPriceComparer)
+    ]);
+```
+
+Passing an empty descriptor list clears collection-view sorting. Generated group fields can be added or removed independently when a screen changes grouping mode.
+
 `DataGridSample.Pages.PagingSelectionPage` is the formal ReactiveUI sample. It uses generated columns and strict fast-path options, generated page/currency defaults, selection across pages, refresh, page-size changes, and reversed source replacement. Its passive compiled XAML contains no auto-generation or event handlers; runtime, generator, ViewModel, and Avalonia Headless tests verify the stable-key contract.
 
 ### Typed grouping and rendered summaries

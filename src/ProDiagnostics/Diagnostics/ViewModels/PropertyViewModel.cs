@@ -18,6 +18,8 @@ internal abstract class PropertyViewModel : ViewModelBase
 
     public abstract object Key { get; }
     public abstract string Name { get; }
+    [DataGridColumn(Header = "Group", ColumnKey = "group", Order = 6, IsVisible = false, IsReadOnly = true, CanUserSort = true)]
+    [DataGridGroup(Order = 0)]
     public abstract string Group { get; }
     public abstract Type AssignedType { get; }
     public abstract Type? DeclaringType { get; }

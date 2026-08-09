@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -28,13 +27,11 @@ namespace Avalonia.Diagnostics.ViewModels
             TargetType = property.PropertyType.GetTypeName();
             ResourcesFilter = new FilterViewModel();
             ResourcesFilter.RefreshFilter += (_, _) => RefreshResources();
-            _resourcesView = new DataGridCollectionView(_entries)
-            {
-                Filter = FilterResource
-            };
-            _resourcesView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                nameof(ResourceReferenceEntryViewModel.KeyDisplay),
-                ListSortDirection.Ascending));
+            _resourcesView = ResourceReferenceEntryGridSchema.CreateCollectionView(_entries);
+            _resourcesView.Filter = FilterResource;
+            ResourceReferenceEntryGridSchema.ApplyCollectionViewSorting(
+                _resourcesView,
+                [ResourceReferenceEntryGridSchema.KeyDisplay.Ascending()]);
 
             foreach (var entry in CreateEntries(candidates, formatter))
             {

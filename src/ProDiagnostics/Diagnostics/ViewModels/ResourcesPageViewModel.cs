@@ -56,10 +56,8 @@ namespace Avalonia.Diagnostics.ViewModels
                 _resourcesView.Refresh();
                 UpdateResourceCount();
             };
-            _resourcesView = new DataGridCollectionView(_resourceEntries)
-            {
-                Filter = FilterResource
-            };
+            _resourcesView = ResourceEntryGridSchema.CreateCollectionView(_resourceEntries);
+            _resourcesView.Filter = FilterResource;
 
             SortModes = new[] { ResourceSortMode.Key, ResourceSortMode.Type };
             SortDirections = new[] { ListSortDirection.Ascending, ListSortDirection.Descending };
@@ -404,19 +402,20 @@ namespace Avalonia.Diagnostics.ViewModels
 
             if (SortMode == ResourceSortMode.Type)
             {
-                _resourcesView.GroupDescriptions.Add(new DataGridPathGroupDescription(nameof(ResourceEntryViewModel.ValueTypeName)));
-                _resourcesView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                    nameof(ResourceEntryViewModel.ValueTypeName),
-                    SortDirection));
-                _resourcesView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                    nameof(ResourceEntryViewModel.KeyDisplay),
-                    SortDirection));
+                _resourcesView.GroupDescriptions.Add(ResourceEntryGridSchema.GroupFields[0].CreateDescription());
+                ResourceEntryGridSchema.ApplyCollectionViewSorting(
+                    _resourcesView,
+                    SortDirection == ListSortDirection.Ascending
+                        ? [ResourceEntryGridSchema.ValueTypeName.Ascending(), ResourceEntryGridSchema.KeyDisplay.Ascending()]
+                        : [ResourceEntryGridSchema.ValueTypeName.Descending(), ResourceEntryGridSchema.KeyDisplay.Descending()]);
             }
             else
             {
-                _resourcesView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                    nameof(ResourceEntryViewModel.KeyDisplay),
-                    SortDirection));
+                ResourceEntryGridSchema.ApplyCollectionViewSorting(
+                    _resourcesView,
+                    SortDirection == ListSortDirection.Ascending
+                        ? [ResourceEntryGridSchema.KeyDisplay.Ascending()]
+                        : [ResourceEntryGridSchema.KeyDisplay.Descending()]);
             }
 
             _resourcesView.Refresh();

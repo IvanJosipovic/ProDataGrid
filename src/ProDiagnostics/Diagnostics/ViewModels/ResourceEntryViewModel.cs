@@ -40,6 +40,7 @@ namespace Avalonia.Diagnostics.ViewModels
         public string KeyDisplay { get; }
         public string KeyTypeName { get; }
         [DataGridColumn(Header = "Type", ColumnKey = "type", Order = 3, Width = "2*", IsReadOnly = true, CanUserSort = true)]
+        [DataGridGroup(Order = 0)]
         public string ValueTypeName { get; }
 
         [DataGridColumn(Header = "Value", ColumnKey = "value", Order = 1, Width = "2*", IsReadOnly = true, CanUserSort = true)]
