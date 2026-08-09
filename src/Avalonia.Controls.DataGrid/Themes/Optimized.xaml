@@ -48,6 +48,7 @@
 
       <ControlTheme x:Key="DataGridOptimizedDrawingCellTheme"
                     TargetType="controls:DataGridCustomDrawingCell">
+        <Setter Property="Background" Value="{StaticResource DataGridCellBackgroundBrush}" />
         <Setter Property="Margin" Value="{StaticResource DataGridCellTextBlockMargin}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Template">
@@ -55,6 +56,38 @@
             <Panel IsVisible="False" />
           </ControlTemplate>
         </Setter>
+        <Style Selector="^:searchmatch">
+          <Setter Property="Background" Value="{StaticResource DataGridSearchMatchBrush}" />
+          <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
+        </Style>
+        <Style Selector="^:searchcurrent">
+          <Setter Property="Background" Value="{StaticResource DataGridSearchCurrentBrush}" />
+          <Setter Property="Foreground" Value="{StaticResource DataGridSearchMatchForegroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected">
+          <Setter Property="Background" Value="{StaticResource DataGridCellSelectedUnfocusedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:pointerover">
+          <Setter Property="Background" Value="{StaticResource DataGridCellSelectedHoveredUnfocusedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:focus">
+          <Setter Property="Background" Value="{StaticResource DataGridCellSelectedBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:cell-selected:pointerover:focus">
+          <Setter Property="Background" Value="{StaticResource DataGridCellSelectedHoveredBackgroundBrush}" />
+        </Style>
+        <Style Selector="^:invalid">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInvalidBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="^:warning">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellWarningBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="^:info">
+          <Setter Property="BorderBrush" Value="{StaticResource DataGridCellInfoBrush}" />
+          <Setter Property="BorderThickness" Value="1" />
+        </Style>
       </ControlTheme>
 
       <ControlTheme x:Key="DataGridOptimizedDirectTextCellTheme"

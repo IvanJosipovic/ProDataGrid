@@ -6,9 +6,11 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Xunit;
@@ -89,6 +91,306 @@ public sealed class DataGridOptimizedCellTests
         Assert.IsType<DataGridCustomDrawingCell>(drawingColumn.CreateCell());
         Assert.IsType<DataGridDirectHierarchicalCell>(hierarchyColumn.CreateCell());
         Assert.IsType<DataGridDirectTextCell>(textColumn.CreateCell());
+    }
+
+    [AvaloniaFact]
+    public void OrdinaryColumns_DrawnMode_CreatesCoalescedCellContainers()
+    {
+        var text = new DataGridTextColumn { DisplayMode = DataGridColumnDisplayMode.Drawn };
+        var numeric = new DataGridNumericColumn { DisplayMode = DataGridColumnDisplayMode.Drawn };
+        var progress = new DataGridProgressBarColumn { DisplayMode = DataGridColumnDisplayMode.Drawn };
+        var image = new DataGridImageColumn
+        {
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            ImageWidth = 16,
+            ImageHeight = 16
+        };
+
+        Assert.IsType<DataGridCustomDrawingCell>(text.CreateCell());
+        Assert.IsType<DataGridCustomDrawingCell>(numeric.CreateCell());
+        Assert.IsType<DataGridCustomDrawingCell>(progress.CreateCell());
+        Assert.IsType<DataGridCustomDrawingCell>(image.CreateCell());
+    }
+
+    [AvaloniaFact]
+    public void Unsupported_Draw_Configurations_Fall_Back_To_Retained_Cells()
+    {
+        var progress = new DataGridProgressBarColumn
+        {
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            ShowProgressText = true
+        };
+        var image = new DataGridImageColumn
+        {
+            DisplayMode = DataGridColumnDisplayMode.Drawn
+        };
+
+        Assert.IsType<DataGridCell>(progress.CreateCell());
+        Assert.IsNotType<DataGridCustomDrawingCell>(progress.CreateCell());
+        Assert.IsType<DataGridCell>(image.CreateCell());
+        Assert.IsNotType<DataGridCustomDrawingCell>(image.CreateCell());
+    }
+
+    [AvaloniaFact]
+    public void DrawnText_UsesTypedAccessor_AndTracksItemChanges()
+    {
+        var item = new NotifyItem("First");
+        var column = new TestTextColumn
+        {
+            Binding = new Binding(nameof(NotifyItem.Name)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<NotifyItem, string>(value => value.Name));
+
+        var cell = Assert.IsType<DataGridCustomDrawingCell>(column.CreateCell());
+        cell.DataContext = item;
+        Assert.Null(column.GenerateDisplay(cell, item));
+        Assert.Null(cell.Content);
+        Assert.Equal("First", cell.Value);
+
+        item.Name = "Second";
+
+        Assert.Equal("Second", cell.Value);
+    }
+
+    [AvaloniaFact]
+    public void DrawnNumeric_UsesFormattedTypedAccessor()
+    {
+        var item = new NumericItem(12.5m);
+        var column = new TestNumericColumn
+        {
+            Binding = new Binding(nameof(NumericItem.Value)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            FormatString = "N1"
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<NumericItem, decimal>(value => value.Value));
+
+        var cell = Assert.IsType<DataGridCustomDrawingCell>(column.CreateCell());
+        cell.DataContext = item;
+        Assert.Null(column.GenerateDisplay(cell, item));
+
+        Assert.Equal(12.5m.ToString("N1", column.NumberFormat ?? System.Globalization.CultureInfo.CurrentCulture.NumberFormat), cell.Value);
+    }
+
+    [AvaloniaFact]
+    public void DrawnProgress_And_Image_UseAllocationFreeBuiltInRenderers()
+    {
+        var progressColumn = new TestProgressColumn
+        {
+            Binding = new Binding(nameof(NumericItem.Value)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            Height = 6
+        };
+        var imageColumn = new TestImageColumn
+        {
+            Binding = new Binding(nameof(ImageItem.Image)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            ImageWidth = 18,
+            ImageHeight = 12
+        };
+
+        var progressCell = Assert.IsType<DataGridCustomDrawingCell>(progressColumn.CreateCell());
+        var imageCell = Assert.IsType<DataGridCustomDrawingCell>(imageColumn.CreateCell());
+        progressCell.OwningColumn = progressColumn;
+        imageCell.OwningColumn = imageColumn;
+        Assert.Null(progressColumn.GenerateDisplay(progressCell, new NumericItem(50m)));
+        Assert.Null(imageColumn.GenerateDisplay(imageCell, new ImageItem(null)));
+
+        progressCell.Measure(new Size(100, 24));
+        imageCell.Measure(new Size(100, 24));
+
+        Assert.Equal(6, progressCell.DesiredSize.Height);
+        Assert.Equal(new Size(18, 12), imageCell.DesiredSize);
+        Assert.Same(DataGridProgressCellRenderer.Instance, progressCell.BuiltInRendererForTesting);
+        Assert.Same(DataGridImageCellRenderer.Instance, imageCell.BuiltInRendererForTesting);
+    }
+
+    [AvaloniaFact]
+    public void DrawnDisplay_Still_Uses_Retained_Editors()
+    {
+        var text = new TestTextColumn { DisplayMode = DataGridColumnDisplayMode.Drawn };
+        var numeric = new TestNumericColumn { DisplayMode = DataGridColumnDisplayMode.Drawn };
+        var image = new TestImageColumn
+        {
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            ImageWidth = 16,
+            ImageHeight = 16,
+            AllowEditing = true
+        };
+
+        Assert.IsType<TextBox>(text.GenerateEditor(new DataGridCustomDrawingCell(), new object()));
+        Assert.IsType<NumericUpDown>(numeric.GenerateEditor(new DataGridCustomDrawingCell(), new object()));
+        Assert.IsType<TextBox>(image.GenerateEditor(new DataGridCustomDrawingCell(), new object()));
+    }
+
+    [Fact]
+    public void DrawnCell_AutomationName_Uses_DisplayValue()
+    {
+        var cell = new DataGridCustomDrawingCell { Value = "Accessible value" };
+        var peer = new DataGridCellAutomationPeer(cell);
+
+        Assert.Equal("Accessible value", peer.GetName());
+    }
+
+    [Fact]
+    public void ColumnDefinition_Applies_DrawMode()
+    {
+        var definition = new DataGridTextColumnDefinition
+        {
+            DisplayMode = DataGridColumnDisplayMode.Drawn
+        };
+
+        var column = definition.CreateColumn(new DataGridColumnDefinitionContext(new DataGrid()));
+
+        Assert.Equal(DataGridColumnDisplayMode.Drawn, column.DisplayMode);
+    }
+
+    [AvaloniaFact]
+    public void OrdinaryDrawnColumns_Recycle_Select_And_UseRetainedEditor()
+    {
+        var items = Enumerable.Range(0, 160)
+            .Select(index => new DrawnItem($"Item {index}", index))
+            .ToList();
+        var textColumn = new DataGridTextColumn
+        {
+            Header = "Name",
+            Binding = new Binding(nameof(DrawnItem.Name)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            Width = new DataGridLength(160)
+        };
+        var numericColumn = new DataGridNumericColumn
+        {
+            Header = "Number",
+            Binding = new Binding(nameof(DrawnItem.Number)),
+            DisplayMode = DataGridColumnDisplayMode.Drawn,
+            Width = new DataGridLength(100)
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            textColumn,
+            new DataGridColumnValueAccessor<DrawnItem, string>(item => item.Name, (item, value) => item.Name = value));
+        DataGridColumnMetadata.SetValueAccessor(
+            numericColumn,
+            new DataGridColumnValueAccessor<DrawnItem, decimal>(item => item.Number, (item, value) => item.Number = value));
+
+        var grid = new DataGrid
+        {
+            Width = 360,
+            Height = 180,
+            RowHeight = 24,
+            ItemsSource = items,
+            UseLogicalScrollable = true,
+            AutoGenerateColumns = false
+        };
+        grid.ColumnsInternal.Add(textColumn);
+        grid.ColumnsInternal.Add(numericColumn);
+
+        var window = new Window { Width = 400, Height = 220 };
+        window.SetThemeStyles(DataGridTheme.FluentV2);
+        window.Content = grid;
+        try
+        {
+            window.Show();
+            grid.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            var firstRow = Assert.IsType<DataGridRow>(grid.GetRowFromItem(items[0]));
+            for (var columnIndex = 0; columnIndex < 2; columnIndex++)
+            {
+                var cell = firstRow.Cells[columnIndex];
+                Assert.IsType<DataGridCustomDrawingCell>(cell);
+                Assert.Null(cell.Content);
+            }
+
+            var slot = grid.SlotFromRowIndex(0);
+            grid.UpdateSelectionAndCurrency(0, slot, DataGridSelectionAction.SelectCurrent, scrollIntoView: false);
+            Assert.True(grid.BeginEdit());
+            Assert.IsType<TextBox>(firstRow.Cells[0].Content);
+            Assert.True(grid.CommitEdit());
+            Assert.Null(firstRow.Cells[0].Content);
+
+            var originalCells = grid.GetVisualDescendants().OfType<DataGridCustomDrawingCell>().ToHashSet();
+            grid.ScrollIntoView(items[^1], numericColumn);
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            var recycledCells = grid.GetVisualDescendants().OfType<DataGridCustomDrawingCell>().ToList();
+            Assert.Contains(recycledCells, originalCells.Contains);
+            Assert.All(recycledCells, cell => Assert.Null(cell.Content));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DisplayMode_Change_Recreates_Realized_Cells()
+    {
+        var item = new DrawnItem("Item", 1);
+        var column = new DataGridTextColumn
+        {
+            Binding = new Binding(nameof(DrawnItem.Name)),
+            Width = new DataGridLength(160)
+        };
+        var grid = new DataGrid
+        {
+            Width = 240,
+            Height = 120,
+            RowHeight = 24,
+            ItemsSource = new[] { item },
+            UseLogicalScrollable = true,
+            AutoGenerateColumns = false
+        };
+        grid.ColumnsInternal.Add(column);
+
+        var window = new Window { Width = 280, Height = 160 };
+        window.SetThemeStyles(DataGridTheme.FluentV2);
+        window.Content = grid;
+        try
+        {
+            window.Show();
+            grid.ApplyTemplate();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            var row = Assert.IsType<DataGridRow>(grid.GetRowFromItem(item));
+            Assert.IsAssignableFrom<TextBlock>(row.Cells[0].Content);
+            var retainedCell = row.Cells[0];
+            var clearing = new List<DataGridCell>();
+            var prepared = new List<DataGridCell>();
+            grid.CellClearing += (_, args) => clearing.Add(args.Cell);
+            grid.CellPrepared += (_, args) => prepared.Add(args.Cell);
+            grid.UpdateSelectionAndCurrency(
+                columnIndex: 0,
+                slot: grid.SlotFromRowIndex(0),
+                action: DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false);
+
+            column.DisplayMode = DataGridColumnDisplayMode.Drawn;
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            grid.UpdateLayout();
+
+            row = Assert.IsType<DataGridRow>(grid.GetRowFromItem(item));
+            Assert.IsType<DataGridCustomDrawingCell>(row.Cells[0]);
+            Assert.Null(row.Cells[0].Content);
+            Assert.Equal(0, grid.CurrentColumnIndex);
+            Assert.Equal(grid.SlotFromRowIndex(0), grid.CurrentSlot);
+            Assert.Equal(new[] { retainedCell }, clearing);
+            Assert.Equal(new[] { row.Cells[0] }, prepared);
+        }
+        finally
+        {
+            window.Close();
+        }
     }
 
     [AvaloniaTheory]
@@ -220,5 +522,79 @@ public sealed class DataGridOptimizedCellTests
         public IndexedItem(string value) => Fields = new List<string> { value };
 
         public List<string> Fields { get; }
+    }
+
+    private sealed record NumericItem(decimal Value);
+
+    private sealed record ImageItem(IImage? Image);
+
+    private sealed class DrawnItem : INotifyPropertyChanged
+    {
+        private string _name;
+        private decimal _number;
+
+        public DrawnItem(string name, decimal number)
+        {
+            _name = name;
+            _number = number;
+        }
+
+        public string Name
+        {
+            get => _name;
+            set
+            {
+                if (_name == value)
+                {
+                    return;
+                }
+
+                _name = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Name)));
+            }
+        }
+
+        public decimal Number
+        {
+            get => _number;
+            set
+            {
+                if (_number == value)
+                {
+                    return;
+                }
+
+                _number = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Number)));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    private sealed class TestTextColumn : DataGridTextColumn
+    {
+        public Control? GenerateDisplay(DataGridCell cell, object item) => GenerateElement(cell, item);
+
+        public Control GenerateEditor(DataGridCell cell, object item) => GenerateEditingElementDirect(cell, item);
+    }
+
+    private sealed class TestNumericColumn : DataGridNumericColumn
+    {
+        public Control? GenerateDisplay(DataGridCell cell, object item) => GenerateElement(cell, item);
+
+        public Control GenerateEditor(DataGridCell cell, object item) => GenerateEditingElementDirect(cell, item);
+    }
+
+    private sealed class TestProgressColumn : DataGridProgressBarColumn
+    {
+        public Control? GenerateDisplay(DataGridCell cell, object item) => GenerateElement(cell, item);
+    }
+
+    private sealed class TestImageColumn : DataGridImageColumn
+    {
+        public Control? GenerateDisplay(DataGridCell cell, object item) => GenerateElement(cell, item);
+
+        public Control GenerateEditor(DataGridCell cell, object item) => GenerateEditingElementDirect(cell, item);
     }
 }

@@ -298,6 +298,10 @@ internal
                 OwningGrid?.OnColumnVisibleStateChanged(this);
                 NotifyPropertyChanged(change.Property.Name);
             }
+            else if (change.Property == DisplayModeProperty)
+            {
+                OwningGrid?.OnColumnDisplayModeChanged(this);
+            }
             else if (change.Property == WidthProperty)
             {
                 if (!_settingWidthInternally)

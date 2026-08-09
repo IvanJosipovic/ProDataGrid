@@ -902,6 +902,66 @@ internal
             }
         }
 
+        internal void OnColumnDisplayModeChanged(DataGridColumn column)
+        {
+            if (column == null || column.Index < 0)
+            {
+                return;
+            }
+
+            if (_editingColumnIndex == column.Index &&
+                !CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true))
+            {
+                CancelEdit(DataGridEditingUnit.Cell, raiseEvents: true);
+            }
+
+            for (int index = 0; index < _loadedRows.Count; index++)
+            {
+                DataGridRow row = _loadedRows[index];
+                if (!IsSlotVisible(row.Slot))
+                {
+                    RecreateColumnCell(row, column);
+                }
+            }
+
+            if (_rowsPresenter != null)
+            {
+                foreach (DataGridRow row in GetAllRows())
+                {
+                    RecreateColumnCell(row, column);
+                }
+
+                _rowsPresenter.InvalidateMeasure();
+            }
+
+            InvalidateRowHeightEstimate();
+            InvalidateMeasure();
+            RequestPointerOverRefresh();
+        }
+
+        private void RecreateColumnCell(DataGridRow row, DataGridColumn column)
+        {
+            if (row == null || column.Index >= row.Cells.Count)
+            {
+                return;
+            }
+
+            DataGridCell oldCell = row.Cells[column.Index];
+            if (!ReferenceEquals(oldCell.OwningColumn, column))
+            {
+                return;
+            }
+
+            NotifyCellClearing(row, oldCell);
+            row.Cells.RemoveAt(column.Index);
+            AddNewCellPrivate(row, column);
+
+            DataGridCell newCell = row.Cells[column.Index];
+            newCell.UpdatePseudoClasses();
+            NotifyCellPrepared(row, newCell);
+            row.InvalidateMeasure();
+        }
+
         /// <summary>
         /// Adjusts the widths of all star columns with DisplayIndex >= displayIndex such that the total
         /// width is adjusted by the given amount, if possible.  If the total desired adjustment amount

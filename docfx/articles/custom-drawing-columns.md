@@ -10,6 +10,44 @@
 
 Use this column when you need lower render overhead than template columns and you want full control over drawing behavior.
 
+## Built-in drawn display mode
+
+Ordinary text, numeric, progress, and deterministically sized image columns can opt into
+the same coalesced drawing-cell path without changing column type:
+
+```xml
+<DataGridTextColumn Header="Name"
+                    Binding="{Binding Name}"
+                    DisplayMode="Drawn" />
+<DataGridNumericColumn Header="Amount"
+                       Binding="{Binding Amount}"
+                       FormatString="N2"
+                       DisplayMode="Drawn" />
+<DataGridProgressBarColumn Header="Progress"
+                           Binding="{Binding Progress}"
+                           Minimum="0"
+                           Maximum="100"
+                           DisplayMode="Drawn" />
+<DataGridImageColumn Header="Icon"
+                     Binding="{Binding Icon}"
+                     ImageWidth="16"
+                     ImageHeight="16"
+                     DisplayMode="Drawn" />
+```
+
+`Retained` remains the default. The drawn display cell is still the real grid cell, so
+selection, hit testing, frozen regions, validation, automation, clipboard, search,
+conditional formatting, tooltips, context menus, and diagnostics retain their normal
+container. Only the nested display control is removed. When editing begins, text,
+numeric, and editable image columns materialize their normal retained editor; commit or
+cancel returns the same container to drawing mode.
+
+Progress columns with `ShowProgressText=True` and image columns without explicit
+`ImageWidth` and `ImageHeight` fall back to retained display because those configurations
+need template measurement/content semantics. Other interactive and templated columns
+remain retained. `DataGridColumnDefinition.DisplayMode` provides the equivalent opt-in
+for `ColumnDefinitionsSource`.
+
 ## API Surface
 
 Core types:

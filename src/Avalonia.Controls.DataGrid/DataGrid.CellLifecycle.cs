@@ -272,6 +272,38 @@ namespace Avalonia.Controls
             }
         }
 
+        private void NotifyCellPrepared(DataGridRow row, DataGridCell cell)
+        {
+            if (!HasCellPreparedHandlers)
+            {
+                return;
+            }
+
+            CreateCellEventContext(
+                row.DataContext,
+                out object item,
+                out HierarchicalNode node,
+                out IReadOnlyList<HierarchicalNode> path);
+            CellPrepared?.Invoke(this, new DataGridCellLifecycleEventArgs(
+                cell, row, row.DataContext, item, node, path));
+        }
+
+        private void NotifyCellClearing(DataGridRow row, DataGridCell cell)
+        {
+            if (!HasCellClearingHandlers)
+            {
+                return;
+            }
+
+            CreateCellEventContext(
+                row.DataContext,
+                out object item,
+                out HierarchicalNode node,
+                out IReadOnlyList<HierarchicalNode> path);
+            CellClearing?.Invoke(this, new DataGridCellLifecycleEventArgs(
+                cell, row, row.DataContext, item, node, path));
+        }
+
         private static void CreateCellEventContext(
             object rowDataContext,
             out object item,

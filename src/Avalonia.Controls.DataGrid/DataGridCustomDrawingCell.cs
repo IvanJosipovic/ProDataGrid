@@ -4,6 +4,7 @@
 #nullable disable
 
 using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -39,6 +40,12 @@ namespace Avalonia.Controls
         private bool _hasCompositionVisualSize;
         private float _compositionVisualWidth;
         private float _compositionVisualHeight;
+        private IDataGridDrawnCellValueProvider _valueProvider;
+        private IDataGridBuiltInCellRenderer _builtInRenderer;
+        private INotifyPropertyChanged _valueNotifier;
+        private IBrush _cachedBorderBrush;
+        private double _cachedBorderThickness;
+        private Pen _cachedBorderPen;
 
         public static readonly DirectProperty<DataGridCustomDrawingCell, object> ValueProperty =
             AvaloniaProperty.RegisterDirect<DataGridCustomDrawingCell, object>(
@@ -111,7 +118,12 @@ namespace Avalonia.Controls
 
         static DataGridCustomDrawingCell()
         {
-            AffectsRender<DataGridCustomDrawingCell>(ForegroundProperty, RenderInvalidationTokenProperty);
+            AffectsRender<DataGridCustomDrawingCell>(
+                BackgroundProperty,
+                BorderBrushProperty,
+                BorderThicknessProperty,
+                ForegroundProperty,
+                RenderInvalidationTokenProperty);
         }
 
         /// <summary>
@@ -261,6 +273,8 @@ namespace Avalonia.Controls
             }
         }
 
+        internal IDataGridBuiltInCellRenderer BuiltInRendererForTesting => _builtInRenderer;
+
         internal void UseDrawingTemplate()
         {
             Content = null;
@@ -272,11 +286,36 @@ namespace Avalonia.Controls
             ClearValue(TemplateProperty);
         }
 
+        internal void ConfigureBuiltInRenderer(
+            IDataGridDrawnCellValueProvider valueProvider,
+            IDataGridBuiltInCellRenderer renderer)
+        {
+            _valueProvider = valueProvider;
+            _builtInRenderer = renderer;
+            UseDrawingTemplate();
+            UpdateValueProviderSubscription();
+            InvalidateMeasure();
+            InvalidateVisual();
+        }
+
+        internal void ClearBuiltInRenderer()
+        {
+            _valueProvider = null;
+            _builtInRenderer = null;
+            UpdateValueProviderSubscription();
+        }
+
         protected override Size MeasureOverride(Size availableSize)
         {
             if (Content != null)
             {
                 return base.MeasureOverride(availableSize);
+            }
+
+            if (_builtInRenderer != null &&
+                _builtInRenderer.TryMeasure(this, availableSize, out Size rendererSize))
+            {
+                return rendererSize;
             }
 
             var text = GetDisplayText();
@@ -322,8 +361,17 @@ namespace Avalonia.Controls
         {
             base.Render(context);
 
+            DrawCellChrome(context);
+
             if (Content != null)
             {
+                return;
+            }
+
+            if (_builtInRenderer != null)
+            {
+                ClearCompositionDrawOperation();
+                _builtInRenderer.Render(this, context);
                 return;
             }
 
@@ -379,6 +427,12 @@ namespace Avalonia.Controls
             TearDownCompositionVisualHost();
             _compositionHostUnavailable = false;
             base.OnDetachedFromVisualTree(e);
+        }
+
+        protected override void OnDataContextChanged(EventArgs e)
+        {
+            base.OnDataContextChanged(e);
+            UpdateValueProviderSubscription();
         }
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
@@ -448,6 +502,48 @@ namespace Avalonia.Controls
                 InvalidateTextLayout();
                 InvalidateVisual();
             }
+            else if (change.Property == BorderBrushProperty || change.Property == BorderThicknessProperty)
+            {
+                _cachedBorderBrush = null;
+                _cachedBorderPen = null;
+                _cachedBorderThickness = 0d;
+                InvalidateVisual();
+            }
+        }
+
+        private void DrawCellChrome(DrawingContext context)
+        {
+            var bounds = new Rect(Bounds.Size);
+            if (Background != null)
+            {
+                context.DrawRectangle(Background, null, bounds);
+            }
+
+            var thickness = Math.Max(
+                Math.Max(BorderThickness.Left, BorderThickness.Top),
+                Math.Max(BorderThickness.Right, BorderThickness.Bottom));
+            if (BorderBrush == null || thickness <= 0d || bounds.Width <= 0d || bounds.Height <= 0d)
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(_cachedBorderBrush, BorderBrush) ||
+                !_cachedBorderThickness.Equals(thickness))
+            {
+                _cachedBorderBrush = BorderBrush;
+                _cachedBorderThickness = thickness;
+                _cachedBorderPen = new Pen(BorderBrush, thickness);
+            }
+
+            var inset = thickness * 0.5d;
+            context.DrawRectangle(
+                null,
+                _cachedBorderPen,
+                new Rect(
+                    inset,
+                    inset,
+                    Math.Max(0d, bounds.Width - thickness),
+                    Math.Max(0d, bounds.Height - thickness)));
         }
 
         private bool TrySendCompositionDrawOperation(ICustomDrawOperation drawOperation)
@@ -757,6 +853,37 @@ namespace Avalonia.Controls
             }
 
             return Convert.ToString(Value, CultureInfo.CurrentCulture) ?? string.Empty;
+        }
+
+        private void UpdateValueProviderSubscription()
+        {
+            if (_valueNotifier != null)
+            {
+                _valueNotifier.PropertyChanged -= OnValueProviderPropertyChanged;
+                _valueNotifier = null;
+            }
+
+            if (_valueProvider == null)
+            {
+                return;
+            }
+
+            UpdateValueFromProvider();
+            if (DataContext is INotifyPropertyChanged notifier)
+            {
+                _valueNotifier = notifier;
+                _valueNotifier.PropertyChanged += OnValueProviderPropertyChanged;
+            }
+        }
+
+        private void OnValueProviderPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            UpdateValueFromProvider();
+        }
+
+        private void UpdateValueFromProvider()
+        {
+            Value = _valueProvider?.GetDrawnCellValue(DataContext);
         }
 
         private void InvalidateTextLayout()
