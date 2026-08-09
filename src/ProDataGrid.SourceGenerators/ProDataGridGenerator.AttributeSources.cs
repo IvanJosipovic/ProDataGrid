@@ -334,6 +334,15 @@ public sealed partial class ProDataGridGenerator
                 public Type? InputMapType { get; set; }
                 public string? InputCommandPropertyName { get; set; }
                 public Type? DiagnosticsSinkType { get; set; }
+                public string? DiagnosticsStatusPropertyName { get; set; }
+                public string? ViewThemeKey { get; set; }
+                public string? DataGridThemeKey { get; set; }
+                public string? ToolbarThemeKey { get; set; }
+                public string? RecipeContentThemeKey { get; set; }
+                public string[]? ViewClasses { get; set; }
+                public string[]? DataGridClasses { get; set; }
+                public string[]? ToolbarClasses { get; set; }
+                public string[]? RecipeContentClasses { get; set; }
                 public string LoadingText { get; set; } = "Loading data…";
                 public string EmptyText { get; set; } = "No items to display.";
                 public string ErrorText { get; set; } = "Unable to load data.";
@@ -410,6 +419,15 @@ public sealed partial class ProDataGridGenerator
                 public Type? InputMapType { get; set; }
                 public string? InputCommandPropertyName { get; set; }
                 public Type? DiagnosticsSinkType { get; set; }
+                public string? DiagnosticsStatusPropertyName { get; set; }
+                public string? ViewThemeKey { get; set; }
+                public string? DataGridThemeKey { get; set; }
+                public string? ToolbarThemeKey { get; set; }
+                public string? RecipeContentThemeKey { get; set; }
+                public string[]? ViewClasses { get; set; }
+                public string[]? DataGridClasses { get; set; }
+                public string[]? ToolbarClasses { get; set; }
+                public string[]? RecipeContentClasses { get; set; }
                 public string LoadingText { get; set; } = "Loading data…";
                 public string EmptyText { get; set; } = "No items to display.";
                 public string ErrorText { get; set; } = "Unable to load data.";

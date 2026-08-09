@@ -2991,6 +2991,43 @@ internal static class Emitter
             .Append(prefix).AppendLine("}");
     }
 
+    private static void EmitGeneratedClasses(
+        StringBuilder builder,
+        string controlExpression,
+        ImmutableArray<string> classes,
+        int indentation)
+    {
+        string prefix = new(' ', indentation);
+        for (int index = 0; index < classes.Length; index++)
+        {
+            builder.Append(prefix).Append(controlExpression).Append(".Classes.Add(")
+                .Append(GeneratorUtilities.EscapeString(classes[index])).AppendLine(");");
+        }
+    }
+
+    private static void EmitGeneratedTheme(
+        StringBuilder builder,
+        string controlExpression,
+        string keyConstant,
+        string? themeKey,
+        int indentation)
+    {
+        if (themeKey == null)
+        {
+            return;
+        }
+
+        string prefix = new(' ', indentation);
+        string themedName = "themed" + char.ToUpperInvariant(controlExpression[0]) + controlExpression.Substring(1);
+        builder.Append(prefix).Append("if (").Append(controlExpression)
+            .Append(" is global::Avalonia.Controls.Primitives.TemplatedControl ").Append(themedName).AppendLine(")")
+            .Append(prefix).AppendLine("{")
+            .Append(prefix).Append("    ").Append(themedName)
+            .Append(".Bind(global::Avalonia.Controls.Primitives.TemplatedControl.ThemeProperty, new global::Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(")
+            .Append(keyConstant).AppendLine("!));")
+            .Append(prefix).AppendLine("}");
+    }
+
     private static string EmitView(ViewModelViewModel model)
     {
         string viewModelType = model.ViewModelType.ToDisplayString(GeneratorUtilities.FullyQualifiedNullableFormat);
@@ -3012,6 +3049,10 @@ internal static class Emitter
             .Append(model.PerformanceProfile.ToString(CultureInfo.InvariantCulture)).AppendLine(";")
             .Append("        public const string GeneratedDiagnosticsSchemaId = ")
             .Append(GeneratorUtilities.EscapeString(GeneratorUtilities.GetMetadataName(model.ItemType) + "/" + model.ViewName)).AppendLine(";")
+            .Append("        public const string? GeneratedViewThemeKey = ").Append(GeneratorUtilities.EscapeString(model.ViewThemeKey)).AppendLine(";")
+            .Append("        public const string? GeneratedDataGridThemeKey = ").Append(GeneratorUtilities.EscapeString(model.DataGridThemeKey)).AppendLine(";")
+            .Append("        public const string? GeneratedToolbarThemeKey = ").Append(GeneratorUtilities.EscapeString(model.ToolbarThemeKey)).AppendLine(";")
+            .Append("        public const string? GeneratedRecipeContentThemeKey = ").Append(GeneratorUtilities.EscapeString(model.RecipeContentThemeKey)).AppendLine(";")
             .AppendLine();
 
         EmitViewPropertyInfo(builder, model.Items, viewModelType, "Items");
@@ -3073,6 +3114,10 @@ internal static class Emitter
         {
             EmitViewPropertyInfo(builder, model.RetryCommand, viewModelType, "RetryCommand");
         }
+        if (model.DiagnosticsStatus != null)
+        {
+            EmitViewPropertyInfo(builder, model.DiagnosticsStatus, viewModelType, "DiagnosticsStatus");
+        }
 
         if (model.ViewState != null)
         {
@@ -3105,8 +3150,13 @@ internal static class Emitter
             .Append("        public ").Append(model.ViewName).AppendLine("()")
             .AppendLine("        {")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(this, GeneratedAutomationId + \"-view\");")
-            .Append("            global::Avalonia.Automation.AutomationProperties.SetName(this, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");")
-            .AppendLine("            Content = CreateGeneratedContent();");
+            .Append("            global::Avalonia.Automation.AutomationProperties.SetName(this, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");");
+        if (model.ViewThemeKey != null)
+        {
+            builder.AppendLine("            this.Bind(global::Avalonia.Controls.Primitives.TemplatedControl.ThemeProperty, new global::Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(GeneratedViewThemeKey!));");
+        }
+        EmitGeneratedClasses(builder, "this", model.ViewClasses, 12);
+        builder.AppendLine("            Content = CreateGeneratedContent();");
         if (usesReactiveActivation)
         {
             builder.AppendLine("            ConfigureGeneratedReactiveActivation(GeneratedDataGrid);");
@@ -3143,6 +3193,19 @@ internal static class Emitter
             .AppendLine("                }")
             .AppendLine("            };");
 
+        if (model.DiagnosticsStatus != null)
+        {
+            builder.AppendLine("            var diagnosticsStatus = new global::Avalonia.Controls.TextBlock")
+                .AppendLine("            {")
+                .AppendLine("                Name = \"GeneratedDiagnosticsStatus\",")
+                .AppendLine("                TextWrapping = global::Avalonia.Media.TextWrapping.Wrap")
+                .AppendLine("            };")
+                .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(diagnosticsStatus, GeneratedAutomationId + \"-diagnostics-status\");")
+                .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetName(diagnosticsStatus, \"Grid diagnostics status\");")
+                .AppendLine("            diagnosticsStatus[!global::Avalonia.Controls.TextBlock.TextProperty] = CreateBinding(s_diagnosticsStatusProperty, global::Avalonia.Data.BindingMode.OneWay);")
+                .AppendLine("            header.Children.Add(diagnosticsStatus);");
+        }
+
         if (model.SearchText != null)
         {
             builder.AppendLine("            var searchBox = new global::Avalonia.Controls.TextBox")
@@ -3160,11 +3223,21 @@ internal static class Emitter
 
         if (model.Recipe >= 2)
         {
-            builder.AppendLine("            var toolbar = CreateGeneratedToolbar();");
+            builder.AppendLine("            var toolbar = CreateGeneratedToolbar();")
+                .AppendLine("            if (toolbar is not null)")
+                .AppendLine("            {");
+            EmitGeneratedTheme(builder, "toolbar", "GeneratedToolbarThemeKey", model.ToolbarThemeKey, 16);
+            EmitGeneratedClasses(builder, "toolbar", model.ToolbarClasses, 16);
+            builder.AppendLine("            }");
         }
         if (model.Recipe >= 3)
         {
-            builder.AppendLine("            var recipeContent = CreateGeneratedRecipeContent();");
+            builder.AppendLine("            var recipeContent = CreateGeneratedRecipeContent();")
+                .AppendLine("            if (recipeContent is not null)")
+                .AppendLine("            {");
+            EmitGeneratedTheme(builder, "recipeContent", "GeneratedRecipeContentThemeKey", model.RecipeContentThemeKey, 16);
+            EmitGeneratedClasses(builder, "recipeContent", model.RecipeContentClasses, 16);
+            builder.AppendLine("            }");
         }
 
         builder.AppendLine("            var dataGrid = CreateGeneratedDataGrid();")
@@ -3236,6 +3309,11 @@ internal static class Emitter
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetAutomationId(dataGrid, GeneratedAutomationId);")
             .Append("            global::Avalonia.Automation.AutomationProperties.SetName(dataGrid, ").Append(GeneratorUtilities.EscapeString(model.Title)).AppendLine(");")
             .AppendLine("            global::Avalonia.Automation.AutomationProperties.SetHelpText(dataGrid, \"Generated reflection-free ProDataGrid view.\");");
+        if (model.DataGridThemeKey != null)
+        {
+            builder.AppendLine("            dataGrid.Bind(global::Avalonia.Controls.Primitives.TemplatedControl.ThemeProperty, new global::Avalonia.Markup.Xaml.MarkupExtensions.DynamicResourceExtension(GeneratedDataGridThemeKey!));");
+        }
+        EmitGeneratedClasses(builder, "dataGrid", model.DataGridClasses, 12);
         if (model.HierarchicalModel == null)
         {
             builder.AppendLine("            dataGrid[!global::Avalonia.Controls.DataGrid.ItemsSourceProperty] = CreateBinding(s_itemsProperty, global::Avalonia.Data.BindingMode.OneWay);");

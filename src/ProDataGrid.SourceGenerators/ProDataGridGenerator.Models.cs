@@ -179,6 +179,24 @@ internal sealed class ViewModelViewModel
 
     public INamedTypeSymbol? DiagnosticsSinkType { get; set; }
 
+    public ViewBindingModel? DiagnosticsStatus { get; set; }
+
+    public string? ViewThemeKey { get; set; }
+
+    public string? DataGridThemeKey { get; set; }
+
+    public string? ToolbarThemeKey { get; set; }
+
+    public string? RecipeContentThemeKey { get; set; }
+
+    public ImmutableArray<string> ViewClasses { get; set; } = ImmutableArray<string>.Empty;
+
+    public ImmutableArray<string> DataGridClasses { get; set; } = ImmutableArray<string>.Empty;
+
+    public ImmutableArray<string> ToolbarClasses { get; set; } = ImmutableArray<string>.Empty;
+
+    public ImmutableArray<string> RecipeContentClasses { get; set; } = ImmutableArray<string>.Empty;
+
     public string LoadingText { get; set; } = string.Empty;
 
     public string EmptyText { get; set; } = string.Empty;

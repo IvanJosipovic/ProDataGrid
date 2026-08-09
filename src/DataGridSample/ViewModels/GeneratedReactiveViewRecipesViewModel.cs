@@ -51,6 +51,13 @@ namespace DataGridSample.ViewModels;
     Title = "Analytics recipe",
     AutomationId = "generated-recipe-analytics",
     SearchTextPropertyName = nameof(Query),
+    DiagnosticsStatusPropertyName = nameof(Status),
+    ViewThemeKey = "GeneratedRecipeAnalyticsViewTheme",
+    DataGridThemeKey = "GeneratedRecipeAnalyticsGridTheme",
+    ViewClasses = new[] { "generated-recipe-view", "analytics-recipe" },
+    DataGridClasses = new[] { "generated-recipe-grid", "analytics-recipe-grid" },
+    ToolbarClasses = new[] { "generated-recipe-toolbar" },
+    RecipeContentClasses = new[] { "generated-recipe-slot" },
     IsReadOnly = true)]
 public sealed partial class GeneratedReactiveViewRecipesViewModel : ReactiveObject, IDisposable
 {

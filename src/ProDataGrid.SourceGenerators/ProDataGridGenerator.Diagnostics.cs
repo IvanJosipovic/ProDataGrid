@@ -205,6 +205,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated formula syntax",
         "Formula column '{0}' contains invalid formula syntax at position {1}: {2}");
 
+    public static readonly DiagnosticDescriptor InvalidViewPresentation = Create(
+        "PDGSG139",
+        "Invalid generated view presentation",
+        "Generated presentation for view '{0}' is invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

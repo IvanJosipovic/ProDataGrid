@@ -96,6 +96,13 @@ if (!AotGeneratedRegistry.TryCreateView(viewModel, out Control? registeredView) 
 
 Control avaloniaView = new AotGeneratedGridView(viewModel);
 Control reactiveView = new AotGeneratedReactiveGridView(viewModel);
+if (AotGeneratedGridView.GeneratedViewThemeKey != "AotGeneratedViewTheme" ||
+    AotGeneratedGridView.GeneratedDataGridThemeKey != "AotGeneratedDataGridTheme" ||
+    !avaloniaView.Classes.Contains("generated-aot-view"))
+{
+    return 3;
+}
+
 GC.KeepAlive(registeredView);
 GC.KeepAlive(avaloniaView);
 GC.KeepAlive(reactiveView);

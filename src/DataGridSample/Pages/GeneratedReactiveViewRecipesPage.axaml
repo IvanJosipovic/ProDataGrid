@@ -5,10 +5,21 @@
     xmlns:pages="clr-namespace:DataGridSample.Pages"
     xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
     x:DataType="viewModels:GeneratedReactiveViewRecipesViewModel">
+  <UserControl.Resources>
+    <ControlTheme x:Key="GeneratedRecipeAnalyticsViewTheme"
+                  TargetType="UserControl">
+      <Setter Property="Background" Value="{DynamicResource ThemeControlLowBrush}" />
+    </ControlTheme>
+    <ControlTheme x:Key="GeneratedRecipeAnalyticsGridTheme"
+                  TargetType="DataGrid"
+                  BasedOn="{StaticResource {x:Type DataGrid}}">
+      <Setter Property="RowBackground" Value="#080078D4" />
+    </ControlTheme>
+  </UserControl.Resources>
   <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
     <StackPanel Spacing="3">
       <TextBlock Classes="h2" Text="Generated ReactiveUI view recipes" />
-      <TextBlock TextWrapping="Wrap" Text="Compare four independently generated code-only views. Each uses compiled binding indexers, deterministic automation metadata, the same strict schema, and ReactiveUI activation." />
+      <TextBlock TextWrapping="Wrap" Text="Compare four independently generated code-only views. The Analytics recipe also resolves view/grid themes, class tokens, and a compiled diagnostics-status projection declaratively." />
     </StackPanel>
 
     <WrapPanel Grid.Row="1">

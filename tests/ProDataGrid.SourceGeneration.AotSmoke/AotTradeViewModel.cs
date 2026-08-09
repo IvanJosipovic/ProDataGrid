@@ -37,7 +37,12 @@ namespace ProDataGrid.SourceGeneration.AotSmoke;
     SortingModelPropertyName = nameof(SortingModel),
     FilteringModelPropertyName = nameof(FilteringModel),
     SearchModelPropertyName = nameof(SearchModel),
-    SearchTextPropertyName = nameof(Query))]
+    SearchTextPropertyName = nameof(Query),
+    DiagnosticsStatusPropertyName = nameof(DiagnosticsStatus),
+    ViewThemeKey = "AotGeneratedViewTheme",
+    DataGridThemeKey = "AotGeneratedDataGridTheme",
+    ViewClasses = new[] { "generated-aot-view", "dense" },
+    DataGridClasses = new[] { "generated-aot-grid" })]
 [GenerateDataGridView(
     typeof(AotTradeRow),
     ViewName = "AotGeneratedReactiveGridView",
@@ -89,6 +94,8 @@ internal sealed partial class AotTradeViewModel : ReactiveObject, IDisposable
     public FilteringModel FilteringModel => Trades.FilteringModel;
 
     public SearchModel SearchModel => Trades.SearchModel;
+
+    public string DiagnosticsStatus => $"NativeAOT rows: {_items.Count}";
 
     public string Query
     {

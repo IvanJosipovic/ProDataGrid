@@ -1143,6 +1143,7 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG136` | A configured new-row factory is inaccessible, abstract, open, non-constructible, or implements the wrong item contract. |
 | `PDGSG137` | A configured formula-fill translator is inaccessible, abstract, open, non-constructible, or does not implement `IFormulaFillTranslator`. |
 | `PDGSG138` | A statically declared generated formula has invalid syntax. |
+| `PDGSG139` | A generated-view theme key, class token, or diagnostics-status property is invalid. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
@@ -1170,6 +1171,30 @@ public sealed partial class TradesViewModel : ReactiveObject
 ```
 
 The generated view contains a title, an optional two-way search box, and a configured `DataGrid`. It binds items, definitions, fast-path options, and any named sorting, filtering, search, selection, and state models. The parameterless constructor supports XAML, DI, and view locators; an overload accepts the typed view model directly.
+
+Generated presentation can also be declared without view code-behind:
+
+```csharp
+[GenerateDataGridView(
+    typeof(Trade),
+    ViewName = "TradeAnalyticsView",
+    Recipe = DataGridViewRecipe.Analytics,
+    DiagnosticsStatusPropertyName = nameof(Status),
+    ViewThemeKey = "TradeAnalyticsViewTheme",
+    DataGridThemeKey = "TradeAnalyticsGridTheme",
+    ToolbarThemeKey = "TradeAnalyticsToolbarTheme",
+    RecipeContentThemeKey = "TradeAnalyticsContentTheme",
+    ViewClasses = new[] { "workspace-view", "analytics" },
+    DataGridClasses = new[] { "trade-grid", "dense" },
+    ToolbarClasses = new[] { "trade-toolbar" },
+    RecipeContentClasses = new[] { "analytics-content" })]
+public sealed partial class TradeAnalyticsViewModel : ReactiveObject
+{
+    public string Status => "Streaming with generated accessors";
+}
+```
+
+Theme keys are resolved as Avalonia dynamic resources when the generated controls join a resource tree, so applications retain theme-variant and resource-dictionary ownership. Class arrays are emitted as direct `Classes` additions. `DiagnosticsStatusPropertyName` must name an accessible readable `string`; the generated `GeneratedDiagnosticsStatus` element uses a compiled getter-backed binding. Empty resource keys, duplicate or whitespace-containing class tokens, and incompatible status members report `PDGSG139`. The same options are available on type, assembly, and namespace view declarations. Generated views expose their four selected resource keys as nullable constants for diagnostics and tests.
 
 `Recipe` selects a stable layout contract without taking ownership of application-specific controls:
 

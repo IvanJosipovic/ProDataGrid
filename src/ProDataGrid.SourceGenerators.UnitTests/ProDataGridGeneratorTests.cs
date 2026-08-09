@@ -4935,6 +4935,137 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Generated_view_emits_theme_classes_and_compiled_diagnostics_status()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridView(
+                typeof(Row),
+                Recipe = DataGridViewRecipe.Analytics,
+                DiagnosticsStatusPropertyName = nameof(Status),
+                ViewThemeKey = "RowsViewTheme",
+                DataGridThemeKey = "RowsGridTheme",
+                ToolbarThemeKey = "RowsToolbarTheme",
+                RecipeContentThemeKey = "RowsAnalyticsTheme",
+                ViewClasses = new[] { "generated-view", "dense" },
+                DataGridClasses = new[] { "generated-grid", "striped" },
+                ToolbarClasses = new[] { "generated-toolbar" },
+                RecipeContentClasses = new[] { "generated-analytics" })]
+            public sealed class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new Row[0];
+                public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                public DataGridFastPathOptions FastPathOptions { get; } = new();
+                public string Status { get; } = "Fast path active";
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("GeneratedViewThemeKey = \"RowsViewTheme\"", result.CombinedSource);
+        Assert.Contains("GeneratedDataGridThemeKey = \"RowsGridTheme\"", result.CombinedSource);
+        Assert.Contains("GeneratedToolbarThemeKey = \"RowsToolbarTheme\"", result.CombinedSource);
+        Assert.Contains("GeneratedRecipeContentThemeKey = \"RowsAnalyticsTheme\"", result.CombinedSource);
+        Assert.Contains("this.Classes.Add(\"generated-view\")", result.CombinedSource);
+        Assert.Contains("dataGrid.Classes.Add(\"striped\")", result.CombinedSource);
+        Assert.Contains("toolbar.Classes.Add(\"generated-toolbar\")", result.CombinedSource);
+        Assert.Contains("recipeContent.Classes.Add(\"generated-analytics\")", result.CombinedSource);
+        Assert.Contains("DynamicResourceExtension(GeneratedViewThemeKey!)", result.CombinedSource);
+        Assert.Contains("DynamicResourceExtension(GeneratedDataGridThemeKey!)", result.CombinedSource);
+        Assert.Contains("s_diagnosticsStatusProperty", result.CombinedSource);
+        Assert.Contains("GeneratedDiagnosticsStatus", result.CombinedSource);
+        Assert.Contains("GeneratedAutomationId + \"-diagnostics-status\"", result.CombinedSource);
+    }
+
+    [Fact]
+    public void Assembly_and_namespace_view_presentation_options_propagate()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System;
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridView(
+                typeof(Demo.AssemblyRowsViewModel),
+                typeof(Demo.Row),
+                ViewName = "AssemblyPresentationView",
+                DiagnosticsStatusPropertyName = "Status",
+                DataGridThemeKey = "AssemblyGridTheme",
+                DataGridClasses = new[] { "assembly-grid" })]
+            [assembly: GenerateDataGridViewsForNamespace(
+                "Demo.Policy",
+                DiagnosticsStatusPropertyName = "Status",
+                ViewThemeKey = "PolicyViewTheme",
+                ViewClasses = new[] { "policy-view" })]
+            namespace Demo
+            {
+                public sealed class Row { public int Id { get; set; } }
+                public sealed class AssemblyRowsViewModel
+                {
+                    public IReadOnlyList<Row> Items { get; } = Array.Empty<Row>();
+                    public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public DataGridFastPathOptions FastPathOptions { get; } = new();
+                    public string Status { get; } = "Assembly";
+                }
+            }
+            namespace Demo.Policy
+            {
+                public sealed class PolicyRowsViewModel
+                {
+                    public IReadOnlyList<global::Demo.Row> Items { get; } = Array.Empty<global::Demo.Row>();
+                    public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                    public DataGridFastPathOptions FastPathOptions { get; } = new();
+                    public string Status { get; } = "Policy";
+                }
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("class AssemblyPresentationView", result.CombinedSource);
+        Assert.Contains("GeneratedDataGridThemeKey = \"AssemblyGridTheme\"", result.CombinedSource);
+        Assert.Contains("dataGrid.Classes.Add(\"assembly-grid\")", result.CombinedSource);
+        Assert.Contains("class PolicyRowsView", result.CombinedSource);
+        Assert.Contains("GeneratedViewThemeKey = \"PolicyViewTheme\"", result.CombinedSource);
+        Assert.Contains("this.Classes.Add(\"policy-view\")", result.CombinedSource);
+        Assert.Equal(2, result.CombinedSource.Split("GeneratedDiagnosticsStatus", StringSplitOptions.None).Length - 1);
+    }
+
+    [Fact]
+    public void Invalid_generated_view_presentation_reports_PDGSG139()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "InvalidStyleView",
+                ViewThemeKey = " ",
+                ViewClasses = new[] { "valid", "invalid class" })]
+            [GenerateDataGridView(
+                typeof(Row),
+                ViewName = "InvalidStatusView",
+                DiagnosticsStatusPropertyName = nameof(Status))]
+            public sealed class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new Row[0];
+                public DataGridColumnDefinitionList ColumnDefinitions { get; } = new();
+                public DataGridFastPathOptions FastPathOptions { get; } = new();
+                public int Status { get; } = 42;
+            }
+            """);
+
+        Assert.Equal(3, result.GeneratorDiagnostics.Count(static diagnostic => diagnostic.Id == "PDGSG139"));
+        Assert.DoesNotContain("class InvalidStyleView", result.CombinedSource);
+        Assert.DoesNotContain("class InvalidStatusView", result.CombinedSource);
+    }
+
+    [Fact]
     public void Multiple_generated_view_recipes_emit_independent_layout_contracts()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

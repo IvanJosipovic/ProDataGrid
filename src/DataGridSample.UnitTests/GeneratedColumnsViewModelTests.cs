@@ -865,6 +865,8 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(3, GeneratedRecipeExplorerView.GeneratedRecipe);
         Assert.Equal(4, GeneratedRecipeSpreadsheetView.GeneratedRecipe);
         Assert.Equal(5, GeneratedRecipeAnalyticsView.GeneratedRecipe);
+        Assert.Equal("GeneratedRecipeAnalyticsViewTheme", GeneratedRecipeAnalyticsView.GeneratedViewThemeKey);
+        Assert.Equal("GeneratedRecipeAnalyticsGridTheme", GeneratedRecipeAnalyticsView.GeneratedDataGridThemeKey);
 
         viewModel.Query = "Charts";
         Assert.Equal(1, viewModel.VisibleRowCount);

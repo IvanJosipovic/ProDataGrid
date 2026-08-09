@@ -1186,14 +1186,34 @@ public sealed class GeneratedCodeViewTests
             Dispatcher.UIThread.RunJobs();
             view.UpdateLayout();
             DataGrid analyticsGrid = Assert.Single(view.GetVisualDescendants().OfType<DataGrid>());
+            GeneratedRecipeAnalyticsView analyticsView = Assert.Single(
+                view.GetVisualDescendants().OfType<GeneratedRecipeAnalyticsView>());
             Assert.Equal("generated-recipe-analytics", AutomationProperties.GetAutomationId(analyticsGrid));
+            Assert.Contains("generated-recipe-view", analyticsView.Classes);
+            Assert.Contains("analytics-recipe", analyticsView.Classes);
+            Assert.Contains("generated-recipe-grid", analyticsGrid.Classes);
+            Assert.Contains("analytics-recipe-grid", analyticsGrid.Classes);
+            Assert.NotNull(analyticsView.Theme);
+            Assert.NotNull(analyticsGrid.Theme);
             Assert.Contains(view.GetVisualDescendants().OfType<TextBox>(), static control => control.Name == "GeneratedSearchBox");
-            Assert.Contains(view.GetVisualDescendants().OfType<ContentControl>(), static control => control.Name == "GeneratedAnalyticsSlot");
+            ContentControl toolbar = Assert.Single(
+                view.GetVisualDescendants().OfType<ContentControl>(),
+                static control => control.Name == "GeneratedToolbarSlot");
+            ContentControl analyticsSlot = Assert.Single(
+                view.GetVisualDescendants().OfType<ContentControl>(),
+                static control => control.Name == "GeneratedAnalyticsSlot");
+            Assert.Contains("generated-recipe-toolbar", toolbar.Classes);
+            Assert.Contains("generated-recipe-slot", analyticsSlot.Classes);
+            TextBlock status = Assert.Single(
+                view.GetVisualDescendants().OfType<TextBlock>(),
+                static control => control.Name == "GeneratedDiagnosticsStatus");
+            Assert.Equal(viewModel.Status, status.Text);
 
             viewModel.Query = "Runtime";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(1, viewModel.VisibleRowCount);
             Assert.Single(analyticsGrid.ItemsSource!.Cast<object>());
+            Assert.Equal(viewModel.Status, status.Text);
 
             string? screenshotDirectory = Environment.GetEnvironmentVariable("AVALONIA_SCREENSHOT_DIR");
             if (!string.IsNullOrWhiteSpace(screenshotDirectory))

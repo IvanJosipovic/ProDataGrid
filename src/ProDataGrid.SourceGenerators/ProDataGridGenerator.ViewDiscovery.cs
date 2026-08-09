@@ -375,6 +375,15 @@ internal static partial class Discovery
             InputMapType = GeneratorUtilities.GetType(arguments, "InputMapType"),
             InputCommandPropertyName = GeneratorUtilities.GetString(arguments, "InputCommandPropertyName"),
             DiagnosticsSinkType = GeneratorUtilities.GetType(arguments, "DiagnosticsSinkType"),
+            DiagnosticsStatusPropertyName = GeneratorUtilities.GetString(arguments, "DiagnosticsStatusPropertyName"),
+            ViewThemeKey = GeneratorUtilities.GetString(arguments, "ViewThemeKey"),
+            DataGridThemeKey = GeneratorUtilities.GetString(arguments, "DataGridThemeKey"),
+            ToolbarThemeKey = GeneratorUtilities.GetString(arguments, "ToolbarThemeKey"),
+            RecipeContentThemeKey = GeneratorUtilities.GetString(arguments, "RecipeContentThemeKey"),
+            ViewClasses = GeneratorUtilities.GetStringArray(arguments, "ViewClasses"),
+            DataGridClasses = GeneratorUtilities.GetStringArray(arguments, "DataGridClasses"),
+            ToolbarClasses = GeneratorUtilities.GetStringArray(arguments, "ToolbarClasses"),
+            RecipeContentClasses = GeneratorUtilities.GetStringArray(arguments, "RecipeContentClasses"),
             LoadingText = GeneratorUtilities.GetString(arguments, "LoadingText") ?? "Loading data…",
             EmptyText = GeneratorUtilities.GetString(arguments, "EmptyText") ?? "No items to display.",
             ErrorText = GeneratorUtilities.GetString(arguments, "ErrorText") ?? "Unable to load data.",
@@ -639,6 +648,54 @@ internal static partial class Discovery
             return null;
         }
 
+        bool invalidPresentation = false;
+        invalidPresentation |= !ValidateViewThemeKey(request, diagnostics, nameof(request.ViewThemeKey), request.ViewThemeKey);
+        invalidPresentation |= !ValidateViewThemeKey(request, diagnostics, nameof(request.DataGridThemeKey), request.DataGridThemeKey);
+        invalidPresentation |= !ValidateViewThemeKey(request, diagnostics, nameof(request.ToolbarThemeKey), request.ToolbarThemeKey);
+        invalidPresentation |= !ValidateViewThemeKey(request, diagnostics, nameof(request.RecipeContentThemeKey), request.RecipeContentThemeKey);
+        invalidPresentation |= !ValidateViewClasses(request, diagnostics, nameof(request.ViewClasses), request.ViewClasses);
+        invalidPresentation |= !ValidateViewClasses(request, diagnostics, nameof(request.DataGridClasses), request.DataGridClasses);
+        invalidPresentation |= !ValidateViewClasses(request, diagnostics, nameof(request.ToolbarClasses), request.ToolbarClasses);
+        invalidPresentation |= !ValidateViewClasses(request, diagnostics, nameof(request.RecipeContentClasses), request.RecipeContentClasses);
+
+        ViewBindingModel? diagnosticsStatus = null;
+        if (!string.IsNullOrWhiteSpace(request.DiagnosticsStatusPropertyName))
+        {
+            ITypeSymbol? statusType = FindViewBindingMemberType(
+                request.ViewModelType,
+                request.DiagnosticsStatusPropertyName!);
+            if (statusType?.SpecialType != SpecialType.System_String)
+            {
+                ReportInvalidViewPresentation(
+                    request,
+                    diagnostics,
+                    $"DiagnosticsStatusPropertyName member '{request.DiagnosticsStatusPropertyName}' must be an accessible readable string property");
+                invalidPresentation = true;
+            }
+            else
+            {
+                diagnosticsStatus = ResolveViewBinding(
+                    request,
+                    request.DiagnosticsStatusPropertyName!,
+                    null,
+                    false,
+                    diagnostics);
+                invalidPresentation |= diagnosticsStatus == null;
+            }
+        }
+        else if (request.DiagnosticsStatusPropertyName != null)
+        {
+            ReportInvalidViewPresentation(
+                request,
+                diagnostics,
+                "DiagnosticsStatusPropertyName cannot be empty or whitespace");
+            invalidPresentation = true;
+        }
+        if (invalidPresentation)
+        {
+            return null;
+        }
+
         RowDetailsViewModel? rowDetails = ResolveRowDetails(request, diagnostics);
         if (request.HasRowDetailsConfiguration && rowDetails == null)
         {
@@ -715,6 +772,15 @@ internal static partial class Discovery
             InputMapType = request.InputMapType,
             InputCommand = inputCommand,
             DiagnosticsSinkType = request.DiagnosticsSinkType,
+            DiagnosticsStatus = diagnosticsStatus,
+            ViewThemeKey = request.ViewThemeKey,
+            DataGridThemeKey = request.DataGridThemeKey,
+            ToolbarThemeKey = request.ToolbarThemeKey,
+            RecipeContentThemeKey = request.RecipeContentThemeKey,
+            ViewClasses = request.ViewClasses,
+            DataGridClasses = request.DataGridClasses,
+            ToolbarClasses = request.ToolbarClasses,
+            RecipeContentClasses = request.RecipeContentClasses,
             LoadingText = request.LoadingText,
             EmptyText = request.EmptyText,
             ErrorText = request.ErrorText,
@@ -1135,6 +1201,61 @@ internal static partial class Discovery
             request.ViewName,
             reason));
 
+    private static bool ValidateViewThemeKey(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string optionName,
+        string? key)
+    {
+        if (key == null || !string.IsNullOrWhiteSpace(key))
+        {
+            return true;
+        }
+
+        ReportInvalidViewPresentation(request, diagnostics, $"{optionName} cannot be empty or whitespace");
+        return false;
+    }
+
+    private static bool ValidateViewClasses(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string optionName,
+        ImmutableArray<string> classes)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int index = 0; index < classes.Length; index++)
+        {
+            string className = classes[index];
+            if (string.IsNullOrWhiteSpace(className) || className.Any(char.IsWhiteSpace))
+            {
+                ReportInvalidViewPresentation(
+                    request,
+                    diagnostics,
+                    $"{optionName} entry at index {index} must be one non-empty class token");
+                return false;
+            }
+            if (!seen.Add(className))
+            {
+                ReportInvalidViewPresentation(
+                    request,
+                    diagnostics,
+                    $"{optionName} contains duplicate class '{className}'");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static void ReportInvalidViewPresentation(
+        ViewRequest request,
+        ImmutableArray<Diagnostic>.Builder diagnostics,
+        string reason) =>
+        diagnostics.Add(Diagnostic.Create(
+            GeneratorDiagnostics.InvalidViewPresentation,
+            request.Location,
+            request.ViewName,
+            reason));
+
     private static bool ValidateRowDetailsImplementation(INamedTypeSymbol implementationType)
     {
         if (!GeneratorUtilities.IsAccessibleFromGeneratedCode(implementationType) || implementationType.IsAbstract)
@@ -1520,6 +1641,15 @@ internal static partial class Discovery
         public INamedTypeSymbol? InputMapType { get; set; }
         public string? InputCommandPropertyName { get; set; }
         public INamedTypeSymbol? DiagnosticsSinkType { get; set; }
+        public string? DiagnosticsStatusPropertyName { get; set; }
+        public string? ViewThemeKey { get; set; }
+        public string? DataGridThemeKey { get; set; }
+        public string? ToolbarThemeKey { get; set; }
+        public string? RecipeContentThemeKey { get; set; }
+        public ImmutableArray<string> ViewClasses { get; set; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<string> DataGridClasses { get; set; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<string> ToolbarClasses { get; set; } = ImmutableArray<string>.Empty;
+        public ImmutableArray<string> RecipeContentClasses { get; set; } = ImmutableArray<string>.Empty;
         public string LoadingText { get; set; } = "Loading data…";
         public string EmptyText { get; set; } = "No items to display.";
         public string ErrorText { get; set; } = "Unable to load data.";
