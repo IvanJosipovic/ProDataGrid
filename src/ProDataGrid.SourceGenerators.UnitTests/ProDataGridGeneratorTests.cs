@@ -2106,6 +2106,94 @@ public sealed class ProDataGridGeneratorTests
     }
 
     [Fact]
+    public void Unsupported_attributed_property_reports_PDGSG003()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn]
+                public static string Name { get; set; } = "";
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG003");
+    }
+
+    [Fact]
+    public void Invalid_schema_implementation_reports_PDGSG007()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class InvalidSchema { }
+            [GenerateDataGridColumns(ImplementationType = typeof(InvalidSchema))]
+            public sealed class Row { public int Id { get; set; } }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG007");
+    }
+
+    [Fact]
+    public void Empty_namespace_policy_reports_PDGSG008()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridColumnsForNamespace("Missing.Models")]
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG008");
+    }
+
+    [Fact]
+    public void Inaccessible_attributed_property_reports_PDGSG010()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row
+            {
+                [DataGridColumn]
+                private string Name { get; set; } = "";
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG010");
+        Assert.DoesNotContain(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG003");
+    }
+
+    [Fact]
+    public void Namespace_view_model_without_unambiguous_items_reports_PDGSG011()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridViewModelsForNamespace("Demo.ViewModels")]
+            namespace Demo.ViewModels;
+            public sealed partial class RowsViewModel { }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG011");
+    }
+
+    [Fact]
+    public void Missing_reactive_view_framework_reports_PDGSG014()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), Framework = DataGridViewFramework.ReactiveUI)]
+            public sealed partial class RowsViewModel { public Row[] Items { get; } = []; }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG014");
+    }
+
+    [Fact]
     public void Schema_emits_canonical_manifest_and_typed_item_key()
     {
         GeneratorTestResult result = GeneratorTestHelper.Run("""

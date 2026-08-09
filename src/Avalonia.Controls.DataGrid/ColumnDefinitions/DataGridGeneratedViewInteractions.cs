@@ -52,7 +52,7 @@ namespace Avalonia.Controls
             CancellationToken.Equals(other.CancellationToken);
 
         /// <inheritdoc />
-        public override bool Equals(object obj) => obj is DataGridGeneratedViewInteractionContext<TInput> other && Equals(other);
+        public override bool Equals(object? obj) => obj is DataGridGeneratedViewInteractionContext<TInput> other && Equals(other);
 
         /// <inheritdoc />
         public override int GetHashCode() => HashCode.Combine(View, DataGrid, Input, CancellationToken);

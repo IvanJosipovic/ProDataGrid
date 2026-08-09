@@ -1415,31 +1415,31 @@ The generated accessor and binding path are cached per slot and use direct metho
 
 ## 9. Diagnostics
 
-Implemented diagnostic range for expansion work:
+Implemented diagnostics. IDs not listed here are intentionally unassigned; the generator does not reserve contiguous ranges for planned features.
 
 | ID | Default | Condition |
 |---|---|---|
+| `PDGSG001` | Error | The requested source-generation target is unsupported. |
+| `PDGSG002` | Warning | A schema has no eligible columns and no custom implementation. |
+| `PDGSG003` | Error | An attributed property is static, indexed, by-reference, pointer-valued, or otherwise unsupported. |
+| `PDGSG004` | Error | A customization, indexed accessor, edit hook, or factory method has an incompatible signature. |
+| `PDGSG005` | Error | A ViewModel or containing type receiving generated members is not partial. |
+| `PDGSG006` | Error | A generated member would collide with an existing member. |
+| `PDGSG007` | Error | A custom schema implementation is inaccessible, non-constructible, or incompatible. |
+| `PDGSG008` | Warning | A namespace policy is empty or matches no eligible source type. |
+| `PDGSG009` | Error | A selected column kind is missing required configuration. |
+| `PDGSG010` | Error | An attributed property getter is inaccessible to generated code. |
+| `PDGSG011` | Warning | A namespace ViewModel policy cannot infer an unambiguous item type. |
+| `PDGSG012` | Error | A configured generated-view binding member is missing. |
+| `PDGSG013` | Error | A generated-view base type is invalid or incompatible with required activation. |
+| `PDGSG014` | Error | The requested generated-view UI framework is not referenced. |
 | `PDGSG100` | Error | Duplicate or empty stable field/column key. |
-| `PDGSG101` | Error | Invalid/missing key member or incompatible composite-key method. |
-| `PDGSG102` | Error | Generated controller/member name collision. |
+| `PDGSG101` | Error | A key member, static selector, reference-identity mode, or controller key configuration is invalid, nullable, ambiguous, or conflicting. |
 | `PDGSG103` | Error | Source member type does not match configured source kind. |
 | `PDGSG104` | Error | Conflicting operation owners or double-application configuration. |
-| `PDGSG105` | Error | Custom hook/factory signature is invalid. |
-| `PDGSG106` | Error | Required optional integration assembly is not referenced. |
-| `PDGSG107` | Warning | Generated pipeline has no recognized disposal/activation owner. |
-| `PDGSG108` | Warning | Streaming output has no explicit scheduler or UI boundary. |
 | `PDGSG109` | Error | Invalid hierarchy children/expanded/parent-key configuration. |
-| `PDGSG110` | Warning | Summary cannot update incrementally and will reset/recompute. |
-| `PDGSG111` | Error | Persisted state requested without stable item and column keys. |
-| `PDGSG112` | Warning | Known template/theme/resource key is missing from an optional resource manifest. |
-| `PDGSG113` | Error | Strict generated path would require reflection or dynamic code. |
-| `PDGSG114` | Error | Remote query provider has an incompatible item/key type. |
-| `PDGSG115` | Error | Generated view binding target is missing or has an incompatible type. |
-| `PDGSG116` | Error | Custom implementation is inaccessible, abstract, open generic, or incompatible. |
 | `PDGSG117` | Error | Duplicate controller feature declaration for the same name. |
-| `PDGSG118` | Warning | Async stream uses an unbounded buffer without explicit opt-in. |
-| `PDGSG119` | Error | Namespace convention produces an ambiguous ViewModel/item/view match. |
-| `PDGSG120` | Warning | Hierarchical compiled-binding projection is unavailable and runtime binding would be required. |
+| `PDGSG118` | Error | Persisted schema/state metadata is invalid. |
 | `PDGSG121` | Error | Generated formula metadata has invalid dependencies, names, or value-resolver configuration. |
 | `PDGSG122` | Error | Custom drawing factory configuration is conflicting or incompatible. |
 | `PDGSG123` | Error | Generated row-details source, nested collection, or template factory is invalid. |

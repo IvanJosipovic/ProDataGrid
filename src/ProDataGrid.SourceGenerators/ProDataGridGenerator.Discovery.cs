@@ -1682,11 +1682,16 @@ internal static partial class Discovery
             {
                 if (columnAttribute != null)
                 {
+                    DiagnosticDescriptor descriptor = property.GetMethod == null ||
+                        !GeneratorUtilities.IsAccessibleFromGeneratedCode(property.GetMethod)
+                            ? GeneratorDiagnostics.InaccessibleProperty
+                            : GeneratorDiagnostics.UnsupportedProperty;
                     diagnostics.Add(Diagnostic.Create(
-                        GeneratorDiagnostics.UnsupportedProperty,
+                        descriptor,
                         GeneratorUtilities.GetLocation(sourceProperty),
-                        sourceProperty.ToDisplayString(),
-                        unsupportedReason));
+                        descriptor == GeneratorDiagnostics.InaccessibleProperty
+                            ? new object[] { sourceProperty.ToDisplayString() }
+                            : new object[] { sourceProperty.ToDisplayString(), unsupportedReason }));
                 }
 
                 continue;

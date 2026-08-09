@@ -1016,7 +1016,7 @@ public sealed partial class TradesViewModel : ReactiveObject
 | --- | --- |
 | `PDGSG001` | Target type is unsupported. |
 | `PDGSG002` | No eligible columns were found. |
-| `PDGSG003` | A property type cannot use the requested column kind. |
+| `PDGSG003` | An attributed property shape is unsupported (for example, it is static, indexed, by-reference, or pointer-valued). |
 | `PDGSG004` | A configuration or factory method is invalid. |
 | `PDGSG005` | A generated view model or containing type is not partial. |
 | `PDGSG006` | A requested generated member already exists. |
@@ -1024,7 +1024,7 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG008` | A namespace request matched no eligible types. |
 | `PDGSG009` | Required column configuration is missing. |
 | `PDGSG010` | A requested item property is inaccessible. |
-| `PDGSG011` | An item property is ambiguous. |
+| `PDGSG011` | A namespace ViewModel policy cannot infer an unambiguous item type from its configured items property. |
 | `PDGSG012` | A generated-view binding member is missing. |
 | `PDGSG013` | A generated-view custom base is invalid. |
 | `PDGSG014` | A requested generated-view framework is not referenced. |
@@ -1045,8 +1045,14 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG128` | A generated-view performance profile, input map, input command, diagnostics sink, or provably incompatible high-frequency setting is invalid. |
 | `PDGSG129` | A generated clipboard-import or fill-model binding is missing or incompatible. |
 | `PDGSG130` | A generated formula-model binding is missing or does not implement `IDataGridFormulaModel`. |
-| `PDGSG137` | A configured formula-fill translator is inaccessible, abstract, open, non-constructible, or does not implement `IFormulaFillTranslator`. |
 | `PDGSG131` | A generated conditional-formatting-model binding is missing or does not implement `IConditionalFormattingModel`. |
+| `PDGSG132` | An interface schema inherits unrelated same-name property contracts without a resolving redeclaration. |
+| `PDGSG133` | A type schema explicitly implements unrelated same-name properties without a public forwarding property. |
+| `PDGSG134` | A runtime-defined item shape does not name an explicit schema/provider implementation. |
+| `PDGSG135` | A configured collection mutation handler is inaccessible, abstract, open, non-constructible, or implements the wrong item contract. |
+| `PDGSG136` | A configured new-row factory is inaccessible, abstract, open, non-constructible, or implements the wrong item contract. |
+| `PDGSG137` | A configured formula-fill translator is inaccessible, abstract, open, non-constructible, or does not implement `IFormulaFillTranslator`. |
+| `PDGSG138` | A statically declared generated formula has invalid syntax. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 
