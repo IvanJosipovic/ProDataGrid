@@ -8,7 +8,6 @@ namespace DataGridSample.Pages
         public PagingSelectionPage()
         {
             InitializeComponent();
-            AttachedToVisualTree += (_, _) => DataContext ??= new DataGridSample.ViewModels.PagingSelectionViewModel();
         }
 
         private void InitializeComponent()

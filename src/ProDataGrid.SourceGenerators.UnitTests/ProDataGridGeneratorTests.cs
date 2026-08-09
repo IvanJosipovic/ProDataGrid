@@ -5458,6 +5458,89 @@ public sealed class ProDataGridGeneratorTests
         Assert.DoesNotContain("CreateConfiguredFormulaFillModel", result.CombinedSource);
     }
 
+    [Fact]
+    public void Generated_collection_view_defaults_emit_keyed_lifetime_controller()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(
+                DefaultPageSize = 25,
+                InitialPageIndex = 2,
+                InitialCurrency = DataGridGeneratedInitialCurrency.First,
+                PreserveCurrentItemByKey = true,
+                PreserveSelectionByKey = false)]
+            public sealed class Row
+            {
+                [DataGridKey]
+                public int Id { get; set; }
+                public string Name { get; set; } = string.Empty;
+            }
+            """);
+
+        AssertNoErrors(result);
+        Assert.Contains("DefaultPageSize = 25", result.CombinedSource);
+        Assert.Contains("InitialPageIndex = 2", result.CombinedSource);
+        Assert.Contains("InitialCurrency = (global::Avalonia.Controls.DataGridGeneratedInitialCurrency)2", result.CombinedSource);
+        Assert.Contains("PreserveCurrentItemByKey = true", result.CombinedSource);
+        Assert.Contains("PreserveSelectionByKey = false", result.CombinedSource);
+        Assert.Contains("CreateCollectionViewController(", result.CombinedSource);
+        Assert.Contains("DataGridGeneratedCollectionViewController<global::Demo.Row, int>", result.CombinedSource);
+        Assert.Contains("PreserveUnloadedKeys = PreserveSelectionByKey", result.CombinedSource);
+        Assert.Contains("view.MoveToPage(initialPageIndex)", result.CombinedSource);
+        Assert.Contains("view.MoveCurrentToFirst()", result.CombinedSource);
+
+        GeneratorTestResult changedDefault = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(DefaultPageSize = 26)]
+            public sealed class Row
+            {
+                [DataGridKey]
+                public int Id { get; set; }
+                public string Name { get; set; } = string.Empty;
+            }
+            """);
+        Assert.NotEqual(GetGeneratedSchemaHash(result), GetGeneratedSchemaHash(changedDefault));
+    }
+
+    [Fact]
+    public void Namespace_collection_view_defaults_propagate_and_invalid_defaults_report_PDGSG140()
+    {
+        GeneratorTestResult propagated = GeneratorTestHelper.Run("""
+            using Avalonia.Controls;
+            using ProDataGrid.SourceGeneration;
+            [assembly: GenerateDataGridColumnsForNamespace(
+                "Demo",
+                DefaultPageSize = 10,
+                InitialPageIndex = 1,
+                InitialCurrency = DataGridGeneratedInitialCurrency.Last)]
+            namespace Demo
+            {
+                public sealed class Row
+                {
+                    [DataGridKey]
+                    public int Id { get; set; }
+                }
+            }
+            """);
+
+        AssertNoErrors(propagated);
+        Assert.Contains("DefaultPageSize = 10", propagated.CombinedSource);
+        Assert.Contains("InitialPageIndex = 1", propagated.CombinedSource);
+        Assert.Contains("InitialCurrency = (global::Avalonia.Controls.DataGridGeneratedInitialCurrency)3", propagated.CombinedSource);
+
+        GeneratorTestResult invalid = GeneratorTestHelper.Run("""
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            [GenerateDataGridColumns(DefaultPageSize = 0, InitialPageIndex = 1)]
+            public sealed class Row { public int Id { get; set; } }
+            """);
+
+        Assert.Contains(invalid.GeneratorDiagnostics, static diagnostic => diagnostic.Id == "PDGSG140");
+    }
+
     private static void AssertNoErrors(GeneratorTestResult result)
     {
         Assert.True(

@@ -1605,6 +1605,11 @@ internal static partial class Discovery
         schema.Streaming = GeneratorUtilities.GetBoolean(arguments, "Streaming", schema.Streaming);
         schema.HierarchicalRows = GeneratorUtilities.GetBoolean(arguments, "HierarchicalRows", schema.HierarchicalRows);
         schema.PerformanceProfile = GetEnumValue(arguments, "PerformanceProfile", schema.PerformanceProfile);
+        schema.DefaultPageSize = GeneratorUtilities.GetInt32(arguments, "DefaultPageSize", schema.DefaultPageSize);
+        schema.InitialPageIndex = GeneratorUtilities.GetInt32(arguments, "InitialPageIndex", schema.InitialPageIndex);
+        schema.InitialCurrency = GetEnumValue(arguments, "InitialCurrency", schema.InitialCurrency);
+        schema.PreserveCurrentItemByKey = GeneratorUtilities.GetBoolean(arguments, "PreserveCurrentItemByKey", schema.PreserveCurrentItemByKey);
+        schema.PreserveSelectionByKey = GeneratorUtilities.GetBoolean(arguments, "PreserveSelectionByKey", schema.PreserveSelectionByKey);
     }
 
     private static SchemaModel CreateDefaultSchema(INamedTypeSymbol itemType, Location location, bool attributedOnly)
@@ -2484,6 +2489,27 @@ internal static partial class Discovery
                 schema.Location,
                 type.ToDisplayString(),
                 "StateVersion must be greater than zero"));
+            return false;
+        }
+
+        if (schema.DefaultPageSize < 0 || schema.InitialPageIndex < 0 ||
+            schema.InitialCurrency < 0 || schema.InitialCurrency > 3)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidCollectionViewDefaults,
+                schema.Location,
+                type.ToDisplayString(),
+                "DefaultPageSize and InitialPageIndex must be non-negative and InitialCurrency must be a supported value"));
+            return false;
+        }
+
+        if (schema.DefaultPageSize == 0 && schema.InitialPageIndex != 0)
+        {
+            diagnostics.Add(Diagnostic.Create(
+                GeneratorDiagnostics.InvalidCollectionViewDefaults,
+                schema.Location,
+                type.ToDisplayString(),
+                "InitialPageIndex requires a positive DefaultPageSize"));
             return false;
         }
 

@@ -178,6 +178,11 @@ public sealed partial class ProDataGridGenerator
                 public bool Streaming { get; set; }
                 public bool HierarchicalRows { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
+                public int DefaultPageSize { get; set; }
+                public int InitialPageIndex { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedInitialCurrency InitialCurrency { get; set; }
+                public bool PreserveCurrentItemByKey { get; set; } = true;
+                public bool PreserveSelectionByKey { get; set; } = true;
                 public Type? ImplementationType { get; set; }
                 public Type? MutationHandlerType { get; set; }
                 public Type? NewRowFactoryType { get; set; }
@@ -203,6 +208,11 @@ public sealed partial class ProDataGridGenerator
                 public bool Streaming { get; set; }
                 public bool HierarchicalRows { get; set; }
                 public global::Avalonia.Controls.DataGridGeneratedPerformanceProfile PerformanceProfile { get; set; }
+                public int DefaultPageSize { get; set; }
+                public int InitialPageIndex { get; set; }
+                public global::Avalonia.Controls.DataGridGeneratedInitialCurrency InitialCurrency { get; set; }
+                public bool PreserveCurrentItemByKey { get; set; } = true;
+                public bool PreserveSelectionByKey { get; set; } = true;
                 public int StateVersion { get; set; } = 1;
                 public string? PivotConfigureMethod { get; set; }
                 public string? OutlineConfigureMethod { get; set; }

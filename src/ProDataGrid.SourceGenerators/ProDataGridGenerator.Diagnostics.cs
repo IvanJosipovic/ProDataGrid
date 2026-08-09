@@ -210,6 +210,11 @@ internal static class GeneratorDiagnostics
         "Invalid generated view presentation",
         "Generated presentation for view '{0}' is invalid: {1}");
 
+    public static readonly DiagnosticDescriptor InvalidCollectionViewDefaults = Create(
+        "PDGSG140",
+        "Invalid generated collection-view defaults",
+        "Generated collection-view defaults for item type '{0}' are invalid: {1}");
+
     private static DiagnosticDescriptor Create(
         string id,
         string title,

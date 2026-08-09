@@ -34,6 +34,40 @@ namespace DataGridSample.Tests;
 public sealed class GeneratedCodeViewTests
 {
     [AvaloniaFact]
+    public void Generated_paging_page_uses_typed_columns_and_preserves_keyed_currency()
+    {
+        var view = new PagingSelectionPage();
+        var viewModel = Assert.IsType<PagingSelectionViewModel>(view.DataContext);
+        var window = new Window { Width = 1120, Height = 720, Content = view };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        try
+        {
+            DataGrid grid = view.GetVisualDescendants().OfType<DataGrid>().Single();
+            Assert.False(grid.AutoGenerateColumns);
+            Assert.Same(viewModel.ColumnDefinitions, grid.ColumnDefinitionsSource);
+            Assert.Same(viewModel.FastPathOptions, grid.FastPathOptions);
+            Assert.Same(viewModel.SelectionModel, grid.Selection);
+            Assert.Equal(13, grid.Columns.Count(static column => column.ColumnKey != null));
+            string currentKey = Assert.IsType<Country>(viewModel.ItemsView.CurrentItem).Name;
+
+            viewModel.NextPageCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+            viewModel.FirstPageCommand.Execute().Subscribe();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.Equal(currentKey, Assert.IsType<Country>(viewModel.ItemsView.CurrentItem).Name);
+        }
+        finally
+        {
+            window.Close();
+            viewModel.Dispose();
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
     public void Avalonia_strategy_binds_generated_members_and_uses_custom_base()
     {
         var viewModel = new GeneratedColumnsAttributesViewModel();

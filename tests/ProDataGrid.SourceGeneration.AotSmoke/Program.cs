@@ -57,6 +57,11 @@ using DataGridGeneratedLongFormChartDataSource longFormSource =
         maximumSeries: 8);
 using var longFormModel = new ChartModel { DataSource = longFormSource };
 using var outline = AotTradeRowSchema.CreateOutlineReportModel(viewModel.Items);
+using DataGridGeneratedCollectionViewController<AotTradeRow, int> collectionView =
+    AotTradeRowSchema.CreateCollectionViewController(viewModel.Items);
+collectionView.SelectionController.SelectKey(2);
+collectionView.View.MoveToNextPage();
+collectionView.View.MoveToFirstPage();
 var dropHandler = new AotTradeDropHandler();
 using DataGridGeneratedDragDropController<int> dragDrop = AotTradeRowSchema.CreateDragDropController(dropHandler);
 bool dropApplied = await dragDrop.DropAsync(
@@ -73,6 +78,10 @@ if (!AotGeneratedRegistry.TryGetSchema(typeof(AotTradeRow), out IDataGridGenerat
     viewModel.Items[0].Symbol != "AOTX" ||
     newRow.Id != 42 ||
     chartProjection.Model.Snapshot.Series.Count != 1 ||
+    collectionView.View.PageSize != 1 ||
+    collectionView.View.CurrentItem is not AotTradeRow currentTrade ||
+    currentTrade.Id != 1 ||
+    collectionView.SelectionController.SelectedItemKeys.Count != 1 ||
     chartProjection.Model.Interaction.CrosshairCategoryIndex != 1 ||
     longFormModel.Snapshot.Categories.Count != 2 ||
     longFormModel.Snapshot.Series.Count != 2 ||

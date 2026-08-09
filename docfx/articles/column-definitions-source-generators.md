@@ -806,6 +806,34 @@ public sealed partial class Quote
 
 `GenerateDataGridCellDrawCache` is an independent incremental pipeline for partial row classes. It emits `IDataGridCellDrawOperationItemCache`, deterministic `{Property}CellDrawCacheSlot` constants for attributed custom-drawing columns, array-backed O(1) storage, and whole-cache/per-slot clear methods. `InitialCapacity` avoids first-use growth; `MaximumCapacity` bounds retained entries and rejects out-of-range slots without allocation. Set `GenerateSlotConstants = false` when slot ownership is entirely external.
 
+### Generated paging, currency, and selection lifetime
+
+Schema declarations can own collection-view defaults at type, assembly, or namespace scope:
+
+```csharp
+[GenerateDataGridColumns(
+    typeof(Trade),
+    DefaultPageSize = 100,
+    InitialPageIndex = 0,
+    InitialCurrency = DataGridGeneratedInitialCurrency.First,
+    PreserveCurrentItemByKey = true,
+    PreserveSelectionByKey = true)]
+public sealed partial class TradesViewModel : ReactiveObject
+{
+    private readonly DataGridGeneratedCollectionViewController<Trade, long> _view;
+
+    public TradesViewModel(IEnumerable<Trade> source) =>
+        _view = TradeDataGridSchema.CreateCollectionViewController(source);
+
+    public DataGridCollectionView Items => _view.View;
+    public IdentitySelectionModel Selection => _view.SelectionModel;
+}
+```
+
+`CreateCollectionView` applies generated grouping, page size, initial page, and initial currency in one typed factory. A keyed schema additionally emits `CreateCollectionViewController`. The controller maintains a zero-reflection global key index, an `IdentitySelectionModel`, and a sticky current-item key. `Refresh`, `SetPageSize`, `ReplaceView`, `Capture`, `Restore`, and `TryMoveCurrentToKey` preserve selection and currency across page changes and replacement instances without retaining unloaded row objects. Off-page selection behavior is controlled by `PreserveSelectionByKey`; currency preservation is controlled independently by `PreserveCurrentItemByKey`. Invalid negative paging defaults, an initial page without paging, or an unknown currency value report `PDGSG140`.
+
+`DataGridSample.Pages.PagingSelectionPage` is the formal ReactiveUI sample. It uses generated columns and strict fast-path options, generated page/currency defaults, selection across pages, refresh, page-size changes, and reversed source replacement. Its passive compiled XAML contains no auto-generation or event handlers; runtime, generator, ViewModel, and Avalonia Headless tests verify the stable-key contract.
+
 ### Typed grouping and rendered summaries
 
 `DataGridGroup` emits ordered `DataGridGeneratedGroupField<TItem,TValue>` values. `CreateCollectionView` installs their direct typed group descriptions, avoiding `DataGridPathGroupDescription` and property-path lookup:
@@ -1144,6 +1172,7 @@ public sealed partial class TradesViewModel : ReactiveObject
 | `PDGSG137` | A configured formula-fill translator is inaccessible, abstract, open, non-constructible, or does not implement `IFormulaFillTranslator`. |
 | `PDGSG138` | A statically declared generated formula has invalid syntax. |
 | `PDGSG139` | A generated-view theme key, class token, or diagnostics-status property is invalid. |
+| `PDGSG140` | Generated paging or initial-currency defaults are invalid. |
 
 The generator is incremental and emits stable hint names and deterministic column ordering, making generated-source diffs and build caching predictable. Direct type and property column triggers, ViewModel, controller, generated-view, indexed-column, and cell-draw-cache requests use isolated attributed pipelines. The compilation-wide semantic model is activated only when an assembly/namespace policy or registry actually requires cross-type coordination, so ordinary direct-attribute consumers do not enumerate unrelated source types after a compilation edit.
 

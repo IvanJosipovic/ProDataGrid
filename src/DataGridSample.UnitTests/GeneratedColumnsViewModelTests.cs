@@ -51,6 +51,43 @@ public sealed class GeneratedColumnsViewModelTests
     }
 
     [Fact]
+    public void Generated_paging_controller_preserves_currency_and_selection_across_pages_and_sources()
+    {
+        DataGridCollectionView configured = GeneratedPagingCountrySchema.CreateCollectionView(
+            Countries.All,
+            pageSize: 5,
+            initialPageIndex: 2,
+            initialCurrency: DataGridGeneratedInitialCurrency.Last);
+        Assert.Equal(2, configured.PageIndex);
+        Assert.Equal(Countries.All[14].Name, Assert.IsType<Country>(configured.CurrentItem).Name);
+
+        using var viewModel = new PagingSelectionViewModel();
+        string initialKey = Assert.IsType<Country>(viewModel.ItemsView.CurrentItem).Name;
+
+        Assert.Equal(10, GeneratedPagingCountrySchema.DefaultPageSize);
+        Assert.Equal(DataGridGeneratedInitialCurrency.First, GeneratedPagingCountrySchema.InitialCurrency);
+        Assert.Equal(13, viewModel.ColumnDefinitions.Count);
+        Assert.True(viewModel.FastPathOptions.StrictMode);
+
+        viewModel.SelectAcrossPagesCommand.Execute().Subscribe();
+        int selectedCount = viewModel.SelectedCount;
+        Assert.True(selectedCount > 2);
+
+        viewModel.NextPageCommand.Execute().Subscribe();
+        Assert.Equal(1, viewModel.PageIndex);
+        Assert.Contains(initialKey, viewModel.CurrencyStatus, StringComparison.Ordinal);
+
+        viewModel.FirstPageCommand.Execute().Subscribe();
+        Assert.Equal(initialKey, Assert.IsType<Country>(viewModel.ItemsView.CurrentItem).Name);
+
+        DataGridCollectionView original = viewModel.ItemsView;
+        viewModel.ReplaceSourceCommand.Execute().Subscribe();
+        Assert.NotSame(original, viewModel.ItemsView);
+        Assert.Equal(initialKey, Assert.IsType<Country>(viewModel.ItemsView.CurrentItem).Name);
+        Assert.Equal(selectedCount, viewModel.SelectedCount);
+    }
+
+    [Fact]
     public void Assembly_and_custom_implementations_are_available_through_generated_facades()
     {
         var assemblyViewModel = new GeneratedColumnsAssemblyViewModel();

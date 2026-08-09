@@ -324,6 +324,16 @@ internal sealed class SchemaModel
 
     public int PerformanceProfile { get; set; }
 
+    public int DefaultPageSize { get; set; }
+
+    public int InitialPageIndex { get; set; }
+
+    public int InitialCurrency { get; set; }
+
+    public bool PreserveCurrentItemByKey { get; set; } = true;
+
+    public bool PreserveSelectionByKey { get; set; } = true;
+
     public INamedTypeSymbol? ImplementationType { get; set; }
 
     public INamedTypeSymbol? MutationHandlerType { get; set; }
