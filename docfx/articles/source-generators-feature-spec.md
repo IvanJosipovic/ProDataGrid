@@ -37,7 +37,7 @@ Code blocks labelled **Proposed API** preserve the original conceptual design sh
 | F21 collection views/dynamic shapes | Implemented | Typed collection-view factories, range-aware domain mutation and new-row services, interface and explicit-interface schemas, dynamic-shape detection, validated runtime field/provider adapters, implementation-manifest forwarding, and deterministic diagnostics are available. |
 | F22 header filtering/distinct values | Implemented | Typed editor metadata, bounded local/remote distinct-value providers, and cached per-field commands for sort/filter/visibility/pin/freeze/autosize/reset are available through a replaceable interaction boundary. |
 | F23 performance/input diagnostics | Implemented | Explicit performance profiles, platform-aware keyboard maps, typed input-command feedback, compile-time high-frequency/details compatibility validation, stable-key current-cell and XY navigation, scroll-state interactions, diagnostics metric-name manifests, replaceable renderer metric sinks, and ReactiveUI/Avalonia lifetime management are available. |
-| F24 optimized realization and hierarchy contracts | In progress | PR #335 adds drawn/direct retained column lanes, transactional selection preview, cell lifecycle/value notifications, hierarchy-aware filtering, transactional async bulk expansion, hierarchy automation, and optimized themes. Generator parity is defined in F24; runtime-only automation/theme behavior is validated through generated views instead of duplicated. |
+| F24 optimized realization and hierarchy contracts | Implemented | Generated metadata covers drawn/direct retained column lanes; typed generated-view bridges cover transactional selection and cell lifecycle/value notifications; generated hierarchy factories cover hierarchy-aware filtering and transactional async bulk expansion. Runtime-owned hierarchy automation and optimized themes are validated through generated view metadata, bindings, theme keys, classes, and headless tests instead of duplicated. |
 
 ## 2. Existing baseline
 
@@ -1221,6 +1221,8 @@ Implementation order:
 2. typed generated-view event snapshots and subscription bridges;
 3. hierarchy-aware filtering factory and async bulk expansion helpers;
 4. generated-view headless automation/theme/lifecycle validation and documentation closure.
+
+Current status: implemented. The mixed editing sample combines built-in drawn and direct-access custom drawing paths; the generated ReactiveUI event sample forwards and cancels the new contracts; the hierarchical DynamicData sample uses generated model/adapter factories, transactional async expansion, and the generated hierarchy-aware filtering factory. Generator, runtime, and Avalonia Headless tests cover option validation, zero-copy snapshots, feedback propagation, binding order, policy selection, and lifecycle-safe disposal.
 
 ## 8. End-to-end proposed usages
 

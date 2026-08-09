@@ -392,7 +392,7 @@ public sealed class GeneratedColumnsViewModelTests
     }
 
     [AvaloniaFact]
-    public void Generated_hierarchical_dynamic_data_pipeline_preserves_expansion_and_applies_root_operations()
+    public async Task Generated_hierarchical_dynamic_data_pipeline_preserves_expansion_and_applies_root_operations()
     {
         using var viewModel = new GeneratedHierarchicalDynamicDataViewModel();
 
@@ -407,7 +407,7 @@ public sealed class GeneratedColumnsViewModelTests
         Assert.Equal(4, viewModel.VisibleNodeCount);
         Assert.All(viewModel.Items, static root => Assert.False(root.IsExpanded));
 
-        viewModel.ExpandAllCommand.Execute().Subscribe();
+        await viewModel.ExpandAllCommand.Execute().ToTask();
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(20, viewModel.VisibleNodeCount);
         Assert.All(viewModel.Items, static root => Assert.True(root.IsExpanded));

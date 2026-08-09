@@ -1905,6 +1905,7 @@ public sealed class ProDataGridGeneratorTests
         GeneratorTestResult result = GeneratorTestHelper.Run("""
             using System.Collections.Generic;
             using Avalonia.Controls;
+            using Avalonia.Controls.DataGridFiltering;
             using Avalonia.Controls.DataGridHierarchical;
             using ProDataGrid.SourceGeneration;
             namespace Demo;
@@ -1916,11 +1917,17 @@ public sealed class ProDataGridGeneratorTests
                 [DataGridColumn(DataGridColumnKind.Hierarchical)] public Row Item => this;
             }
             [GenerateDataGridViewModel(typeof(Row))]
-            [GenerateDataGridView(typeof(Row), HierarchicalModelPropertyName = nameof(Tree))]
+            [GenerateDataGridView(
+                typeof(Row),
+                HierarchicalModelPropertyName = nameof(Tree),
+                FilteringModelPropertyName = nameof(Filtering),
+                HierarchyFilterPolicy = DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches |
+                                        DataGridHierarchyFilterPolicy.KeepDescendantsOfMatches)]
             public sealed partial class RowsViewModel
             {
                 public IReadOnlyList<Row> Items { get; } = new List<Row>();
                 public HierarchicalModel<Row> Tree { get; } = new();
+                public IFilteringModel Filtering { get; } = new FilteringModel();
             }
             """);
 
@@ -1928,7 +1935,35 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("DataGrid.HierarchicalModelProperty", result.CombinedSource);
         Assert.Contains("dataGrid.HierarchicalRowsEnabled = true", result.CombinedSource);
         Assert.Contains("dataGrid.Classes.Add(\"hierarchical\")", result.CombinedSource);
+        Assert.Contains("CreateGeneratedHierarchicalFilteringAdapterFactory", result.CombinedSource);
+        Assert.Contains("DataGridHierarchicalFilteringAdapterFactory", result.CombinedSource);
+        Assert.Contains("Policy = (global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy)3", result.CombinedSource);
         Assert.DoesNotContain("DataGrid.ItemsSourceProperty", result.CombinedSource);
+        string viewSource = result.Sources.Single(static source => source.Contains("class RowsView :", StringComparison.Ordinal));
+        Assert.True(
+            viewSource.IndexOf("DataGrid.HierarchicalModelProperty", StringComparison.Ordinal) <
+            viewSource.IndexOf("DataGrid.FilteringModelProperty", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Generated_view_rejects_unknown_hierarchy_filter_policy_flags()
+    {
+        GeneratorTestResult result = GeneratorTestHelper.Run("""
+            using System.Collections.Generic;
+            using Avalonia.Controls.DataGridFiltering;
+            using ProDataGrid.SourceGeneration;
+            namespace Demo;
+            public sealed class Row { public int Id { get; set; } }
+            [GenerateDataGridViewModel(typeof(Row))]
+            [GenerateDataGridView(typeof(Row), HierarchyFilterPolicy = (DataGridHierarchyFilterPolicy)4)]
+            public sealed partial class RowsViewModel
+            {
+                public IReadOnlyList<Row> Items { get; } = new List<Row>();
+            }
+            """);
+
+        Assert.Contains(result.GeneratorDiagnostics, diagnostic => diagnostic.Id == "PDGSG128");
+        Assert.DoesNotContain("class RowsView :", result.CombinedSource);
     }
 
     [Fact]
@@ -3958,6 +3993,10 @@ public sealed class ProDataGridGeneratorTests
         Assert.Contains("IsExpandedSetter = static (item, value) => item.IsExpanded = value", result.CombinedSource);
         Assert.Contains("ExpandedStateKeySelector = static item => item.Id", result.CombinedSource);
         Assert.Contains("CreateHierarchyController()", result.CombinedSource);
+        Assert.Contains("CreateHierarchicalModel()", result.CombinedSource);
+        Assert.Contains("CreateHierarchicalAdapter(", result.CombinedSource);
+        Assert.Contains("CreateHierarchicalFilteringAdapter(", result.CombinedSource);
+        Assert.Contains("CreateHierarchicalFilteringAdapterFactory(", result.CombinedSource);
         Assert.Contains("CreateSelectionController(", result.CombinedSource);
         Assert.Contains("int? GetParentKey", result.CombinedSource);
     }

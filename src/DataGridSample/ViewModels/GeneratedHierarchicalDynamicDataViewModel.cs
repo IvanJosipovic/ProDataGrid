@@ -7,6 +7,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridFiltering;
 using Avalonia.Controls.DataGridHierarchical;
@@ -51,7 +52,9 @@ namespace DataGridSample.ViewModels;
     FilteringModelPropertyName = nameof(FilteringModel),
     SearchModelPropertyName = nameof(SearchModel),
     SearchTextPropertyName = nameof(Query),
-    HierarchicalModelPropertyName = nameof(HierarchicalModel))]
+    HierarchicalModelPropertyName = nameof(HierarchicalModel),
+    HierarchyFilterPolicy = DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches |
+                            DataGridHierarchyFilterPolicy.KeepDescendantsOfMatches)]
 public sealed partial class GeneratedHierarchicalDynamicDataViewModel : ReactiveObject, IDisposable
 {
     private static readonly string[] s_desks = ["Warsaw", "London", "New York"];
@@ -95,13 +98,13 @@ public sealed partial class GeneratedHierarchicalDynamicDataViewModel : Reactive
         SearchModel.HighlightMode = SearchHighlightMode.TextAndCell;
 
         HierarchyController = GeneratedHierarchyNodeSchema.CreateHierarchyController();
-        HierarchicalModel = new HierarchicalModel<GeneratedHierarchyNode>(
-            GeneratedHierarchyNodeSchema.CreateHierarchicalOptions());
+        HierarchicalModel = GeneratedHierarchyNodeSchema.CreateHierarchicalModel();
+        HierarchyAdapter = GeneratedHierarchyNodeSchema.CreateHierarchicalAdapter(HierarchicalModel);
 
         AddRootBatchCommand = ReactiveCommand.Create(() => AddRootBatch(2));
         AddChildCommand = ReactiveCommand.Create(AddChildToFirstRoot);
         RefreshRootsCommand = ReactiveCommand.Create(RefreshRootsPreservingExpansion);
-        ExpandAllCommand = ReactiveCommand.Create(ExpandAll);
+        ExpandAllCommand = ReactiveCommand.CreateFromTask(ExpandAllAsync);
         CollapseAllCommand = ReactiveCommand.Create(CollapseAll);
         SortPriceDescendingCommand = ReactiveCommand.Create(SortPriceDescending);
         ApplyWarsawFilterCommand = ReactiveCommand.Create(ApplyWarsawFilter);
@@ -140,6 +143,8 @@ public sealed partial class GeneratedHierarchicalDynamicDataViewModel : Reactive
 
     public HierarchicalModel<GeneratedHierarchyNode> HierarchicalModel { get; }
 
+    public DataGridHierarchicalAdapter<GeneratedHierarchyNode> HierarchyAdapter { get; }
+
     public bool IsDisposed => _disposed;
 
     public ReactiveCommand<RxVoid, RxVoid> AddRootBatchCommand { get; }
@@ -169,6 +174,7 @@ public sealed partial class GeneratedHierarchicalDynamicDataViewModel : Reactive
         _rootNotifications.CollectionChanged -= RootCollectionOnChanged;
         HierarchicalModel.FlattenedChangedTyped -= HierarchicalModelOnFlattenedChanged;
         HierarchicalModel.SetRoots(Array.Empty<GeneratedHierarchyNode>());
+        HierarchyAdapter.Dispose();
         _subscriptions.Dispose();
         DisposeTreeRoots();
         _source.Dispose();
@@ -233,9 +239,9 @@ public sealed partial class GeneratedHierarchicalDynamicDataViewModel : Reactive
         Status = $"Replaced {replacements.Count} roots and restored {expandedKeys.Count} expansion keys.";
     }
 
-    private void ExpandAll()
+    private async Task ExpandAllAsync()
     {
-        HierarchicalModel.ExpandAll();
+        await HierarchyAdapter.ExpandAllAsync().ConfigureAwait(true);
         HierarchyController.ExpandAll(Items);
         UpdateCounts();
         Status = $"Expanded all {NodeCount} validated nodes by generated stable keys.";

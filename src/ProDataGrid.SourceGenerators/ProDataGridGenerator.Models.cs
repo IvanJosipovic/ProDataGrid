@@ -109,6 +109,8 @@ internal sealed class ViewModelViewModel
 
     public ViewBindingModel? FilteringModel { get; set; }
 
+    public int HierarchyFilterPolicy { get; set; }
+
     public ViewBindingModel? SearchModel { get; set; }
 
     public ViewBindingModel? SearchText { get; set; }

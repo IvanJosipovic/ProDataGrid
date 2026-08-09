@@ -762,7 +762,42 @@ internal static class Emitter
         }
 
         builder.AppendLine("            };")
-            .AppendLine("        }");
+            .AppendLine("        }")
+            .AppendLine()
+            .Append("        public static global::Avalonia.Controls.DataGridHierarchical.HierarchicalModel<")
+            .Append(itemType).AppendLine("> CreateHierarchicalModel()")
+            .Append("            => new global::Avalonia.Controls.DataGridHierarchical.HierarchicalModel<")
+            .Append(itemType).AppendLine(">(CreateHierarchicalOptions());")
+            .AppendLine()
+            .Append("        public static global::Avalonia.Controls.DataGridHierarchical.DataGridHierarchicalAdapter<")
+            .Append(itemType).AppendLine("> CreateHierarchicalAdapter(")
+            .Append("            global::Avalonia.Controls.DataGridHierarchical.IHierarchicalModel<")
+            .Append(itemType).AppendLine("> model,")
+            .Append("            global::System.Action<global::Avalonia.Controls.DataGridHierarchical.FlattenedChangedEventArgs<")
+            .Append(itemType).AppendLine(">>? flattenedChanged = null)")
+            .Append("            => new global::Avalonia.Controls.DataGridHierarchical.DataGridHierarchicalAdapter<")
+            .Append(itemType).AppendLine(">(model, flattenedChanged);")
+            .AppendLine()
+            .AppendLine("        public static global::Avalonia.Controls.DataGridFiltering.DataGridHierarchicalFilteringAdapter CreateHierarchicalFilteringAdapter(")
+            .AppendLine("            global::Avalonia.Controls.DataGridFiltering.IFilteringModel model,")
+            .AppendLine("            global::System.Func<global::System.Collections.Generic.IEnumerable<global::Avalonia.Controls.DataGridColumn>> columnProvider,")
+            .AppendLine("            global::Avalonia.Controls.DataGridHierarchical.IHierarchicalModel hierarchicalModel,")
+            .AppendLine("            global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy policy = global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches,")
+            .AppendLine("            global::Avalonia.Controls.DataGridFastPathOptions? options = null,")
+            .AppendLine("            global::System.Action? beforeViewRefresh = null,")
+            .AppendLine("            global::System.Action? afterViewRefresh = null)")
+            .AppendLine("            => new global::Avalonia.Controls.DataGridFiltering.DataGridHierarchicalFilteringAdapter(")
+            .AppendLine("                model,")
+            .AppendLine("                columnProvider,")
+            .AppendLine("                hierarchicalModel,")
+            .AppendLine("                policy,")
+            .AppendLine("                options ?? Instance.CreateFastPathOptions(),")
+            .AppendLine("                beforeViewRefresh,")
+            .AppendLine("                afterViewRefresh);")
+            .AppendLine()
+            .AppendLine("        public static global::Avalonia.Controls.DataGridFiltering.DataGridHierarchicalFilteringAdapterFactory CreateHierarchicalFilteringAdapterFactory(")
+            .AppendLine("            global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy policy = global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches)")
+            .AppendLine("            => new global::Avalonia.Controls.DataGridFiltering.DataGridHierarchicalFilteringAdapterFactory { Policy = policy };");
 
         if (schema.KeyMember != null && schema.Hierarchy.ChildrenProperty != null)
         {
@@ -3401,7 +3436,10 @@ internal static class Emitter
             .AppendLine("            dataGrid[!global::Avalonia.Controls.DataGrid.FastPathOptionsProperty] = CreateBinding(s_fastPathOptionsProperty, global::Avalonia.Data.BindingMode.OneWay);");
 
         EmitOptionalGridBinding(builder, model.SortingModel, "SortingModel", "s_sortingModelProperty");
-        EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
+        if (model.HierarchicalModel == null)
+        {
+            EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
+        }
         EmitOptionalGridBinding(builder, model.SearchModel, "SearchModel", "s_searchModelProperty");
         if (model.ConfigureSelection)
         {
@@ -3424,6 +3462,11 @@ internal static class Emitter
         {
             builder.AppendLine("            dataGrid.HierarchicalRowsEnabled = true;")
                 .AppendLine("            dataGrid.Classes.Add(\"hierarchical\");");
+        }
+        if (model.HierarchicalModel != null && model.FilteringModel != null)
+        {
+            builder.AppendLine("            dataGrid.FilteringAdapterFactory = CreateGeneratedHierarchicalFilteringAdapterFactory();");
+            EmitOptionalGridBinding(builder, model.FilteringModel, "FilteringModel", "s_filteringModelProperty");
         }
         EmitRowDetailsConfiguration(builder, model);
 
@@ -3453,6 +3496,17 @@ internal static class Emitter
             .Append("                    (global::Avalonia.Input.KeyModifiers)").Append(model.RequiredPointerEditModifiers.ToString(CultureInfo.InvariantCulture)).AppendLine(",")
             .Append("                    ").Append(model.RequireExactPointerEditModifiers ? "true" : "false").AppendLine("));")
             .AppendLine();
+
+        if (model.HierarchicalModel != null && model.FilteringModel != null)
+        {
+            builder.AppendLine("        protected virtual global::Avalonia.Controls.DataGridFiltering.IDataGridFilteringAdapterFactory CreateGeneratedHierarchicalFilteringAdapterFactory()")
+                .AppendLine("            => new global::Avalonia.Controls.DataGridFiltering.DataGridHierarchicalFilteringAdapterFactory")
+                .AppendLine("            {")
+                .Append("                Policy = (global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy)")
+                .Append(model.HierarchyFilterPolicy.ToString(CultureInfo.InvariantCulture)).AppendLine()
+                .AppendLine("            };")
+                .AppendLine();
+        }
 
         EmitGeneratedRoutedEventMembers(builder, model);
         EmitGeneratedPerformanceIntegrationMembers(builder, model);

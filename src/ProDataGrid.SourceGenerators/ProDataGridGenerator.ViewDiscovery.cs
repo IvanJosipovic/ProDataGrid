@@ -333,6 +333,7 @@ internal static partial class Discovery
             FastPathOptionsPropertyName = GeneratorUtilities.GetString(arguments, "FastPathOptionsPropertyName") ?? "FastPathOptions",
             SortingModelPropertyName = GeneratorUtilities.GetString(arguments, "SortingModelPropertyName"),
             FilteringModelPropertyName = GeneratorUtilities.GetString(arguments, "FilteringModelPropertyName"),
+            HierarchyFilterPolicy = GetEnumValue(arguments, "HierarchyFilterPolicy", 1),
             SearchModelPropertyName = GeneratorUtilities.GetString(arguments, "SearchModelPropertyName"),
             SearchTextPropertyName = GeneratorUtilities.GetString(arguments, "SearchTextPropertyName"),
             SelectionModelPropertyName = GeneratorUtilities.GetString(arguments, "SelectionModelPropertyName"),
@@ -595,6 +596,12 @@ internal static partial class Discovery
             }
         }
 
+        if ((request.HierarchyFilterPolicy & ~3) != 0)
+        {
+            ReportInvalidViewPerformanceIntegration(request, diagnostics, "HierarchyFilterPolicy contains unsupported flags");
+            return null;
+        }
+
         ImmutableArray<ViewInteractionModel> interactions = ResolveViewInteractions(request, diagnostics);
         if (request.HasInteractionConfiguration && interactions.IsDefault)
         {
@@ -727,6 +734,7 @@ internal static partial class Discovery
             FastPathOptions = fastOptions,
             SortingModel = ResolveOptionalViewBinding(request, request.SortingModelPropertyName, diagnostics),
             FilteringModel = ResolveOptionalViewBinding(request, request.FilteringModelPropertyName, diagnostics),
+            HierarchyFilterPolicy = request.HierarchyFilterPolicy,
             SearchModel = ResolveOptionalViewBinding(request, request.SearchModelPropertyName, diagnostics),
             SearchText = ResolveOptionalViewBinding(request, request.SearchTextPropertyName, diagnostics, requireSetter: true),
             SelectionModel = ResolveOptionalViewBinding(request, request.SelectionModelPropertyName, diagnostics),
@@ -1602,6 +1610,7 @@ internal static partial class Discovery
         public string FastPathOptionsPropertyName { get; set; } = "FastPathOptions";
         public string? SortingModelPropertyName { get; set; }
         public string? FilteringModelPropertyName { get; set; }
+        public int HierarchyFilterPolicy { get; set; } = 1;
         public string? SearchModelPropertyName { get; set; }
         public string? SearchTextPropertyName { get; set; }
         public string? SelectionModelPropertyName { get; set; }

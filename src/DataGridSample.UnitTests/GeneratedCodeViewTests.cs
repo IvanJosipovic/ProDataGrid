@@ -635,6 +635,12 @@ public sealed class GeneratedCodeViewTests
             Assert.Same(((IHierarchicalModel)viewModel.HierarchicalModel).ObservableFlattened, grid.ItemsSource);
             Assert.Same(viewModel.SortingModel, grid.SortingModel);
             Assert.Same(viewModel.FilteringModel, grid.FilteringModel);
+            DataGridHierarchicalFilteringAdapterFactory filteringFactory =
+                Assert.IsType<DataGridHierarchicalFilteringAdapterFactory>(grid.FilteringAdapterFactory);
+            Assert.Equal(
+                DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches |
+                DataGridHierarchyFilterPolicy.KeepDescendantsOfMatches,
+                filteringFactory.Policy);
             Assert.Same(viewModel.SearchModel, grid.SearchModel);
             Assert.Equal(viewModel.ColumnDefinitions.Count, grid.Columns.Count);
             Assert.Equal(20, grid.ItemsSource!.Cast<object>().Count());

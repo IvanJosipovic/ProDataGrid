@@ -1333,6 +1333,33 @@ public sealed partial class ExplorerViewModel : ReactiveObject
 
 The hierarchical model exclusively owns the grid's flattened wrapper `ItemsSource`; the generated view deliberately omits the ordinary root-items binding in this mode. This prevents binding order from replacing `IReadOnlyList<HierarchicalNode>` with the root collection. Generated column bindings remain wrapper-aware (`HierarchicalNode.Item`) while operation descriptors and DynamicData pipelines remain strongly typed to `TItem`.
 
+A hierarchical schema also emits `CreateHierarchicalModel`, `CreateHierarchicalAdapter`, `CreateHierarchicalFilteringAdapter`, and `CreateHierarchicalFilteringAdapterFactory`. The typed adapter exposes PR #335's transactional `ExpandAllAsync(node, maxDepth, cancellationToken)` path and retains its virtualization guard until the coherent visible-node commit.
+
+When a generated view declares both `HierarchicalModelPropertyName` and `FilteringModelPropertyName`, it installs `DataGridHierarchicalFilteringAdapterFactory` before the filtering binding becomes active. `HierarchyFilterPolicy` defaults to `KeepAncestorsOfMatches` and can combine `KeepAncestorsOfMatches` with `KeepDescendantsOfMatches`. Override `CreateGeneratedHierarchicalFilteringAdapterFactory` in a custom base for application-specific construction. The emitted schema factory accepts explicit before/after-refresh callbacks and defaults to the schema's strict `FastPathOptions`.
+
+```csharp
+[GenerateDataGridView(typeof(Node),
+    HierarchicalModelPropertyName = nameof(Hierarchy),
+    FilteringModelPropertyName = nameof(Filtering),
+    HierarchyFilterPolicy = DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches |
+                            DataGridHierarchyFilterPolicy.KeepDescendantsOfMatches)]
+public sealed partial class ExplorerViewModel : ReactiveObject
+{
+    public ExplorerViewModel()
+    {
+        Hierarchy = NodeSchema.CreateHierarchicalModel();
+        HierarchyOperations = NodeSchema.CreateHierarchicalAdapter(Hierarchy);
+    }
+
+    public HierarchicalModel<Node> Hierarchy { get; }
+
+    public DataGridHierarchicalAdapter<Node> HierarchyOperations { get; }
+
+    private async Task ExpandAllAsync(CancellationToken cancellationToken) =>
+        await HierarchyOperations.ExpandAllAsync(cancellationToken: cancellationToken);
+}
+```
+
 ### Loading, empty, and error projections
 
 Generated views can project one typed state property into mutually exclusive content, loading, empty, and error surfaces. The view model owns the state transition and retry command; generated C# owns only the visual projection and compiled bindings.

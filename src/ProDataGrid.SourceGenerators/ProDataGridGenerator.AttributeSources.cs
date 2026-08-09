@@ -303,6 +303,8 @@ public sealed partial class ProDataGridGenerator
                 public string FastPathOptionsPropertyName { get; set; } = "FastPathOptions";
                 public string? SortingModelPropertyName { get; set; }
                 public string? FilteringModelPropertyName { get; set; }
+                public global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy HierarchyFilterPolicy { get; set; } =
+                    global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches;
                 public string? SearchModelPropertyName { get; set; }
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
@@ -388,6 +390,8 @@ public sealed partial class ProDataGridGenerator
                 public string FastPathOptionsPropertyName { get; set; } = "FastPathOptions";
                 public string? SortingModelPropertyName { get; set; }
                 public string? FilteringModelPropertyName { get; set; }
+                public global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy HierarchyFilterPolicy { get; set; } =
+                    global::Avalonia.Controls.DataGridFiltering.DataGridHierarchyFilterPolicy.KeepAncestorsOfMatches;
                 public string? SearchModelPropertyName { get; set; }
                 public string? SearchTextPropertyName { get; set; }
                 public string? SelectionModelPropertyName { get; set; }
