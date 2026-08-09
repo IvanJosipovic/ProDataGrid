@@ -210,6 +210,172 @@ public class LeakTests
     }
 
     [ReleaseFact]
+    public void DataGrid_OptimizedDirectTextItemSubscriptions_DoNotLeak()
+    {
+        var items = new ObservableCollection<NotifyingRowItem>
+        {
+            new NotifyingRowItem("A", 10d),
+            new NotifyingRowItem("B", 20d)
+        };
+
+        WeakReference Run()
+        {
+            var column = new DataGridTextColumn
+            {
+                Header = "Name",
+                Binding = new Binding(nameof(NotifyingRowItem.Name)),
+                UseDirectTextCell = true
+            };
+            DataGridColumnMetadata.SetValueAccessor(
+                column,
+                new DataGridColumnValueAccessor<NotifyingRowItem, string>(item => item.Name));
+            var grid = new DataGrid
+            {
+                AutoGenerateColumns = false,
+                ItemsSource = items
+            };
+            grid.Columns.Add(column);
+            var window = new Window { Content = grid };
+            window.SetThemeStyles(DataGridTheme.SimpleV2);
+            ShowWindow(window);
+            var gridRef = new WeakReference(grid);
+
+            CleanupWindow(window);
+            return gridRef;
+        }
+
+        var gridRef = RunInSession(Run);
+        AssertCollected(gridRef);
+        GC.KeepAlive(items);
+    }
+
+    [ReleaseFact]
+    public void DataGrid_OptimizedDrawnItemSubscriptions_DoNotLeak()
+    {
+        var items = new ObservableCollection<NotifyingRowItem>
+        {
+            new NotifyingRowItem("A", 10d),
+            new NotifyingRowItem("B", 20d)
+        };
+
+        WeakReference Run()
+        {
+            var column = new DataGridTextColumn
+            {
+                Header = "Name",
+                Binding = new Binding(nameof(NotifyingRowItem.Name)),
+                DisplayMode = DataGridColumnDisplayMode.Drawn
+            };
+            DataGridColumnMetadata.SetValueAccessor(
+                column,
+                new DataGridColumnValueAccessor<NotifyingRowItem, string>(item => item.Name));
+            var grid = new DataGrid
+            {
+                AutoGenerateColumns = false,
+                ItemsSource = items
+            };
+            grid.Columns.Add(column);
+            var window = new Window { Content = grid };
+            window.SetThemeStyles(DataGridTheme.SimpleV2);
+            ShowWindow(window);
+            var gridRef = new WeakReference(grid);
+
+            CleanupWindow(window);
+            return gridRef;
+        }
+
+        var gridRef = RunInSession(Run);
+        AssertCollected(gridRef);
+        GC.KeepAlive(items);
+    }
+
+    [ReleaseFact]
+    public void OptimizedCells_DetachedDataContextChange_DoesNotResubscribeOrLeak()
+    {
+        var externalDirectItem = new NotifyingRowItem("External direct", 1d);
+        var externalDrawnItem = new NotifyingRowItem("External drawn", 2d);
+        var externalHierarchyItem = new NotifyingRowItem("External hierarchy", 3d);
+        var externalHierarchyNode = new HierarchicalNode(externalHierarchyItem, isLeaf: true);
+
+        WeakReference[] Run()
+        {
+            var directColumn = new DataGridTextColumn
+            {
+                Binding = new Binding(nameof(NotifyingRowItem.Name)),
+                UseDirectTextCell = true
+            };
+            DataGridColumnMetadata.SetValueAccessor(
+                directColumn,
+                new DataGridColumnValueAccessor<NotifyingRowItem, string>(item => item.Name));
+            var directItem = new NotifyingRowItem("Direct", 1d);
+            var directCell = new DataGridDirectTextCell { DataContext = directItem };
+            Assert.True(directCell.ConfigureValueAccessor(directColumn));
+
+            var drawnItem = new NotifyingRowItem("Drawn", 2d);
+            var drawnCell = new DataGridCustomDrawingCell { DataContext = drawnItem };
+            drawnCell.ConfigureBuiltInRenderer(new LeakDrawnValueProvider(), renderer: null!);
+
+            var hierarchyColumn = new DataGridHierarchicalColumn
+            {
+                Binding = new Binding("Item.Name"),
+                UseDirectCell = true,
+                UseDirectTextContent = true
+            };
+            DataGridColumnMetadata.SetValueAccessor(
+                hierarchyColumn,
+                new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                    node => ((NotifyingRowItem)node.Item).Name));
+            var hierarchyItem = new NotifyingRowItem("Hierarchy", 3d);
+            var hierarchyCell = new DataGridDirectHierarchicalCell
+            {
+                DataContext = new HierarchicalNode(hierarchyItem, isLeaf: true)
+            };
+            Assert.True(hierarchyCell.ConfigureTextAccessor(hierarchyColumn));
+
+            var panel = new StackPanel();
+            panel.Children.Add(directCell);
+            panel.Children.Add(drawnCell);
+            panel.Children.Add(hierarchyCell);
+            var window = new Window { Content = panel };
+            ShowWindow(window);
+
+            Assert.True(directItem.PropertyChangedSubscriberCount > 0);
+            Assert.True(drawnItem.PropertyChangedSubscriberCount > 0);
+            Assert.True(hierarchyItem.PropertyChangedSubscriberCount > 0);
+
+            window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(0, directItem.PropertyChangedSubscriberCount);
+            Assert.Equal(0, drawnItem.PropertyChangedSubscriberCount);
+            Assert.Equal(0, hierarchyItem.PropertyChangedSubscriberCount);
+
+            directCell.DataContext = externalDirectItem;
+            drawnCell.DataContext = externalDrawnItem;
+            hierarchyCell.DataContext = externalHierarchyNode;
+
+            Assert.Equal(0, externalDirectItem.PropertyChangedSubscriberCount);
+            Assert.Equal(0, externalDrawnItem.PropertyChangedSubscriberCount);
+            Assert.Equal(0, externalHierarchyItem.PropertyChangedSubscriberCount);
+
+            var references = new[]
+            {
+                new WeakReference(directCell),
+                new WeakReference(drawnCell),
+                new WeakReference(hierarchyCell)
+            };
+            window.Close();
+            return references;
+        }
+
+        var cellReferences = RunInSession(Run);
+        AssertCollected(cellReferences);
+        GC.KeepAlive(externalDirectItem);
+        GC.KeepAlive(externalDrawnItem);
+        GC.KeepAlive(externalHierarchyItem);
+        GC.KeepAlive(externalHierarchyNode);
+    }
+
+    [ReleaseFact]
     public void DataGridChartModel_ItemsSource_DoesNotLeak()
     {
         var items = new ObservableCollection<NotifyingRowItem>
@@ -2051,6 +2217,19 @@ public class LeakTests
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        public int PropertyChangedSubscriberCount =>
+            PropertyChanged?.GetInvocationList().Length ?? 0;
+    }
+
+    private sealed class LeakDrawnValueProvider :
+        IDataGridDrawnCellValueProvider,
+        IDataGridDrawnCellValueChangeTracking
+    {
+        public bool TrackDrawnCellValueChanges => true;
+
+        public object GetDrawnCellValue(object item) =>
+            ((NotifyingRowItem)item).Name;
     }
 
     private sealed class BoolRowItem

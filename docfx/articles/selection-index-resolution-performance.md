@@ -1,9 +1,9 @@
 # Selection Index Resolution Performance
 
 Selection index resolution can become a performance bottleneck on large datasets when item-to-index mapping relies on linear reference scans.
-This article documents the supported optimization paths and their fallback behavior.
+Use one of the supported optimization paths according to the data source's lookup capabilities.
 
-ProDataGrid now supports three complementary solutions:
+ProDataGrid supports three complementary solutions:
 
 1. Built-in reference index cache (default, no setup)
 2. Specialized collection interface (`IDataGridIndexOf`)

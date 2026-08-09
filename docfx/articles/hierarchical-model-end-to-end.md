@@ -22,6 +22,8 @@ This guide shows complete `HierarchicalModel` usage with `DataGrid`: building th
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.DataGridSorting;
 
@@ -52,6 +54,8 @@ public sealed class FilesViewModel
     }
 
     public void ExpandAll() => Model.ExpandAll();
+    public Task ExpandAllAsync(CancellationToken cancellationToken) =>
+        Model.ExpandAllAsync(cancellationToken: cancellationToken);
     public void CollapseAll() => Model.CollapseAll();
     public void RefreshRoot() => Model.Refresh(Model.Root);
 
@@ -118,6 +122,18 @@ When `HierarchicalRowsEnabled` is true and `ItemsSource` is omitted, the grid bi
 
 Use model commands (`Expand`, `Collapse`, `ExpandAll`, `CollapseAll`) rather than manipulating row containers directly.
 
+When children come from `ChildrenSelectorAsync`, use `ExpandAllAsync`. It resolves one
+selector at a time to preserve sibling order and selector thread safety, then publishes
+one coherent flattened-list change. `maxDepth` uses the same relative, inclusive
+semantics as synchronous `ExpandAll`.
+
+Cancellation before the final commit leaves expansion state and visible rows unchanged;
+children that finished loading remain cached for a later retry. A selector failure keeps
+that branch collapsed with `LoadError` set while other successfully loaded branches can
+commit. `NodeLoading`/`NodeLoaded` occur as each load completes, followed by the single
+`FlattenedChanged` notification and preorder `NodeExpanded` events. Concurrent bulk
+operations are serialized. The typed and untyped models and adapters expose the same API.
+
 For persistent expansion/selection scenarios, configure:
 
 - `ExpandedStateKeyMode` (`Item`, `Path`, `Custom`)
@@ -134,15 +150,53 @@ These options keep expansion stable across refreshes and source updates.
 
 ## 5. Filtering/searching with hierarchical data
 
-You can combine hierarchical data with filtering/search models. Common pattern:
+Use the built-in accessor-only hierarchy filtering adapter when descriptors should
+target each node's underlying item while keeping a meaningful tree shape:
 
-1. Translate descriptors to predicates (often via custom adapter factories).
-2. Apply tree-aware predicates in your pipeline.
-3. Refresh the hierarchical model after predicate changes.
+```xml
+<UserControl xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid">
+  <UserControl.Resources>
+    <filtering:DataGridHierarchicalFilteringAdapterFactory
+        x:Key="HierarchyFiltering"
+        Policy="KeepAncestorsOfMatches" />
+  </UserControl.Resources>
+
+  <DataGrid HierarchicalModel="{Binding Model}"
+            HierarchicalRowsEnabled="True"
+            FilteringModel="{Binding FilteringModel}"
+            FilteringAdapterFactory="{StaticResource HierarchyFiltering}" />
+</UserControl>
+```
+
+`Policy` is explicit and composable:
+
+- `SelfOnly` keeps only direct matches and can show a descendant without its path.
+- `KeepAncestorsOfMatches` (the default) keeps the materialized path to each match.
+- `KeepDescendantsOfMatches` keeps the materialized subtree below a matching node.
+- Combine both flags to keep complete paths and matching subtrees.
+
+The adapter evaluates only already-materialized nodes. It never expands nodes or
+starts synchronous/async child loading. With `VirtualizeChildren=true`, collapsed
+children may be dematerialized and therefore cannot match until loaded again. With
+`VirtualizeChildren=false`, collapsed materialized descendants participate while
+the expansion state remains unchanged. Observable child changes and completed async
+loads rebuild one coherent match set and refresh the view once per model notification.
+
+Filtering preserves a selected item when that identity remains visible; its row
+and cell coordinates are remapped to the filtered view. If a filter hides the
+selected identity, the grid clears that selection. Clearing the filter does not
+resurrect the hidden selection. Filtering never changes expansion state, so
+clearing the descriptor restores the same expanded/collapsed branches while
+selection follows this visible-identity policy.
+
+Column value accessors receive the underlying item by default. Existing accessors
+explicitly typed to `HierarchicalNode` remain supported. No reflection fallback is
+used by this adapter.
 
 Reference implementations:
 
-- `src/DataGridSample/Adapters/HierarchicalFilteringAdapterFactory.cs`
+- `src/DataGridSample/Pages/ColumnDefinitionsHierarchicalPage.axaml`
+- `src/DataGridSample/Pages/HierarchyFeatureContractsPage.axaml`
 - `src/DataGridSample/Adapters/HierarchicalSearchAdapterFactory.cs`
 - `src/DataGridSample/Adapters/HierarchicalSortingAdapterFactory.cs`
 
@@ -165,5 +219,6 @@ Reference implementations:
 
 - [Hierarchical Data](hierarchical-data.md)
 - [Hierarchical High-Frequency Updates](hierarchical-high-frequency-updates.md)
+- [Hierarchical UI Automation](hierarchical-automation.md)
 - [Sorting Model: End-to-End Usage](sorting-model-end-to-end.md)
 - [Filtering Model: End-to-End Usage](filtering-model-end-to-end.md)

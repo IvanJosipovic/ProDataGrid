@@ -40,7 +40,8 @@ public sealed class MainWindowStartupLazyInitializationTests
                 continue;
             }
 
-            if (control is PixelColumnsPage or FrozenColumnsPage or RightFrozenColumnsPage or LargeUniformPage or RecycleDiagnosticsPage)
+            if (control is PixelColumnsPage or FrozenColumnsPage or RightFrozenColumnsPage or LargeUniformPage or
+                RecycleDiagnosticsPage or OptimizedFlatCellPathsPage or OptimizedHierarchyCellPathsPage)
             {
                 yield return control;
             }

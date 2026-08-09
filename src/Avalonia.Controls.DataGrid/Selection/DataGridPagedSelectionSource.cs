@@ -16,11 +16,12 @@ namespace Avalonia.Controls.DataGridSelection
     {
         private readonly DataGridCollectionView _view;
         private bool _disposed;
-        private bool _suppressNextReset;
+        private int _lastPageIndex;
 
         public DataGridPagedSelectionSource(DataGridCollectionView view)
         {
             _view = view ?? throw new ArgumentNullException(nameof(view));
+            _lastPageIndex = _view.PageIndex;
             if (_view is INotifyCollectionChanged incc)
             {
                 incc.CollectionChanged += OnViewCollectionChanged;
@@ -94,21 +95,23 @@ namespace Avalonia.Controls.DataGridSelection
 
         private void OnPageChanged(object sender, EventArgs e)
         {
-            // Page navigation on the view triggers a Reset notification even though the underlying
-            // unpaged list is unchanged. Suppress that Reset so the selection model doesn't clear
-            // persisted selections that live on other pages.
-            _suppressNextReset = true;
+            _lastPageIndex = _view.PageIndex;
         }
 
         private void OnViewCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
         {
-            if (e.Action == NotifyCollectionChangedAction.Reset && _suppressNextReset)
+            // PageIndex is updated before the view publishes its Reset and PageChanged is raised
+            // afterward. Detect the page transition here so the global selection source does not
+            // discard selections that merely moved off the visible page.
+            if (e.Action == NotifyCollectionChangedAction.Reset &&
+                (_view.IsPageChanging ||
+                 _view.IsPageProjectionChanging ||
+                 _view.PageIndex != _lastPageIndex))
             {
-                _suppressNextReset = false;
+                _lastPageIndex = _view.PageIndex;
                 return;
             }
 
-            _suppressNextReset = false;
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 

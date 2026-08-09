@@ -1,12 +1,11 @@
 # Row Drag Sessions
 
-Issue [#299](https://github.com/wieslawsoltes/ProDataGrid/issues/299) requested a proper row drag session model with live operation updates, modifier handling, custom feedback support, and better coordination with selection drag.
+Use the row drag session model for live operation updates, modifier handling,
+custom feedback, and coordination with selection drag.
 
-This article documents the resulting API and the deliberate divergences from the original proposal.
+## Public API
 
-## What Was Added
-
-Public API additions:
+The session API consists of:
 
 - `DataGridRowDragSession`
 - `DataGrid.ActiveRowDragSession`
@@ -16,7 +15,7 @@ Public API additions:
 - `DataGrid.RowDragUpdated`
 - `DataGrid.RowDragCanceled`
 
-Existing APIs were enriched:
+The related event arguments expose:
 
 - `DataGridRowDragStartingEventArgs.Session`
 - `DataGridRowDragCompletedEventArgs.Session`
@@ -27,7 +26,7 @@ Existing APIs were enriched:
 - `DataGridRowDropEventArgs.HoveredItem`
 - `DataGridRowDragDropOptions.SuppressSelectionDragFromDragHandle`
 
-Existing drop handlers now use a corrected effect split:
+Drop handlers use separate requested and effective effects:
 
 - `DataGridRowDropEventArgs.RequestedEffect`: modifier-derived request
 - `DataGridRowDropEventArgs.EffectiveEffect`: writable approved effect
@@ -54,7 +53,7 @@ That distinction is what allows the control to support real-time transitions suc
 
 ## Terminal Lifecycle
 
-The terminal events are now disjoint:
+The terminal events are disjoint:
 
 - `RowDragCompleted` means a drop committed.
 - `RowDragCanceled` means the drag ended without a committed drop.
@@ -149,7 +148,7 @@ Example:
 
 ## Selection Coordination
 
-`SuppressSelectionDragFromDragHandle` exists to solve the gesture conflict raised in the issue:
+`SuppressSelectionDragFromDragHandle` resolves the gesture conflict between row dragging and selection dragging:
 
 - row drag should start from the configured drag surface
 - press-to-select should still work
@@ -157,16 +156,16 @@ Example:
 
 This is especially important when `RowDragHandle="Row"` or `RowDragHandle="RowHeaderAndRow"`.
 
-## Divergences From Issue 299
+## Cross-platform drag feedback
 
-There is one intentional divergence from the original proposal.
-
-No separate native source-side drag badge API was added.
-Reason: Avalonia exposes effect feedback through `DragEffects`, but not a public source-side custom drag-UI pipeline comparable to WPF `GiveFeedback`. The grid therefore adds a cross-platform templated in-grid feedback layer.
+Avalonia exposes native effect feedback through `DragEffects`, but does not expose a
+public source-side custom drag-UI pipeline comparable to WPF `GiveFeedback`.
+`RowDragFeedbackTemplate` provides a cross-platform, templated feedback layer inside
+the grid.
 
 ## Samples
 
-The sample app contains two pages that exercise the full issue-299 scope:
+The sample app contains two pages that demonstrate row drag sessions:
 
-- `Row Drag & Drop`: move/copy transitions, invalid pinned-lane targets, custom feedback badge, and the new selection-drag option.
+- `Row Drag & Drop`: move/copy transitions, invalid pinned-lane targets, custom feedback badge, and selection-drag coordination.
 - `Hierarchical Row Drag & Drop`: before/after/inside targeting, invalid inside drops for leaf-only nodes, and live session inspection.

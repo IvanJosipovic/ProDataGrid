@@ -183,6 +183,7 @@ namespace Avalonia.Controls.DataGridConditionalFormatting
         private void OnModelFormattingChanged(object sender, ConditionalFormattingChangedEventArgs e)
         {
             BuildDescriptorCache();
+            UpdateItemSubscriptionsFromView();
             RaiseFormattingChanged();
         }
 
@@ -486,7 +487,7 @@ namespace Avalonia.Controls.DataGridConditionalFormatting
         {
             ClearItemSubscriptions();
 
-            if (_view == null)
+            if (_view == null || _model.Descriptors == null || _model.Descriptors.Count == 0)
             {
                 return;
             }

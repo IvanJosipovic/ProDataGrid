@@ -46,9 +46,9 @@ namespace Avalonia.Controls
 
         public string StringFormat { get; set; }
 
-        public object FallbackValue { get; set; }
+        public object FallbackValue { get; set; } = AvaloniaProperty.UnsetValue;
 
-        public object TargetNullValue { get; set; }
+        public object TargetNullValue { get; set; } = AvaloniaProperty.UnsetValue;
 
         internal IDataGridColumnValueAccessor ValueAccessor => _valueAccessor;
 

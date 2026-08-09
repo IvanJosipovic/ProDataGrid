@@ -317,6 +317,31 @@ namespace Avalonia.Controls
                 return;
             }
 
+            using var origin = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+            if (HasSelectionChangingHandlers)
+            {
+                HashSet<int> proposedRows = BuildSelectedRowsFromState(state, options);
+                List<DataGridCellInfo> proposedCells = state.SelectedCells == null
+                    ? new List<DataGridCellInfo>(_selectedCellsView)
+                    : BuildSelectedCellsFromState(state.SelectedCells, options);
+                DataGridCellInfo proposedCurrentCell = state.CurrentCell == null
+                    ? CurrentCell
+                    : BuildCurrentCellFromState(state.CurrentCell, options);
+                int proposedAnchorSlot = proposedCurrentCell.IsValid
+                    ? SlotFromRowIndex(proposedCurrentCell.RowIndex)
+                    : -1;
+                if (!TryPreviewCellSelection(
+                        proposedCells,
+                        proposedCurrentCell,
+                        CreateAnchorInfo(proposedAnchorSlot, proposedCurrentCell.ColumnIndex),
+                        proposedRows))
+                {
+                    return;
+                }
+            }
+
+            using var commit = BeginSelectionCommit();
+
             SelectionMode = state.SelectionMode;
             SelectionUnit = state.SelectionUnit;
 
@@ -997,39 +1022,7 @@ namespace Avalonia.Controls
 
         private void RestoreSelectedCellsFromState(IReadOnlyList<DataGridCellState> cells, DataGridStateOptions options)
         {
-            var list = new List<DataGridCellInfo>();
-            foreach (var cell in cells)
-            {
-                if (cell == null)
-                {
-                    continue;
-                }
-
-                if (!TryResolveItemKey(cell.ItemKey, options, out var item))
-                {
-                    item = null;
-                }
-
-                var column = ResolveColumnKey(cell.ColumnKey, options, null, cell.ColumnIndex);
-                if (column == null)
-                {
-                    continue;
-                }
-
-                var rowIndex = cell.RowIndex;
-                if (rowIndex < 0 && item != null)
-                {
-                    TryGetRowIndexFromItem(item, out rowIndex);
-                }
-
-                if (rowIndex < 0)
-                {
-                    continue;
-                }
-
-                var columnIndex = column.Index;
-                list.Add(new DataGridCellInfo(item, column, rowIndex, columnIndex, true));
-            }
+            List<DataGridCellInfo> list = BuildSelectedCellsFromState(cells, options);
 
             using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
             var previousSync = _syncingSelectedCells;
@@ -1087,6 +1080,116 @@ namespace Avalonia.Controls
             {
                 _syncingSelectedCells = previousSync;
             }
+        }
+
+        private List<DataGridCellInfo> BuildSelectedCellsFromState(
+            IReadOnlyList<DataGridCellState> cells,
+            DataGridStateOptions options)
+        {
+            var list = new List<DataGridCellInfo>();
+            foreach (var cell in cells)
+            {
+                if (cell == null)
+                {
+                    continue;
+                }
+
+                if (!TryResolveItemKey(cell.ItemKey, options, out var item))
+                {
+                    item = null;
+                }
+
+                var column = ResolveColumnKey(cell.ColumnKey, options, null, cell.ColumnIndex);
+                if (column == null)
+                {
+                    continue;
+                }
+
+                var rowIndex = cell.RowIndex;
+                if (rowIndex < 0 && item != null)
+                {
+                    TryGetRowIndexFromItem(item, out rowIndex);
+                }
+
+                if (rowIndex < 0)
+                {
+                    continue;
+                }
+
+                var columnIndex = column.Index;
+                list.Add(new DataGridCellInfo(item, column, rowIndex, columnIndex, true));
+            }
+
+            return list;
+        }
+
+        private HashSet<int> BuildSelectedRowsFromState(
+            DataGridSelectionState state,
+            DataGridStateOptions options)
+        {
+            var rows = new HashSet<int>();
+            bool anySelected = false;
+            if (state.SelectedItemKeys != null)
+            {
+                foreach (object key in state.SelectedItemKeys)
+                {
+                    if (!TryResolveItemKey(key, options, out object item))
+                    {
+                        continue;
+                    }
+
+                    int selectionIndex = GetSelectionModelIndexOfItem(item);
+                    int slot = selectionIndex < 0 ? -1 : SlotFromSelectionIndex(selectionIndex);
+                    int rowIndex = slot < 0 ? -1 : RowIndexFromSlot(slot);
+                    if (rowIndex >= 0)
+                    {
+                        rows.Add(rowIndex);
+                        anySelected = true;
+                    }
+                }
+            }
+
+            if (!anySelected && state.SelectedIndexes != null)
+            {
+                foreach (int selectionIndex in state.SelectedIndexes)
+                {
+                    int slot = selectionIndex < 0 ? -1 : SlotFromSelectionIndex(selectionIndex);
+                    int rowIndex = slot < 0 ? -1 : RowIndexFromSlot(slot);
+                    if (rowIndex >= 0)
+                    {
+                        rows.Add(rowIndex);
+                    }
+                }
+            }
+
+            return rows;
+        }
+
+        private DataGridCellInfo BuildCurrentCellFromState(
+            DataGridCellState state,
+            DataGridStateOptions options)
+        {
+            if (state == null)
+            {
+                return DataGridCellInfo.Unset;
+            }
+
+            TryResolveItemKey(state.ItemKey, options, out object item);
+            DataGridColumn column = ResolveColumnKey(state.ColumnKey, options, null, state.ColumnIndex);
+            if (column == null)
+            {
+                return DataGridCellInfo.Unset;
+            }
+
+            int rowIndex = state.RowIndex;
+            if (rowIndex < 0 && item != null)
+            {
+                TryGetRowIndexFromItem(item, out rowIndex);
+            }
+
+            return rowIndex < 0
+                ? DataGridCellInfo.Unset
+                : new DataGridCellInfo(item, column, rowIndex, column.Index, isValid: true);
         }
 
         private void RestoreCurrentCellFromState(DataGridCellState state, DataGridStateOptions options)

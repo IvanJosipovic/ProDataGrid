@@ -28,6 +28,7 @@
         <Project Path="src/ProDataGrid.ExcelSample.UnitTests/ProDataGrid.ExcelSample.UnitTests.csproj" />
         <Project Path="src/ProDataGrid.FormulaEngine.UnitTests/ProDataGrid.FormulaEngine.UnitTests.csproj" />
         <Project Path="tests/ProDataGrid.FormulaEngine.Benchmarks/ProDataGrid.FormulaEngine.Benchmarks.csproj" />
+        <Project Path="tests/ProDataGrid.Hierarchy.Benchmarks/ProDataGrid.Hierarchy.Benchmarks.csproj" />
         <Project Path="src/ProDiagnostics.UnitTests/ProDiagnostics.UnitTests.csproj" />
     </Folder>
     <Folder Name="/samples/">

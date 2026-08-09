@@ -4,10 +4,12 @@
 #nullable disable
 
 using System;
+using System.ComponentModel;
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Utils;
 using Avalonia.Media;
 using Avalonia.Rendering.Composition;
 using Avalonia.Rendering.SceneGraph;
@@ -23,7 +25,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    sealed class DataGridCustomDrawingCell : Control
+    sealed class DataGridCustomDrawingCell : DataGridCell
     {
         internal const int DefaultSharedTextLayoutCacheCapacity = 1024;
 
@@ -39,6 +41,14 @@ namespace Avalonia.Controls
         private bool _hasCompositionVisualSize;
         private float _compositionVisualWidth;
         private float _compositionVisualHeight;
+        private IDataGridDrawnCellValueProvider _valueProvider;
+        private IDataGridBuiltInCellRenderer _builtInRenderer;
+        private INotifyPropertyChanged _valueNotifier;
+        private int _configurationDepth;
+        private bool _configurationDirty;
+        private readonly WeakPropertyChangedListener<DataGridCustomDrawingCell> _valuePropertyChangedListener;
+
+        internal bool DisplayPropertiesInitialized { get; set; }
 
         public static readonly DirectProperty<DataGridCustomDrawingCell, object> ValueProperty =
             AvaloniaProperty.RegisterDirect<DataGridCustomDrawingCell, object>(
@@ -60,22 +70,22 @@ namespace Avalonia.Controls
                 nameof(RenderBackend),
                 DataGridCustomDrawingRenderBackend.ImmediateDrawOperation);
 
-        public static readonly AttachedProperty<FontFamily> FontFamilyProperty =
+        public new static readonly AttachedProperty<FontFamily> FontFamilyProperty =
             TextElement.FontFamilyProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<double> FontSizeProperty =
+        public new static readonly AttachedProperty<double> FontSizeProperty =
             TextElement.FontSizeProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<FontStyle> FontStyleProperty =
+        public new static readonly AttachedProperty<FontStyle> FontStyleProperty =
             TextElement.FontStyleProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<FontWeight> FontWeightProperty =
+        public new static readonly AttachedProperty<FontWeight> FontWeightProperty =
             TextElement.FontWeightProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<FontStretch> FontStretchProperty =
+        public new static readonly AttachedProperty<FontStretch> FontStretchProperty =
             TextElement.FontStretchProperty.AddOwner<DataGridCustomDrawingCell>();
 
-        public static readonly AttachedProperty<IBrush> ForegroundProperty =
+        public new static readonly AttachedProperty<IBrush> ForegroundProperty =
             TextElement.ForegroundProperty.AddOwner<DataGridCustomDrawingCell>();
 
         public static readonly StyledProperty<TextAlignment> TextAlignmentProperty =
@@ -111,7 +121,20 @@ namespace Avalonia.Controls
 
         static DataGridCustomDrawingCell()
         {
-            AffectsRender<DataGridCustomDrawingCell>(ForegroundProperty, RenderInvalidationTokenProperty);
+            UseDirectChromeProperty.OverrideDefaultValue<DataGridCustomDrawingCell>(true);
+            AffectsRender<DataGridCustomDrawingCell>(
+                BackgroundProperty,
+                BorderBrushProperty,
+                BorderThicknessProperty,
+                ForegroundProperty,
+                RenderInvalidationTokenProperty);
+        }
+
+        public DataGridCustomDrawingCell()
+        {
+            _valuePropertyChangedListener = new WeakPropertyChangedListener<DataGridCustomDrawingCell>(
+                this,
+                static (cell, sender, e) => cell.OnValueProviderPropertyChanged(sender, e));
         }
 
         /// <summary>
@@ -150,37 +173,37 @@ namespace Avalonia.Controls
             set => SetValue(RenderBackendProperty, value);
         }
 
-        public FontFamily FontFamily
+        public new FontFamily FontFamily
         {
             get => GetValue(FontFamilyProperty);
             set => SetValue(FontFamilyProperty, value);
         }
 
-        public double FontSize
+        public new double FontSize
         {
             get => GetValue(FontSizeProperty);
             set => SetValue(FontSizeProperty, value);
         }
 
-        public FontStyle FontStyle
+        public new FontStyle FontStyle
         {
             get => GetValue(FontStyleProperty);
             set => SetValue(FontStyleProperty, value);
         }
 
-        public FontWeight FontWeight
+        public new FontWeight FontWeight
         {
             get => GetValue(FontWeightProperty);
             set => SetValue(FontWeightProperty, value);
         }
 
-        public FontStretch FontStretch
+        public new FontStretch FontStretch
         {
             get => GetValue(FontStretchProperty);
             set => SetValue(FontStretchProperty, value);
         }
 
-        public IBrush Foreground
+        public new IBrush Foreground
         {
             get => GetValue(ForegroundProperty);
             set => SetValue(ForegroundProperty, value);
@@ -245,8 +268,6 @@ namespace Avalonia.Controls
             set => SetValue(LayoutInvalidationTokenProperty, value);
         }
 
-        internal DataGridCell OwningCell { get; set; }
-
         internal DataGridCustomDrawingTextLayoutCache SharedTextLayoutCache
         {
             get => _sharedTextLayoutCache;
@@ -258,13 +279,110 @@ namespace Avalonia.Controls
                 }
 
                 _sharedTextLayoutCache = value;
-                ApplySharedCacheCapacity();
-                InvalidateTextLayout();
+                if (_configurationDepth > 0)
+                {
+                    _configurationDirty = true;
+                }
+                else
+                {
+                    ApplySharedCacheCapacity();
+                    InvalidateTextLayout();
+                }
             }
+        }
+
+        internal IDataGridBuiltInCellRenderer BuiltInRendererForTesting => _builtInRenderer;
+
+        internal bool HasCompositionVisualForTesting => _compositionVisual != null;
+
+        internal bool UsesValueProvider => _valueProvider != null;
+
+        internal void RefreshValueProviderSubscription()
+        {
+            UpdateValueProviderSubscription();
+        }
+
+        internal void BeginDisplayConfiguration()
+        {
+            _configurationDepth++;
+        }
+
+        internal void EndDisplayConfiguration()
+        {
+            if (_configurationDepth == 0 || --_configurationDepth != 0 || !_configurationDirty)
+            {
+                return;
+            }
+
+            _configurationDirty = false;
+            InvalidateResolvedTypeface();
+            ApplySharedCacheCapacity();
+            InvalidateTextLayout();
+            InvalidateMeasure();
+            InvalidateVisual();
+
+            if (ShouldUseCompositionDrawOperationBackend)
+            {
+                _compositionHostUnavailable = false;
+                EnsureCompositionVisualHost();
+            }
+            else
+            {
+                TearDownCompositionVisualHost();
+            }
+        }
+
+        internal void UseDrawingTemplate()
+        {
+            Content = null;
+            ClearValue(TemplateProperty);
+        }
+
+        internal void UseRetainedTemplate()
+        {
+            TearDownCompositionVisualHost();
+            ClearValue(TemplateProperty);
+        }
+
+        internal void ConfigureBuiltInRenderer(
+            IDataGridDrawnCellValueProvider valueProvider,
+            IDataGridBuiltInCellRenderer renderer)
+        {
+            _valueProvider = valueProvider;
+            _builtInRenderer = renderer;
+            UseDrawingTemplate();
+            UpdateValueProviderSubscription();
+            if (_configurationDepth > 0)
+            {
+                _configurationDirty = true;
+            }
+            else
+            {
+                InvalidateMeasure();
+                InvalidateVisual();
+            }
+        }
+
+        internal void ClearBuiltInRenderer()
+        {
+            _valueProvider = null;
+            _builtInRenderer = null;
+            UpdateValueProviderSubscription();
         }
 
         protected override Size MeasureOverride(Size availableSize)
         {
+            if (Content != null)
+            {
+                return base.MeasureOverride(availableSize);
+            }
+
+            if (_builtInRenderer != null &&
+                _builtInRenderer.TryMeasure(this, availableSize, out Size rendererSize))
+            {
+                return rendererSize;
+            }
+
             var text = GetDisplayText();
             if (TryMeasureWithDrawOperationFastPath(availableSize, text, out Size fastPathSize))
             {
@@ -273,20 +391,29 @@ namespace Avalonia.Controls
 
             if (string.IsNullOrEmpty(text))
             {
-                return default;
+                return InflateSize(default, Padding, availableSize);
             }
 
-            EnsureFormattedText(availableSize, text);
+            var contentAvailableSize = DeflateSize(availableSize, Padding);
+            EnsureFormattedText(contentAvailableSize, text);
             if (_formattedText is null)
             {
-                return default;
+                return InflateSize(default, Padding, availableSize);
             }
 
-            return new Size(_formattedText.Width, _formattedText.Height);
+            return InflateSize(
+                new Size(_formattedText.Width, _formattedText.Height),
+                Padding,
+                availableSize);
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
+            if (Content != null)
+            {
+                return base.ArrangeOverride(finalSize);
+            }
+
             var text = GetDisplayText();
             if (TryArrangeWithDrawOperationFastPath(finalSize, text, out Size arrangedSize))
             {
@@ -303,6 +430,19 @@ namespace Avalonia.Controls
         {
             base.Render(context);
 
+            if (Content != null)
+            {
+                ClearCompositionDrawOperation();
+                return;
+            }
+
+            if (_builtInRenderer != null)
+            {
+                ClearCompositionDrawOperation();
+                _builtInRenderer.Render(this, context);
+                return;
+            }
+
             var text = GetDisplayText();
             var shouldDrawOperation = IsDrawOperationEnabled;
             var shouldDrawText = DrawingMode == DataGridCustomDrawingMode.Text ||
@@ -311,11 +451,12 @@ namespace Avalonia.Controls
 
             if (shouldDrawText && !string.IsNullOrEmpty(text))
             {
-                EnsureFormattedText(Bounds.Size, text);
+                var contentBounds = DeflateRect(new Rect(Bounds.Size), Padding);
+                EnsureFormattedText(contentBounds.Size, text);
                 if (_formattedText != null)
                 {
-                    var y = Math.Max(0, (Bounds.Height - _formattedText.Height) * 0.5);
-                    context.DrawText(_formattedText, new Point(0, y));
+                    var y = contentBounds.Y + Math.Max(0, (contentBounds.Height - _formattedText.Height) * 0.5);
+                    context.DrawText(_formattedText, new Point(contentBounds.X, y));
                 }
             }
 
@@ -345,6 +486,7 @@ namespace Avalonia.Controls
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            UpdateValueProviderSubscription();
             _compositionHostUnavailable = false;
             EnsureCompositionVisualHost();
             UpdateCompositionVisualSize(Bounds.Size);
@@ -352,14 +494,27 @@ namespace Avalonia.Controls
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            DetachValueProviderSubscription();
             TearDownCompositionVisualHost();
             _compositionHostUnavailable = false;
             base.OnDetachedFromVisualTree(e);
         }
 
+        protected override void OnDataContextChanged(EventArgs e)
+        {
+            base.OnDataContextChanged(e);
+            UpdateValueProviderSubscription();
+        }
+
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
+
+            if (_configurationDepth > 0)
+            {
+                _configurationDirty = true;
+                return;
+            }
 
             if (change.Property == FontFamilyProperty ||
                 change.Property == FontStyleProperty ||
@@ -424,6 +579,31 @@ namespace Avalonia.Controls
                 InvalidateTextLayout();
                 InvalidateVisual();
             }
+        }
+
+        private static Size DeflateSize(Size size, Thickness padding)
+        {
+            return new Size(
+                Math.Max(0d, size.Width - padding.Left - padding.Right),
+                Math.Max(0d, size.Height - padding.Top - padding.Bottom));
+        }
+
+        private static Size InflateSize(Size size, Thickness padding, Size availableSize)
+        {
+            var width = size.Width + padding.Left + padding.Right;
+            var height = size.Height + padding.Top + padding.Bottom;
+            return new Size(
+                double.IsPositiveInfinity(availableSize.Width) ? width : Math.Min(width, availableSize.Width),
+                double.IsPositiveInfinity(availableSize.Height) ? height : Math.Min(height, availableSize.Height));
+        }
+
+        private static Rect DeflateRect(Rect rect, Thickness padding)
+        {
+            return new Rect(
+                padding.Left,
+                padding.Top,
+                Math.Max(0d, rect.Width - padding.Left - padding.Right),
+                Math.Max(0d, rect.Height - padding.Top - padding.Bottom));
         }
 
         private bool TrySendCompositionDrawOperation(ICustomDrawOperation drawOperation)
@@ -648,7 +828,7 @@ namespace Avalonia.Controls
             out bool isCurrent,
             out bool isSelected)
         {
-            cell = OwningCell;
+            cell = this;
             foreground = Foreground ?? Brushes.Black;
             typeface = GetResolvedTypeface();
             isCurrent = cell is { OwningGrid: { }, OwningRow: { }, OwningColumn: { } } && cell.IsCurrent;
@@ -667,6 +847,17 @@ namespace Avalonia.Controls
         {
             var maxTextWidth = NormalizeConstraint(availableSize.Width);
             var maxTextHeight = NormalizeConstraint(availableSize.Height);
+
+            // Recycled cells can remain in the visual tree with a transient zero-sized
+            // arrange while their display mode is being changed. FormattedText rejects a
+            // zero MaxTextHeight, and there is no drawable text surface in this state.
+            if (maxTextWidth <= 0 || maxTextHeight <= 0)
+            {
+                _formattedText = null;
+                _text = text;
+                _availableSize = availableSize;
+                return;
+            }
 
             if (TextLayoutCacheMode == DataGridCustomDrawingTextLayoutCacheMode.Shared &&
                 SharedTextLayoutCache != null)
@@ -733,6 +924,62 @@ namespace Avalonia.Controls
             }
 
             return Convert.ToString(Value, CultureInfo.CurrentCulture) ?? string.Empty;
+        }
+
+        private void UpdateValueProviderSubscription()
+        {
+            DetachValueProviderSubscription();
+
+            if (_valueProvider == null)
+            {
+                return;
+            }
+
+            UpdateValueFromProvider();
+            if (_valueProvider is IDataGridDrawnCellValueChangeTracking
+                {
+                    TrackDrawnCellValueChanges: false
+                })
+            {
+                return;
+            }
+
+            // Recycled cells may receive a new DataContext while detached. Refresh the
+            // value above, but defer the external event subscription until reattachment.
+            if (VisualRoot == null)
+            {
+                return;
+            }
+
+            if (DataContext is INotifyPropertyChanged notifier)
+            {
+                _valueNotifier = notifier;
+                _valueNotifier.PropertyChanged += _valuePropertyChangedListener.Handler;
+            }
+        }
+
+        private void DetachValueProviderSubscription()
+        {
+            if (_valueNotifier == null)
+            {
+                return;
+            }
+
+            _valueNotifier.PropertyChanged -= _valuePropertyChangedListener.Handler;
+            _valueNotifier = null;
+        }
+
+        private void OnValueProviderPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (ReferenceEquals(sender, _valueNotifier))
+            {
+                UpdateValueFromProvider();
+            }
+        }
+
+        private void UpdateValueFromProvider()
+        {
+            Value = _valueProvider?.GetDrawnCellValue(DataContext);
         }
 
         private void InvalidateTextLayout()
@@ -807,7 +1054,12 @@ namespace Avalonia.Controls
 
         private static double NormalizeConstraint(double value)
         {
-            return double.IsInfinity(value) ? double.PositiveInfinity : Math.Max(0, value);
+            if (double.IsNaN(value) || double.IsNegativeInfinity(value) || value <= 0)
+            {
+                return 0;
+            }
+
+            return double.IsPositiveInfinity(value) ? double.PositiveInfinity : value;
         }
 
         private bool ShouldUseDrawOperationLayoutFastPath =>

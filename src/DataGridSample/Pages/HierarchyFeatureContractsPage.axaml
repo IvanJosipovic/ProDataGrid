@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:behaviors="clr-namespace:DataGridSample.Behaviors"
+             xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid"
+             xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+             x:Class="DataGridSample.Pages.HierarchyFeatureContractsPage"
+             x:DataType="viewModels:HierarchyFeatureContractsViewModel"
+             behaviors:DataContextFactoryBehavior.Factory="{StaticResource FeatureContractsViewModelFactory}">
+  <UserControl.Resources>
+    <viewModels:HierarchyFeatureContractsViewModelFactory x:Key="FeatureContractsViewModelFactory" />
+    <filtering:DataGridHierarchicalFilteringAdapterFactory
+        x:Key="FeatureContractsFilteringAdapter"
+        Policy="KeepAncestorsOfMatches" />
+  </UserControl.Resources>
+
+  <Grid Margin="12"
+        RowDefinitions="Auto,Auto,*,180"
+        RowSpacing="8">
+    <StackPanel Spacing="3">
+      <TextBlock Classes="h2"
+                 Text="Hierarchy Feature Contracts" />
+      <TextBlock Text="Inspect the grid with UI Automation to expand/collapse rows. Edit a name to raise CellValueChanged, scroll to observe prepare/clear recycling, and select 'Archived prototype' to exercise a transactional veto."
+                 TextWrapping="Wrap" />
+      <TextBlock Text="The grid deliberately uses retained Avalonia cells; the optimized/drawn modes are not required for these APIs."
+                 FontStyle="Italic"
+                 Opacity="0.72"
+                 TextWrapping="Wrap" />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1"
+               Orientation="Horizontal">
+      <TextBox Width="190"
+               Margin="0,0,8,8"
+               PlaceholderText="Name filter"
+               Text="{CompiledBinding FilterText, Mode=TwoWay}" />
+      <Button Margin="0,0,8,8"
+              Content="Apply filter"
+              Command="{CompiledBinding ApplyFilterCommand}" />
+      <Button Margin="0,0,14,8"
+              Content="Clear filter"
+              Command="{CompiledBinding ClearFilterCommand}" />
+      <Button Margin="0,0,8,8"
+              Content="Expand all"
+              Command="{CompiledBinding ExpandAllCommand}" />
+      <Button Margin="0,0,14,8"
+              Content="Collapse all"
+              Command="{CompiledBinding CollapseAllCommand}" />
+      <Button Margin="0,0,14,8"
+              Content="Programmatic rename (no commit event)"
+              Command="{CompiledBinding ProgrammaticRenameCommand}" />
+      <CheckBox Margin="0,0,14,8"
+                VerticalAlignment="Center"
+                Content="Veto restricted selection"
+                IsChecked="{CompiledBinding BlockRestrictedSelection, Mode=TwoWay}" />
+      <TextBlock Margin="0,0,0,8"
+                 VerticalAlignment="Center"
+                 Text="{CompiledBinding SelectedItemSummary}" />
+    </WrapPanel>
+
+    <DataGrid x:Name="FeatureContractsGrid"
+              Grid.Row="2"
+              AutomationProperties.Name="Hierarchy feature contract grid"
+              AutoGenerateColumns="False"
+              CanUserSortColumns="False"
+              ColumnDefinitionsSource="{CompiledBinding ColumnDefinitions}"
+              FilteringAdapterFactory="{StaticResource FeatureContractsFilteringAdapter}"
+              FilteringModel="{CompiledBinding FilteringModel}"
+              HeadersVisibility="All"
+              HierarchicalModel="{CompiledBinding Model}"
+              HierarchicalRowsEnabled="True"
+              IsReadOnly="False"
+              RowHeight="30"
+              SelectedItem="{CompiledBinding SelectedItem, Mode=TwoWay}"
+              SelectionMode="Single"
+              SelectionUnit="FullRow"
+              UseLogicalScrollable="True"
+              behaviors:DataGridFeatureContractBehavior.EventCommand="{CompiledBinding FeatureEventCommand}" />
+
+    <Grid Grid.Row="3"
+          RowDefinitions="Auto,*">
+      <DockPanel Margin="0,0,0,4">
+        <TextBlock DockPanel.Dock="Left"
+                   FontWeight="SemiBold"
+                   Text="Bounded event log (newest first)" />
+        <Button DockPanel.Dock="Right"
+                HorizontalAlignment="Right"
+                Content="Clear log"
+                Command="{CompiledBinding ClearEventsCommand}" />
+      </DockPanel>
+      <ListBox Grid.Row="1"
+               AutomationProperties.Name="Hierarchy feature event log"
+               ItemsSource="{CompiledBinding Events}">
+        <ListBox.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <TextBlock FontFamily="Monospace"
+                       FontSize="11"
+                       Text="{CompiledBinding .}"
+                       TextWrapping="Wrap" />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </Grid>
+  </Grid>
+</UserControl>

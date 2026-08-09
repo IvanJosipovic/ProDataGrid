@@ -661,6 +661,10 @@ internal
                     if (row.Cells.Count < newColumnCount)
                     {
                         AddNewCellPrivate(row, insertedColumn);
+                        if (row.Slot >= 0 && !row.IsRecycled)
+                        {
+                            NotifyCellPrepared(row, row.Cells[insertedColumn.Index]);
+                        }
                     }
                 }
             }
@@ -756,6 +760,25 @@ internal
             OnGroupSummaryColumnRemoved(removedColumn);
 
             RemoveDisplayedColumnHeader(removedColumn, removedHeader);
+        }
+
+        internal void NotifyCellsClearingForColumnRemoval(DataGridColumn removedColumn)
+        {
+            if (_rowsPresenter == null)
+            {
+                return;
+            }
+
+            foreach (DataGridRow row in GetAllRows())
+            {
+                if (row.Slot >= 0 &&
+                    !row.IsRecycled &&
+                    removedColumn.Index >= 0 &&
+                    removedColumn.Index < row.Cells.Count)
+                {
+                    NotifyCellClearing(row, row.Cells[removedColumn.Index]);
+                }
+            }
         }
 
         internal DataGridCellCoordinates OnRemovingColumn(DataGridColumn dataGridColumn)
@@ -900,6 +923,77 @@ internal
                 InvalidateRowHeightEstimate();
                 InvalidateMeasure();
             }
+        }
+
+        internal void OnColumnDisplayModeChanged(DataGridColumn column)
+        {
+            if (column == null || column.Index < 0)
+            {
+                return;
+            }
+
+            if (_editingColumnIndex == column.Index &&
+                !CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true))
+            {
+                CancelEdit(DataGridEditingUnit.Cell, raiseEvents: true);
+            }
+
+            for (int index = 0; index < _loadedRows.Count; index++)
+            {
+                DataGridRow row = _loadedRows[index];
+                if (!IsSlotVisible(row.Slot))
+                {
+                    RecreateColumnCell(row, column);
+                }
+            }
+
+            if (_rowsPresenter != null)
+            {
+                foreach (DataGridRow row in GetAllRows())
+                {
+                    RecreateColumnCell(row, column);
+                }
+
+                _rowsPresenter.InvalidateMeasure();
+            }
+
+            InvalidateRowHeightEstimate();
+            InvalidateMeasure();
+            RequestPointerOverRefresh();
+        }
+
+        private void RecreateColumnCell(DataGridRow row, DataGridColumn column)
+        {
+            if (row == null || column.Index >= row.Cells.Count)
+            {
+                return;
+            }
+
+            DataGridCell oldCell = row.Cells[column.Index];
+            if (!ReferenceEquals(oldCell.OwningColumn, column))
+            {
+                return;
+            }
+
+            // Recycled rows can intentionally remain under the rows presenter. Keep their
+            // pooled cell type synchronized with the new display mode, but do not report a
+            // lifecycle transition: their prior live assignment was already cleared when the
+            // row entered the recycle pool and their next assignment will be reported on reuse.
+            bool hasLiveAssignment = row.Slot >= 0 && !row.IsRecycled;
+            if (hasLiveAssignment)
+            {
+                NotifyCellClearing(row, oldCell);
+            }
+            row.Cells.RemoveAt(column.Index);
+            AddNewCellPrivate(row, column);
+
+            DataGridCell newCell = row.Cells[column.Index];
+            newCell.UpdatePseudoClasses();
+            if (hasLiveAssignment)
+            {
+                NotifyCellPrepared(row, newCell);
+            }
+            row.InvalidateMeasure();
         }
 
         /// <summary>
@@ -1397,6 +1491,12 @@ internal
             if (dataGridCell.Content is Control element)
             {
                 dataGridColumn.RefreshCellContent(element, propertyName);
+            }
+            else if (dataGridCell is DataGridDirectTextCell or
+                     DataGridCustomDrawingCell or
+                     DataGridDirectHierarchicalCell)
+            {
+                dataGridColumn.RefreshCellContent(dataGridCell, propertyName);
             }
             dataGridColumn.RefreshCellBindings(dataGridCell, propertyName);
         }

@@ -115,7 +115,31 @@ internal
         public bool IsSelected
         {
             get => _isSelected;
-            set => SetAndRaise(IsSelectedProperty, ref _isSelected, value);
+            set
+            {
+                if (_isSelected == value)
+                {
+                    return;
+                }
+
+                DataGrid owner = OwningGrid;
+                if (owner != null &&
+                    Slot != -1 &&
+                    !owner.IsSelectionUpdateFromRowSuppressed)
+                {
+                    using var origin = owner.BeginSelectionChangeScope(DataGridSelectionChangeSource.Programmatic);
+                    if (!owner.TryPreviewSetRowSelection(Slot, value, setAnchorSlot: false))
+                    {
+                        return;
+                    }
+
+                    using var commit = owner.BeginSelectionCommit();
+                    SetAndRaise(IsSelectedProperty, ref _isSelected, value);
+                    return;
+                }
+
+                SetAndRaise(IsSelectedProperty, ref _isSelected, value);
+            }
         }
 
         public static readonly DirectProperty<DataGridRow, bool> IsValidProperty =
@@ -413,6 +437,8 @@ internal
             }
         }
 
+        internal DataGridCell ExistingFillerCell => _fillerCell;
+
         internal bool HasBottomGridLine
         {
             get
@@ -612,6 +638,12 @@ internal
             _cellsElement = e.NameScope.Find<DataGridCellsPresenter>(DATAGRIDROW_elementCells);
             if (_cellsElement != null)
             {
+                if (RootElement == null)
+                {
+                    RootElement = _cellsElement;
+                    ApplyState();
+                }
+
                 _cellsElement.OwningRow = this;
                 // Cells that were already added before the Template was applied need to
                 // be added to the Canvas
@@ -740,10 +772,6 @@ internal
 
         //TODO Cleanup
         double? _previousDetailsHeight = null;
-
-
-
-
 
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {

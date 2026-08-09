@@ -92,17 +92,16 @@ namespace Avalonia.Controls
                     dataGridRow.SetValue(ThemeProperty, rowTheme, BindingPriority.Template);
                 }
                 CompleteCellsCollection(dataGridRow);
-                NotifyRowPrepared(dataGridRow, dataContext);
-                ApplyConditionalFormattingForRow(dataGridRow);
-                dataGridRow.ClearRecyclingState();
+                PrepareRowForItem(dataGridRow, dataContext);
 
                 // Placeholder transitions clear every cell's Content before DataContext change,
-                // so regenerate all columns (including templates) — same as before.
-                // Normal recycle: non-template cells keep prior Content; indexer bindings on
-                // Fields[i] often do not refresh until the row is fully re-realized. Template
-                // columns already refresh on DataContext change via OnPropertyChanged.
-                // Recycled descendants can retain valid measure state after their DataContext changes.
-                // Height-based scrolling may consume the row's DesiredSize before the next layout pass.
+                // so regenerate all columns (including templates). On a normal recycle, only the
+                // exact built-in columns whose retained content is data-context safe are reused.
+                // Derived/custom columns regenerate because their element generation may depend on
+                // the row item. Direct-provider cells also regenerate when the new item is not
+                // compatible with the provider, allowing the binding fallback to take over.
+                // Reused descendants can retain valid measure state after their DataContext changes;
+                // height-based scrolling may consume the row's DesiredSize before the next layout pass.
                 if (hasPlaceholderTransition)
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
@@ -115,19 +114,21 @@ namespace Avalonia.Controls
                 {
                     foreach (DataGridCell cell in dataGridRow.Cells)
                     {
-                        if (cell.OwningColumn != null &&
-                            cell.OwningColumn is not DataGridTemplateColumn)
+                        if (ShouldRegenerateRecycledCell(cell, dataContext))
                         {
                             cell.Content = cell.OwningColumn.GenerateElementInternal(cell, dataContext);
                             cell.InvalidateMeasureForContentChange();
                         }
-                        else if (cell.OwningColumn is DataGridTemplateColumn)
+                        else if (double.IsNaN(RowHeight))
                         {
+                            // Reused descendants can retain the previous item's desired size.
                             cell.InvalidateMeasureForContentChange();
                         }
                     }
                 }
-
+                ApplyConditionalFormattingForRow(dataGridRow);
+                dataGridRow.ClearRecyclingState();
+                NotifyPreparedRowCells(dataGridRow);
                 OnLoadingRow(new DataGridRowEventArgs(dataGridRow));
             }
             else if (isOwnContainer)
@@ -143,9 +144,10 @@ namespace Avalonia.Controls
                     dataGridRow.SetValue(ThemeProperty, rowTheme, BindingPriority.Template);
                 }
                 CompleteCellsCollection(dataGridRow);
-                NotifyRowPrepared(dataGridRow, dataGridRow.DataContext ?? dataContext);
+                PrepareRowForItem(dataGridRow, dataGridRow.DataContext ?? dataContext);
                 ApplyConditionalFormattingForRow(dataGridRow);
                 dataGridRow.ClearRecyclingState();
+                NotifyPreparedRowCells(dataGridRow);
                 OnLoadingRow(new DataGridRowEventArgs(dataGridRow));
             }
 
@@ -173,6 +175,40 @@ namespace Avalonia.Controls
                     column.GenerateEditingElementInternal(EditingRow.Cells[column.Index], EditingRow.DataContext);
                 }
             }
+        }
+
+        private static bool ShouldRegenerateRecycledCell(DataGridCell cell, object dataContext)
+        {
+            DataGridColumn column = cell.OwningColumn;
+            if (column == null)
+            {
+                return false;
+            }
+
+            // Derived/custom columns can make element generation depend on the row item,
+            // even when they reuse one of the built-in coalesced cell container types.
+            if (!column.CanReuseCellContentOnDataContextChange)
+            {
+                return true;
+            }
+
+            // Direct retained text cells re-evaluate and switch their accessor/binding mode
+            // synchronously when the row DataContext changes. Only drawn-provider cells need
+            // a regeneration-time compatibility check here.
+            if (cell is DataGridDirectTextCell or DataGridDirectHierarchicalCell)
+            {
+                return false;
+            }
+
+            if (cell is not DataGridCustomDrawingCell { UsesValueProvider: true })
+            {
+                return false;
+            }
+
+            var accessor = DataGridColumnMetadata.GetValueAccessor(column);
+            return dataContext == null ||
+                   accessor == null ||
+                   !accessor.ItemType.IsInstanceOfType(dataContext);
         }
 
 

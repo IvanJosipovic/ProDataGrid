@@ -21,6 +21,9 @@ namespace Avalonia.Controls
         private FontStretch? _fontStretch;
         private IBrush _foreground;
         private string _watermark;
+        private bool _useDirectTextCell;
+        private bool _useDirectTextContent;
+        private bool _trackDirectTextValueChanges = true;
 
         public FontFamily FontFamily
         {
@@ -64,6 +67,35 @@ namespace Avalonia.Controls
             set => SetProperty(ref _watermark, value);
         }
 
+        /// <summary>
+        /// Gets or sets whether generated text columns use the optimized retained direct-text cell.
+        /// </summary>
+        public bool UseDirectTextCell
+        {
+            get => _useDirectTextCell;
+            set => SetProperty(ref _useDirectTextCell, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether ordinary retained cells use their typed accessor directly in
+        /// the retained text element, without replacing the cell or its Avalonia template.
+        /// </summary>
+        public bool UseDirectTextContent
+        {
+            get => _useDirectTextContent;
+            set => SetProperty(ref _useDirectTextContent, value);
+        }
+
+        /// <summary>
+        /// Gets or sets whether generated direct text cells subscribe to row-item property changes.
+        /// Disable this only when the displayed row values are immutable.
+        /// </summary>
+        public bool TrackDirectTextValueChanges
+        {
+            get => _trackDirectTextValueChanges;
+            set => SetProperty(ref _trackDirectTextValueChanges, value);
+        }
+
         protected override DataGridColumn CreateColumnCore()
         {
             return new DataGridTextColumn();
@@ -75,6 +107,9 @@ namespace Avalonia.Controls
 
             if (column is DataGridTextColumn textColumn)
             {
+                textColumn.UseDirectTextCell = UseDirectTextCell;
+                textColumn.UseDirectTextContent = UseDirectTextContent;
+                textColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;
                 if (FontFamily != null)
                 {
                     textColumn.FontFamily = FontFamily;
@@ -157,6 +192,15 @@ namespace Avalonia.Controls
 
             switch (propertyName)
             {
+                case nameof(UseDirectTextCell):
+                    textColumn.UseDirectTextCell = UseDirectTextCell;
+                    return true;
+                case nameof(UseDirectTextContent):
+                    textColumn.UseDirectTextContent = UseDirectTextContent;
+                    return true;
+                case nameof(TrackDirectTextValueChanges):
+                    textColumn.TrackDirectTextValueChanges = TrackDirectTextValueChanges;
+                    return true;
                 case nameof(FontFamily):
                     if (FontFamily != null)
                     {

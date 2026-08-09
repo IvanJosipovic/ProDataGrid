@@ -26,6 +26,9 @@ internal
         private IDataTemplate _cellTemplate;
         private bool _reuseCellContent;
 
+        internal override bool CanReuseCellContentOnDataContextChange =>
+            GetType() == typeof(DataGridTemplateColumn);
+
         public static readonly DirectProperty<DataGridTemplateColumn, IDataTemplate> CellTemplateProperty =
             AvaloniaProperty.RegisterDirect<DataGridTemplateColumn, IDataTemplate>(
                 nameof(CellTemplate),

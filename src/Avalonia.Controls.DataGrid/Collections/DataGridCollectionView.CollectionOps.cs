@@ -23,6 +23,131 @@ namespace Avalonia.Collections
 {
     sealed partial class DataGridCollectionView
     {
+        private int _sourceMutationDepth;
+        private DataGridCollectionViewSourceMutationEventArgs _sourceMutationEventArgs;
+        private NotifyCollectionChangedEventArgs _pendingSourceReset;
+
+        private SourceMutationScope BeginSourceMutation(NotifyCollectionChangedEventArgs change)
+        {
+            if (_sourceMutationDepth++ == 0)
+            {
+                _sourceMutationEventArgs = new DataGridCollectionViewSourceMutationEventArgs(
+                    change,
+                    SourceCollection,
+                    isViewProjectionStable: !UsesLocalArray);
+                try
+                {
+                    SourceMutationStarting?.Invoke(this, _sourceMutationEventArgs);
+                }
+                catch
+                {
+                    DataGridCollectionViewSourceMutationEventArgs args = _sourceMutationEventArgs;
+                    _sourceMutationEventArgs = null;
+                    _sourceMutationDepth = 0;
+                    try
+                    {
+                        SourceMutationCompleted?.Invoke(this, args);
+                    }
+                    catch
+                    {
+                        // Preserve the proposal-handler failure that aborted the mutation
+                        // boundary. Subscribers must keep their completion cleanup non-throwing.
+                    }
+                    throw;
+                }
+            }
+
+            return new SourceMutationScope(this);
+        }
+
+        private void EndSourceMutation()
+        {
+            if (--_sourceMutationDepth != 0)
+            {
+                return;
+            }
+
+            DataGridCollectionViewSourceMutationEventArgs args = _sourceMutationEventArgs;
+            _sourceMutationEventArgs = null;
+            SourceMutationCompleted?.Invoke(this, args);
+        }
+
+        private void PromoteSourceMutationToStableProjection()
+        {
+            if (_sourceMutationDepth == 0 ||
+                _sourceMutationEventArgs == null ||
+                _sourceMutationEventArgs.IsViewProjectionStable)
+            {
+                return;
+            }
+
+            _sourceMutationEventArgs = new DataGridCollectionViewSourceMutationEventArgs(
+                _sourceMutationEventArgs.CollectionChange,
+                this,
+                isViewProjectionStable: true);
+            SourceMutationStarting?.Invoke(this, _sourceMutationEventArgs);
+        }
+
+        private readonly struct SourceMutationScope : IDisposable
+        {
+            private readonly DataGridCollectionView _owner;
+
+            public SourceMutationScope(DataGridCollectionView owner)
+            {
+                _owner = owner;
+            }
+
+            public void Dispose()
+            {
+                _owner?.EndSourceMutation();
+            }
+        }
+
+        private ViewProjectionMutationScope BeginViewProjectionMutation()
+        {
+            var args = new DataGridCollectionViewSourceMutationEventArgs(
+                new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset),
+                this,
+                isViewProjectionStable: true);
+            try
+            {
+                SourceMutationStarting?.Invoke(this, args);
+            }
+            catch
+            {
+                try
+                {
+                    SourceMutationCompleted?.Invoke(this, args);
+                }
+                catch
+                {
+                    // Preserve the proposal-handler failure that aborted the refresh boundary.
+                }
+                throw;
+            }
+
+            return new ViewProjectionMutationScope(this, args);
+        }
+
+        private readonly struct ViewProjectionMutationScope : IDisposable
+        {
+            private readonly DataGridCollectionView _owner;
+            private readonly DataGridCollectionViewSourceMutationEventArgs _args;
+
+            public ViewProjectionMutationScope(
+                DataGridCollectionView owner,
+                DataGridCollectionViewSourceMutationEventArgs args)
+            {
+                _owner = owner;
+                _args = args;
+            }
+
+            public void Dispose()
+            {
+                _owner?.SourceMutationCompleted?.Invoke(_owner, _args);
+            }
+        }
+
         /// <summary>
         /// Return true if the item belongs to this view.  No assumptions are
         /// made about the item. This method will behave similarly to IList.Contains().
@@ -520,6 +645,18 @@ namespace Avalonia.Collections
 
             if (args.Action == NotifyCollectionChangedAction.Reset)
             {
+                SourceMutationScope sourceMutation = default;
+                if (IsRefreshDeferred)
+                {
+                    _pendingSourceReset = args;
+                }
+                else
+                {
+                    sourceMutation = BeginSourceMutation(args);
+                }
+
+                try
+                {
                 if (!IsUsingSourceList)
                 {
                     // if we have no items now, clear our own internal list
@@ -531,8 +668,15 @@ namespace Avalonia.Collections
 
                 // calling Refresh, will fire the collectionchanged event
                 RefreshOrDefer();
+                }
+                finally
+                {
+                    sourceMutation.Dispose();
+                }
                 return;
             }
+
+            using var sourceMutationScope = BeginSourceMutation(args);
 
             if (args.Action == NotifyCollectionChangedAction.Move)
             {
@@ -855,8 +999,16 @@ namespace Avalonia.Collections
         /// </summary>
         private void RefreshInternal()
         {
-            RefreshOverride();
-            SetFlag(CollectionViewFlags.NeedsRefresh, false);
+            ViewProjectionMutationScope viewProjectionMutation = default;
+            try
+            {
+                viewProjectionMutation = RefreshOverride();
+                SetFlag(CollectionViewFlags.NeedsRefresh, false);
+            }
+            finally
+            {
+                viewProjectionMutation.Dispose();
+            }
         }
 
         /// <summary>
@@ -879,8 +1031,13 @@ namespace Avalonia.Collections
         /// Also updates currency information.
         /// </summary>
         //TODO Paging
-        private void RefreshOverride()
+        private ViewProjectionMutationScope RefreshOverride()
         {
+            NotifyCollectionChangedEventArgs pendingSourceReset = _pendingSourceReset;
+            _pendingSourceReset = null;
+            using var pendingSourceMutation = pendingSourceReset != null && _sourceMutationDepth == 0
+                ? BeginSourceMutation(pendingSourceReset)
+                : default;
             using var activity = DataGridDiagnostics.CollectionRefresh();
             using var _ = DataGridDiagnostics.BeginCollectionRefresh();
             activity?.SetTag(DataGridDiagnostics.Tags.UsesLocalArray, UsesLocalArray);
@@ -947,17 +1104,38 @@ namespace Avalonia.Collections
                 MoveToPage(PageCount - 1);
             }
 
-            // reset currency values
-            ResetCurrencyValues(oldCurrentItem, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);
+            // Sorting, filtering, grouping, and paging materialize a private projection. The
+            // source-level mutation boundary cannot expose that projection before this point.
+            // Start a second, stable boundary before currency/reset notifications so consumers
+            // can reconcile identity and indexes atomically against the final view.
+            if (UsesLocalArray && _sourceMutationDepth > 0)
+            {
+                PromoteSourceMutationToStableProjection();
+            }
+            ViewProjectionMutationScope viewProjectionMutation = UsesLocalArray && _sourceMutationDepth == 0
+                ? BeginViewProjectionMutation()
+                : default;
 
-            OnCollectionChanged(
-            new NotifyCollectionChangedEventArgs(
-            NotifyCollectionChangedAction.Reset));
+            try
+            {
+                // reset currency values
+                ResetCurrencyValues(oldCurrentItem, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);
 
-            // now raise currency changes at the end
-            RaiseCurrencyChanges(false, oldCurrentItem, oldCurrentPosition, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);
+                OnCollectionChanged(
+                new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Reset));
 
-            activity?.SetTag(DataGridDiagnostics.Tags.IsGrouping, IsGrouping);
+                // now raise currency changes at the end
+                RaiseCurrencyChanges(false, oldCurrentItem, oldCurrentPosition, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);
+
+                activity?.SetTag(DataGridDiagnostics.Tags.IsGrouping, IsGrouping);
+                return viewProjectionMutation;
+            }
+            catch
+            {
+                viewProjectionMutation.Dispose();
+                throw;
+            }
         }
 
         /// <summary>
@@ -976,6 +1154,15 @@ namespace Avalonia.Collections
             if (args == null)
             {
                 throw new ArgumentNullException(nameof(args));
+            }
+
+            // Incremental sorted/filtered/grouped/paged mutations finish updating the local
+            // projection immediately before their first public view notification. Promote the
+            // outer source boundary here so it remains active through the subsequent currency
+            // notifications and completes only when the whole source mutation unwinds.
+            if (UsesLocalArray)
+            {
+                PromoteSourceMutationToStableProjection();
             }
 
             unchecked

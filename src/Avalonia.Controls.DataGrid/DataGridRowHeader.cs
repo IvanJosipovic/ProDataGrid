@@ -245,11 +245,7 @@ internal
                                    (isTouchLike && OwningGrid.AllowTouchDragSelection);
             if (isPrimaryPressed)
             {
-                if (!e.Handled)
-                //if (!e.Handled && OwningGrid.IsTabStop)
-                {
-                    OwningGrid.Focus();
-                }
+                var focusGridAfterAcceptedSelection = !e.Handled;
 
                 var rowDragHandleVisible =
                     OwningGrid.RowDragHandleVisible &&
@@ -263,6 +259,10 @@ internal
                     OwningGrid != null &&
                     OwningGrid.TryToggleHierarchicalAtSlot(Slot, toggleSubtree: e.KeyModifiers.HasFlag(KeyModifiers.Alt)))
                 {
+                    if (focusGridAfterAcceptedSelection)
+                    {
+                        OwningGrid.Focus();
+                    }
                     e.Handled = true;
                     return;
                 }
@@ -279,7 +279,12 @@ internal
                     var dragHandleHit = IsDragGripHit(e.Source, e);
                     if (OwningGrid.TryHandleRowHeaderSelection(e, Slot, dragHandleHit))
                     {
-                        if (!dragHandleHit &&
+                        if (focusGridAfterAcceptedSelection && OwningGrid.SuccessfullyUpdatedSelection)
+                        {
+                            OwningGrid.Focus();
+                        }
+                        if (OwningGrid.SuccessfullyUpdatedSelection &&
+                            !dragHandleHit &&
                             !OwningGrid.ShouldSuppressSelectionDragFromRowDragHandle(columnIndex: -1))
                         {
                             var rowIndex = OwningGrid.RowIndexFromSlot(Slot);
@@ -300,7 +305,12 @@ internal
                     {
                         e.Handled = OwningGrid.UpdateStateOnMouseLeftButtonDown(e, -1, Slot, allowEdit: false, ignoreModifiers: dragHandleHit);
                     }
-                    if (!dragHandleHit &&
+                    if (focusGridAfterAcceptedSelection && OwningGrid.SuccessfullyUpdatedSelection)
+                    {
+                        OwningGrid.Focus();
+                    }
+                    if (OwningGrid.SuccessfullyUpdatedSelection &&
+                        !dragHandleHit &&
                         !OwningGrid.ShouldSuppressSelectionDragFromRowDragHandle(columnIndex: -1))
                     {
                         OwningGrid.TryBeginSelectionDrag(e, -1, startDragging: true);
@@ -309,10 +319,7 @@ internal
             }
             else if (point.Properties.IsRightButtonPressed)
             {
-                if (!e.Handled)
-                {
-                    OwningGrid.Focus();
-                }
+                var focusGridAfterAcceptedSelection = !e.Handled;
                 if (OwningRow != null)
                 {
                     if (!OwningGrid.AllowsRowHeaderSelection)
@@ -324,11 +331,19 @@ internal
                     Debug.Assert(sender == this);
                     if (OwningGrid.TryHandleRowHeaderSelection(e, Slot))
                     {
+                        if (focusGridAfterAcceptedSelection && OwningGrid.SuccessfullyUpdatedSelection)
+                        {
+                            OwningGrid.Focus();
+                        }
                         e.Handled = true;
                         return;
                     }
 
                     e.Handled = OwningGrid.UpdateStateOnMouseRightButtonDown(e, -1, Slot, false);
+                    if (focusGridAfterAcceptedSelection && OwningGrid.SuccessfullyUpdatedSelection)
+                    {
+                        OwningGrid.Focus();
+                    }
                 }
             }
         } 

@@ -27,7 +27,12 @@ internal
         Command = 1 << 2,
         ItemsSourceChange = 1 << 3,
         Programmatic = 1 << 4,
-        SelectionModelSync = 1 << 5
+        SelectionModelSync = 1 << 5,
+        /// <summary>
+        /// The selection was proposed by an active pointer drag interaction.
+        /// This flag is combined with <see cref="Pointer"/>.
+        /// </summary>
+        DragInteraction = 1 << 6,
     }
 
     /// <summary>
@@ -63,7 +68,8 @@ internal
         public bool IsUserInitiated =>
             (Source & (DataGridSelectionChangeSource.Pointer |
                        DataGridSelectionChangeSource.Keyboard |
-                       DataGridSelectionChangeSource.Command)) != 0;
+                       DataGridSelectionChangeSource.Command |
+                       DataGridSelectionChangeSource.DragInteraction)) != 0;
 
         /// <summary>
         /// Gets the triggering routed event, when available.

@@ -23,12 +23,16 @@ namespace Avalonia.Controls.DataGridHierarchical
     #endif
     class HierarchicalNode : INotifyPropertyChanged, IHierarchicalNodeItem
     {
-        private readonly List<HierarchicalNode> _children;
+        private List<HierarchicalNode>? _children;
         private bool _isExpanded;
         private bool _isLeaf;
         private int _level;
         private bool _isLoading;
-        private Exception? _loadError;
+        private NodeLoadInfo? _loadInfo;
+        // Collection and item notification state is absent for most nodes. Keeping it in a
+        // sidecar avoids four unused references on every immutable hierarchy node.
+        private NodeConnectionInfo? _connectionInfo;
+        private IEnumerable? _childrenSource;
         private int _expandedCount;
 
         public HierarchicalNode(object item, HierarchicalNode? parent = null, int level = 0, bool isLeaf = false)
@@ -37,13 +41,19 @@ namespace Avalonia.Controls.DataGridHierarchical
             Parent = parent;
             _level = level;
             _isLeaf = isLeaf;
-            _children = new List<HierarchicalNode>();
+            if (!isLeaf)
+            {
+                _children = new List<HierarchicalNode>();
+            }
+            HasMaterializedChildren = isLeaf;
         }
 
         /// <summary>
         /// Gets the item represented by this node.
         /// </summary>
         public object Item { get; }
+
+        HierarchicalNode IHierarchicalNodeItem.Node => this;
 
         /// <summary>
         /// Gets the parent node or null when at the root.
@@ -53,12 +63,13 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// <summary>
         /// Gets the realized children of this node.
         /// </summary>
-        public IReadOnlyList<HierarchicalNode> Children => _children;
+        public IReadOnlyList<HierarchicalNode> Children =>
+            _children is null ? Array.Empty<HierarchicalNode>() : _children;
 
         /// <summary>
         /// Exposes the mutable children list for the owning model.
         /// </summary>
-        internal List<HierarchicalNode> MutableChildren => _children;
+        internal List<HierarchicalNode> MutableChildren => _children ??= new List<HierarchicalNode>();
 
         /// <summary>
         /// Gets a value indicating whether the node is expanded.
@@ -66,7 +77,17 @@ namespace Avalonia.Controls.DataGridHierarchical
         public bool IsExpanded
         {
             get => _isExpanded;
-            set => SetField(ref _isExpanded, value);
+            set
+            {
+                if (_isExpanded == value)
+                {
+                    return;
+                }
+
+                _isExpanded = value;
+                Owner?.OnNodeExpandedStateChanged(this);
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
@@ -110,44 +131,164 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// </summary>
         public Exception? LoadError
         {
-            get => _loadError;
-            internal set => SetField(ref _loadError, value);
+            get => _loadInfo?.Error;
+            internal set
+            {
+                var current = _loadInfo?.Error;
+                if (ReferenceEquals(current, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _loadInfo!.Error = null;
+                    TrimLoadInfo();
+                }
+                else
+                {
+                    (_loadInfo ??= new NodeLoadInfo()).Error = value;
+                }
+                OnPropertyChanged();
+            }
         }
 
         /// <summary>
         /// Tracks the source used to produce children, when available.
         /// </summary>
-        internal IEnumerable? ChildrenSource { get; set; }
+        internal IEnumerable? ChildrenSource
+        {
+            get => _childrenSource;
+            set => _childrenSource = value;
+        }
 
         /// <summary>
         /// Subscribed notifier for child collection changes.
         /// </summary>
-        internal INotifyCollectionChanged? ChildrenNotifier { get; set; }
+        internal INotifyCollectionChanged? ChildrenNotifier
+        {
+            get => _connectionInfo?.ChildrenNotifier;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ChildrenNotifier, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ChildrenNotifier = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ChildrenNotifier = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Cached handler to detach collection change subscription.
         /// </summary>
-        internal EventHandler<NotifyCollectionChangedEventArgs>? ChildrenChangedHandler { get; set; }
+        internal EventHandler<NotifyCollectionChangedEventArgs>? ChildrenChangedHandler
+        {
+            get => _connectionInfo?.ChildrenChangedHandler;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ChildrenChangedHandler, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ChildrenChangedHandler = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ChildrenChangedHandler = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Subscribed notifier for expanded state changes.
         /// </summary>
-        internal INotifyPropertyChanged? ExpandedStateNotifier { get; set; }
+        internal INotifyPropertyChanged? ExpandedStateNotifier
+        {
+            get => _connectionInfo?.ExpandedStateNotifier;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ExpandedStateNotifier, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ExpandedStateNotifier = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ExpandedStateNotifier = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Cached handler to detach expanded state subscription.
         /// </summary>
-        internal EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler { get; set; }
+        internal EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler
+        {
+            get => _connectionInfo?.ExpandedStateChangedHandler;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ExpandedStateChangedHandler, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ExpandedStateChangedHandler = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ExpandedStateChangedHandler = value;
+                }
+            }
+        }
 
         /// <summary>
-        /// Cached handler to detach node expanded state subscription.
+        /// Gets or sets the model that owns this node.
         /// </summary>
-        internal EventHandler<PropertyChangedEventArgs>? NodeExpandedStateChangedHandler { get; set; }
+        internal HierarchicalModel? Owner { get; set; }
 
         /// <summary>
         /// Tracks in-flight load cancellation for this node.
         /// </summary>
-        internal CancellationTokenSource? LoadCancellation { get; set; }
+        internal CancellationTokenSource? LoadCancellation
+        {
+            get => _loadInfo?.Cancellation;
+            set
+            {
+                if (value == null)
+                {
+                    if (_loadInfo != null)
+                    {
+                        _loadInfo.Cancellation = null;
+                        TrimLoadInfo();
+                    }
+                }
+                else
+                {
+                    (_loadInfo ??= new NodeLoadInfo()).Cancellation = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Tracks whether children were materialized.
@@ -155,6 +296,46 @@ namespace Avalonia.Controls.DataGridHierarchical
         internal bool HasMaterializedChildren { get; set; }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+
+        /// <summary>
+        /// Gets whether expansion-state changes currently have property observers.
+        /// </summary>
+        internal bool HasPropertyChangedObservers => PropertyChanged != null;
+
+        internal void SetExpandedFromOwner(bool value)
+        {
+            if (!SetExpandedFromOwnerSilently(value))
+            {
+                return;
+            }
+
+            RaiseExpandedChanged();
+        }
+
+        /// <summary>
+        /// Changes expansion state without publishing a property notification. Bulk operations
+        /// use this while building their final flattened snapshot, then notify after commit.
+        /// </summary>
+        /// <param name="value">New expansion state.</param>
+        /// <returns>True when the state changed.</returns>
+        internal bool SetExpandedFromOwnerSilently(bool value)
+        {
+            if (_isExpanded == value)
+            {
+                return false;
+            }
+
+            _isExpanded = value;
+            return true;
+        }
+
+        /// <summary>
+        /// Publishes the expansion-state notification after a bulk model commit.
+        /// </summary>
+        internal void RaiseExpandedChanged()
+        {
+            OnPropertyChanged(nameof(IsExpanded));
+        }
 
         private void OnPropertyChanged([CallerMemberName] string? propertyName = null)
         {
@@ -168,6 +349,42 @@ namespace Avalonia.Controls.DataGridHierarchical
                 storage = value;
                 OnPropertyChanged(propertyName);
             }
+        }
+
+        private void TrimLoadInfo()
+        {
+            if (_loadInfo is { Error: null, Cancellation: null })
+            {
+                _loadInfo = null;
+            }
+        }
+
+        private void TrimConnectionInfo()
+        {
+            if (_connectionInfo is
+                {
+                    ChildrenNotifier: null,
+                    ChildrenChangedHandler: null,
+                    ExpandedStateNotifier: null,
+                    ExpandedStateChangedHandler: null
+                })
+            {
+                _connectionInfo = null;
+            }
+        }
+
+        private sealed class NodeLoadInfo
+        {
+            public Exception? Error;
+            public CancellationTokenSource? Cancellation;
+        }
+
+        private sealed class NodeConnectionInfo
+        {
+            public INotifyCollectionChanged? ChildrenNotifier;
+            public EventHandler<NotifyCollectionChangedEventArgs>? ChildrenChangedHandler;
+            public INotifyPropertyChanged? ExpandedStateNotifier;
+            public EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler;
         }
     }
 }

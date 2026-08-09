@@ -1,12 +1,14 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:adapters="clr-namespace:DataGridSample.Adapters"
+             xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid"
              xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
              x:Class="DataGridSample.Pages.ColumnDefinitionsHierarchicalStreamingPage"
              x:DataType="viewModels:ColumnDefinitionsHierarchicalStreamingViewModel">
 <UserControl.Resources>
     <adapters:HierarchicalSortingAdapterFactory x:Key="HierarchicalSortingAdapterFactory" />
-    <adapters:HierarchicalFilteringAdapterFactory x:Key="HierarchicalFilteringAdapterFactory" />
+    <filtering:DataGridHierarchicalFilteringAdapterFactory x:Key="HierarchicalFilteringAdapterFactory"
+                                                           Policy="KeepAncestorsOfMatches" />
     <adapters:HierarchicalSearchAdapterFactory x:Key="HierarchicalSearchAdapterFactory" />
   </UserControl.Resources>
 

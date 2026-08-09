@@ -10,8 +10,10 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using Avalonia.Utilities;
 
 namespace Avalonia.Controls.DataGridFiltering
@@ -37,7 +39,16 @@ namespace Avalonia.Controls.DataGridFiltering
         private Action _afterViewRefresh;
         private readonly Dictionary<(Type type, string property), Func<object, object>> _getterCache = new();
         private Dictionary<PredicateCacheKey, Func<object, bool>> _predicateCache;
+        private readonly object _modelChangeLock = new();
         private IDataGridCollectionView _view;
+        private IReadOnlyList<FilteringDescriptor> _pendingNewDescriptors;
+        private IReadOnlyList<FilteringDescriptor> _pendingOldDescriptors;
+        private Action<Action> _postToViewThread;
+        private int _pendingModelChangeVersion;
+        private int _modelChangeVersion;
+        private int _lastAppliedModelChangeVersion;
+        private int _modelApplyQueued;
+        private int _viewThreadId;
 
 #if !DATAGRID_INTERNAL
         public
@@ -54,6 +65,7 @@ namespace Avalonia.Controls.DataGridFiltering
             _columnProvider = columnProvider ?? throw new ArgumentNullException(nameof(columnProvider));
             _beforeViewRefresh = beforeViewRefresh;
             _afterViewRefresh = afterViewRefresh;
+            _postToViewThread = static action => Dispatcher.UIThread.Post(action);
 
             WeakEventHandlerManager.Subscribe<IFilteringModel, FilteringChangedEventArgs, DataGridFilteringAdapter>(
                 _model,
@@ -65,6 +77,39 @@ namespace Avalonia.Controls.DataGridFiltering
         {
             _beforeViewRefresh = beforeViewRefresh;
             _afterViewRefresh = afterViewRefresh;
+        }
+
+        internal void SetViewThreadPostForTesting(Action<Action> post)
+        {
+            _postToViewThread = post ?? throw new ArgumentNullException(nameof(post));
+        }
+
+        /// <summary>
+        /// Posts work across the adapter's view-affinity boundary. Derived adapters use the
+        /// same boundary so tests and headless hosts cannot accidentally execute producer
+        /// callbacks inline merely because the dispatcher reports access.
+        /// </summary>
+        protected void PostToViewThread(Action action)
+        {
+            _postToViewThread(action);
+        }
+
+        /// <summary>
+        /// Invokes the owning grid's pre-refresh lifecycle callback, when configured.
+        /// Derived adapters should pair this with <see cref="InvokeAfterViewRefresh"/>
+        /// around refreshes initiated outside descriptor application.
+        /// </summary>
+        protected void InvokeBeforeViewRefresh()
+        {
+            _beforeViewRefresh?.Invoke();
+        }
+
+        /// <summary>
+        /// Invokes the owning grid's post-refresh lifecycle callback, when configured.
+        /// </summary>
+        protected void InvokeAfterViewRefresh()
+        {
+            _afterViewRefresh?.Invoke();
         }
 
 #if !DATAGRID_INTERNAL
@@ -88,10 +133,11 @@ namespace Avalonia.Controls.DataGridFiltering
 
             DetachView();
             _view = view;
+            Volatile.Write(ref _viewThreadId, Environment.CurrentManagedThreadId);
 
             if (_view != null && _model.OwnsViewFilter)
             {
-                ApplyModelToView(_model.Descriptors);
+                ApplyModelToView(SnapshotDescriptors(_model.Descriptors));
             }
             else if (_view is INotifyPropertyChanged inpc)
             {
@@ -103,7 +149,7 @@ namespace Avalonia.Controls.DataGridFiltering
             }
         }
 
-        public void Dispose()
+        public virtual void Dispose()
         {
             DetachView();
             WeakEventHandlerManager.Unsubscribe<FilteringChangedEventArgs, DataGridFilteringAdapter>(
@@ -123,7 +169,74 @@ namespace Avalonia.Controls.DataGridFiltering
 
         private void OnModelFilteringChanged(object sender, FilteringChangedEventArgs e)
         {
-            ApplyModelToView(e.NewDescriptors, e.OldDescriptors);
+            int version = Interlocked.Increment(ref _modelChangeVersion);
+            IReadOnlyList<FilteringDescriptor> newDescriptors =
+                SnapshotDescriptors(e.NewDescriptors);
+            IReadOnlyList<FilteringDescriptor> oldDescriptors =
+                SnapshotDescriptors(e.OldDescriptors);
+            // The headless dispatcher intentionally allows CheckAccess from worker threads.
+            // Remember the thread that owns the attached view as the authoritative affinity
+            // boundary so descriptor changes never refresh an Avalonia collection view inline
+            // on a producer thread.
+            if (Environment.CurrentManagedThreadId == Volatile.Read(ref _viewThreadId))
+            {
+                ApplyModelToView(newDescriptors, oldDescriptors);
+                Volatile.Write(ref _lastAppliedModelChangeVersion, version);
+                return;
+            }
+
+            lock (_modelChangeLock)
+            {
+                _pendingNewDescriptors = newDescriptors;
+                _pendingOldDescriptors = oldDescriptors;
+                _pendingModelChangeVersion = version;
+            }
+
+            if (Interlocked.CompareExchange(ref _modelApplyQueued, 1, 0) != 0)
+            {
+                return;
+            }
+
+            PostToViewThread(ApplyLatestModelChangeOnUiThread);
+        }
+
+        private void ApplyLatestModelChangeOnUiThread()
+        {
+            Interlocked.Exchange(ref _modelApplyQueued, 0);
+            int version;
+            IReadOnlyList<FilteringDescriptor> newDescriptors;
+            IReadOnlyList<FilteringDescriptor> oldDescriptors;
+            lock (_modelChangeLock)
+            {
+                version = _pendingModelChangeVersion;
+                newDescriptors = _pendingNewDescriptors;
+                oldDescriptors = _pendingOldDescriptors;
+            }
+
+            if (version <= Volatile.Read(ref _lastAppliedModelChangeVersion))
+            {
+                return;
+            }
+
+            ApplyModelToView(newDescriptors, oldDescriptors);
+            Volatile.Write(ref _lastAppliedModelChangeVersion, version);
+        }
+
+        private static IReadOnlyList<FilteringDescriptor> SnapshotDescriptors(
+            IReadOnlyList<FilteringDescriptor> descriptors)
+        {
+            if (descriptors == null || descriptors.Count == 0)
+            {
+                return Array.Empty<FilteringDescriptor>();
+            }
+
+            var snapshot = new FilteringDescriptor[descriptors.Count];
+            for (int i = 0; i < descriptors.Count; i++)
+            {
+                snapshot[i] = descriptors[i];
+            }
+
+            return snapshot;
         }
 
         private bool ApplyModelToView(
@@ -140,25 +253,14 @@ namespace Avalonia.Controls.DataGridFiltering
                 return false;
             }
 
-            var beforeInvoked = false;
-            void EnsureBeforeViewRefresh()
+            InvokeBeforeViewRefresh();
+            if (TryApplyModelToView(descriptors, previousDescriptors, out var changed))
             {
-                if (!beforeInvoked)
+                if (changed)
                 {
-                    _beforeViewRefresh?.Invoke();
-                    beforeInvoked = true;
+                    InvokeAfterViewRefresh();
                 }
-            }
-
-            EnsureBeforeViewRefresh();
-
-            if (TryApplyModelToView(descriptors, previousDescriptors, out var handled))
-            {
-                if (handled)
-                {
-                    _afterViewRefresh?.Invoke();
-                }
-                return handled;
+                return changed;
             }
 
             var predicate = ComposePredicate(descriptors);
@@ -167,14 +269,17 @@ namespace Avalonia.Controls.DataGridFiltering
                 return false;
             }
 
-            EnsureBeforeViewRefresh();
-
-            using (_view.DeferRefresh())
+            try
             {
-                _view.Filter = predicate;
+                using (_view.DeferRefresh())
+                {
+                    _view.Filter = predicate;
+                }
             }
-
-            _afterViewRefresh?.Invoke();
+            finally
+            {
+                InvokeAfterViewRefresh();
+            }
             return true;
         }
 
@@ -653,6 +758,7 @@ namespace Avalonia.Controls.DataGridFiltering
             }
 
             _view = null;
+            Volatile.Write(ref _viewThreadId, 0);
         }
 
         private void View_PropertyChanged(object sender, PropertyChangedEventArgs e)

@@ -32,6 +32,8 @@
     href: search-model-high-performance-mode.md
   - name: Hierarchical Model (End-to-End)
     href: hierarchical-model-end-to-end.md
+  - name: Hierarchical UI Automation
+    href: hierarchical-automation.md
   - name: Summaries and Aggregation
     href: summaries.md
   - name: Pivot Tables
@@ -128,6 +130,10 @@
   items:
   - name: Columns and Editing
     href: columns-and-editing.md
+  - name: Cell Lifecycle Events
+    href: cell-lifecycle-events.md
+  - name: Container Customization
+    href: container-customization.md
   - name: Column Definitions
     href: column-definitions.md
   - name: Column Definitions (AOT-Friendly Bindings)
@@ -138,6 +144,8 @@
     href: column-definitions-models.md
   - name: Column Definitions (Hot Path Integration)
     href: column-definitions-hot-path.md
+  - name: Optimized Retained and Drawn Cells
+    href: optimized-cell-paths.md
   - name: Column Definitions (Hierarchical Columns)
     href: column-definitions-hierarchical.md
   - name: Column Banding
@@ -162,6 +170,8 @@
   items:
   - name: Selection and Navigation
     href: selection-and-navigation.md
+  - name: Transactional Selection Veto
+    href: selection-changing.md
   - name: Selection Model (End-to-End)
     href: selection-model-end-to-end.md
   - name: Selection Index Resolution Performance

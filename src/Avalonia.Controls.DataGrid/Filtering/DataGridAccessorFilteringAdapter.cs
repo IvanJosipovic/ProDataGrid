@@ -17,7 +17,7 @@ namespace Avalonia.Controls.DataGridFiltering
 #else
     internal
 #endif
-    sealed class DataGridAccessorFilteringAdapter : DataGridFilteringAdapter
+    class DataGridAccessorFilteringAdapter : DataGridFilteringAdapter
     {
         private static readonly object s_cultureComparerLock = new();
         private static readonly Dictionary<CultureInfo, IComparer<object>> s_cultureComparers = new();
@@ -59,16 +59,24 @@ namespace Avalonia.Controls.DataGridFiltering
                 return true;
             }
 
-            using (view.DeferRefresh())
+            InvokeBeforeViewRefresh();
+            try
             {
-                view.Filter = predicate;
+                using (view.DeferRefresh())
+                {
+                    view.Filter = predicate;
+                }
+            }
+            finally
+            {
+                InvokeAfterViewRefresh();
             }
 
             changed = true;
             return true;
         }
 
-        private Func<object, bool> ComposePredicate(IReadOnlyList<FilteringDescriptor> descriptors)
+        private protected Func<object, bool> ComposePredicate(IReadOnlyList<FilteringDescriptor> descriptors)
         {
             if (descriptors == null || descriptors.Count == 0)
             {
@@ -134,13 +142,17 @@ namespace Avalonia.Controls.DataGridFiltering
                 if (factory != null)
                 {
                     var key = new PredicateCacheKey(descriptor, factory, null);
-                    return GetOrCreateCachedPredicate(key, previousCache, nextCache, () => factory(descriptor));
+                    return GetOrCreateCachedPredicate(
+                        key,
+                        previousCache,
+                        nextCache,
+                        () => AdaptPredicate(factory(descriptor)));
                 }
             }
 
             if (descriptor.Predicate != null)
             {
-                return descriptor.Predicate;
+                return AdaptPredicate(descriptor.Predicate);
             }
 
             if (column == null)
@@ -192,18 +204,33 @@ namespace Avalonia.Controls.DataGridFiltering
                 {
                     return item =>
                     {
-                        if (typedFilterAccessor.TryMatch(item, descriptor, out var match))
+                        object accessorItem = GetAccessorItem(accessor, item);
+                        if (typedFilterAccessor.TryMatch(accessorItem, descriptor, out var match))
                         {
                             return match;
                         }
 
-                        var value = accessor.GetValue(item);
+                        var value = accessor.GetValue(accessorItem);
                         return EvaluateDescriptor(value, descriptor);
                     };
                 }
 
-                return item => EvaluateDescriptor(accessor.GetValue(item), descriptor);
+                return item => EvaluateDescriptor(
+                    accessor.GetValue(GetAccessorItem(accessor, item)),
+                    descriptor);
             });
+        }
+
+        private protected virtual Func<object, bool> AdaptPredicate(Func<object, bool> predicate)
+        {
+            return predicate;
+        }
+
+        private protected virtual object GetAccessorItem(
+            IDataGridColumnValueAccessor accessor,
+            object item)
+        {
+            return item;
         }
 
         private readonly struct PredicateCacheKey : IEquatable<PredicateCacheKey>

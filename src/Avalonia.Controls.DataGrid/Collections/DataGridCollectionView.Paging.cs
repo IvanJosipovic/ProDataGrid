@@ -22,6 +22,8 @@ namespace Avalonia.Collections
 {
     sealed partial class DataGridCollectionView
     {
+        internal bool IsPageProjectionChanging { get; private set; }
+
         /// <summary>
         /// Moves to the first page.
         /// </summary>
@@ -214,9 +216,17 @@ namespace Avalonia.Collections
                 OnPropertyChanged(nameof(Count));
             }
 
-            OnCollectionChanged(
-            new NotifyCollectionChangedEventArgs(
-            NotifyCollectionChangedAction.Reset));
+            IsPageProjectionChanging = true;
+            try
+            {
+                OnCollectionChanged(
+                    new NotifyCollectionChangedEventArgs(
+                        NotifyCollectionChangedAction.Reset));
+            }
+            finally
+            {
+                IsPageProjectionChanging = false;
+            }
 
             // Always raise CurrentChanged since the calling method MoveToPage(pageIndex) raised CurrentChanging.
             RaiseCurrencyChanges(true /*fireChangedEvent*/, oldCurrentItem, oldCurrentPosition, oldIsCurrentBeforeFirst, oldIsCurrentAfterLast);

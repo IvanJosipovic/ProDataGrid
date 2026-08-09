@@ -69,11 +69,7 @@ internal
             }
 
             var anchorSlot = SlotFromRowIndex(0);
-            if (EditingRow != null && anchorSlot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
-            {
-                return;
-            }
-
+            _successfullyUpdatedSelection = false;
             if (SuppressSortOnColumnHeaderSelection)
             {
                 header.SuppressSortOnClick();
@@ -97,6 +93,28 @@ internal
             if (SelectionMode == DataGridSelectionMode.Extended && ctrl && !shift && IsColumnSelected(column))
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, e);
+                List<DataGridCellInfo> proposed = BuildNormalizedCellSelectionProposal(_selectedCellsView);
+                for (int rowIndex = 0; rowIndex < DataConnection.Count; rowIndex++)
+                {
+                    if (!IsRowHeaderSelectionActive(rowIndex))
+                    {
+                        RemoveCellFromProposal(proposed, rowIndex, column.Index);
+                    }
+                }
+                DataGridSelectionAnchorInfo proposedAnchor = proposed.Count == 0
+                    ? DataGridSelectionAnchorInfo.Unset
+                    : GetCurrentSelectionAnchorInfo();
+                if (!TryPreviewCellSelection(proposed, CurrentCell, proposedAnchor))
+                {
+                    e.Handled = true;
+                    return;
+                }
+                if (EditingRow != null && anchorSlot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
+                {
+                    return;
+                }
+
+                using var commit = BeginSelectionCommit();
                 var removed = new List<DataGridCellInfo>();
                 var rowCount = DataConnection.Count;
 
@@ -147,10 +165,6 @@ internal
                     anchorDisplayIndex = resolvedAnchorDisplay;
                 }
             }
-            else if (!shift)
-            {
-                _columnHeaderAnchorIndex = column.Index;
-            }
 
             var startDisplayIndex = Math.Min(anchorDisplayIndex, currentDisplayIndex);
             var endDisplayIndex = Math.Max(anchorDisplayIndex, currentDisplayIndex);
@@ -158,6 +172,11 @@ internal
 
             if (ApplyColumnHeaderSelectionRange(startDisplayIndex, endDisplayIndex, append, DataGridSelectionChangeSource.Pointer, e))
             {
+                _successfullyUpdatedSelection = true;
+                if (!shift)
+                {
+                    _columnHeaderAnchorIndex = column.Index;
+                }
                 if (anchorSlot >= 0 && !IsGroupSlot(anchorSlot))
                 {
                     var startColumnIndex = GetColumnIndexFromDisplayIndex(startDisplayIndex);
@@ -173,7 +192,9 @@ internal
                 SetColumnHeaderSelectionRange(startDisplayIndex, endDisplayIndex, append);
             }
 
-            if ((!CanUserReorderColumns || ColumnDragHandle == DataGridColumnDragHandle.DragHandle) && !dragHandleHit)
+            if (_successfullyUpdatedSelection &&
+                (!CanUserReorderColumns || ColumnDragHandle == DataGridColumnDragHandle.DragHandle) &&
+                !dragHandleHit)
             {
                 TryBeginColumnHeaderSelectionDrag(e, column.Index);
             }
@@ -204,10 +225,7 @@ internal
                 return false;
             }
 
-            if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
-            {
-                return false;
-            }
+            _successfullyUpdatedSelection = false;
 
             KeyboardHelper.GetMetaKeyState(this, e.KeyModifiers, out var ctrl, out _);
             var shift = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
@@ -228,6 +246,27 @@ internal
                 IsRowFullySelectedByCells(rowIndex))
             {
                 using var _ = BeginSelectionChangeScope(DataGridSelectionChangeSource.Pointer, e);
+                List<DataGridCellInfo> proposed = BuildNormalizedCellSelectionProposal(_selectedCellsView);
+                for (int columnIndex = 0; columnIndex < ColumnsItemsInternal.Count; columnIndex++)
+                {
+                    if (!IsColumnHeaderSelectionActive(columnIndex))
+                    {
+                        RemoveCellFromProposal(proposed, rowIndex, columnIndex);
+                    }
+                }
+                DataGridSelectionAnchorInfo proposedAnchor = proposed.Count == 0
+                    ? DataGridSelectionAnchorInfo.Unset
+                    : GetCurrentSelectionAnchorInfo();
+                if (!TryPreviewCellSelection(proposed, CurrentCell, proposedAnchor))
+                {
+                    return true;
+                }
+                if (EditingRow != null && slot != EditingRow.Slot && !CommitEdit(DataGridEditingUnit.Row, true))
+                {
+                    return false;
+                }
+
+                using var commit = BeginSelectionCommit();
                 var removed = new List<DataGridCellInfo>();
 
                 _selectedRowHeaderIndices.Remove(rowIndex);
@@ -263,6 +302,7 @@ internal
                 }
 
                 _rowHeaderAnchorIndex = rowIndex;
+                _successfullyUpdatedSelection = true;
                 return true;
             }
 
@@ -274,16 +314,17 @@ internal
                 startRow = Math.Min(_rowHeaderAnchorIndex, rowIndex);
                 endRow = Math.Max(_rowHeaderAnchorIndex, rowIndex);
             }
-            else if (!shift)
-            {
-                _rowHeaderAnchorIndex = rowIndex;
-            }
 
             var range = new DataGridCellRange(startRow, endRow, 0, ColumnsItemsInternal.Count - 1);
             var append = SelectionMode == DataGridSelectionMode.Extended && ctrl;
 
             if (ApplyCellSelectionRange(range, append, DataGridSelectionChangeSource.Pointer, e))
             {
+                _successfullyUpdatedSelection = true;
+                if (!shift)
+                {
+                    _rowHeaderAnchorIndex = rowIndex;
+                }
                 var anchorSlot = SlotFromRowIndex(startRow);
                 if (anchorSlot >= 0 && !IsGroupSlot(anchorSlot))
                 {
@@ -297,7 +338,8 @@ internal
                 return true;
             }
 
-            return false;
+            // The row-header selection path owned the gesture even when the proposal was vetoed.
+            return true;
         }
 
         private void TopLeftCornerHeader_PointerPressed(object? sender, PointerPressedEventArgs e)
