@@ -29,6 +29,10 @@ namespace Avalonia.Controls.DataGridHierarchical
         private int _level;
         private bool _isLoading;
         private NodeLoadInfo? _loadInfo;
+        // Collection and item notification state is absent for most nodes. Keeping it in a
+        // sidecar avoids four unused references on every immutable hierarchy node.
+        private NodeConnectionInfo? _connectionInfo;
+        private IEnumerable? _childrenSource;
         private int _expandedCount;
 
         public HierarchicalNode(object item, HierarchicalNode? parent = null, int level = 0, bool isLeaf = false)
@@ -152,27 +156,111 @@ namespace Avalonia.Controls.DataGridHierarchical
         /// <summary>
         /// Tracks the source used to produce children, when available.
         /// </summary>
-        internal IEnumerable? ChildrenSource { get; set; }
+        internal IEnumerable? ChildrenSource
+        {
+            get => _childrenSource;
+            set => _childrenSource = value;
+        }
 
         /// <summary>
         /// Subscribed notifier for child collection changes.
         /// </summary>
-        internal INotifyCollectionChanged? ChildrenNotifier { get; set; }
+        internal INotifyCollectionChanged? ChildrenNotifier
+        {
+            get => _connectionInfo?.ChildrenNotifier;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ChildrenNotifier, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ChildrenNotifier = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ChildrenNotifier = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Cached handler to detach collection change subscription.
         /// </summary>
-        internal EventHandler<NotifyCollectionChangedEventArgs>? ChildrenChangedHandler { get; set; }
+        internal EventHandler<NotifyCollectionChangedEventArgs>? ChildrenChangedHandler
+        {
+            get => _connectionInfo?.ChildrenChangedHandler;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ChildrenChangedHandler, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ChildrenChangedHandler = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ChildrenChangedHandler = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Subscribed notifier for expanded state changes.
         /// </summary>
-        internal INotifyPropertyChanged? ExpandedStateNotifier { get; set; }
+        internal INotifyPropertyChanged? ExpandedStateNotifier
+        {
+            get => _connectionInfo?.ExpandedStateNotifier;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ExpandedStateNotifier, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ExpandedStateNotifier = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ExpandedStateNotifier = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Cached handler to detach expanded state subscription.
         /// </summary>
-        internal EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler { get; set; }
+        internal EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler
+        {
+            get => _connectionInfo?.ExpandedStateChangedHandler;
+            set
+            {
+                if (ReferenceEquals(_connectionInfo?.ExpandedStateChangedHandler, value))
+                {
+                    return;
+                }
+
+                if (value == null)
+                {
+                    _connectionInfo!.ExpandedStateChangedHandler = null;
+                    TrimConnectionInfo();
+                }
+                else
+                {
+                    (_connectionInfo ??= new NodeConnectionInfo()).ExpandedStateChangedHandler = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets the model that owns this node.
@@ -242,10 +330,32 @@ namespace Avalonia.Controls.DataGridHierarchical
             }
         }
 
+        private void TrimConnectionInfo()
+        {
+            if (_connectionInfo is
+                {
+                    ChildrenNotifier: null,
+                    ChildrenChangedHandler: null,
+                    ExpandedStateNotifier: null,
+                    ExpandedStateChangedHandler: null
+                })
+            {
+                _connectionInfo = null;
+            }
+        }
+
         private sealed class NodeLoadInfo
         {
             public Exception? Error;
             public CancellationTokenSource? Cancellation;
+        }
+
+        private sealed class NodeConnectionInfo
+        {
+            public INotifyCollectionChanged? ChildrenNotifier;
+            public EventHandler<NotifyCollectionChangedEventArgs>? ChildrenChangedHandler;
+            public INotifyPropertyChanged? ExpandedStateNotifier;
+            public EventHandler<PropertyChangedEventArgs>? ExpandedStateChangedHandler;
         }
     }
 }

@@ -110,9 +110,19 @@ namespace Avalonia.Controls.DataGridHierarchical
             CheckReentrancy();
 
             Items.Clear();
-            foreach (var item in items)
+            if (items is IList<T> list)
             {
-                Items.Add(item);
+                for (int i = 0; i < list.Count; i++)
+                {
+                    Items.Add(list[i]);
+                }
+            }
+            else
+            {
+                foreach (var item in items)
+                {
+                    Items.Add(item);
+                }
             }
 
             RaiseReset();

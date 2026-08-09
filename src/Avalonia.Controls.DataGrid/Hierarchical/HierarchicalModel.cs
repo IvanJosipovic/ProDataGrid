@@ -1907,7 +1907,47 @@ namespace Avalonia.Controls.DataGridHierarchical
                     current,
                     forceReload: false,
                     current.Level >= hashedCycleDepth ? ancestors : null);
-                var children = current.Children;
+                var children = current.MutableChildren;
+                var allChildrenAreLeaves = children.Count > 0;
+                for (int i = 0; i < children.Count; i++)
+                {
+                    if (!children[i].IsLeaf)
+                    {
+                        allChildrenAreLeaves = false;
+                        break;
+                    }
+                }
+
+                if (allChildrenAreLeaves)
+                {
+                    // Preserve leaf expansion state and preorder events without pushing a stack
+                    // frame for every terminal node in wide hierarchies.
+                    traversedNodeCount += children.Count;
+                    for (int i = 0; i < children.Count; i++)
+                    {
+                        var child = children[i];
+                        if (!child.IsExpanded)
+                        {
+                            SetNodeExpandedState(child, true);
+                            anyExpanded = true;
+                            expandedNodes?.Add(child);
+                        }
+                    }
+
+                    if (current.Level >= hashedCycleDepth)
+                    {
+                        if (current.Level == hashedCycleDepth)
+                        {
+                            ancestors!.Clear();
+                        }
+                        else
+                        {
+                            ancestors!.Remove(current.Item);
+                        }
+                    }
+                    continue;
+                }
+
                 stack.Push((current, depth, true));
                 for (int i = children.Count - 1; i >= 0; i--)
                 {
@@ -1997,7 +2037,13 @@ namespace Avalonia.Controls.DataGridHierarchical
         {
             InvalidateFlattenedLookup();
             var version = ++FlattenedVersion;
-            FlattenedChanged?.Invoke(this, new FlattenedChangedEventArgs(changes, version, _flattened.Count, indexMapOverride));
+            var args = new FlattenedChangedEventArgs(changes, version, _flattened.Count, indexMapOverride);
+            OnFlattenedChangedTyped(args);
+            FlattenedChanged?.Invoke(this, args);
+        }
+
+        protected virtual void OnFlattenedChangedTyped(FlattenedChangedEventArgs args)
+        {
         }
 
         protected virtual void OnNodeExpanded(HierarchicalNode node)
@@ -2177,11 +2223,16 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return 0;
             }
 
-            EnsureChildrenMaterialized(parent);
+            if (!parent.HasMaterializedChildren)
+            {
+                EnsureChildrenMaterialized(parent);
+            }
 
             int total = 0;
-            foreach (var child in parent.Children)
+            var children = parent.MutableChildren;
+            for (int i = 0; i < children.Count; i++)
             {
+                var child = children[i];
                 buffer.Add(child);
 
                 int childDesc = 0;
@@ -2832,17 +2883,17 @@ namespace Avalonia.Controls.DataGridHierarchical
         private void InitializeNode(HierarchicalNode node)
         {
             node.Owner = this;
+            if (!HasExpandedStateSelector)
+            {
+                return;
+            }
+
             ApplyExpandedStateFromItem(node);
             AttachExpandedStateNotifier(node);
         }
 
         private void ApplyExpandedStateFromItem(HierarchicalNode node)
         {
-            if (!HasExpandedStateSelector)
-            {
-                return;
-            }
-
             if (TryGetItemExpandedState(node.Item, out var isExpanded))
             {
                 SetNodeExpandedState(node, isExpanded);
@@ -2885,11 +2936,6 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         private void AttachExpandedStateNotifier(HierarchicalNode node)
         {
-            if (!HasExpandedStateSelector)
-            {
-                return;
-            }
-
             if (node.Item is not INotifyPropertyChanged notifier)
             {
                 return;
@@ -3445,7 +3491,7 @@ namespace Avalonia.Controls.DataGridHierarchical
             }
         }
 
-        private bool DetermineInitialLeaf(object item)
+        protected virtual bool DetermineInitialLeaf(object item)
         {
             if (item is null)
             {
@@ -3552,7 +3598,7 @@ namespace Avalonia.Controls.DataGridHierarchical
             throw new InvalidOperationException("Provide ChildrenSelector, ItemsSelector, or ChildrenPropertyPath to resolve children.");
         }
 
-        private IEnumerable? ResolveChildrenSynchronously(object item)
+        protected virtual IEnumerable? ResolveChildrenSynchronously(object item)
         {
             if (item is VirtualRootContainer virtualRoot)
             {
