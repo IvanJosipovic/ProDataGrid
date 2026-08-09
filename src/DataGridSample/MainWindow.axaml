@@ -438,6 +438,12 @@
     <TabItem Header="Large Uniform Rows">
       <local:LargeUniformPage />
     </TabItem>
+    <TabItem Header="Optimized Cell Paths (Flat)">
+      <pages:OptimizedFlatCellPathsPage />
+    </TabItem>
+    <TabItem Header="Optimized Cell Paths (Hierarchy)">
+      <pages:OptimizedHierarchyCellPathsPage />
+    </TabItem>
     <TabItem Header="Resize Recycling">
       <pages:RecycleDiagnosticsPage />
     </TabItem>

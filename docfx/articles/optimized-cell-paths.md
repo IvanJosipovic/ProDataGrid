@@ -12,6 +12,7 @@ returns to the normal retained editor path.
 | Standard retained | `DataGridCell` plus normal Avalonia content/template | Existing applications, arbitrary templates, converters, validation, and dynamic resources | Highest visual-tree and binding cost |
 | Optimized retained theme | `DataGridCell` plus normal retained content | Applications that require Avalonia controls and layout but want fewer chrome and presenter controls | Explicit theme opt-in; choose lean or feature-preserving row/header variants |
 | Retained direct text | A retained cell and `TextBlock`, with a compatible typed accessor | Large read-mostly text grids that still require retained controls | Incompatible binding features automatically fall back to the normal binding path |
+| Direct retained text cell | `DataGridDirectTextCell` with a compatible typed accessor | Dense read-mostly flat grids that require retained input, automation, and editing | Uses the optimized direct-cell theme; incompatible accessors fall back to a value binding |
 | Direct hierarchy presenter | One retained hierarchy cell containing the expander and optional `TextBlock` | Large tree grids that need normal controls, input, automation, and editing | Custom cell templates continue to use the standard hierarchy presenter |
 | Drawn display | A `DataGridCustomDrawingCell` or a supported built-in column in `Drawn` mode | Very dense read-mostly grids where the smallest display tree matters most | Display is drawn; editing still uses retained controls |
 
@@ -83,6 +84,11 @@ fallback/target-null behavior, incompatible runtime item type, or missing typed 
 uses the normal Avalonia binding path. This fallback preserves binding semantics for
 heterogeneous and templated grids.
 
+Set `UseDirectTextCell="True"` when the retained display can use
+`DataGridDirectTextCell` instead of a `DataGridCell` containing a text element. The
+column still creates the normal retained editor when editing begins. Column definitions
+use `DataGridTextColumnDefinition.UseDirectTextCell`.
+
 ## Optimize retained hierarchy cells
 
 `DataGridHierarchicalColumn` offers two retained-control optimizations:
@@ -118,6 +124,27 @@ Unsupported configurations fall back to `Retained`. Use
 `DataGridCustomDrawingColumn` for a custom drawing operation or renderer. Drawn cells
 preserve selection/current/focus chrome and automation names, and switch to the normal
 retained editor when editing starts.
+
+## Sample gallery workloads
+
+The sample gallery contains two dedicated workload pages:
+
+- **Optimized Cell Paths (Flat)** switches one grid between standard retained,
+  optimized retained theme, retained direct accessor, direct retained text cell,
+  built-in drawn text, and custom Skia draw-operation paths. It starts with a 1,000-row
+  preview and can generate up to 1,000,000 immutable rows; the default profiling target
+  is 250,000 rows across seven columns.
+- **Optimized Cell Paths (Hierarchy)** switches one tree grid between standard retained,
+  optimized retained theme, optimized hierarchy presenter, direct retained hierarchy,
+  built-in drawn companion cells, and custom Skia companion cells. Its default target is
+  149,792 nodes with separate load, expand-all, collapse-all, and equal-distance jump
+  actions.
+
+Each page displays the active container type and exact configuration, uses typed column
+definitions, and reports a whole-process managed-heap snapshot. Run one path per fresh
+process with the same window and dataset settings when comparing memory or frame
+behavior. The pages are exploratory profiling surfaces; use the benchmark harness for
+controlled elapsed-time and allocation results.
 
 ## Validate the chosen path
 

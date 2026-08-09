@@ -43,5 +43,9 @@ internal sealed class UnitTestApp : Application
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.v2.xaml")
         });
+        Styles.Add(new StyleInclude(new Uri("avares://Avalonia.Controls.DataGrid/Themes/"))
+        {
+            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Optimized.xaml")
+        });
     }
 }

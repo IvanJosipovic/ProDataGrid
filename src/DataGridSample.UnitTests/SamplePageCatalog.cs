@@ -112,6 +112,8 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.MailboxMimicPage", static () => new global::DataGridSample.Pages.MailboxMimicPage()),
             ("DataGridSample.Pages.NestedDataGridPage", static () => new global::DataGridSample.Pages.NestedDataGridPage()),
             ("DataGridSample.Pages.OutlineReportPage", static () => new global::DataGridSample.Pages.OutlineReportPage()),
+            ("DataGridSample.Pages.OptimizedFlatCellPathsPage", static () => new global::DataGridSample.Pages.OptimizedFlatCellPathsPage()),
+            ("DataGridSample.Pages.OptimizedHierarchyCellPathsPage", static () => new global::DataGridSample.Pages.OptimizedHierarchyCellPathsPage()),
             ("DataGridSample.Pages.PagingSelectionPage", static () => new global::DataGridSample.Pages.PagingSelectionPage()),
             ("DataGridSample.Pages.PivotCalculatedMeasuresPage", static () => new global::DataGridSample.Pages.PivotCalculatedMeasuresPage()),
             ("DataGridSample.Pages.PivotChartPage", static () => new global::DataGridSample.Pages.PivotChartPage()),
