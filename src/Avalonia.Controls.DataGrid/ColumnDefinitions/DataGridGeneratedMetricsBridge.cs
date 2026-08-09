@@ -35,7 +35,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedMetricMeasurement
+    readonly struct DataGridGeneratedMetricMeasurement : IEquatable<DataGridGeneratedMetricMeasurement>
     {
         internal DataGridGeneratedMetricMeasurement(
             string schemaId,
@@ -75,6 +75,43 @@ namespace Avalonia.Controls
         public bool IsInteger { get; }
         /// <summary>Gets the Stopwatch timestamp captured by the bridge.</summary>
         public long Timestamp { get; }
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedMetricMeasurement other) =>
+            string.Equals(SchemaId, other.SchemaId, StringComparison.Ordinal) &&
+            PerformanceProfile == other.PerformanceProfile &&
+            string.Equals(Name, other.Name, StringComparison.Ordinal) &&
+            string.Equals(Unit, other.Unit, StringComparison.Ordinal) &&
+            string.Equals(Description, other.Description, StringComparison.Ordinal) &&
+            Kind == other.Kind &&
+            Value.Equals(other.Value) &&
+            IsInteger == other.IsInteger &&
+            Timestamp == other.Timestamp;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedMetricMeasurement other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(SchemaId, StringComparer.Ordinal);
+            hash.Add(PerformanceProfile);
+            hash.Add(Name, StringComparer.Ordinal);
+            hash.Add(Unit, StringComparer.Ordinal);
+            hash.Add(Description, StringComparer.Ordinal);
+            hash.Add(Kind);
+            hash.Add(Value);
+            hash.Add(IsInteger);
+            hash.Add(Timestamp);
+            return hash.ToHashCode();
+        }
+
+        /// <summary>Tests two measurements for equality.</summary>
+        public static bool operator ==(DataGridGeneratedMetricMeasurement left, DataGridGeneratedMetricMeasurement right) => left.Equals(right);
+
+        /// <summary>Tests two measurements for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedMetricMeasurement left, DataGridGeneratedMetricMeasurement right) => !left.Equals(right);
     }
 
     /// <summary>Consumes typed ProDataGrid renderer metrics while a generated view is active.</summary>

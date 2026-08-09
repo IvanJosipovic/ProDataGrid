@@ -68,7 +68,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedDistinctValueQuery
+    readonly struct DataGridGeneratedDistinctValueQuery : IEquatable<DataGridGeneratedDistinctValueQuery>
     {
         /// <summary>Initializes query context.</summary>
         public DataGridGeneratedDistinctValueQuery(long revision, string columnKey, string searchText, int maximumResults)
@@ -86,6 +86,25 @@ namespace Avalonia.Controls
         public string SearchText { get; }
         /// <summary>Gets the requested result bound.</summary>
         public int MaximumResults { get; }
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedDistinctValueQuery other) =>
+            Revision == other.Revision &&
+            string.Equals(ColumnKey, other.ColumnKey, StringComparison.Ordinal) &&
+            string.Equals(SearchText, other.SearchText, StringComparison.Ordinal) &&
+            MaximumResults == other.MaximumResults;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedDistinctValueQuery other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(Revision, ColumnKey, SearchText, MaximumResults);
+
+        /// <summary>Tests two queries for equality.</summary>
+        public static bool operator ==(DataGridGeneratedDistinctValueQuery left, DataGridGeneratedDistinctValueQuery right) => left.Equals(right);
+
+        /// <summary>Tests two queries for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedDistinctValueQuery left, DataGridGeneratedDistinctValueQuery right) => !left.Equals(right);
     }
 
     /// <summary>Loads typed remote distinct values.</summary>

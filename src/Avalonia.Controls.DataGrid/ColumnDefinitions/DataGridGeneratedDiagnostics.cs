@@ -14,7 +14,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedDiagnosticField
+    readonly struct DataGridGeneratedDiagnosticField : IEquatable<DataGridGeneratedDiagnosticField>
     {
         /// <summary>Initializes a diagnostic field descriptor.</summary>
         public DataGridGeneratedDiagnosticField(
@@ -45,6 +45,27 @@ namespace Avalonia.Controls
         public DataGridGeneratedFilterEditorKind FilterEditor { get; }
         /// <summary>Gets combined analytics roles.</summary>
         public DataGridGeneratedAnalyticsRole AnalyticsRoles { get; }
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedDiagnosticField other) =>
+            string.Equals(ColumnKey, other.ColumnKey, StringComparison.Ordinal) &&
+            ValueType == other.ValueType &&
+            CanWrite == other.CanWrite &&
+            IsSearchable == other.IsSearchable &&
+            FilterEditor == other.FilterEditor &&
+            AnalyticsRoles == other.AnalyticsRoles;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedDiagnosticField other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(ColumnKey, ValueType, CanWrite, IsSearchable, FilterEditor, AnalyticsRoles);
+
+        /// <summary>Tests two field descriptors for equality.</summary>
+        public static bool operator ==(DataGridGeneratedDiagnosticField left, DataGridGeneratedDiagnosticField right) => left.Equals(right);
+
+        /// <summary>Tests two field descriptors for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedDiagnosticField left, DataGridGeneratedDiagnosticField right) => !left.Equals(right);
     }
 
     /// <summary>Provides immutable generated schema, fast-path, fallback, and performance diagnostics.</summary>

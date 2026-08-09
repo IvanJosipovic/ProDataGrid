@@ -4,6 +4,7 @@
 #nullable disable
 
 using System;
+using System.Collections.Generic;
 using Avalonia.Data.Core;
 
 namespace Avalonia.Controls
@@ -49,7 +50,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    struct DataGridGeneratedIndexedColumnOptions<TValue>
+    struct DataGridGeneratedIndexedColumnOptions<TValue> : IEquatable<DataGridGeneratedIndexedColumnOptions<TValue>>
     {
         /// <summary>Gets or sets the header.</summary>
         public object Header { get; set; }
@@ -77,6 +78,51 @@ namespace Avalonia.Controls
         public double? MaxWidth { get; set; }
         /// <summary>Gets or sets an optional final customization callback.</summary>
         public Action<DataGridColumnDefinition> Configure { get; set; }
+
+        /// <inheritdoc />
+        public readonly bool Equals(DataGridGeneratedIndexedColumnOptions<TValue> other) =>
+            EqualityComparer<object>.Default.Equals(Header, other.Header) &&
+            string.Equals(ColumnKey, other.ColumnKey, StringComparison.Ordinal) &&
+            string.Equals(PropertyName, other.PropertyName, StringComparison.Ordinal) &&
+            Kind == other.Kind &&
+            string.Equals(FormatString, other.FormatString, StringComparison.Ordinal) &&
+            string.Equals(Formula, other.Formula, StringComparison.Ordinal) &&
+            string.Equals(FormulaName, other.FormulaName, StringComparison.Ordinal) &&
+            AllowCellFormulas == other.AllowCellFormulas &&
+            IsReadOnly == other.IsReadOnly &&
+            Nullable.Equals(Width, other.Width) &&
+            MinWidth == other.MinWidth &&
+            MaxWidth == other.MaxWidth &&
+            Equals(Configure, other.Configure);
+
+        /// <inheritdoc />
+        public override readonly bool Equals(object obj) => obj is DataGridGeneratedIndexedColumnOptions<TValue> other && Equals(other);
+
+        /// <inheritdoc />
+        public override readonly int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(Header);
+            hash.Add(ColumnKey, StringComparer.Ordinal);
+            hash.Add(PropertyName, StringComparer.Ordinal);
+            hash.Add(Kind);
+            hash.Add(FormatString, StringComparer.Ordinal);
+            hash.Add(Formula, StringComparer.Ordinal);
+            hash.Add(FormulaName, StringComparer.Ordinal);
+            hash.Add(AllowCellFormulas);
+            hash.Add(IsReadOnly);
+            hash.Add(Width);
+            hash.Add(MinWidth);
+            hash.Add(MaxWidth);
+            hash.Add(Configure);
+            return hash.ToHashCode();
+        }
+
+        /// <summary>Tests two option sets for equality.</summary>
+        public static bool operator ==(DataGridGeneratedIndexedColumnOptions<TValue> left, DataGridGeneratedIndexedColumnOptions<TValue> right) => left.Equals(right);
+
+        /// <summary>Tests two option sets for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedIndexedColumnOptions<TValue> left, DataGridGeneratedIndexedColumnOptions<TValue> right) => !left.Equals(right);
     }
 
     /// <summary>Creates reflection-free column definitions around generated method-backed accessors.</summary>

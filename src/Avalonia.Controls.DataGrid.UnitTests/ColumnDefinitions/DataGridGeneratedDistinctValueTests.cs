@@ -13,6 +13,18 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedDistinctValueTests
 {
     [Fact]
+    public void Query_equality_includes_revision_column_search_and_bound()
+    {
+        var first = new DataGridGeneratedDistinctValueQuery(2, "desk", "ra", 20);
+        var equal = new DataGridGeneratedDistinctValueQuery(2, "desk", "ra", 20);
+
+        Assert.Equal(first, equal);
+        Assert.True(first == equal);
+        Assert.False(first != equal);
+        Assert.NotEqual(first, new DataGridGeneratedDistinctValueQuery(3, "desk", "ra", 20));
+    }
+
+    [Fact]
     public void Local_provider_is_typed_ordered_and_bounded()
     {
         var provider = new DataGridGeneratedDistinctValueProvider<Row, string>("desk", static row => row.Desk);

@@ -10,6 +10,23 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedDiagnosticsTests
 {
     [Fact]
+    public void Diagnostic_field_equality_is_structural()
+    {
+        var first = new DataGridGeneratedDiagnosticField(
+            "amount", typeof(decimal), true, true, DataGridGeneratedFilterEditorKind.Range,
+            DataGridGeneratedAnalyticsRole.PivotValue);
+        var equal = new DataGridGeneratedDiagnosticField(
+            "amount", typeof(decimal), true, true, DataGridGeneratedFilterEditorKind.Range,
+            DataGridGeneratedAnalyticsRole.PivotValue);
+
+        Assert.Equal(first, equal);
+        Assert.True(first == equal);
+        Assert.NotEqual(first, new DataGridGeneratedDiagnosticField(
+            "price", typeof(decimal), true, true, DataGridGeneratedFilterEditorKind.Range,
+            DataGridGeneratedAnalyticsRole.PivotValue));
+    }
+
+    [Fact]
     public void Manifest_exposes_schema_field_performance_and_fallback_coverage()
     {
         var field = new DataGridGeneratedDiagnosticField(

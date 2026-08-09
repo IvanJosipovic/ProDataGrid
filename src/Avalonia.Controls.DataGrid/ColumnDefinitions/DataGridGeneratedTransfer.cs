@@ -40,7 +40,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedTransferLimits
+    readonly struct DataGridGeneratedTransferLimits : IEquatable<DataGridGeneratedTransferLimits>
     {
         /// <summary>Initializes transfer limits.</summary>
         public DataGridGeneratedTransferLimits(int maximumCells = 100000, int maximumCharacters = 8 * 1024 * 1024)
@@ -65,6 +65,22 @@ namespace Avalonia.Controls
 
         /// <summary>Gets conservative defaults.</summary>
         public static DataGridGeneratedTransferLimits Default => new(100000, 8 * 1024 * 1024);
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedTransferLimits other) =>
+            MaximumCells == other.MaximumCells && MaximumCharacters == other.MaximumCharacters;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedTransferLimits other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(MaximumCells, MaximumCharacters);
+
+        /// <summary>Tests two limits for equality.</summary>
+        public static bool operator ==(DataGridGeneratedTransferLimits left, DataGridGeneratedTransferLimits right) => left.Equals(right);
+
+        /// <summary>Tests two limits for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedTransferLimits left, DataGridGeneratedTransferLimits right) => !left.Equals(right);
     }
 
     /// <summary>Describes one generated paste or fill failure.</summary>
@@ -74,7 +90,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedTransferError<TKey>
+    readonly struct DataGridGeneratedTransferError<TKey> : IEquatable<DataGridGeneratedTransferError<TKey>>
     {
         /// <summary>Initializes a transfer error.</summary>
         public DataGridGeneratedTransferError(TKey itemKey, string columnKey, int rowOffset, int columnOffset, DataGridGeneratedEditResult result)
@@ -100,6 +116,26 @@ namespace Avalonia.Controls
 
         /// <summary>Gets the edit outcome.</summary>
         public DataGridGeneratedEditResult Result { get; }
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedTransferError<TKey> other) =>
+            EqualityComparer<TKey>.Default.Equals(ItemKey, other.ItemKey) &&
+            string.Equals(ColumnKey, other.ColumnKey, StringComparison.Ordinal) &&
+            RowOffset == other.RowOffset &&
+            ColumnOffset == other.ColumnOffset &&
+            Result.Equals(other.Result);
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedTransferError<TKey> other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(ItemKey, ColumnKey, RowOffset, ColumnOffset, Result);
+
+        /// <summary>Tests two transfer errors for equality.</summary>
+        public static bool operator ==(DataGridGeneratedTransferError<TKey> left, DataGridGeneratedTransferError<TKey> right) => left.Equals(right);
+
+        /// <summary>Tests two transfer errors for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedTransferError<TKey> left, DataGridGeneratedTransferError<TKey> right) => !left.Equals(right);
     }
 
     /// <summary>Summarizes a generated paste or fill operation.</summary>

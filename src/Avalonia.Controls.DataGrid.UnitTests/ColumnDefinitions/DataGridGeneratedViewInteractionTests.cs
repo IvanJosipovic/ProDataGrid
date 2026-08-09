@@ -11,6 +11,20 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedViewInteractionTests
 {
     [Fact]
+    public void Context_equality_uses_view_and_grid_identity()
+    {
+        var view = new Control();
+        var dataGrid = new DataGrid();
+        var first = new DataGridGeneratedViewInteractionContext<string>(view, dataGrid, "approve", default);
+        var equal = new DataGridGeneratedViewInteractionContext<string>(view, dataGrid, "approve", default);
+        var otherView = new DataGridGeneratedViewInteractionContext<string>(new Control(), dataGrid, "approve", default);
+
+        Assert.Equal(first, equal);
+        Assert.True(first == equal);
+        Assert.NotEqual(first, otherView);
+    }
+
+    [Fact]
     public async Task Typed_context_is_forwarded_to_custom_handler_without_reflection()
     {
         var view = new Control();

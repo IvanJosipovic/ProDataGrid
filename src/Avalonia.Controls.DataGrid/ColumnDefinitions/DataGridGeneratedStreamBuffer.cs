@@ -56,7 +56,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedStreamUpdate<TItem, TKey>
+    readonly struct DataGridGeneratedStreamUpdate<TItem, TKey> : IEquatable<DataGridGeneratedStreamUpdate<TItem, TKey>>
     {
         private DataGridGeneratedStreamUpdate(
             DataGridGeneratedStreamUpdateKind kind,
@@ -109,6 +109,27 @@ namespace Avalonia.Controls
             new(DataGridGeneratedStreamUpdateKind.ReplaceSnapshot, revision, default, default,
                 items ?? throw new ArgumentNullException(nameof(items)), false);
 
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedStreamUpdate<TItem, TKey> other) =>
+            Kind == other.Kind &&
+            Revision == other.Revision &&
+            EqualityComparer<TItem>.Default.Equals(Item, other.Item) &&
+            EqualityComparer<TKey>.Default.Equals(Key, other.Key) &&
+            ReferenceEquals(Snapshot, other.Snapshot) &&
+            HasKey == other.HasKey;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedStreamUpdate<TItem, TKey> other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(Kind, Revision, Item, Key, Snapshot, HasKey);
+
+        /// <summary>Tests two updates for equality.</summary>
+        public static bool operator ==(DataGridGeneratedStreamUpdate<TItem, TKey> left, DataGridGeneratedStreamUpdate<TItem, TKey> right) => left.Equals(right);
+
+        /// <summary>Tests two updates for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedStreamUpdate<TItem, TKey> left, DataGridGeneratedStreamUpdate<TItem, TKey> right) => !left.Equals(right);
+
         private static TKey ValidateKey(TKey key) =>
             key == null ? throw new ArgumentNullException(nameof(key)) : key;
     }
@@ -119,7 +140,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedStreamMetrics
+    readonly struct DataGridGeneratedStreamMetrics : IEquatable<DataGridGeneratedStreamMetrics>
     {
         internal DataGridGeneratedStreamMetrics(
             int queued,
@@ -153,6 +174,28 @@ namespace Avalonia.Controls
         public long Stale { get; }
         /// <summary>Gets the latest applied revision.</summary>
         public long LastAppliedRevision { get; }
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedStreamMetrics other) =>
+            Queued == other.Queued &&
+            Accepted == other.Accepted &&
+            Coalesced == other.Coalesced &&
+            Dropped == other.Dropped &&
+            Applied == other.Applied &&
+            Stale == other.Stale &&
+            LastAppliedRevision == other.LastAppliedRevision;
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedStreamMetrics other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(Queued, Accepted, Coalesced, Dropped, Applied, Stale, LastAppliedRevision);
+
+        /// <summary>Tests two metric snapshots for equality.</summary>
+        public static bool operator ==(DataGridGeneratedStreamMetrics left, DataGridGeneratedStreamMetrics right) => left.Equals(right);
+
+        /// <summary>Tests two metric snapshots for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedStreamMetrics left, DataGridGeneratedStreamMetrics right) => !left.Equals(right);
     }
 
     /// <summary>

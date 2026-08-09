@@ -1,6 +1,8 @@
 // Copyright (c) Wieslaw Soltes. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
+using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -15,7 +17,7 @@ namespace Avalonia.Controls
 #else
     internal
 #endif
-    readonly struct DataGridGeneratedViewInteractionContext<TInput>
+    readonly struct DataGridGeneratedViewInteractionContext<TInput> : IEquatable<DataGridGeneratedViewInteractionContext<TInput>>
     {
         /// <summary>Initializes a generated view interaction context.</summary>
         public DataGridGeneratedViewInteractionContext(
@@ -41,6 +43,25 @@ namespace Avalonia.Controls
 
         /// <summary>Gets the token canceled when the generated view is deactivated.</summary>
         public CancellationToken CancellationToken { get; }
+
+        /// <inheritdoc />
+        public bool Equals(DataGridGeneratedViewInteractionContext<TInput> other) =>
+            ReferenceEquals(View, other.View) &&
+            ReferenceEquals(DataGrid, other.DataGrid) &&
+            EqualityComparer<TInput>.Default.Equals(Input, other.Input) &&
+            CancellationToken.Equals(other.CancellationToken);
+
+        /// <inheritdoc />
+        public override bool Equals(object obj) => obj is DataGridGeneratedViewInteractionContext<TInput> other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() => HashCode.Combine(View, DataGrid, Input, CancellationToken);
+
+        /// <summary>Tests two interaction contexts for equality.</summary>
+        public static bool operator ==(DataGridGeneratedViewInteractionContext<TInput> left, DataGridGeneratedViewInteractionContext<TInput> right) => left.Equals(right);
+
+        /// <summary>Tests two interaction contexts for inequality.</summary>
+        public static bool operator !=(DataGridGeneratedViewInteractionContext<TInput> left, DataGridGeneratedViewInteractionContext<TInput> right) => !left.Equals(right);
     }
 
     /// <summary>

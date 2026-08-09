@@ -9,6 +9,23 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedIndexedColumnTests
 {
     [Fact]
+    public void Options_equality_includes_configuration()
+    {
+        System.Action<DataGridColumnDefinition> configure = static _ => { };
+        var first = new DataGridGeneratedIndexedColumnOptions<string>
+        {
+            Header = "A", ColumnKey = "a", PropertyName = "A", Kind = DataGridGeneratedIndexedColumnKind.Text,
+            Width = new DataGridLength(80), Configure = configure
+        };
+        DataGridGeneratedIndexedColumnOptions<string> equal = first;
+
+        Assert.Equal(first, equal);
+        Assert.True(first == equal);
+        equal.ColumnKey = "b";
+        Assert.NotEqual(first, equal);
+    }
+
+    [Fact]
     public void Factory_creates_typed_method_backed_definition()
     {
         var row = new Row(["old"]);

@@ -12,6 +12,25 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedMetricsBridgeTests
 {
     [Fact]
+    public void Measurement_equality_covers_schema_instrument_value_and_timestamp()
+    {
+        using var meter = new Meter("prodatagrid.tests.equality", "tests");
+        Counter<long> counter = meter.CreateCounter<long>("rows", "row", "Rows");
+        var first = new DataGridGeneratedMetricMeasurement(
+            "schema", DataGridGeneratedPerformanceProfile.Balanced, counter,
+            DataGridGeneratedMetricKind.Counter, 3, true, 7);
+        var equal = new DataGridGeneratedMetricMeasurement(
+            "schema", DataGridGeneratedPerformanceProfile.Balanced, counter,
+            DataGridGeneratedMetricKind.Counter, 3, true, 7);
+
+        Assert.Equal(first, equal);
+        Assert.True(first == equal);
+        Assert.NotEqual(first, new DataGridGeneratedMetricMeasurement(
+            "schema", DataGridGeneratedPerformanceProfile.Balanced, counter,
+            DataGridGeneratedMetricKind.Counter, 4, true, 7));
+    }
+
+    [Fact]
     public void Subscription_forwards_typed_meter_measurements_and_owns_sink_lifetime()
     {
         string prefix = $"prodatagrid.tests.{Guid.NewGuid():N}";

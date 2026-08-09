@@ -19,6 +19,22 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedTransferTests
 {
     [Fact]
+    public void Transfer_value_objects_have_structural_equality()
+    {
+        var firstLimits = new DataGridGeneratedTransferLimits(20, 200);
+        var equalLimits = new DataGridGeneratedTransferLimits(20, 200);
+        var result = new DataGridGeneratedEditResult(DataGridGeneratedEditStatus.ValidationFailed, "invalid");
+        var firstError = new DataGridGeneratedTransferError<int>(7, "amount", 1, 2, result);
+        var equalError = new DataGridGeneratedTransferError<int>(7, "amount", 1, 2, result);
+
+        Assert.Equal(firstLimits, equalLimits);
+        Assert.True(firstLimits == equalLimits);
+        Assert.Equal(firstError, equalError);
+        Assert.True(firstError == equalError);
+        Assert.NotEqual(firstError, new DataGridGeneratedTransferError<int>(8, "amount", 1, 2, result));
+    }
+
+    [Fact]
     public void Export_uses_stable_keys_typed_formatters_and_supported_representations()
     {
         Row[] rows = [new(1, "A, B", 12.5m), new(2, "C", 3m)];

@@ -12,6 +12,25 @@ namespace Avalonia.Controls.DataGridTests.ColumnDefinitions;
 public sealed class DataGridGeneratedStreamBufferTests
 {
     [Fact]
+    public void Update_and_metrics_equality_is_structural_with_snapshot_identity()
+    {
+        Row row = new(7, "row");
+        Row[] snapshot = [row];
+        DataGridGeneratedStreamUpdate<Row, int> left = DataGridGeneratedStreamUpdate<Row, int>.ReplaceSnapshot(2, snapshot);
+        DataGridGeneratedStreamUpdate<Row, int> equal = DataGridGeneratedStreamUpdate<Row, int>.ReplaceSnapshot(2, snapshot);
+        DataGridGeneratedStreamUpdate<Row, int> otherSnapshot = DataGridGeneratedStreamUpdate<Row, int>.ReplaceSnapshot(2, [row]);
+        var firstMetrics = new DataGridGeneratedStreamMetrics(1, 2, 3, 4, 5, 6, 7);
+        var equalMetrics = new DataGridGeneratedStreamMetrics(1, 2, 3, 4, 5, 6, 7);
+
+        Assert.Equal(left, equal);
+        Assert.True(left == equal);
+        Assert.NotEqual(left, otherSnapshot);
+        Assert.Equal(firstMetrics, equalMetrics);
+        Assert.True(firstMetrics == equalMetrics);
+        Assert.False(firstMetrics != equalMetrics);
+    }
+
+    [Fact]
     public void Coalescing_replaces_pending_key_without_growing_queue()
     {
         var buffer = new DataGridGeneratedStreamBuffer<Row, int>(
