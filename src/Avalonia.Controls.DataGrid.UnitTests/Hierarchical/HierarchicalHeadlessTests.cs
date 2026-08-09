@@ -4,10 +4,13 @@
 using System;
 using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -168,6 +171,119 @@ public class HierarchicalHeadlessTests
                 MaxMeasuredHeight = _rowHeightEstimate,
                 AverageMeasuredHeight = _rowHeightEstimate
             };
+        }
+    }
+
+    [AvaloniaFact]
+    public void ExpandAll_WithDelayedAsyncSelector_PublishesAttachedGridStateOnCallingUiThread()
+    {
+        Assert.True(Dispatcher.UIThread.CheckAccess());
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var selectorAccessChecks = new List<bool>();
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                selectorAccessChecks.Add(Dispatcher.UIThread.CheckAccess());
+                await Task.Delay(10, cancellationToken);
+                return ((Item)item).Children;
+            },
+            IsLeafSelector = item => ((Item)item).Children.Count == 0
+        });
+        model.SetRoot(root);
+        var accessChecks = new List<bool>();
+        model.NodeLoading += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeLoaded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeExpanded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.FlattenedChanged += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        ((INotifyCollectionChanged)model.ObservableFlattened).CollectionChanged +=
+            (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 200,
+            Content = grid
+        };
+        window.SetThemeStyles();
+        window.Show();
+
+        try
+        {
+            model.ExpandAll();
+
+            Assert.Equal(2, model.Count);
+            Assert.NotEmpty(selectorAccessChecks);
+            Assert.All(selectorAccessChecks, Assert.True);
+            Assert.NotEmpty(accessChecks);
+            Assert.All(accessChecks, Assert.True);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task ExpandAllAsync_WithWorkerContinuation_PublishesAttachedGridStateOnUiThread()
+    {
+        Assert.True(Dispatcher.UIThread.CheckAccess());
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                await Task.Delay(10, cancellationToken).ConfigureAwait(false);
+                return ((Item)item).Children;
+            },
+            IsLeafSelector = item => ((Item)item).Children.Count == 0
+        });
+        model.SetRoot(root);
+        var accessChecks = new List<bool>();
+        model.NodeLoading += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeLoaded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.NodeExpanded += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        model.FlattenedChanged += (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+        ((INotifyCollectionChanged)model.ObservableFlattened).CollectionChanged +=
+            (_, _) => accessChecks.Add(Dispatcher.UIThread.CheckAccess());
+
+        var grid = new DataGrid
+        {
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            AutoGenerateColumns = false,
+            ItemsSource = model.ObservableFlattened
+        };
+        var window = new Window
+        {
+            Width = 320,
+            Height = 200,
+            Content = grid
+        };
+        window.SetThemeStyles();
+        window.Show();
+
+        try
+        {
+            await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.True(Dispatcher.UIThread.CheckAccess());
+            Assert.Equal(2, model.Count);
+            Assert.NotEmpty(accessChecks);
+            Assert.All(accessChecks, Assert.True);
+        }
+        finally
+        {
+            window.Close();
         }
     }
 

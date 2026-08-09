@@ -297,14 +297,43 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        /// <summary>
+        /// Gets whether expansion-state changes currently have property observers.
+        /// </summary>
+        internal bool HasPropertyChangedObservers => PropertyChanged != null;
+
         internal void SetExpandedFromOwner(bool value)
         {
-            if (_isExpanded == value)
+            if (!SetExpandedFromOwnerSilently(value))
             {
                 return;
             }
 
+            RaiseExpandedChanged();
+        }
+
+        /// <summary>
+        /// Changes expansion state without publishing a property notification. Bulk operations
+        /// use this while building their final flattened snapshot, then notify after commit.
+        /// </summary>
+        /// <param name="value">New expansion state.</param>
+        /// <returns>True when the state changed.</returns>
+        internal bool SetExpandedFromOwnerSilently(bool value)
+        {
+            if (_isExpanded == value)
+            {
+                return false;
+            }
+
             _isExpanded = value;
+            return true;
+        }
+
+        /// <summary>
+        /// Publishes the expansion-state notification after a bulk model commit.
+        /// </summary>
+        internal void RaiseExpandedChanged()
+        {
             OnPropertyChanged(nameof(IsExpanded));
         }
 

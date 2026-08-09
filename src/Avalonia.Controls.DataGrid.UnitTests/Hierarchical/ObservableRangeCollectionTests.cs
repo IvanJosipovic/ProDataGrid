@@ -223,6 +223,95 @@ public class ObservableRangeCollectionTests
     }
 
     [Fact]
+    public void ReplaceRange_WithEqualCounts_RaisesOneReplaceAfterFinalStateIsVisible()
+    {
+        var collection = new ObservableRangeCollection<int>(new[] { 1, 2, 3, 4 });
+        var changes = new List<NotifyCollectionChangedEventArgs>();
+        var propertyChanges = new List<string?>();
+        int[]? snapshotInEvent = null;
+        ((INotifyPropertyChanged)collection).PropertyChanged +=
+            (_, e) => propertyChanges.Add(e.PropertyName);
+        collection.CollectionChanged += (_, e) =>
+        {
+            changes.Add(e);
+            snapshotInEvent = collection.ToArray();
+        };
+
+        collection.ReplaceRange(1, 2, new[] { 20, 30 });
+
+        NotifyCollectionChangedEventArgs change = Assert.Single(changes);
+        Assert.Equal(NotifyCollectionChangedAction.Replace, change.Action);
+        Assert.Equal(1, change.NewStartingIndex);
+        Assert.Equal(new[] { 20, 30 }, change.NewItems!.Cast<int>().ToArray());
+        Assert.Equal(new[] { 2, 3 }, change.OldItems!.Cast<int>().ToArray());
+        Assert.Equal(new[] { 1, 20, 30, 4 }, snapshotInEvent);
+        Assert.Equal(snapshotInEvent, collection.ToArray());
+        Assert.Equal(new[] { "Item[]" }, propertyChanges);
+    }
+
+    [Fact]
+    public void ReplaceRange_WithDifferentCounts_RaisesOneResetAfterFinalStateIsVisible()
+    {
+        var collection = new ObservableRangeCollection<int>(new[] { 1, 2, 3, 4 });
+        var changes = new List<NotifyCollectionChangedEventArgs>();
+        int[]? snapshotInEvent = null;
+        collection.CollectionChanged += (_, e) =>
+        {
+            changes.Add(e);
+            snapshotInEvent = collection.ToArray();
+        };
+
+        collection.ReplaceRange(1, 1, new[] { 20, 30, 40 });
+
+        NotifyCollectionChangedEventArgs change = Assert.Single(changes);
+        Assert.Equal(NotifyCollectionChangedAction.Reset, change.Action);
+        Assert.Equal(new[] { 1, 20, 30, 40, 3, 4 }, snapshotInEvent);
+        Assert.Equal(snapshotInEvent, collection.ToArray());
+    }
+
+    [Fact]
+    public void ReplaceRange_WithZeroOldCount_RaisesOneAddForInsertedRange()
+    {
+        var collection = new ObservableRangeCollection<int>(new[] { 1, 4 });
+        NotifyCollectionChangedEventArgs? change = null;
+        collection.CollectionChanged += (_, e) => change = e;
+
+        collection.ReplaceRange(1, 0, new[] { 2, 3 });
+
+        Assert.NotNull(change);
+        Assert.Equal(NotifyCollectionChangedAction.Add, change!.Action);
+        Assert.Equal(1, change.NewStartingIndex);
+        Assert.Equal(new[] { 2, 3 }, change.NewItems!.Cast<int>().ToArray());
+        Assert.Equal(new[] { 1, 2, 3, 4 }, collection.ToArray());
+    }
+
+    [Fact]
+    public void ReplaceRange_WithNoReplacement_RaisesOneRemoveForOldRange()
+    {
+        var collection = new ObservableRangeCollection<int>(new[] { 1, 2, 3, 4 });
+        NotifyCollectionChangedEventArgs? change = null;
+        collection.CollectionChanged += (_, e) => change = e;
+
+        collection.ReplaceRange(1, 2, Array.Empty<int>());
+
+        Assert.NotNull(change);
+        Assert.Equal(NotifyCollectionChangedAction.Remove, change!.Action);
+        Assert.Equal(1, change.OldStartingIndex);
+        Assert.Equal(new[] { 2, 3 }, change.OldItems!.Cast<int>().ToArray());
+        Assert.Equal(new[] { 1, 4 }, collection.ToArray());
+    }
+
+    [Fact]
+    public void ReplaceRange_WithCollectionItself_SnapshotsReplacementBeforeMutation()
+    {
+        var collection = new ObservableRangeCollection<int>(new[] { 1, 2, 3 });
+
+        collection.ReplaceRange(0, collection.Count, collection);
+
+        Assert.Equal(new[] { 1, 2, 3 }, collection.ToArray());
+    }
+
+    [Fact]
     public void ResetWith_Throws_When_Items_Null()
     {
         var collection = new ObservableRangeCollection<int>();

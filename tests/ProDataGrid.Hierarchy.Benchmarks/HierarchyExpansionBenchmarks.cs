@@ -280,6 +280,25 @@ public static class BenchmarkTreeFactory
         return BuildUniform(rootCount: 2, branching: 2, levelCount);
     }
 
+    public static IReadOnlyList<BenchmarkNode> CreateDeepChain(int nodeCount)
+    {
+        if (nodeCount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(nodeCount));
+        }
+
+        var root = new BenchmarkNode(id: 0, depth: 0);
+        var current = root;
+        for (int i = 1; i < nodeCount; i++)
+        {
+            var child = new BenchmarkNode(i, i);
+            current.Children.Add(child);
+            current = child;
+        }
+
+        return new[] { root };
+    }
+
     private static IReadOnlyList<BenchmarkNode> BuildWide(int rootCount, int branchCount, int leafCount)
     {
         int id = 0;

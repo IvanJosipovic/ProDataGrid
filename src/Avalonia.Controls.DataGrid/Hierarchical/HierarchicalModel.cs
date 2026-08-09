@@ -520,6 +520,7 @@ namespace Avalonia.Controls.DataGridHierarchical
         private readonly HashSet<HierarchicalNode> _expandedStateUpdates = new();
         private readonly Dictionary<HierarchicalNode, NodeLoadState> _loadStates = new();
         private SemaphoreSlim? _bulkExpandGate;
+        private int _synchronousBulkExpandActive;
         // Cached lookups for flattened items to avoid repeated linear scans.
         private int _flattenedLookupVersion = -1;
         private Dictionary<object, int>? _flattenedReferenceIndexLookup;
@@ -1636,11 +1637,38 @@ namespace Avalonia.Controls.DataGridHierarchical
             var limit = maxDepth ?? int.MaxValue;
             if (Options.ChildrenSelectorAsync == null)
             {
-                ExpandAllSynchronously(start, limit);
+                EnterSynchronousBulkExpansion();
+                try
+                {
+                    ExpandAllSynchronously(start, limit);
+                }
+                finally
+                {
+                    ExitSynchronousBulkExpansion();
+                }
                 return;
             }
 
-            ExpandAllAsync(start, maxDepth, CancellationToken.None).GetAwaiter().GetResult();
+            var gate = GetBulkExpandGate();
+            if (!gate.Wait(0))
+            {
+                // A blocking wait can deadlock when the active asynchronous operation owns the
+                // caller's synchronization context. The model is not safe to mutate concurrently,
+                // so the legacy synchronous entry point fails deterministically instead.
+                throw new InvalidOperationException("A bulk hierarchy expansion is already in progress.");
+            }
+            try
+            {
+                // Invoke asynchronous selectors on the calling thread while suppressing ordinary
+                // synchronization-context capture inside the selector. Observable model mutation
+                // and event publication remain inline on the calling thread after each result is
+                // resolved.
+                ExpandAllSynchronously(start, limit, resolveAsyncChildrenOffContext: true);
+            }
+            finally
+            {
+                gate.Release();
+            }
         }
 
         /// <inheritdoc />
@@ -1659,15 +1687,29 @@ namespace Avalonia.Controls.DataGridHierarchical
             cancellationToken.ThrowIfCancellationRequested();
             if (Options.ChildrenSelectorAsync == null)
             {
-                ExpandAllSynchronously(start, limit);
+                EnterSynchronousBulkExpansion();
+                try
+                {
+                    ExpandAllSynchronously(start, limit);
+                }
+                finally
+                {
+                    ExitSynchronousBulkExpansion();
+                }
                 return;
             }
 
+            var continueOnCapturedContext = SynchronizationContext.Current != null;
             var gate = GetBulkExpandGate();
-            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await gate.WaitAsync(cancellationToken).ConfigureAwait(continueOnCapturedContext);
             try
             {
-                await ExpandAllAsynchronously(start, limit, cancellationToken).ConfigureAwait(false);
+                await ExpandAllAsynchronously(
+                        start,
+                        limit,
+                        cancellationToken,
+                        continueOnCapturedContext)
+                    .ConfigureAwait(continueOnCapturedContext);
             }
             finally
             {
@@ -1675,13 +1717,33 @@ namespace Avalonia.Controls.DataGridHierarchical
             }
         }
 
+        private void EnterSynchronousBulkExpansion()
+        {
+            if (Interlocked.CompareExchange(ref _synchronousBulkExpandActive, 1, 0) != 0)
+            {
+                throw new InvalidOperationException("A bulk hierarchy expansion is already in progress.");
+            }
+        }
+
+        private void ExitSynchronousBulkExpansion()
+        {
+            Volatile.Write(ref _synchronousBulkExpandActive, 0);
+        }
+
         private async Task ExpandAllAsynchronously(
             HierarchicalNode start,
             int limit,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool continueOnCapturedContext)
         {
             var nodesToExpand = new List<HierarchicalNode>();
             var ancestors = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            var ancestor = start.Parent;
+            while (ancestor != null)
+            {
+                ancestors.Add(ancestor.Item);
+                ancestor = ancestor.Parent;
+            }
             var stack = new Stack<(HierarchicalNode Node, int Depth, bool Exit)>();
             var materializationChanged = false;
             var traversedNodeCount = 0;
@@ -1708,14 +1770,15 @@ namespace Avalonia.Controls.DataGridHierarchical
                 var hadMaterializedChildren = current.HasMaterializedChildren;
 
                 if (!isVirtualRoot &&
-                    (!current.IsExpanded || (!current.IsLeaf && !current.HasMaterializedChildren)))
+                    (!current.HasMaterializedChildren || current.LoadError != null))
                 {
                     await EnsureChildrenMaterializedAsync(
                             current,
                             forceReload: false,
                             cancellationToken,
-                            ancestors)
-                        .ConfigureAwait(false);
+                            ancestors,
+                            continueOnCapturedContext)
+                        .ConfigureAwait(continueOnCapturedContext);
                 }
 
                 if (!hadMaterializedChildren && current.HasMaterializedChildren)
@@ -1754,31 +1817,12 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return;
             }
 
-            foreach (var expandedNode in nodesToExpand)
-            {
-                SetNodeExpandedState(expandedNode, true);
-            }
-
-            if (Root != null)
-            {
-                var capacity = Math.Max(_flattened.Count, traversedNodeCount - (_isVirtualRoot ? 1 : 0));
-                var flattened = new List<HierarchicalNode>(capacity);
-                if (_isVirtualRoot)
-                {
-                    CollectVisibleChildrenAndUpdateCounts(Root, flattened);
-                }
-                else
-                {
-                    flattened.Add(Root);
-                    CollectVisibleChildrenAndUpdateCounts(Root, flattened);
-                }
-                ReplaceFlattened(flattened);
-            }
-
-            foreach (var expandedNode in nodesToExpand)
-            {
-                OnNodeExpanded(expandedNode);
-            }
+            CommitBulkExpansion(
+                start,
+                nodesToExpand,
+                expansionStatesAlreadyApplied: false,
+                materializationChanged,
+                traversedNodeCount);
         }
 
         private SemaphoreSlim GetBulkExpandGate()
@@ -1800,13 +1844,27 @@ namespace Avalonia.Controls.DataGridHierarchical
             return created;
         }
 
-        private void ExpandAllSynchronously(HierarchicalNode start, int limit)
+        private void ExpandAllSynchronously(
+            HierarchicalNode start,
+            int limit,
+            bool resolveAsyncChildrenOffContext = false)
         {
-            var expandedNodes = HasNodeExpandedObservers ? new List<HierarchicalNode>() : null;
+            List<HierarchicalNode>? expandedNodes = null;
             const int hashedCycleDepth = 32;
             HashSet<object>? ancestors = null;
+            if (start.Level >= hashedCycleDepth)
+            {
+                ancestors = new HashSet<object>(ReferenceEqualityComparer.Instance);
+                var ancestor = start.Parent;
+                while (ancestor != null)
+                {
+                    ancestors.Add(ancestor.Item);
+                    ancestor = ancestor.Parent;
+                }
+            }
             var stack = new Stack<(HierarchicalNode Node, int Depth, bool Exit)>();
             var anyExpanded = false;
+            var materializationChanged = false;
             var traversedNodeCount = 0;
             stack.Push((start, 0, false));
 
@@ -1817,14 +1875,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                 {
                     if (current.Level >= hashedCycleDepth)
                     {
-                        if (current.Level == hashedCycleDepth)
-                        {
-                            ancestors!.Clear();
-                        }
-                        else
-                        {
-                            ancestors!.Remove(current.Item);
-                        }
+                        ancestors!.Remove(current.Item);
                     }
                     continue;
                 }
@@ -1834,79 +1885,64 @@ namespace Avalonia.Controls.DataGridHierarchical
                     continue;
                 }
                 traversedNodeCount++;
-                if (current.Level == hashedCycleDepth)
+                if (current.Level >= hashedCycleDepth)
                 {
-                    ancestors ??= new HashSet<object>(ReferenceEqualityComparer.Instance);
-                    var ancestor = current;
-                    while (ancestor != null)
+                    if (ancestors == null)
                     {
-                        ancestors.Add(ancestor.Item);
-                        ancestor = ancestor.Parent!;
+                        ancestors = new HashSet<object>(ReferenceEqualityComparer.Instance);
+                        var ancestor = current.Parent;
+                        while (ancestor != null)
+                        {
+                            ancestors.Add(ancestor.Item);
+                            ancestor = ancestor.Parent;
+                        }
                     }
-                }
-                else if (current.Level > hashedCycleDepth)
-                {
-                    ancestors!.Add(current.Item);
+
+                    ancestors.Add(current.Item);
                 }
 
                 bool isVirtualRoot = _isVirtualRoot && ReferenceEquals(current, Root);
                 bool wasExpanded = current.IsExpanded;
-                if (!wasExpanded)
-                {
-                    SetNodeExpandedState(current, true);
-                }
+                bool hadMaterializedChildren = current.HasMaterializedChildren;
 
                 if (!isVirtualRoot &&
-                    (!wasExpanded || (!current.IsLeaf && !current.HasMaterializedChildren)))
+                    (!current.HasMaterializedChildren || current.LoadError != null))
                 {
                     EnsureChildrenMaterializedSynchronously(
                         current,
                         forceReload: false,
-                        current.Level >= hashedCycleDepth ? ancestors : null);
+                        current.Level >= hashedCycleDepth ? ancestors : null,
+                        resolveAsyncChildrenOffContext);
                     if (current.LoadError != null || !current.HasMaterializedChildren)
                     {
-                        SetNodeExpandedState(current, wasExpanded);
                         if (current.Level >= hashedCycleDepth)
                         {
-                            if (current.Level == hashedCycleDepth)
-                            {
-                                ancestors!.Clear();
-                            }
-                            else
-                            {
-                                ancestors!.Remove(current.Item);
-                            }
+                            ancestors!.Remove(current.Item);
                         }
                         continue;
                     }
                 }
 
+                if (!hadMaterializedChildren && current.HasMaterializedChildren)
+                {
+                    materializationChanged = true;
+                }
+
                 if (!wasExpanded && !isVirtualRoot)
                 {
                     anyExpanded = true;
-                    expandedNodes?.Add(current);
+                    (expandedNodes ??= new List<HierarchicalNode>()).Add(current);
                 }
 
                 if (current.IsLeaf || depth >= limit)
                 {
                     if (current.Level >= hashedCycleDepth)
                     {
-                        if (current.Level == hashedCycleDepth)
-                        {
-                            ancestors!.Clear();
-                        }
-                        else
-                        {
-                            ancestors!.Remove(current.Item);
-                        }
+                        ancestors!.Remove(current.Item);
                     }
                     continue;
                 }
 
-                EnsureChildrenMaterializedSynchronously(
-                    current,
-                    forceReload: false,
-                    current.Level >= hashedCycleDepth ? ancestors : null);
                 var children = current.MutableChildren;
                 var allChildrenAreLeaves = children.Count > 0;
                 for (int i = 0; i < children.Count; i++)
@@ -1928,22 +1964,14 @@ namespace Avalonia.Controls.DataGridHierarchical
                         var child = children[i];
                         if (!child.IsExpanded)
                         {
-                            SetNodeExpandedState(child, true);
                             anyExpanded = true;
-                            expandedNodes?.Add(child);
+                            (expandedNodes ??= new List<HierarchicalNode>()).Add(child);
                         }
                     }
 
                     if (current.Level >= hashedCycleDepth)
                     {
-                        if (current.Level == hashedCycleDepth)
-                        {
-                            ancestors!.Clear();
-                        }
-                        else
-                        {
-                            ancestors!.Remove(current.Item);
-                        }
+                        ancestors!.Remove(current.Item);
                     }
                     continue;
                 }
@@ -1955,25 +1983,76 @@ namespace Avalonia.Controls.DataGridHierarchical
                 }
             }
 
-            if (!anyExpanded)
+            if (!anyExpanded && !materializationChanged)
             {
                 return;
             }
 
-            if (Root != null)
+            CommitBulkExpansion(
+                start,
+                expandedNodes,
+                expansionStatesAlreadyApplied: false,
+                materializationChanged,
+                traversedNodeCount);
+        }
+
+        private void CommitBulkExpansion(
+            HierarchicalNode start,
+            IList<HierarchicalNode>? expandedNodes,
+            bool expansionStatesAlreadyApplied,
+            bool materializationChanged,
+            int traversedNodeCount)
+        {
+            var isVirtualRoot = IsVirtualRootNode(start);
+            var startIndex = isVirtualRoot ? -1 : GetFlattenedIndex(start);
+            var isVisible = isVirtualRoot || startIndex >= 0;
+            var rangeStart = isVirtualRoot ? 0 : startIndex + 1;
+            var oldVisibleCount = isVisible
+                ? CountVisibleDescendantsInFlattened(start, startIndex)
+                : 0;
+            IList<HierarchicalNode>? oldVisibleNodes = oldVisibleCount > 0
+                ? _flattened.GetRange(rangeStart, oldVisibleCount)
+                : null;
+            var oldExpandedCount = start.ExpandedCount;
+
+            if (!expansionStatesAlreadyApplied && expandedNodes != null)
             {
-                var capacity = Math.Max(_flattened.Count, traversedNodeCount - (_isVirtualRoot ? 1 : 0));
-                var flattened = new List<HierarchicalNode>(capacity);
-                if (_isVirtualRoot)
+                for (int i = 0; i < expandedNodes.Count; i++)
                 {
-                    CollectVisibleChildrenAndUpdateCounts(Root, flattened);
+                    expandedNodes[i].SetExpandedFromOwnerSilently(true);
                 }
-                else
-                {
-                    flattened.Add(Root);
-                    CollectVisibleChildrenAndUpdateCounts(Root, flattened);
-                }
-                ReplaceFlattened(flattened);
+            }
+
+            var capacity = Math.Max(oldVisibleCount, traversedNodeCount - (isVirtualRoot ? 1 : 0));
+            var visibleNodes = new List<HierarchicalNode>(Math.Max(0, capacity));
+            CollectVisibleChildrenAndUpdateCounts(
+                start,
+                visibleNodes,
+                materializeMissingChildren: false);
+
+            var expandedCountDelta = start.ExpandedCount - oldExpandedCount;
+            if (start.Parent != null && expandedCountDelta != 0)
+            {
+                ApplyExpandedCountDelta(start.Parent, expandedCountDelta);
+            }
+
+            var flattenedChanged = isVisible &&
+                !ReferenceSequenceEqual(oldVisibleNodes, visibleNodes);
+            if (flattenedChanged)
+            {
+                _flattened.ReplaceRange(rangeStart, oldVisibleCount, visibleNodes);
+                var indexMap = oldVisibleNodes != null && visibleNodes.Count > 0
+                    ? BuildIndexMap(oldVisibleNodes, rangeStart, visibleNodes, rangeStart)
+                    : null;
+                OnFlattenedChanged(
+                    new[] { new FlattenedChange(rangeStart, oldVisibleCount, visibleNodes.Count) },
+                    indexMap);
+            }
+            else if (materializationChanged)
+            {
+                // Materialization can change internal node state without changing visibility.
+                // Counts were updated above; no flattened notification is warranted.
+                InvalidateFlattenedLookup();
             }
 
             if (expandedNodes == null)
@@ -1981,10 +2060,41 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return;
             }
 
-            foreach (var expandedNode in expandedNodes)
+            var raiseNodeExpanded = HasNodeExpandedObservers;
+            for (int i = 0; i < expandedNodes.Count; i++)
             {
-                OnNodeExpanded(expandedNode);
+                var expandedNode = expandedNodes[i];
+                if (expandedNode.HasPropertyChangedObservers)
+                {
+                    expandedNode.RaiseExpandedChanged();
+                }
+
+                if (raiseNodeExpanded)
+                {
+                    OnNodeExpanded(expandedNode);
+                }
             }
+        }
+
+        private static bool ReferenceSequenceEqual(
+            IList<HierarchicalNode>? oldNodes,
+            IList<HierarchicalNode> newNodes)
+        {
+            var oldCount = oldNodes?.Count ?? 0;
+            if (oldCount != newNodes.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < oldCount; i++)
+            {
+                if (!ReferenceEquals(oldNodes![i], newNodes[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         public void CollapseAll(HierarchicalNode? node = null, int? minDepth = null)
@@ -2203,19 +2313,50 @@ namespace Avalonia.Controls.DataGridHierarchical
 
         private void CollectVisibleChildren(HierarchicalNode parent, List<HierarchicalNode> buffer)
         {
-            foreach (var child in parent.Children)
+            if (!parent.IsExpanded || parent.IsLeaf)
             {
-                buffer.Add(child);
+                return;
+            }
 
-                if (child.IsExpanded)
+            if (!parent.HasMaterializedChildren)
+            {
+                EnsureChildrenMaterialized(parent);
+            }
+
+            var stack = new Stack<HierarchicalNode>();
+            var children = parent.MutableChildren;
+            for (int i = children.Count - 1; i >= 0; i--)
+            {
+                stack.Push(children[i]);
+            }
+
+            while (stack.Count > 0)
+            {
+                var current = stack.Pop();
+                buffer.Add(current);
+
+                if (!current.IsExpanded || current.IsLeaf)
                 {
-                    EnsureChildrenMaterialized(child);
-                    CollectVisibleChildren(child, buffer);
+                    continue;
+                }
+
+                if (!current.HasMaterializedChildren)
+                {
+                    EnsureChildrenMaterialized(current);
+                }
+
+                var currentChildren = current.MutableChildren;
+                for (int i = currentChildren.Count - 1; i >= 0; i--)
+                {
+                    stack.Push(currentChildren[i]);
                 }
             }
         }
 
-        private int CollectVisibleChildrenAndUpdateCounts(HierarchicalNode parent, List<HierarchicalNode> buffer)
+        private int CollectVisibleChildrenAndUpdateCounts(
+            HierarchicalNode parent,
+            List<HierarchicalNode> buffer,
+            bool materializeMissingChildren = true)
         {
             if (!parent.IsExpanded || parent.IsLeaf)
             {
@@ -2225,43 +2366,111 @@ namespace Avalonia.Controls.DataGridHierarchical
 
             if (!parent.HasMaterializedChildren)
             {
-                EnsureChildrenMaterialized(parent);
+                if (materializeMissingChildren)
+                {
+                    EnsureChildrenMaterialized(parent);
+                }
+
+                if (!parent.HasMaterializedChildren)
+                {
+                    parent.ExpandedCount = 0;
+                    return 0;
+                }
             }
 
-            int total = 0;
+            var firstBufferIndex = buffer.Count;
+            var stack = new Stack<HierarchicalNode>();
             var children = parent.MutableChildren;
+            for (int i = children.Count - 1; i >= 0; i--)
+            {
+                stack.Push(children[i]);
+            }
+
+            while (stack.Count > 0)
+            {
+                var current = stack.Pop();
+                buffer.Add(current);
+
+                if (!current.IsExpanded || current.IsLeaf)
+                {
+                    current.ExpandedCount = 0;
+                    continue;
+                }
+
+                if (!current.HasMaterializedChildren && materializeMissingChildren)
+                {
+                    EnsureChildrenMaterialized(current);
+                }
+
+                if (!current.HasMaterializedChildren)
+                {
+                    current.ExpandedCount = 0;
+                    continue;
+                }
+
+                var currentChildren = current.MutableChildren;
+                for (int i = currentChildren.Count - 1; i >= 0; i--)
+                {
+                    stack.Push(currentChildren[i]);
+                }
+            }
+
+            for (int i = buffer.Count - 1; i >= firstBufferIndex; i--)
+            {
+                UpdateExpandedCountFromMaterializedChildren(buffer[i]);
+            }
+
+            UpdateExpandedCountFromMaterializedChildren(parent);
+            return buffer.Count - firstBufferIndex;
+        }
+
+        private static void UpdateExpandedCountFromMaterializedChildren(HierarchicalNode node)
+        {
+            if (!node.IsExpanded || node.IsLeaf || !node.HasMaterializedChildren)
+            {
+                node.ExpandedCount = 0;
+                return;
+            }
+
+            var total = 0;
+            var children = node.MutableChildren;
             for (int i = 0; i < children.Count; i++)
             {
                 var child = children[i];
-                buffer.Add(child);
-
-                int childDesc = 0;
-                if (child.IsExpanded && !child.IsLeaf)
-                {
-                    childDesc = CollectVisibleChildrenAndUpdateCounts(child, buffer);
-                }
-                else
-                {
-                    child.ExpandedCount = 0;
-                }
-
-                total += 1 + (child.IsExpanded ? childDesc : 0);
+                total += 1 + (child.IsExpanded ? child.ExpandedCount : 0);
             }
 
-            parent.ExpandedCount = total;
-            return total;
+            node.ExpandedCount = total;
         }
 
-        private int CountVisibleDescendantsRecursive(HierarchicalNode node)
+        private int CountVisibleDescendantsIterative(HierarchicalNode node)
         {
             int count = 0;
-            foreach (var child in node.Children)
+            var stack = new Stack<HierarchicalNode>();
+            var children = node.MutableChildren;
+            for (int i = children.Count - 1; i >= 0; i--)
             {
+                stack.Push(children[i]);
+            }
+
+            while (stack.Count > 0)
+            {
+                var child = stack.Pop();
                 count++;
-                if (child.IsExpanded)
+                if (!child.IsExpanded || child.IsLeaf)
+                {
+                    continue;
+                }
+
+                if (!child.HasMaterializedChildren)
                 {
                     EnsureChildrenMaterialized(child);
-                    count += CountVisibleDescendantsRecursive(child);
+                }
+
+                var childNodes = child.MutableChildren;
+                for (int i = childNodes.Count - 1; i >= 0; i--)
+                {
+                    stack.Push(childNodes[i]);
                 }
             }
 
@@ -2573,7 +2782,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                 {
                     if (child.IsExpanded && !child.IsLeaf)
                     {
-                        var childDesc = RecalculateExpandedCountRecursive(child);
+                        var childDesc = RecalculateExpandedCountIterative(child);
                         addedVisibleCount += 1 + childDesc;
                     }
                     else
@@ -2768,7 +2977,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                 {
                     if (node.IsExpanded && !node.IsLeaf)
                     {
-                        var nodeDesc = RecalculateExpandedCountRecursive(node);
+                        var nodeDesc = RecalculateExpandedCountIterative(node);
                         insertedVisible += 1 + nodeDesc;
                     }
                     else
@@ -3147,11 +3356,22 @@ namespace Avalonia.Controls.DataGridHierarchical
         private IReadOnlyList<HierarchicalNode> EnsureChildrenMaterializedSynchronously(
             HierarchicalNode node,
             bool forceReload,
-            ISet<object>? ancestors = null)
+            ISet<object>? ancestors = null,
+            bool resolveAsyncChildrenOffContext = false)
         {
             if (node.HasMaterializedChildren && !forceReload)
             {
                 return node.Children;
+            }
+
+            if (resolveAsyncChildrenOffContext &&
+                _loadStates.TryGetValue(node, out var pendingState) &&
+                pendingState.Task is { IsCompleted: false })
+            {
+                // Waiting here can deadlock when the pending load needs the caller's UI context,
+                // while starting another selector would race two writers into the same node.
+                throw new InvalidOperationException(
+                    "A child load is already in progress. Await ExpandAllAsync before using synchronous bulk expansion.");
             }
 
             if (_loadStates.TryGetValue(node, out var existingState) && existingState.NextRetryUtc.HasValue)
@@ -3199,7 +3419,9 @@ namespace Avalonia.Controls.DataGridHierarchical
                 }
 
                 node.MutableChildren.Clear();
-                var children = ResolveChildrenSynchronously(node.Item);
+                var children = resolveAsyncChildrenOffContext
+                    ? ResolveAsyncChildrenWithoutCallerContext(node.Item)
+                    : ResolveChildrenSynchronously(node.Item);
                 if (children == null)
                 {
                     node.ChildrenSource = null;
@@ -3277,6 +3499,34 @@ namespace Avalonia.Controls.DataGridHierarchical
             }
         }
 
+        private IEnumerable? ResolveAsyncChildrenWithoutCallerContext(object item)
+        {
+            // Preserve selector invocation affinity (callers commonly read UI-owned view-model
+            // state before their first await), but prevent an ordinary await from capturing the
+            // synchronization context that this compatibility API must block. Selectors that
+            // explicitly marshal back to the blocked caller should use ExpandAllAsync instead.
+            var callerContext = SynchronizationContext.Current;
+            Task<IEnumerable?> resolution;
+            try
+            {
+                if (callerContext != null)
+                {
+                    SynchronizationContext.SetSynchronizationContext(null);
+                }
+
+                resolution = ResolveChildrenAsync(item, CancellationToken.None);
+            }
+            finally
+            {
+                if (callerContext != null)
+                {
+                    SynchronizationContext.SetSynchronizationContext(callerContext);
+                }
+            }
+
+            return resolution.ConfigureAwait(false).GetAwaiter().GetResult();
+        }
+
         private void AddMaterializedChild(
             HierarchicalNode parent,
             object? childItem,
@@ -3313,7 +3563,8 @@ namespace Avalonia.Controls.DataGridHierarchical
             HierarchicalNode node,
             bool forceReload,
             CancellationToken cancellationToken,
-            ISet<object>? ancestors = null)
+            ISet<object>? ancestors = null,
+            bool continueOnCapturedContext = false)
         {
             if (node.HasMaterializedChildren && !forceReload)
             {
@@ -3323,7 +3574,7 @@ namespace Avalonia.Controls.DataGridHierarchical
             var state = GetLoadState(node);
             if (state.Task != null && !state.Task.IsCompleted && !forceReload)
             {
-                return await state.Task.ConfigureAwait(false);
+                return await state.Task.ConfigureAwait(continueOnCapturedContext);
             }
 
             if (state.Task != null && !state.Task.IsCompleted && forceReload)
@@ -3338,7 +3589,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                 {
                     var delay = state.NextRetryUtc.Value - now;
                     OnNodeLoadRetryScheduled(node, delay);
-                    await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                    await Task.Delay(delay, cancellationToken).ConfigureAwait(continueOnCapturedContext);
                 }
             }
 
@@ -3352,12 +3603,18 @@ namespace Avalonia.Controls.DataGridHierarchical
             node.LoadCancellation = linkedCts;
             state.Cancellation = linkedCts;
 
-            var loadTask = LoadChildrenWithStateAsync(node, forceReload, state, linkedCts.Token, ancestors);
+            var loadTask = LoadChildrenWithStateAsync(
+                node,
+                forceReload,
+                state,
+                linkedCts.Token,
+                ancestors,
+                continueOnCapturedContext);
             state.Task = loadTask;
 
             try
             {
-                return await loadTask.ConfigureAwait(false);
+                return await loadTask.ConfigureAwait(continueOnCapturedContext);
             }
             finally
             {
@@ -3376,7 +3633,8 @@ namespace Avalonia.Controls.DataGridHierarchical
             bool forceReload,
             NodeLoadState state,
             CancellationToken cancellationToken,
-            ISet<object>? ancestors)
+            ISet<object>? ancestors,
+            bool continueOnCapturedContext)
         {
             try
             {
@@ -3405,7 +3663,8 @@ namespace Avalonia.Controls.DataGridHierarchical
                 }
 
                 node.MutableChildren.Clear();
-                var children = await ResolveChildrenAsync(node.Item, cancellationToken).ConfigureAwait(false);
+                var children = await ResolveChildrenAsync(node.Item, cancellationToken)
+                    .ConfigureAwait(continueOnCapturedContext);
 
                 if (children == null)
                 {
@@ -3856,7 +4115,7 @@ namespace Avalonia.Controls.DataGridHierarchical
             };
         }
 
-        private static IReadOnlyDictionary<int, int>? BuildIndexMap(
+        internal static IReadOnlyDictionary<int, int>? BuildIndexMap(
             IList<HierarchicalNode> oldNodes,
             int oldStartIndex,
             IList<HierarchicalNode> newNodes,
@@ -3867,63 +4126,103 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return null;
             }
 
-            var nullKey = new object();
-            if (oldNodes.Count <= newNodes.Count)
+            var matchedOld = new bool[oldNodes.Count];
+            var matchedNew = new bool[newNodes.Count];
+            var map = new Dictionary<int, int>(Math.Min(oldNodes.Count, newNodes.Count));
+
+            // First preserve exact wrapper identity. This must be a complete pass before item
+            // equality matching, otherwise a newly inserted equal value can steal a retained row.
+            var nodeLookup = new Dictionary<HierarchicalNode, int>(oldNodes.Count);
+            for (int i = 0; i < oldNodes.Count; i++)
             {
-                var oldLookup = new Dictionary<object, Queue<int>>(
-                    oldNodes.Count,
-                    EqualityComparer<object>.Default);
-                for (int i = 0; i < oldNodes.Count; i++)
+                if (!nodeLookup.ContainsKey(oldNodes[i]))
                 {
-                    var item = oldNodes[i].Item;
-                    var key = item ?? nullKey;
-                    if (!oldLookup.TryGetValue(key, out var queue))
-                    {
-                        queue = new Queue<int>();
-                        oldLookup[key] = queue;
-                    }
-                    queue.Enqueue(oldStartIndex + i);
+                    nodeLookup.Add(oldNodes[i], i);
                 }
-
-                var compactMap = new Dictionary<int, int>(oldNodes.Count);
-                for (int i = 0; i < newNodes.Count && compactMap.Count < oldNodes.Count; i++)
-                {
-                    var item = newNodes[i].Item;
-                    var key = item ?? nullKey;
-                    if (oldLookup.TryGetValue(key, out var queue) && queue.Count > 0)
-                    {
-                        compactMap[queue.Dequeue()] = newStartIndex + i;
-                    }
-                }
-
-                return compactMap.Count > 0 ? compactMap : null;
             }
 
-            var lookup = new Dictionary<object, Queue<int>>(EqualityComparer<object>.Default);
             for (int i = 0; i < newNodes.Count; i++)
             {
-                var item = newNodes[i].Item;
+                if (nodeLookup.TryGetValue(newNodes[i], out var oldIndex) && !matchedOld[oldIndex])
+                {
+                    matchedOld[oldIndex] = true;
+                    matchedNew[i] = true;
+                    map[oldStartIndex + oldIndex] = newStartIndex + i;
+                }
+            }
+
+            MatchUnmappedItems(
+                oldNodes,
+                oldStartIndex,
+                newNodes,
+                newStartIndex,
+                matchedOld,
+                matchedNew,
+                map,
+                ReferenceEqualityComparer.Instance);
+
+            MatchUnmappedItems(
+                oldNodes,
+                oldStartIndex,
+                newNodes,
+                newStartIndex,
+                matchedOld,
+                matchedNew,
+                map,
+                EqualityComparer<object>.Default);
+
+            return map.Count > 0 ? map : null;
+        }
+
+        private static void MatchUnmappedItems(
+            IList<HierarchicalNode> oldNodes,
+            int oldStartIndex,
+            IList<HierarchicalNode> newNodes,
+            int newStartIndex,
+            bool[] matchedOld,
+            bool[] matchedNew,
+            IDictionary<int, int> map,
+            IEqualityComparer<object> comparer)
+        {
+            var lookup = new Dictionary<object, Queue<int>>(oldNodes.Count, comparer);
+            var nullKey = new object();
+            for (int i = 0; i < oldNodes.Count; i++)
+            {
+                if (matchedOld[i])
+                {
+                    continue;
+                }
+
+                var item = oldNodes[i].Item;
                 var key = item ?? nullKey;
                 if (!lookup.TryGetValue(key, out var queue))
                 {
                     queue = new Queue<int>();
                     lookup[key] = queue;
                 }
-                queue.Enqueue(newStartIndex + i);
+
+                queue.Enqueue(i);
             }
 
-            var map = new Dictionary<int, int>();
-            for (int i = 0; i < oldNodes.Count; i++)
+            for (int i = 0; i < newNodes.Count; i++)
             {
-                var item = oldNodes[i].Item;
-                var key = item ?? nullKey;
-                if (lookup.TryGetValue(key, out var queue) && queue.Count > 0)
+                if (matchedNew[i])
                 {
-                    map[oldStartIndex + i] = queue.Dequeue();
+                    continue;
                 }
-            }
 
-            return map.Count > 0 ? map : null;
+                var item = newNodes[i].Item;
+                var key = item ?? nullKey;
+                if (!lookup.TryGetValue(key, out var queue) || queue.Count == 0)
+                {
+                    continue;
+                }
+
+                var oldIndex = queue.Dequeue();
+                matchedOld[oldIndex] = true;
+                matchedNew[i] = true;
+                map[oldStartIndex + oldIndex] = newStartIndex + i;
+            }
         }
 
         private void ApplyExpandedCountDelta(HierarchicalNode parent, int delta)
@@ -3966,11 +4265,11 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return;
             }
 
-            RecalculateExpandedCountRecursive(node);
+            RecalculateExpandedCountIterative(node);
             RecalculateExpandedCountsUpwards(node.Parent);
         }
 
-        private int RecalculateExpandedCountRecursive(HierarchicalNode node)
+        private int RecalculateExpandedCountIterative(HierarchicalNode node)
         {
             if (!node.IsExpanded || node.IsLeaf)
             {
@@ -3978,26 +4277,53 @@ namespace Avalonia.Controls.DataGridHierarchical
                 return 0;
             }
 
-            EnsureChildrenMaterialized(node);
-
-            var total = 0;
-            foreach (var child in node.Children)
+            if (!node.HasMaterializedChildren)
             {
-                var childDescendants = 0;
-                if (child.IsExpanded && !child.IsLeaf)
+                EnsureChildrenMaterialized(node);
+                if (!node.HasMaterializedChildren)
                 {
-                    childDescendants = RecalculateExpandedCountRecursive(child);
+                    node.ExpandedCount = 0;
+                    return 0;
                 }
-                else
-                {
-                    child.ExpandedCount = 0;
-                }
-
-                total += 1 + childDescendants;
             }
 
-            node.ExpandedCount = total;
-            return total;
+            // Recalculate post-order with a depth-sized stack. The flattened-sequence collector
+            // also records every visible node; using it for count-only updates retained an
+            // unnecessary full-subtree List<HierarchicalNode> on collection-change hot paths.
+            var stack = new Stack<(HierarchicalNode Node, int NextChildIndex)>();
+            stack.Push((node, 0));
+            while (stack.Count > 0)
+            {
+                var (current, nextChildIndex) = stack.Pop();
+                var children = current.MutableChildren;
+                if (nextChildIndex >= children.Count)
+                {
+                    UpdateExpandedCountFromMaterializedChildren(current);
+                    continue;
+                }
+
+                var child = children[nextChildIndex];
+                stack.Push((current, nextChildIndex + 1));
+                if (!child.IsExpanded || child.IsLeaf)
+                {
+                    child.ExpandedCount = 0;
+                    continue;
+                }
+
+                if (!child.HasMaterializedChildren)
+                {
+                    EnsureChildrenMaterialized(child);
+                    if (!child.HasMaterializedChildren)
+                    {
+                        child.ExpandedCount = 0;
+                        continue;
+                    }
+                }
+
+                stack.Push((child, 0));
+            }
+
+            return node.ExpandedCount;
         }
 
         private void RecalculateExpandedCountsUpwards(HierarchicalNode? node)

@@ -197,7 +197,10 @@ namespace Avalonia.Controls.DataGridHierarchical
             CancellationToken cancellationToken = default)
         {
             using var guard = _model.BeginVirtualizationGuard();
-            await _model.ExpandAllAsync(node, maxDepth, cancellationToken).ConfigureAwait(false);
+            // Preserve the caller synchronization context so the guard and any attached grid
+            // callbacks complete on the UI thread. HierarchicalModel uses a non-capturing core
+            // only for the legacy synchronous wrapper to avoid sync-over-async deadlock.
+            await _model.ExpandAllAsync(node, maxDepth, cancellationToken);
         }
 
         public void CollapseAll(HierarchicalNode? node = null, int? minDepth = null)

@@ -9,6 +9,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls.DataGridHierarchical;
@@ -177,6 +178,26 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
         {
             ChildrenSelector = item => ((Item)item).Children
         });
+    }
+
+    private static Item[] CreateChain(int depth)
+    {
+        if (depth <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(depth));
+        }
+
+        var items = new Item[depth];
+        for (int i = 0; i < items.Length; i++)
+        {
+            items[i] = new Item($"node-{i}");
+            if (i > 0)
+            {
+                items[i - 1].Children.Add(items[i]);
+            }
+        }
+
+        return items;
     }
 
     [Fact]
@@ -1347,9 +1368,252 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
 
         FlattenedChangedEventArgs args = Assert.Single(changes);
         FlattenedChange change = Assert.Single(args.Changes);
-        Assert.Equal(0, change.Index);
-        Assert.Equal(1, change.OldCount);
+        Assert.Equal(1, change.Index);
+        Assert.Equal(0, change.OldCount);
+        Assert.Equal(2, change.NewCount);
+    }
+
+    [Fact]
+    public void ExpandAll_VisibleSubtree_ReplacesOnlyAffectedDescendantRange()
+    {
+        var root = new Item("root");
+        var target = new Item("target");
+        var grand = new Item("grand");
+        var stableSibling = new Item("stable");
+        target.Children.Add(grand);
+        root.Children.Add(target);
+        root.Children.Add(stableSibling);
+
+        var model = CreateModel();
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+        var targetNode = model.GetNode(1);
+        var stableNode = model.GetNode(2);
+        var flattenedChanges = new List<FlattenedChangedEventArgs>();
+        var collectionChanges = new List<NotifyCollectionChangedEventArgs>();
+        model.FlattenedChanged += (_, e) => flattenedChanges.Add(e);
+        ((INotifyCollectionChanged)model.ObservableFlattened).CollectionChanged +=
+            (_, e) => collectionChanges.Add(e);
+
+        model.ExpandAll(targetNode);
+
+        FlattenedChange change = Assert.Single(Assert.Single(flattenedChanges).Changes);
+        Assert.Equal(2, change.Index);
+        Assert.Equal(0, change.OldCount);
+        Assert.Equal(1, change.NewCount);
+        NotifyCollectionChangedEventArgs collectionChange = Assert.Single(collectionChanges);
+        Assert.Equal(NotifyCollectionChangedAction.Add, collectionChange.Action);
+        Assert.Same(targetNode, model.GetNode(1));
+        Assert.Same(stableNode, model.GetNode(3));
+        Assert.Same(grand, model.GetItem(2));
+    }
+
+    [Fact]
+    public void ExpandAll_HiddenSubtree_UpdatesStateWithoutFlattenedNotification()
+    {
+        var root = new Item("root");
+        var hiddenParent = new Item("hidden-parent");
+        var target = new Item("target");
+        var grand = new Item("grand");
+        target.Children.Add(grand);
+        hiddenParent.Children.Add(target);
+        root.Children.Add(hiddenParent);
+
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            VirtualizeChildren = false
+        });
+        model.SetRoot(root);
+        model.ExpandAll();
+        var hiddenParentNode = model.FindNode(hiddenParent)!;
+        var targetNode = model.FindNode(target)!;
+        model.Collapse(targetNode);
+        model.Collapse(hiddenParentNode);
+        var visibleBefore = model.Flattened.ToArray();
+        var flattenedChanges = 0;
+        var collectionChanges = 0;
+        model.FlattenedChanged += (_, _) => flattenedChanges++;
+        ((INotifyCollectionChanged)model.ObservableFlattened).CollectionChanged +=
+            (_, _) => collectionChanges++;
+
+        model.ExpandAll(targetNode);
+
+        Assert.True(targetNode.IsExpanded);
+        Assert.Equal(1, targetNode.ExpandedCount);
+        Assert.Equal(0, flattenedChanges);
+        Assert.Equal(0, collectionChanges);
+        Assert.Equal(visibleBefore, model.Flattened);
+    }
+
+    [Fact]
+    public void ExpandAll_DeepSubtreeStartingBeyondCycleThreshold_IsSupported()
+    {
+        const int depth = 64;
+        var items = CreateChain(depth);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+            VirtualizeChildren = false
+        });
+        model.SetRoot(items[0]);
+        model.ExpandAll();
+        var deepNode = model.FindNode(items[48])!;
+        model.Collapse(deepNode);
+
+        model.ExpandAll(deepNode);
+
+        Assert.True(deepNode.IsExpanded);
+        Assert.Equal(depth, model.Count);
+        Assert.Equal(depth - 1, model.Root!.ExpandedCount);
+    }
+
+    [Fact]
+    public void ExpandAll_DeepHierarchy_UsesStackSafeFlattenAndCountPaths()
+    {
+        const int depth = 4096;
+        var items = CreateChain(depth);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((Item)item).Children,
+            IsLeafSelector = item => ((Item)item).Children.Count == 0,
+            VirtualizeChildren = true
+        });
+        model.SetRoot(items[0]);
+
+        model.ExpandAll();
+
+        Assert.Equal(depth, model.Count);
+        Assert.Equal(depth - 1, model.Root!.ExpandedCount);
+        Assert.Same(items[^1], model.GetItem(depth - 1));
+    }
+
+    [Fact]
+    public void ExpandAll_IndexMapPreservesRetainedIdentityBeforeEqualInsertedItem()
+    {
+        var root = new DuplicateItem("root");
+        var target = new DuplicateItem("target");
+        var branch = new DuplicateItem("branch");
+        var insertedEqual = new DuplicateItem("dup");
+        var retainedEqual = new DuplicateItem("dup");
+        branch.Children.Add(insertedEqual);
+        target.Children.Add(branch);
+        target.Children.Add(retainedEqual);
+        root.Children.Add(target);
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelector = item => ((DuplicateItem)item).Children
+        });
+        model.SetRoot(root);
+        model.Expand(model.Root!);
+        var targetNode = model.GetNode(1);
+        model.Expand(targetNode);
+        var branchNode = model.GetNode(2);
+        var retainedNode = model.GetNode(3);
+        FlattenedChangedEventArgs? args = null;
+        model.FlattenedChanged += (_, e) => args = e;
+
+        model.ExpandAll(targetNode);
+
+        Assert.NotNull(args);
+        FlattenedChange change = Assert.Single(args!.Changes);
+        Assert.Equal(2, change.Index);
+        Assert.Equal(2, change.OldCount);
         Assert.Equal(3, change.NewCount);
+        Assert.Equal(4, args.IndexMap.MapOldIndexToNew(3));
+        Assert.Same(branchNode, model.GetNode(2));
+        Assert.Same(insertedEqual, model.GetItem(3));
+        Assert.Same(retainedNode, model.GetNode(4));
+    }
+
+    [Fact]
+    public void BuildIndexMap_DefensivelyMapsDistinctNodesWithNullItems()
+    {
+        var oldNode = (HierarchicalNode)RuntimeHelpers.GetUninitializedObject(typeof(HierarchicalNode));
+        var newNode = (HierarchicalNode)RuntimeHelpers.GetUninitializedObject(typeof(HierarchicalNode));
+
+        var map = HierarchicalModel.BuildIndexMap(
+            new[] { oldNode },
+            oldStartIndex: 5,
+            new[] { newNode },
+            newStartIndex: 9);
+
+        Assert.NotNull(map);
+        Assert.Equal(9, map![5]);
+    }
+
+    [Fact]
+    public void ExpandAll_PublishesFinalFlattenedStateBeforeExpandedStateEvents()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        root.Children.Add(child);
+        var model = CreateModel();
+        model.SetRoot(root);
+        var rootNode = model.Root!;
+        var events = new List<string>();
+        model.FlattenedChanged += (_, _) => events.Add("flattened");
+        rootNode.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(HierarchicalNode.IsExpanded))
+            {
+                Assert.True(rootNode.IsExpanded);
+                Assert.Equal(1, rootNode.ExpandedCount);
+                Assert.Equal(2, model.Count);
+                Assert.Same(child, model.GetItem(1));
+                events.Add("property");
+            }
+        };
+        model.NodeExpanded += (_, e) =>
+        {
+            if (ReferenceEquals(e.Node, rootNode))
+            {
+                Assert.Equal(2, model.Count);
+                events.Add("expanded");
+            }
+        };
+
+        model.ExpandAll();
+
+        Assert.Equal(new[] { "flattened", "property", "expanded" }, events);
+    }
+
+    [Fact]
+    public void ExpandAll_LoadObserversCannotSeeExpandedStateBeforeFlattenedCommit()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        child.Children.Add(new Item("grand"));
+        root.Children.Add(child);
+        var model = CreateModel();
+        model.SetRoot(root);
+        var rootNode = model.Root!;
+        var preCommitObservations = 0;
+
+        void AssertPreCommitState(HierarchicalNodeEventArgs args)
+        {
+            if (!ReferenceEquals(args.Node.Item, child))
+            {
+                return;
+            }
+
+            Assert.False(rootNode.IsExpanded);
+            Assert.Equal(0, rootNode.ExpandedCount);
+            Assert.Single(model.Flattened);
+            Assert.Same(rootNode, model.GetNode(0));
+            preCommitObservations++;
+        }
+
+        model.NodeLoading += (_, args) => AssertPreCommitState(args);
+        model.NodeLoaded += (_, args) => AssertPreCommitState(args);
+
+        model.ExpandAll();
+
+        Assert.Equal(2, preCommitObservations);
+        Assert.True(rootNode.IsExpanded);
+        Assert.Equal(2, rootNode.ExpandedCount);
+        Assert.Equal(3, model.Count);
     }
 
     [Fact]
@@ -1559,6 +1823,49 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public async Task ExpandAllAsync_RetriesFailedLoadOnAlreadyExpandedNode()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        root.Children.Add(child);
+        var fail = false;
+        var attempts = 0;
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = (item, _) =>
+            {
+                Interlocked.Increment(ref attempts);
+                if (fail)
+                {
+                    return Task.FromException<IEnumerable?>(new InvalidOperationException("boom"));
+                }
+
+                return Task.FromResult<IEnumerable?>(((Item)item).Children);
+            },
+            IsLeafSelector = item => !ReferenceEquals(item, root)
+        });
+        model.SetRoot(root);
+        await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(model.Root!.IsExpanded);
+
+        fail = true;
+        await model.RefreshAsync(model.Root!, TestContext.Current.CancellationToken);
+        Assert.True(model.Root.IsExpanded);
+        Assert.NotNull(model.Root.LoadError);
+        Assert.False(model.Root.HasMaterializedChildren);
+
+        fail = false;
+        var attemptsBeforeRetry = attempts;
+        await model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.True(attempts > attemptsBeforeRetry);
+        Assert.Null(model.Root.LoadError);
+        Assert.True(model.Root.HasMaterializedChildren);
+        Assert.Equal(2, model.Count);
+        Assert.Same(child, model.GetItem(1));
+    }
+
+    [Fact]
     public async Task TypedExpandAllAsync_HonorsDepthLimit()
     {
         var root = new Item("root");
@@ -1618,6 +1925,99 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
         Assert.Equal(2, selectorCalls);
         Assert.Equal(2, expandedEvents);
         Assert.Equal(2, model.Count);
+    }
+
+    [Fact]
+    public async Task ExpandAll_WhileBulkAsyncExpansionIsActive_FailsWithoutStartingDuplicateLoads()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var selectorEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSelector = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var selectorCalls = 0;
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                Interlocked.Increment(ref selectorCalls);
+                selectorEntered.TrySetResult();
+                await releaseSelector.Task.WaitAsync(cancellationToken);
+                return ((Item)item).Children;
+            }
+        });
+        model.SetRoot(root);
+
+        var asyncExpansion = model.ExpandAllAsync(cancellationToken: TestContext.Current.CancellationToken);
+        await selectorEntered.Task;
+
+        var error = Assert.Throws<InvalidOperationException>(() => model.ExpandAll());
+        Assert.Contains("already in progress", error.Message, StringComparison.Ordinal);
+
+        releaseSelector.TrySetResult();
+        await asyncExpansion;
+
+        Assert.Equal(2, selectorCalls);
+        Assert.Equal(2, model.Count);
+        Assert.All(model.Flattened, node => Assert.True(node.IsExpanded));
+    }
+
+    [Fact]
+    public async Task ExpandAll_WhileInteractiveAsyncLoadIsActive_FailsWithoutStartingDuplicateSelector()
+    {
+        var root = new Item("root");
+        root.Children.Add(new Item("child"));
+        var selectorEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseSelector = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var selectorCalls = 0;
+        var model = new HierarchicalModel(new HierarchicalOptions
+        {
+            ChildrenSelectorAsync = async (item, cancellationToken) =>
+            {
+                Interlocked.Increment(ref selectorCalls);
+                selectorEntered.TrySetResult();
+                await releaseSelector.Task.WaitAsync(cancellationToken);
+                return ((Item)item).Children;
+            }
+        });
+        model.SetRoot(root);
+
+        var interactiveExpansion = model.ExpandAsync(
+            model.Root!,
+            TestContext.Current.CancellationToken);
+        await selectorEntered.Task;
+
+        var error = Assert.Throws<InvalidOperationException>(() => model.ExpandAll());
+        Assert.Contains("child load is already in progress", error.Message, StringComparison.Ordinal);
+        Assert.Equal(1, selectorCalls);
+
+        releaseSelector.TrySetResult();
+        await interactiveExpansion;
+
+        Assert.Equal(1, selectorCalls);
+        Assert.True(model.Root!.IsExpanded);
+        Assert.Equal(2, model.Count);
+    }
+
+    [Fact]
+    public async Task ExpandAllAsync_AlreadyCanceledTokenReturnsCanceledTaskWithoutSynchronousThrow()
+    {
+        var root = new Item("root");
+        var model = CreateModel();
+        model.SetRoot(root);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        Task? expansion = null;
+
+        var invocationError = Record.Exception(() =>
+        {
+            expansion = model.ExpandAllAsync(cancellationToken: cts.Token);
+        });
+
+        Assert.Null(invocationError);
+        Assert.NotNull(expansion);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await expansion!);
+        Assert.True(expansion!.IsCanceled);
+        Assert.False(model.Root!.IsExpanded);
     }
 
     [Fact]
