@@ -3138,7 +3138,13 @@ internal
                     CurrentSlot = -1;
                 }
                 RefreshSelectionFromModel();
-                RequestHierarchicalIndentationRefresh();
+                if (!canApplyBulkSplice)
+                {
+                    // Bulk splice realizes and rebinds the final displayed range synchronously,
+                    // and RefreshHierarchicalIndentation above has already updated those rows.
+                    // Repeating it from LayoutUpdated can schedule another render interval.
+                    RequestHierarchicalIndentationRefresh();
+                }
             }
 
             OnCollectionChangedForSummaries(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));

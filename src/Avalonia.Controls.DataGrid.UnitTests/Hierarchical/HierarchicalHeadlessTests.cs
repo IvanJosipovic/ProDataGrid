@@ -1213,6 +1213,9 @@ public class HierarchicalHeadlessTests
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalBulkSplice", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalSelectionRemap", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalIndentationRefresh", activities);
+        Assert.Equal(
+            1,
+            activities.Count(x => x == "ProDataGrid.DataGrid.HierarchicalIndentationRefresh"));
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalDisplayedRowsRange", activities);
         Assert.DoesNotContain("ProDataGrid.DataGrid.RefreshRowsAndColumns", activities);
         Assert.Same(firstRootRow, grid.DisplayData.GetDisplayedElement(0));
@@ -1228,6 +1231,9 @@ public class HierarchicalHeadlessTests
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalBulkSplice", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalSelectionRemap", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalIndentationRefresh", activities);
+        Assert.Equal(
+            1,
+            activities.Count(x => x == "ProDataGrid.DataGrid.HierarchicalIndentationRefresh"));
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalDisplayedRowsRange", activities);
         Assert.DoesNotContain("ProDataGrid.DataGrid.RefreshRowsAndColumns", activities);
         Assert.Same(firstRootRow, grid.DisplayData.GetDisplayedElement(0));
