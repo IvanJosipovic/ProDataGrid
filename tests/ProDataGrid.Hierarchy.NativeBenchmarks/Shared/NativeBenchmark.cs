@@ -309,7 +309,7 @@ internal sealed class NativeBenchmarkRunner
     {
         using var handle = NativeGridAdapter.Create(expanded: true);
         if (measure)
-            CollectForMeasurement();
+            await PrepareMeasurementAsync(_host);
 
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
         var stopwatch = Stopwatch.StartNew();
@@ -352,7 +352,7 @@ internal sealed class NativeBenchmarkRunner
         await WaitForRenderedFrameAsync(_host);
 
         if (measure)
-            CollectForMeasurement();
+            await PrepareMeasurementAsync(_host);
 
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
         var stopwatch = Stopwatch.StartNew();
@@ -413,7 +413,7 @@ internal sealed class NativeBenchmarkRunner
         NativeGridAdapter.Validate(handle, TreeDataFactory.ExpectedCount(shape));
 
         if (measure)
-            CollectForMeasurement();
+            await PrepareMeasurementAsync(_host);
 
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
         var stopwatch = Stopwatch.StartNew();
@@ -453,7 +453,7 @@ internal sealed class NativeBenchmarkRunner
 
         for (var batch = 0; batch < NativeBenchmarkOptions.Iterations; ++batch)
         {
-            CollectForMeasurement();
+            await PrepareMeasurementAsync(_host);
             var allocatedBefore = GC.GetTotalAllocatedBytes(precise: false);
             var batchTimes = await RunScrollBatchAsync(handle, viewer, batch, measure: true);
             var allocated = GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore;
@@ -500,6 +500,15 @@ internal sealed class NativeBenchmarkRunner
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
+    }
+
+    private static async Task PrepareMeasurementAsync(TopLevel topLevel)
+    {
+        CollectForMeasurement();
+        // Full collection duration depends on each implementation's retained graph and can
+        // otherwise shift the timed operation to opposite sides of a Windows vsync boundary.
+        // Start every sample immediately after the same two-frame completion barrier.
+        await WaitForRenderedFrameAsync(topLevel);
     }
 
     public static async Task WaitForRenderedFrameAsync(TopLevel topLevel)

@@ -7,7 +7,10 @@ implementation.
 
 The two controls use the same generated models, five data columns, an 800 x 500
 native desktop window, fixed 24-pixel rows, layout, and a two-animation-frame
-completion wait. Every measured operation begins from a fully rendered state.
+completion wait. Every measured operation begins from a fully rendered state. A
+full collection is followed by an unmeasured two-frame barrier before each sample,
+so implementation-specific GC duration cannot move the timed work to a different
+Windows vsync phase.
 
 - `ExpandAllAndRender` expands the 4,094-node binary-tree workload used by the
   existing native expansion comparison.

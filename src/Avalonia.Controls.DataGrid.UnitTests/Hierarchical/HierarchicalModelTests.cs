@@ -2082,6 +2082,27 @@ namespace Avalonia.Controls.DataGridTests.Hierarchical;
     }
 
     [Fact]
+    public void CollapseAll_RaisesTypedLifecycleEventsWithoutBaseSubscriptions()
+    {
+        var root = new Item("root");
+        var child = new Item("child");
+        child.Children.Add(new Item("grand"));
+        root.Children.Add(child);
+        var model = new HierarchicalModel<Item>(new HierarchicalOptions<Item>
+        {
+            ChildrenSelector = item => item.Children
+        });
+        model.SetRoot(root);
+        model.ExpandAll();
+        var collapsed = new List<string>();
+        model.NodeCollapsedTyped += (_, args) => collapsed.Add(args.Node.Item.Name);
+
+        model.CollapseAll();
+
+        Assert.Equal(new[] { "root", "child" }, collapsed);
+    }
+
+    [Fact]
     public void CollapseAll_CommitsOneCoherentFlattenedChangeBeforeLifecycleEvents()
     {
         var root = new Item("root");
