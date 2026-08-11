@@ -164,7 +164,7 @@ internal static class NativeBenchmarkOptions
 
     public static bool AvaloniaDiagnostics { get; private set; }
 
-    public static int AlignmentCallbacks { get; private set; } = 2;
+    public static int AlignmentCallbacks { get; private set; } = 3;
 
     public static string OutputPath { get; private set; } = Path.GetFullPath("native-result.json");
 

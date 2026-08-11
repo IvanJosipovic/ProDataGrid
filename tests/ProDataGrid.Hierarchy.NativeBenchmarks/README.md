@@ -8,7 +8,7 @@ implementation.
 The two controls use the same generated models, five data columns, an 800 x 500
 native desktop window, fixed 24-pixel rows, layout, and a two-animation-frame
 completion wait. Every measured operation begins from a fully rendered state. A
-full collection is followed by an unmeasured two-frame barrier before each sample,
+full collection is followed by an unmeasured three-pulse alignment barrier before each sample,
 so implementation-specific GC duration cannot move the timed work to a different
 Windows vsync phase. The timed two-frame completion barrier is armed at the sample
 boundary before the synchronous mutation; its callbacks cannot run until mutation
@@ -29,7 +29,7 @@ schedule.
   layout and managed allocation, while the full rendered-frame total remains
   visible for detecting separate platform rendering or scheduling work.
 
-## Frame alignment and the two-callback barrier
+## Frame alignment and the timed two-callback barrier
 
 `RequestAnimationFrame` asks Avalonia to invoke a callback on an upcoming animation
 clock pulse. It is not the composition batch's `Rendered` task or a GPU/display
@@ -58,7 +58,7 @@ therefore change the end-to-end result by a whole frame even when model and layo
 work improve.
 
 The harness controls that phase in two places. Before every measured sample it
-performs the full GC and then waits on an unmeasured two-callback barrier, preventing
+performs the full GC and then waits on an unmeasured three-pulse barrier, preventing
 implementation-specific collection time from deciding which side of the next
 frame cutoff contains the timed operation. It then registers the timed barrier
 before starting the synchronous mutation. Because mutation and `UpdateLayout()` run
@@ -79,11 +79,19 @@ compositor-update, and compositor-render pass observed for each sample. That
 instrumented process is separate from the clean performance gate because meter
 collection intentionally adds overhead.
 
-The normal pre-sample alignment barrier has two callbacks. The diagnostic-only
-`--alignment-callbacks` option can increase that count without changing the timed
-two-callback completion barrier. CI compares two and three alignment callbacks in
-separate uninstrumented processes to detect a trailing composition batch from the
-alignment pass itself. It also captures sampled .NET traces for source-symbol
+The normal pre-sample alignment barrier has three callbacks. The third pulse is
+important because callback 2 runs before Avalonia records the rest of its own media
+pass. With only two alignment callbacks, ProDataGrid could begin the timed sample
+while a trailing alignment-pass composition batch was still pending; Avalonia then
+withheld timed callback 1 until that unrelated batch was processed. A source-only
+Windows diagnostic changed only the unmeasured alignment count from two to three:
+ProDataGrid's layout-to-callback-1 delay fell from 5.93 ms to 0.048 ms and its frame
+wait fell from 24.03 ms to 13.84 ms. TreeDataGrid remained in the same frame band
+(10.92 ms versus 12.08 ms). The measured operation still uses exactly two callbacks.
+
+The diagnostic-only `--alignment-callbacks` option can override the pre-sample
+count without changing that timed two-callback completion barrier. CI retains the
+two-versus-three diagnostic and also captures sampled .NET traces for source-symbol
 attribution of the UI render, composition serialization, and batch-deserialization
 paths. These traces contain only the two source implementations in this harness.
 
