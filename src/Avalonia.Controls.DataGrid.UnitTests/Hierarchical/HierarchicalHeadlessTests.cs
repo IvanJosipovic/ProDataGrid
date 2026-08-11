@@ -1208,7 +1208,12 @@ public class HierarchicalHeadlessTests
         PumpLayout(grid);
 
         Assert.Equal(602, grid.SlotCount);
+        Assert.Contains("ProDataGrid.Hierarchy.ExpandAll", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalFlattenedChanged", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalBulkSplice", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalSelectionRemap", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalIndentationRefresh", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalDisplayedRowsRange", activities);
         Assert.DoesNotContain("ProDataGrid.DataGrid.RefreshRowsAndColumns", activities);
         Assert.Same(firstRootRow, grid.DisplayData.GetDisplayedElement(0));
         ValidateDisplayedRows(grid, model);

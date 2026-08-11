@@ -1849,6 +1849,7 @@ namespace Avalonia.Controls.DataGridHierarchical
             int limit,
             bool resolveAsyncChildrenOffContext = false)
         {
+            using var activity = Avalonia.Controls.DataGridDiagnostics.HierarchicalExpandAll();
             List<HierarchicalNode>? expandedNodes = null;
             const int hashedCycleDepth = 32;
             HashSet<object>? ancestors = null;

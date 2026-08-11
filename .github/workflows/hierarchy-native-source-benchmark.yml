@@ -1,0 +1,142 @@
+name: Hierarchy native source benchmark
+
+on:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  windows-native:
+    name: Windows native source comparison
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout ProDataGrid
+        uses: actions/checkout@v4
+        with:
+          path: prodatagrid
+
+      - name: Checkout benchmark harness
+        uses: actions/checkout@v4
+        with:
+          repository: miloszkukla/avalonia-grid-hierarchy-comparison
+          path: comparison
+
+      - name: Checkout open-source TreeDataGrid
+        uses: actions/checkout@v4
+        with:
+          repository: wieslawsoltes/Avalonia.Controls.TreeDataGrid
+          path: tree-datagrid
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Replace TreeDataGrid package reference with source
+        shell: pwsh
+        run: |
+          $project = Join-Path $env:GITHUB_WORKSPACE "comparison/GridHierarchyNativeBenchmarkHarness/Native.WieslawTree/Native.WieslawTree.csproj"
+          $content = Get-Content $project -Raw
+          $packageReference = '<PackageReference Include="TreeDataGrid" Version="12.0.0.4" />'
+          $projectReference = '<ProjectReference Include="$(WieslawTreeSourceRoot)/src/Avalonia.Controls.TreeDataGrid/Avalonia.Controls.TreeDataGrid.csproj" />'
+          if (-not $content.Contains($packageReference)) {
+            throw "Expected TreeDataGrid package reference was not found."
+          }
+          Set-Content $project ($content.Replace($packageReference, $projectReference))
+
+      - name: Build source-only benchmark applications
+        shell: pwsh
+        run: |
+          $harness = Join-Path $env:GITHUB_WORKSPACE "comparison/GridHierarchyNativeBenchmarkHarness"
+          $proRoot = Join-Path $env:GITHUB_WORKSPACE "prodatagrid"
+          $treeRoot = Join-Path $env:GITHUB_WORKSPACE "tree-datagrid"
+          dotnet build "$harness/Native.Pro/Native.Pro.csproj" -c Release -p:ProDataGridPr335=true -p:ProDataGridSourceRoot="$proRoot"
+          dotnet build "$harness/Native.WieslawTree/Native.WieslawTree.csproj" -c Release -p:WieslawTreeSourceRoot="$treeRoot"
+
+      - name: Run independent native processes
+        shell: pwsh
+        run: |
+          $harness = Join-Path $env:GITHUB_WORKSPACE "comparison/GridHierarchyNativeBenchmarkHarness"
+          $results = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source"
+          New-Item -ItemType Directory -Force -Path $results | Out-Null
+
+          foreach ($mode in @("direct-cell", "drawn")) {
+            $env:GRID_BENCH_PRO_MODE = $mode
+            foreach ($process in 1..4) {
+              dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
+                --warmup 2 --iterations 10 --output "$results/pro-$mode-$process.json"
+              if ($LASTEXITCODE -ne 0) { throw "ProDataGrid $mode process $process failed." }
+            }
+          }
+          Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
+
+          foreach ($process in 1..4) {
+            dotnet "$harness/Native.WieslawTree/bin/Release/net8.0/Native.WieslawTree.dll" `
+              --warmup 2 --iterations 10 --output "$results/tree-$process.json"
+            if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid process $process failed." }
+          }
+
+      - name: Summarize expand-all latency
+        shell: pwsh
+        run: |
+          $results = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source"
+          $rows = foreach ($file in Get-ChildItem $results -Filter *.json) {
+            $result = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            [pscustomobject]@{
+              File = $file.Name
+              Implementation = $result.Implementation
+              Mode = if ($result.Mode) { $result.Mode } else { "source" }
+              ExpandAllMeanMs = [double]$result.ExpandAllAndRender.MeanMilliseconds
+              Runtime = $result.Runtime
+              OS = $result.OS
+            }
+          }
+
+          $aggregates = $rows |
+            Group-Object Implementation, Mode |
+            ForEach-Object {
+              [pscustomobject]@{
+                Implementation = $_.Group[0].Implementation
+                Mode = $_.Group[0].Mode
+                ProcessMeans = $_.Count
+                ExpandAllMeanMs = ($_.Group.ExpandAllMeanMs | Measure-Object -Average).Average
+              }
+            } |
+            Sort-Object ExpandAllMeanMs
+
+          $table = @(
+            "## Native expand all + render (source only)",
+            "",
+            "| Implementation | Mode | Process means | Mean (ms) |",
+            "|---|---:|---:|---:|"
+          )
+          foreach ($aggregate in $aggregates) {
+            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.ExpandAllMeanMs.ToString('F2')) |"
+          }
+          $table | Add-Content $env:GITHUB_STEP_SUMMARY
+          $aggregates | ConvertTo-Json | Set-Content "$results/aggregate.json"
+
+          $bestPro = $aggregates | Where-Object Implementation -Like "ProDataGrid*" | Select-Object -First 1
+          $tree = $aggregates | Where-Object Implementation -Like "Wieslaw*" | Select-Object -First 1
+          if ($null -eq $bestPro -or $null -eq $tree) {
+            throw "Missing ProDataGrid or TreeDataGrid aggregate."
+          }
+          if ($bestPro.ExpandAllMeanMs -ge $tree.ExpandAllMeanMs) {
+            throw "Best ProDataGrid mean ($($bestPro.ExpandAllMeanMs) ms) is not faster than TreeDataGrid ($($tree.ExpandAllMeanMs) ms)."
+          }
+
+      - name: Upload raw benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hierarchy-native-source-windows
+          path: artifacts/hierarchy-native-source
+          if-no-files-found: error
+          retention-days: 30

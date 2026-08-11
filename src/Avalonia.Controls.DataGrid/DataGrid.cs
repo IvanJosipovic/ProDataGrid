@@ -3035,6 +3035,7 @@ internal
 
         private void HandleHierarchicalFlattenedChanged(FlattenedChangedEventArgs e)
         {
+            using var activity = DataGridDiagnostics.HierarchicalFlattenedChanged();
             if (!_hierarchicalRowsEnabled)
             {
                 return;
@@ -3089,7 +3090,10 @@ internal
             using (_hierarchicalModel?.BeginVirtualizationGuard())
             using (_rowsPresenter?.BeginVirtualizationGuard())
             {
-                RemapSelectionForHierarchyChange(indexMap);
+                using (DataGridDiagnostics.HierarchicalSelectionRemap())
+                {
+                    RemapSelectionForHierarchyChange(indexMap);
+                }
                 if (canApplyChanges || canApplyBulkSplice)
                 {
                     var suppressOffsetAdjustments = hasAnchor;
@@ -3450,6 +3454,7 @@ internal
 
         private void EnsureDisplayedRowsInRange()
         {
+            using var activity = DataGridDiagnostics.HierarchicalDisplayedRowsRange();
             if (DisplayData == null || DisplayData.FirstScrollingSlot < 0)
             {
                 return;
