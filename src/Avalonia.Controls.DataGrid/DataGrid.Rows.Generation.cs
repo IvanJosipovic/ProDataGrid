@@ -59,11 +59,11 @@ namespace Avalonia.Controls
 
             if (dataGridRow == null)
             {
-                var recycledRow = DisplayData.GetRecycledRow();
+                var recycledRow = DisplayData.GetRecycledRow(dataContext, rowIndex, slot);
                 source = recycledRow != null
                     ? DataGridDiagnostics.Sources.Recycled
                     : DataGridDiagnostics.Sources.New;
-                dataGridRow = recycledRow ?? new DataGridRow();
+                dataGridRow = recycledRow ?? CreateRowContainer(dataContext, rowIndex, slot);
                 var previousDataContext = (dataGridRow.RecycledDataContext ?? dataGridRow.DataContext);
                 var hasPlaceholderTransition =
                     recycledRow != null &&
