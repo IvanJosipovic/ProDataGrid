@@ -75,6 +75,25 @@ jobs:
           }
           Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
 
+      - name: Diagnose collapse frame stages
+        shell: pwsh
+        run: |
+          $harness = Join-Path $env:GITHUB_WORKSPACE "prodatagrid/tests/ProDataGrid.Hierarchy.NativeBenchmarks"
+          $diagnostics = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source/frame-diagnostics"
+          New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
+
+          $env:GRID_BENCH_PRO_MODE = "drawn"
+          dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
+            --collapse-only --avalonia-diagnostics --warmup 2 --iterations 10 `
+            --output "$diagnostics/pro-drawn.json"
+          if ($LASTEXITCODE -ne 0) { throw "ProDataGrid frame diagnostics failed." }
+          Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
+
+          dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
+            --collapse-only --avalonia-diagnostics --warmup 2 --iterations 10 `
+            --output "$diagnostics/tree.json"
+          if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid frame diagnostics failed." }
+
       - name: Summarize hierarchy latency and allocation
         shell: pwsh
         run: |
@@ -109,6 +128,10 @@ jobs:
               CollapseAllMutationMs = [double]$result.CollapseAllAndRender.MeanMutationMilliseconds
               CollapseAllLayoutMs = [double]$result.CollapseAllAndRender.MeanLayoutMilliseconds
               CollapseAllFrameMs = [double]$result.CollapseAllAndRender.MeanFrameMilliseconds
+              CollapseAllFirstFrameCallbackMs = [double]$result.CollapseAllAndRender.MeanFirstFrameCallbackMilliseconds
+              CollapseAllSecondFrameCallbackMs = [double]$result.CollapseAllAndRender.MeanSecondFrameCallbackMilliseconds
+              CollapseAllAnimationTickIntervalMs = [double]$result.CollapseAllAndRender.MeanAnimationTickIntervalMilliseconds
+              CollapseAllLayoutUpdatedCount = [double]$result.CollapseAllAndRender.MeanLayoutUpdatedCount
               Runtime = $result.Runtime
               OS = $result.OS
             }
@@ -132,6 +155,10 @@ jobs:
                 CollapseAllMutationMs = ($_.Group.CollapseAllMutationMs | Measure-Object -Average).Average
                 CollapseAllLayoutMs = ($_.Group.CollapseAllLayoutMs | Measure-Object -Average).Average
                 CollapseAllFrameMs = ($_.Group.CollapseAllFrameMs | Measure-Object -Average).Average
+                CollapseAllFirstFrameCallbackMs = ($_.Group.CollapseAllFirstFrameCallbackMs | Measure-Object -Average).Average
+                CollapseAllSecondFrameCallbackMs = ($_.Group.CollapseAllSecondFrameCallbackMs | Measure-Object -Average).Average
+                CollapseAllAnimationTickIntervalMs = ($_.Group.CollapseAllAnimationTickIntervalMs | Measure-Object -Average).Average
+                CollapseAllLayoutUpdatedCount = ($_.Group.CollapseAllLayoutUpdatedCount | Measure-Object -Average).Average
                 CollapseAllPathMs = ($_.Group.CollapseAllMutationMs | Measure-Object -Average).Average + ($_.Group.CollapseAllLayoutMs | Measure-Object -Average).Average
               }
             } |
@@ -153,18 +180,38 @@ jobs:
             "",
             "## Native collapse all + render (source only, 149,792 rows to 32 roots)",
             "",
-            "| Implementation | Mode | Process means | Mean (ms) | 95% CI (ms) | Mutation + layout (ms) | Mutation (ms) | Layout (ms) | Frame wait (ms) | Allocated (bytes) |",
-            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+            "| Implementation | Mode | Process means | Mean (ms) | 95% CI (ms) | Mutation + layout (ms) | Mutation (ms) | Layout (ms) | Frame wait (ms) | Callback 1 (ms) | Callback 2 interval (ms) | LayoutUpdated | Allocated (bytes) |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
           )
           foreach ($aggregate in ($aggregates | Sort-Object CollapseAllMeanMs)) {
             $low = $aggregate.CollapseAllMeanMs - $aggregate.CollapseAllCi95MarginMs
             $high = $aggregate.CollapseAllMeanMs + $aggregate.CollapseAllCi95MarginMs
-            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.CollapseAllMeanMs.ToString('F2')) | $($low.ToString('F2'))-$($high.ToString('F2')) | $($aggregate.CollapseAllPathMs.ToString('F2')) | $($aggregate.CollapseAllMutationMs.ToString('F2')) | $($aggregate.CollapseAllLayoutMs.ToString('F2')) | $($aggregate.CollapseAllFrameMs.ToString('F2')) | $([Math]::Round($aggregate.CollapseAllAllocatedBytes).ToString('N0')) |"
+            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.CollapseAllMeanMs.ToString('F2')) | $($low.ToString('F2'))-$($high.ToString('F2')) | $($aggregate.CollapseAllPathMs.ToString('F2')) | $($aggregate.CollapseAllMutationMs.ToString('F2')) | $($aggregate.CollapseAllLayoutMs.ToString('F2')) | $($aggregate.CollapseAllFrameMs.ToString('F2')) | $($aggregate.CollapseAllFirstFrameCallbackMs.ToString('F2')) | $($aggregate.CollapseAllSecondFrameCallbackMs.ToString('F2')) | $($aggregate.CollapseAllLayoutUpdatedCount.ToString('F2')) | $([Math]::Round($aggregate.CollapseAllAllocatedBytes).ToString('N0')) |"
           }
           $table += @(
             "",
             "The collapse optimization gate compares mutation + layout and managed allocation. The complete two-callback frame-wait total remains reported as a platform rendering/scheduling diagnostic."
           )
+
+          $diagnosticRows = foreach ($file in Get-ChildItem (Join-Path $results "frame-diagnostics") -Filter *.json) {
+            $result = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            [pscustomobject]@{
+              Implementation = $result.Implementation
+              UiRenderMs = [double]$result.CollapseAllAndRender.MeanUiRenderMilliseconds
+              CompositorUpdateMs = [double]$result.CollapseAllAndRender.MeanCompositorUpdateMilliseconds
+              CompositorRenderMs = [double]$result.CollapseAllAndRender.MeanCompositorRenderMilliseconds
+            }
+          }
+          $table += @(
+            "",
+            "## Instrumented collapse render passes (single diagnostic process)",
+            "",
+            "| Implementation | UI render recording max/pass mean (ms) | Compositor update max/pass mean (ms) | Compositor render max/pass mean (ms) |",
+            "|---|---:|---:|---:|"
+          )
+          foreach ($row in $diagnosticRows) {
+            $table += "| $($row.Implementation) | $($row.UiRenderMs.ToString('F2')) | $($row.CompositorUpdateMs.ToString('F2')) | $($row.CompositorRenderMs.ToString('F2')) |"
+          }
           $table | Add-Content $env:GITHUB_STEP_SUMMARY
           $aggregates | ConvertTo-Json | Set-Content "$results/aggregate.json"
 

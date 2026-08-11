@@ -63,6 +63,14 @@ into:
 - **frame wait**: dispatcher/render scheduling until the second callback;
 - **total**: mutation + layout + frame wait.
 
+The JSON also records the delay from layout completion to callback 1, the interval
+from callback 1 to callback 2, the animation-clock interval, raw per-iteration phase
+samples, and the number of `LayoutUpdated` notifications. The CI diagnostic process
+enables Avalonia's built-in meters and records the maximum UI render-recording,
+compositor-update, and compositor-render pass observed for each sample. That
+instrumented process is separate from the clean performance gate because meter
+collection intentionally adds overhead.
+
 The full total is still the observable latency under this completion convention.
 For the collapse-path performance gate, mutation + layout isolates the code path
 the change is intended to optimize; allocation independently measures managed

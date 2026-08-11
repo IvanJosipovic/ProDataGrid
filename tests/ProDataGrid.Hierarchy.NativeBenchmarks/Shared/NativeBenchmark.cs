@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using Avalonia;
@@ -146,6 +148,10 @@ internal static class NativeBenchmarkOptions
 
     public static bool FirstRenderOnly { get; private set; }
 
+    public static bool CollapseOnly { get; private set; }
+
+    public static bool AvaloniaDiagnostics { get; private set; }
+
     public static string OutputPath { get; private set; } = Path.GetFullPath("native-result.json");
 
 #if PRO && PRODATAGRID_PR335
@@ -207,7 +213,19 @@ internal static class NativeBenchmarkOptions
                 case "--first-render-only":
                     FirstRenderOnly = true;
                     break;
+                case "--collapse-only":
+                    CollapseOnly = true;
+                    break;
+                case "--avalonia-diagnostics":
+                    AvaloniaDiagnostics = true;
+                    break;
             }
+        }
+
+        if (AvaloniaDiagnostics)
+        {
+            AppContext.SetSwitch("Avalonia.Diagnostics.Diagnostic.IsEnabled", true);
+            NativeAvaloniaDiagnostics.Initialize();
         }
 
 #if !ACCELERATE
@@ -246,14 +264,17 @@ internal sealed class NativeBenchmarkRunner
 
     public async Task<NativeBenchmarkResult> RunAsync()
     {
-        var firstRender = await MeasureFirstRenderAsync();
-        var expandAndRender = NativeBenchmarkOptions.FirstRenderOnly
+        var firstRender = NativeBenchmarkOptions.CollapseOnly
+            ? null
+            : await MeasureFirstRenderAsync();
+        var expandAndRender = NativeBenchmarkOptions.FirstRenderOnly || NativeBenchmarkOptions.CollapseOnly
             ? null
             : await MeasureExpandAndRenderAsync();
         var collapseAndRender = NativeBenchmarkOptions.FirstRenderOnly
             ? null
             : await MeasureCollapseAndRenderAsync();
         var scrollAndRender = NativeBenchmarkOptions.FirstRenderOnly
+            || NativeBenchmarkOptions.CollapseOnly
             ? null
             : await MeasureScrollAndRenderAsync();
 
@@ -379,6 +400,13 @@ internal sealed class NativeBenchmarkRunner
         var mutationTimes = new List<double>();
         var layoutTimes = new List<double>();
         var frameTimes = new List<double>();
+        var firstFrameCallbackTimes = new List<double>();
+        var secondFrameCallbackTimes = new List<double>();
+        var animationTickIntervals = new List<double>();
+        var layoutUpdatedCounts = new List<int>();
+        var uiRenderTimes = new List<double>();
+        var compositorUpdateTimes = new List<double>();
+        var compositorRenderTimes = new List<double>();
         NativeValidation? validation = null;
 
         for (var i = 0; i < NativeBenchmarkOptions.Iterations; ++i)
@@ -389,6 +417,13 @@ internal sealed class NativeBenchmarkRunner
             mutationTimes.Add(measurement.MutationMilliseconds);
             layoutTimes.Add(measurement.LayoutMilliseconds);
             frameTimes.Add(measurement.FrameMilliseconds);
+            firstFrameCallbackTimes.Add(measurement.FirstFrameCallbackMilliseconds);
+            secondFrameCallbackTimes.Add(measurement.SecondFrameCallbackMilliseconds);
+            animationTickIntervals.Add(measurement.AnimationTickIntervalMilliseconds);
+            layoutUpdatedCounts.Add(measurement.LayoutUpdatedCount);
+            uiRenderTimes.Add(measurement.UiRenderMilliseconds);
+            compositorUpdateTimes.Add(measurement.CompositorUpdateMilliseconds);
+            compositorRenderTimes.Add(measurement.CompositorRenderMilliseconds);
             validation = measurement.Validation;
         }
 
@@ -399,7 +434,14 @@ internal sealed class NativeBenchmarkRunner
             validation!,
             mutationTimes,
             layoutTimes,
-            frameTimes);
+            frameTimes,
+            firstFrameCallbackTimes,
+            secondFrameCallbackTimes,
+            animationTickIntervals,
+            layoutUpdatedCounts,
+            uiRenderTimes,
+            compositorUpdateTimes,
+            compositorRenderTimes);
     }
 
     private async Task<NativeMeasurement> CollapseAndRenderIterationAsync(bool measure)
@@ -417,16 +459,24 @@ internal sealed class NativeBenchmarkRunner
         if (measure)
             await PrepareMeasurementAsync(_host);
 
+        var layoutUpdatedCount = 0;
+        void OnLayoutUpdated(object? sender, EventArgs e) => layoutUpdatedCount++;
+        handle.Grid.LayoutUpdated += OnLayoutUpdated;
+
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
-        var renderedFrame = WaitForRenderedFrameAsync(_host);
+        NativeAvaloniaDiagnostics.Reset();
+        var renderedFrame = RequestRenderedFrame(_host);
         var stopwatch = Stopwatch.StartNew();
         handle.CollapseAll();
         var mutationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
         _host.UpdateLayout();
         var mutationAndLayoutMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
-        await renderedFrame;
+        var layoutCompletedTimestamp = Stopwatch.GetTimestamp();
+        await renderedFrame.Completion;
         stopwatch.Stop();
+        handle.Grid.LayoutUpdated -= OnLayoutUpdated;
         var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
+        var renderingDiagnostics = await NativeAvaloniaDiagnostics.SnapshotAsync();
         var validation = NativeGridAdapter.Validate(handle, expectedCount: 32);
         await DetachAsync();
 
@@ -436,7 +486,14 @@ internal sealed class NativeBenchmarkRunner
             validation,
             mutationMilliseconds,
             mutationAndLayoutMilliseconds - mutationMilliseconds,
-            stopwatch.Elapsed.TotalMilliseconds - mutationAndLayoutMilliseconds);
+            stopwatch.Elapsed.TotalMilliseconds - mutationAndLayoutMilliseconds,
+            Stopwatch.GetElapsedTime(layoutCompletedTimestamp, renderedFrame.FirstCallbackTimestamp).TotalMilliseconds,
+            Stopwatch.GetElapsedTime(renderedFrame.FirstCallbackTimestamp, renderedFrame.SecondCallbackTimestamp).TotalMilliseconds,
+            (renderedFrame.SecondAnimationTimestamp - renderedFrame.FirstAnimationTimestamp).TotalMilliseconds,
+            layoutUpdatedCount,
+            renderingDiagnostics.UiRenderMilliseconds,
+            renderingDiagnostics.CompositorUpdateMilliseconds,
+            renderingDiagnostics.CompositorRenderMilliseconds);
     }
 
     private async Task<NativeWorkloadResult> MeasureScrollAndRenderAsync()
@@ -518,12 +575,131 @@ internal sealed class NativeBenchmarkRunner
 
     public static async Task WaitForRenderedFrameAsync(TopLevel topLevel)
     {
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        topLevel.RequestAnimationFrame(_ =>
-            topLevel.RequestAnimationFrame(__ => completion.TrySetResult()));
-        await completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await RequestRenderedFrame(topLevel).Completion;
+    }
+
+    private static NativeFrameBarrier RequestRenderedFrame(TopLevel topLevel)
+    {
+        var barrier = new NativeFrameBarrier();
+        topLevel.RequestAnimationFrame(firstTimestamp =>
+        {
+            barrier.SetFirstCallback(firstTimestamp);
+            topLevel.RequestAnimationFrame(secondTimestamp =>
+                barrier.SetSecondCallback(secondTimestamp));
+        });
+        return barrier;
     }
 }
+
+internal sealed class NativeFrameBarrier
+{
+    private readonly TaskCompletionSource _completion =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public Task Completion => _completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+    public long FirstCallbackTimestamp { get; private set; }
+
+    public long SecondCallbackTimestamp { get; private set; }
+
+    public TimeSpan FirstAnimationTimestamp { get; private set; }
+
+    public TimeSpan SecondAnimationTimestamp { get; private set; }
+
+    public void SetFirstCallback(TimeSpan animationTimestamp)
+    {
+        FirstCallbackTimestamp = Stopwatch.GetTimestamp();
+        FirstAnimationTimestamp = animationTimestamp;
+    }
+
+    public void SetSecondCallback(TimeSpan animationTimestamp)
+    {
+        SecondCallbackTimestamp = Stopwatch.GetTimestamp();
+        SecondAnimationTimestamp = animationTimestamp;
+        _completion.TrySetResult();
+    }
+}
+
+internal static class NativeAvaloniaDiagnostics
+{
+    private const string MeterName = "Avalonia.Diagnostic.Meter";
+    private const string UiRenderName = "avalonia.ui.render.time";
+    private const string CompositorUpdateName = "avalonia.comp.update.time";
+    private const string CompositorRenderName = "avalonia.comp.render.time";
+    private static readonly ConcurrentQueue<NativeDiagnosticMeasurement> s_measurements = new();
+    private static MeterListener? s_listener;
+
+    public static void Initialize()
+    {
+        if (s_listener != null)
+        {
+            return;
+        }
+
+        s_listener = new MeterListener
+        {
+            InstrumentPublished = static (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == MeterName &&
+                    instrument.Name is UiRenderName or CompositorUpdateName or CompositorRenderName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        s_listener.SetMeasurementEventCallback<double>(static (instrument, value, _, _) =>
+            s_measurements.Enqueue(new NativeDiagnosticMeasurement(instrument.Name, value)));
+        s_listener.Start();
+    }
+
+    public static void Reset()
+    {
+        while (s_measurements.TryDequeue(out _))
+        {
+        }
+    }
+
+    public static async Task<NativeRenderingDiagnostics> SnapshotAsync()
+    {
+        if (!NativeBenchmarkOptions.AvaloniaDiagnostics)
+        {
+            return default;
+        }
+
+        // CompositionBatch.Processed releases the second animation callback before the
+        // compositor has necessarily finished its update/render pass. This unmeasured delay
+        // lets the diagnostic histograms finish without changing the timed result.
+        await Task.Delay(50);
+
+        var uiRender = 0.0;
+        var compositorUpdate = 0.0;
+        var compositorRender = 0.0;
+        while (s_measurements.TryDequeue(out var measurement))
+        {
+            switch (measurement.Name)
+            {
+                case UiRenderName:
+                    uiRender = Math.Max(uiRender, measurement.Value);
+                    break;
+                case CompositorUpdateName:
+                    compositorUpdate = Math.Max(compositorUpdate, measurement.Value);
+                    break;
+                case CompositorRenderName:
+                    compositorRender = Math.Max(compositorRender, measurement.Value);
+                    break;
+            }
+        }
+
+        return new NativeRenderingDiagnostics(uiRender, compositorUpdate, compositorRender);
+    }
+
+    private readonly record struct NativeDiagnosticMeasurement(string Name, double Value);
+}
+
+internal readonly record struct NativeRenderingDiagnostics(
+    double UiRenderMilliseconds,
+    double CompositorUpdateMilliseconds,
+    double CompositorRenderMilliseconds);
 
 internal static class NativeGridAdapter
 {
@@ -876,7 +1052,14 @@ internal sealed record NativeMeasurement(
     NativeValidation Validation,
     double MutationMilliseconds = 0,
     double LayoutMilliseconds = 0,
-    double FrameMilliseconds = 0);
+    double FrameMilliseconds = 0,
+    double FirstFrameCallbackMilliseconds = 0,
+    double SecondFrameCallbackMilliseconds = 0,
+    double AnimationTickIntervalMilliseconds = 0,
+    int LayoutUpdatedCount = 0,
+    double UiRenderMilliseconds = 0,
+    double CompositorUpdateMilliseconds = 0,
+    double CompositorRenderMilliseconds = 0);
 
 internal sealed record NativeValidation(
     int RowCount,
@@ -911,6 +1094,36 @@ internal sealed class NativeWorkloadResult
 
     public double MeanFrameMilliseconds { get; init; }
 
+    public double MeanFirstFrameCallbackMilliseconds { get; init; }
+
+    public double MeanSecondFrameCallbackMilliseconds { get; init; }
+
+    public double MeanAnimationTickIntervalMilliseconds { get; init; }
+
+    public double MeanLayoutUpdatedCount { get; init; }
+
+    public double MeanUiRenderMilliseconds { get; init; }
+
+    public double MeanCompositorUpdateMilliseconds { get; init; }
+
+    public double MeanCompositorRenderMilliseconds { get; init; }
+
+    public required IReadOnlyList<double> MillisecondSamples { get; init; }
+
+    public IReadOnlyList<double>? MutationMillisecondSamples { get; init; }
+
+    public IReadOnlyList<double>? LayoutMillisecondSamples { get; init; }
+
+    public IReadOnlyList<double>? FrameMillisecondSamples { get; init; }
+
+    public IReadOnlyList<double>? FirstFrameCallbackMillisecondSamples { get; init; }
+
+    public IReadOnlyList<double>? SecondFrameCallbackMillisecondSamples { get; init; }
+
+    public IReadOnlyList<double>? AnimationTickIntervalMillisecondSamples { get; init; }
+
+    public IReadOnlyList<int>? LayoutUpdatedCountSamples { get; init; }
+
     public required NativeValidation Validation { get; init; }
 
     public static NativeWorkloadResult Create(
@@ -920,7 +1133,14 @@ internal sealed class NativeWorkloadResult
         NativeValidation validation,
         IReadOnlyList<double>? mutationTimes = null,
         IReadOnlyList<double>? layoutTimes = null,
-        IReadOnlyList<double>? frameTimes = null)
+        IReadOnlyList<double>? frameTimes = null,
+        IReadOnlyList<double>? firstFrameCallbackTimes = null,
+        IReadOnlyList<double>? secondFrameCallbackTimes = null,
+        IReadOnlyList<double>? animationTickIntervals = null,
+        IReadOnlyList<int>? layoutUpdatedCounts = null,
+        IReadOnlyList<double>? uiRenderTimes = null,
+        IReadOnlyList<double>? compositorUpdateTimes = null,
+        IReadOnlyList<double>? compositorRenderTimes = null)
     {
         var ordered = times.OrderBy(x => x).ToArray();
         var mean = times.Average();
@@ -937,6 +1157,21 @@ internal sealed class NativeWorkloadResult
             MeanMutationMilliseconds = mutationTimes?.Average() ?? 0,
             MeanLayoutMilliseconds = layoutTimes?.Average() ?? 0,
             MeanFrameMilliseconds = frameTimes?.Average() ?? 0,
+            MeanFirstFrameCallbackMilliseconds = firstFrameCallbackTimes?.Average() ?? 0,
+            MeanSecondFrameCallbackMilliseconds = secondFrameCallbackTimes?.Average() ?? 0,
+            MeanAnimationTickIntervalMilliseconds = animationTickIntervals?.Average() ?? 0,
+            MeanLayoutUpdatedCount = layoutUpdatedCounts?.Average() ?? 0,
+            MeanUiRenderMilliseconds = uiRenderTimes?.Average() ?? 0,
+            MeanCompositorUpdateMilliseconds = compositorUpdateTimes?.Average() ?? 0,
+            MeanCompositorRenderMilliseconds = compositorRenderTimes?.Average() ?? 0,
+            MillisecondSamples = times.ToArray(),
+            MutationMillisecondSamples = mutationTimes?.ToArray(),
+            LayoutMillisecondSamples = layoutTimes?.ToArray(),
+            FrameMillisecondSamples = frameTimes?.ToArray(),
+            FirstFrameCallbackMillisecondSamples = firstFrameCallbackTimes?.ToArray(),
+            SecondFrameCallbackMillisecondSamples = secondFrameCallbackTimes?.ToArray(),
+            AnimationTickIntervalMillisecondSamples = animationTickIntervals?.ToArray(),
+            LayoutUpdatedCountSamples = layoutUpdatedCounts?.ToArray(),
             Validation = validation,
         };
     }
@@ -980,7 +1215,7 @@ internal sealed class NativeBenchmarkResult
 
     public int ScrollJumpsPerIteration { get; init; }
 
-    public required NativeWorkloadResult FirstExpandedRender { get; init; }
+    public NativeWorkloadResult? FirstExpandedRender { get; init; }
 
     public NativeWorkloadResult? ExpandAllAndRender { get; init; }
 
