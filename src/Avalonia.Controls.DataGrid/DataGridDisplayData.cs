@@ -20,6 +20,7 @@ namespace Avalonia.Controls
     internal class DataGridDisplayData
     {
         private readonly Stack<DataGridRow> _recycledRows;
+        private readonly Dictionary<object, Stack<DataGridRow>> _keyedRecycledRows;
         private readonly Stack<DataGridRowGroupHeader> _recycledGroupHeaders;
         private readonly Stack<DataGridRowGroupFooter> _recycledGroupFooters;
         private HashSet<Control>? _deferredHideElements;
@@ -35,6 +36,7 @@ namespace Avalonia.Controls
             _owner = owner;
             _scrollingElements = new List<Control>();
             _recycledRows = new Stack<DataGridRow>();
+            _keyedRecycledRows = new Dictionary<object, Stack<DataGridRow>>();
             _recycledGroupHeaders = new Stack<DataGridRowGroupHeader>();
             _recycledGroupFooters = new Stack<DataGridRowGroupFooter>();
             ResetSlotIndexes();
@@ -70,12 +72,46 @@ namespace Avalonia.Controls
             _owner.NotifyRowRecycling(row);
             row.DetachFromDataGrid(true);
             HideElement(row);
-            PushToRecyclePool(_recycledRows, row);
+            if (_owner.UsesDefaultRealizationFactory)
+            {
+                PushToRecyclePool(_recycledRows, row);
+                return;
+            }
+
+            object? key = _owner.GetRowRecyclingKey(row);
+            if (key is null)
+            {
+                _owner.DiscardUnkeyedRecycledRow(row);
+                return;
+            }
+
+            if (!_keyedRecycledRows.TryGetValue(key, out Stack<DataGridRow>? pool))
+            {
+                pool = new Stack<DataGridRow>();
+                _keyedRecycledRows.Add(key, pool);
+            }
+            PushToRecyclePool(pool, row);
         }
 
-        internal DataGridRow? GetRecycledRow()
+        internal DataGridRow? GetRecycledRow(object dataContext, int rowIndex, int slot)
         {
-            return PopFromRecyclePool(_recycledRows, RestoreElementForReuse);
+            if (_owner.UsesDefaultRealizationFactory)
+            {
+                return PopFromRecyclePool(_recycledRows, RestoreElementForReuse);
+            }
+
+            object? key = _owner.GetRowRecyclingKey(dataContext, rowIndex, slot);
+            if (key is null || !_keyedRecycledRows.TryGetValue(key, out Stack<DataGridRow>? pool))
+            {
+                return null;
+            }
+
+            DataGridRow? row = PopFromRecyclePool(pool, RestoreElementForReuse);
+            if (pool.Count == 0)
+            {
+                _keyedRecycledRows.Remove(key);
+            }
+            return row;
         }
 
         internal void TrimRecycledPools(DataGridRowsPresenter owner, int maxRecycledRows, int maxRecycledGroupHeaders, int maxRecycledGroupFooters)
@@ -85,6 +121,44 @@ namespace Avalonia.Controls
                 var row = _recycledRows.Pop();
                 owner.UnregisterAnchorCandidate(row);
                 owner.RemoveTrackedChild(row);
+            }
+
+            int keyedRowCount = 0;
+            foreach (Stack<DataGridRow> pool in _keyedRecycledRows.Values)
+            {
+                keyedRowCount += pool.Count;
+            }
+            if (keyedRowCount > maxRecycledRows)
+            {
+                int rowsToRemove = keyedRowCount - maxRecycledRows;
+                List<object>? emptyKeys = null;
+                foreach (KeyValuePair<object, Stack<DataGridRow>> entry in _keyedRecycledRows)
+                {
+                    Stack<DataGridRow> pool = entry.Value;
+                    while (pool.Count > 0 && rowsToRemove > 0)
+                    {
+                        DataGridRow row = pool.Pop();
+                        owner.UnregisterAnchorCandidate(row);
+                        owner.RemoveTrackedChild(row);
+                        rowsToRemove--;
+                    }
+                    if (pool.Count == 0)
+                    {
+                        emptyKeys ??= new List<object>();
+                        emptyKeys.Add(entry.Key);
+                    }
+                    if (rowsToRemove == 0)
+                    {
+                        break;
+                    }
+                }
+                if (emptyKeys != null)
+                {
+                    foreach (object key in emptyKeys)
+                    {
+                        _keyedRecycledRows.Remove(key);
+                    }
+                }
             }
 
             while (_recycledGroupHeaders.Count > maxRecycledGroupHeaders)
@@ -147,6 +221,7 @@ namespace Avalonia.Controls
             else
             {
                 _recycledRows.Clear();
+                _keyedRecycledRows.Clear();
                 _recycledGroupHeaders.Clear();
                 _recycledGroupFooters.Clear();
             }
@@ -379,6 +454,14 @@ namespace Avalonia.Controls
         #endregion
 
         #region Private Helpers
+
+        internal void ClearRecyclePools()
+        {
+            _recycledRows.Clear();
+            _keyedRecycledRows.Clear();
+            _recycledGroupHeaders.Clear();
+            _recycledGroupFooters.Clear();
+        }
 
         internal DeferredRecycleScope BeginDeferredRecycleScope()
         {

@@ -170,10 +170,12 @@ namespace Avalonia.Controls
 
         internal virtual DataGridColumnHeader CreateHeader()
         {
-            var result = new DataGridColumnHeader
-            {
-                OwningColumn = this
-            };
+            return PrepareHeaderContainer(new DataGridColumnHeader());
+        }
+
+        internal DataGridColumnHeader PrepareHeaderContainer(DataGridColumnHeader result)
+        {
+            result.OwningColumn = this;
             _headerContentBinding?.Dispose();
             _headerTemplateBinding?.Dispose();
             _headerContentBinding = result.Bind(ContentControl.ContentProperty, this.GetObservable(HeaderProperty));
@@ -325,6 +327,11 @@ namespace Avalonia.Controls
         internal virtual void ClearElementCache()
         {
             RemoveEditingElement();
+            ClearHeaderCache();
+        }
+
+        internal void ClearHeaderCache()
+        {
             if (_headerContentBinding != null)
             {
                 _headerContentBinding.Dispose();

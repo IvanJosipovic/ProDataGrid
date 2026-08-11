@@ -295,7 +295,7 @@ internal
 
         private void AddNewCellPrivate(DataGridRow row, DataGridColumn column)
         {
-            DataGridCell newCell = column.CreateCell();
+            DataGridCell newCell = CreateCellContainer(row, column);
             if (row.OwningGrid != null)
             {
                 newCell.OwningColumn = column;
@@ -329,7 +329,10 @@ internal
             {
                 for (var columnIndex = 0; columnIndex < expectedCellCount; columnIndex++)
                 {
-                    if (!ReferenceEquals(dataGridRow.Cells[columnIndex].OwningColumn, ColumnsItemsInternal[columnIndex]))
+                    DataGridColumn column = ColumnsItemsInternal[columnIndex];
+                    DataGridCell cell = dataGridRow.Cells[columnIndex];
+                    if (!ReferenceEquals(cell.OwningColumn, column) ||
+                        !CanReuseCellContainer(dataGridRow, column, cell))
                     {
                         shouldRebuildCells = true;
                         break;
