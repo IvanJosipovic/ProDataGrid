@@ -27,7 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: wieslawsoltes/TreeDataGrid
-          ref: 7628bd18b49800fbe1301640349bd52398437420
+          ref: 7628bd18e29dad315fd36ead57a1d5339bfaf944
           path: tree-datagrid
 
       - name: Setup .NET
