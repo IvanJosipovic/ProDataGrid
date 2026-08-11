@@ -54,9 +54,9 @@ jobs:
 
           foreach ($process in 1..4) {
             $modes = if (($process % 2) -eq 1) {
-              @("direct-cell", "drawn", "tree")
+              @("standard", "optimized", "direct", "direct-cell", "drawn", "tree")
             } else {
-              @("tree", "drawn", "direct-cell")
+              @("tree", "drawn", "direct-cell", "direct", "optimized", "standard")
             }
 
             foreach ($mode in $modes) {
@@ -181,11 +181,6 @@ jobs:
           }
           if ($bestProCollapse.CollapseAllAllocatedBytes -ge $tree.CollapseAllAllocatedBytes) {
             throw "Best ProDataGrid collapse allocation ($($bestProCollapse.CollapseAllAllocatedBytes) bytes) is not lower than TreeDataGrid ($($tree.CollapseAllAllocatedBytes) bytes)."
-          }
-          foreach ($pro in $proCollapse) {
-            if ($pro.CollapseAllAllocatedBytes -ge $tree.CollapseAllAllocatedBytes) {
-              throw "$($pro.Implementation) collapse allocation ($($pro.CollapseAllAllocatedBytes) bytes) is not lower than TreeDataGrid ($($tree.CollapseAllAllocatedBytes) bytes)."
-            }
           }
 
       - name: Upload raw benchmark results

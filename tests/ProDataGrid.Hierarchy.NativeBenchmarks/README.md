@@ -27,10 +27,11 @@ schedule.
   phase means sum to the reported collapse mean; the end-to-end mean remains the
   comparison and gate metric.
 
-The CI comparison runs four independent processes for each mode, alternating
-product order. Every process performs two warmups and ten measurements. The report
-aggregates the four process means and includes a Student-t 95% confidence interval.
-Raw JSON and `aggregate.json` are uploaded as the
+The CI comparison runs four independent processes for all five ProDataGrid source
+modes and the pinned TreeDataGrid source mode, reversing the complete mode order in
+alternating processes. Every process performs two warmups and ten measurements. The
+report aggregates the four process means and includes a Student-t 95% confidence
+interval. Raw JSON and `aggregate.json` are uploaded as the
 `hierarchy-native-source-windows` artifact.
 
 Build both source applications locally:
