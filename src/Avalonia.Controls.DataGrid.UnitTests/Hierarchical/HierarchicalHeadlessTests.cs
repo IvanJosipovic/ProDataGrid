@@ -1152,7 +1152,7 @@ public class HierarchicalHeadlessTests
     }
 
     [AvaloniaFact]
-    public void Attached_Large_Whole_Range_Expand_Uses_Hierarchy_Bulk_Splice()
+    public void Attached_Large_Whole_Range_Expand_And_Collapse_Use_Hierarchy_Bulk_Splice()
     {
         var roots = new ObservableCollection<Item>
         {
@@ -1209,6 +1209,21 @@ public class HierarchicalHeadlessTests
 
         Assert.Equal(602, grid.SlotCount);
         Assert.Contains("ProDataGrid.Hierarchy.ExpandAll", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalFlattenedChanged", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalBulkSplice", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalSelectionRemap", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalIndentationRefresh", activities);
+        Assert.Contains("ProDataGrid.DataGrid.HierarchicalDisplayedRowsRange", activities);
+        Assert.DoesNotContain("ProDataGrid.DataGrid.RefreshRowsAndColumns", activities);
+        Assert.Same(firstRootRow, grid.DisplayData.GetDisplayedElement(0));
+        ValidateDisplayedRows(grid, model);
+
+        activities.Clear();
+        model.CollapseAll();
+        PumpLayout(grid);
+
+        Assert.Equal(2, grid.SlotCount);
+        Assert.Contains("ProDataGrid.Hierarchy.CollapseAll", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalFlattenedChanged", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalBulkSplice", activities);
         Assert.Contains("ProDataGrid.DataGrid.HierarchicalSelectionRemap", activities);
