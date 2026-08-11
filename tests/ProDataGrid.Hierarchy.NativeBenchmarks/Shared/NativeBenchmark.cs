@@ -374,6 +374,9 @@ internal sealed class NativeBenchmarkRunner
 
         var times = new List<double>();
         var allocations = new List<double>();
+        var mutationTimes = new List<double>();
+        var layoutTimes = new List<double>();
+        var frameTimes = new List<double>();
         NativeValidation? validation = null;
 
         for (var i = 0; i < NativeBenchmarkOptions.Iterations; ++i)
@@ -381,10 +384,20 @@ internal sealed class NativeBenchmarkRunner
             var measurement = await CollapseAndRenderIterationAsync(measure: true);
             times.Add(measurement.ElapsedMilliseconds);
             allocations.Add(measurement.AllocatedBytes);
+            mutationTimes.Add(measurement.MutationMilliseconds);
+            layoutTimes.Add(measurement.LayoutMilliseconds);
+            frameTimes.Add(measurement.FrameMilliseconds);
             validation = measurement.Validation;
         }
 
-        return NativeWorkloadResult.Create("CollapseAllAndRender", times, allocations, validation!);
+        return NativeWorkloadResult.Create(
+            "CollapseAllAndRender",
+            times,
+            allocations,
+            validation!,
+            mutationTimes,
+            layoutTimes,
+            frameTimes);
     }
 
     private async Task<NativeMeasurement> CollapseAndRenderIterationAsync(bool measure)
@@ -405,14 +418,22 @@ internal sealed class NativeBenchmarkRunner
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
         var stopwatch = Stopwatch.StartNew();
         handle.CollapseAll();
+        var mutationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
         _host.UpdateLayout();
+        var mutationAndLayoutMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
         await WaitForRenderedFrameAsync(_host);
         stopwatch.Stop();
         var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
         var validation = NativeGridAdapter.Validate(handle, expectedCount: 32);
         await DetachAsync();
 
-        return new NativeMeasurement(stopwatch.Elapsed.TotalMilliseconds, allocated, validation);
+        return new NativeMeasurement(
+            stopwatch.Elapsed.TotalMilliseconds,
+            allocated,
+            validation,
+            mutationMilliseconds,
+            mutationAndLayoutMilliseconds - mutationMilliseconds,
+            stopwatch.Elapsed.TotalMilliseconds - mutationAndLayoutMilliseconds);
     }
 
     private async Task<NativeWorkloadResult> MeasureScrollAndRenderAsync()
@@ -836,7 +857,10 @@ internal sealed class NativeGridHandle : IDisposable
 internal sealed record NativeMeasurement(
     double ElapsedMilliseconds,
     long AllocatedBytes,
-    NativeValidation Validation);
+    NativeValidation Validation,
+    double MutationMilliseconds = 0,
+    double LayoutMilliseconds = 0,
+    double FrameMilliseconds = 0);
 
 internal sealed record NativeValidation(
     int RowCount,
@@ -863,13 +887,22 @@ internal sealed class NativeWorkloadResult
 
     public double MeanAllocatedBytes { get; init; }
 
+    public double MeanMutationMilliseconds { get; init; }
+
+    public double MeanLayoutMilliseconds { get; init; }
+
+    public double MeanFrameMilliseconds { get; init; }
+
     public required NativeValidation Validation { get; init; }
 
     public static NativeWorkloadResult Create(
         string name,
         IReadOnlyList<double> times,
         IReadOnlyList<double> allocations,
-        NativeValidation validation)
+        NativeValidation validation,
+        IReadOnlyList<double>? mutationTimes = null,
+        IReadOnlyList<double>? layoutTimes = null,
+        IReadOnlyList<double>? frameTimes = null)
     {
         var ordered = times.OrderBy(x => x).ToArray();
         var mean = times.Average();
@@ -883,6 +916,9 @@ internal sealed class NativeWorkloadResult
             P95Milliseconds = Percentile(ordered, 0.95),
             StandardDeviationMilliseconds = Math.Sqrt(variance),
             MeanAllocatedBytes = allocations.Average(),
+            MeanMutationMilliseconds = mutationTimes?.Average() ?? 0,
+            MeanLayoutMilliseconds = layoutTimes?.Average() ?? 0,
+            MeanFrameMilliseconds = frameTimes?.Average() ?? 0,
             Validation = validation,
         };
     }

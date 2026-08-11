@@ -2138,29 +2138,24 @@ namespace Avalonia.Controls.DataGridHierarchical
             }
             HierarchicalNode[]? collapsedNodes = null;
             var collapsedCount = 0;
-            var stack = new Stack<(HierarchicalNode Node, int Depth, bool Visited)>();
-            stack.Push((start, 0, false));
+            var stack = new Stack<(HierarchicalNode Node, int Depth)>();
+            stack.Push((start, 0));
 
             try
             {
                 while (stack.Count > 0)
                 {
-                    var (current, depth, visited) = stack.Pop();
-
-                    if (!visited)
+                    var (current, depth) = stack.Pop();
+                    if (current.IsExpanded || (hasVirtualRoot && ReferenceEquals(current, Root)))
                     {
-                        if (current.IsExpanded || (hasVirtualRoot && ReferenceEquals(current, Root)))
+                        EnsureChildrenMaterialized(current);
+                        var children = current.Children;
+                        // Preserve the former left-to-right, parent-before-child lifecycle order
+                        // while avoiding the second visit that the old entered/visited stack used.
+                        for (int i = children.Count - 1; i >= 0; i--)
                         {
-                            EnsureChildrenMaterialized(current);
-                            var children = current.Children;
-                            for (int i = children.Count - 1; i >= 0; i--)
-                            {
-                                stack.Push((children[i], depth + 1, false));
-                            }
+                            stack.Push((children[i], depth + 1));
                         }
-
-                        stack.Push((current, depth, true));
-                        continue;
                     }
 
                     if (depth < targetDepth || !current.IsExpanded || current.IsLeaf)
@@ -2277,6 +2272,7 @@ namespace Avalonia.Controls.DataGridHierarchical
                     indexMap);
             }
 
+            var raiseNodeCollapsed = HasNodeCollapsedObservers;
             for (int i = 0; i < collapsedCount; i++)
             {
                 var collapsedNode = collapsedNodes[i];
@@ -2285,7 +2281,10 @@ namespace Avalonia.Controls.DataGridHierarchical
                     collapsedNode.RaiseExpandedChanged();
                 }
 
-                OnNodeCollapsed(collapsedNode);
+                if (raiseNodeCollapsed)
+                {
+                    OnNodeCollapsed(collapsedNode);
+                }
             }
 
             if (!Options.VirtualizeChildren && !IsVirtualizationGuardActive)
@@ -2349,6 +2348,8 @@ namespace Avalonia.Controls.DataGridHierarchical
             SyncItemExpandedState(node, isExpanded: false);
             NodeCollapsed?.Invoke(this, new HierarchicalNodeEventArgs(node));
         }
+
+        protected virtual bool HasNodeCollapsedObservers => HasExpandedStateSetter || NodeCollapsed != null;
 
         protected virtual void OnNodeLoading(HierarchicalNode node)
         {

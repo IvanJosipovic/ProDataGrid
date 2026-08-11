@@ -16,6 +16,10 @@ completion wait. Every measured operation begins from a fully rendered state.
   collapses to 32 roots, updates layout, and waits for rendered completion.
 - Managed allocation is `GC.GetTotalAllocatedBytes` traffic during the timed
   operation. It is not retained heap, native allocation, RSS, or GPU memory.
+- Collapse results also split the same end-to-end sample into synchronous model/UI
+  mutation, `UpdateLayout`, and rendered-frame wait durations. These diagnostic
+  phase means sum to the reported collapse mean; the end-to-end mean remains the
+  comparison and gate metric.
 
 The CI comparison runs four independent processes for each mode, alternating
 product order. Every process performs two warmups and ten measurements. The report

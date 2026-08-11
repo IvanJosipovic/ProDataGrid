@@ -106,6 +106,9 @@ jobs:
               ExpandAllAllocatedBytes = [double]$result.ExpandAllAndRender.MeanAllocatedBytes
               CollapseAllMeanMs = [double]$result.CollapseAllAndRender.MeanMilliseconds
               CollapseAllAllocatedBytes = [double]$result.CollapseAllAndRender.MeanAllocatedBytes
+              CollapseAllMutationMs = [double]$result.CollapseAllAndRender.MeanMutationMilliseconds
+              CollapseAllLayoutMs = [double]$result.CollapseAllAndRender.MeanLayoutMilliseconds
+              CollapseAllFrameMs = [double]$result.CollapseAllAndRender.MeanFrameMilliseconds
               Runtime = $result.Runtime
               OS = $result.OS
             }
@@ -126,6 +129,9 @@ jobs:
                 CollapseAllMeanMs = ($collapseMeans | Measure-Object -Average).Average
                 CollapseAllCi95MarginMs = Get-Ci95Margin $collapseMeans
                 CollapseAllAllocatedBytes = ($_.Group.CollapseAllAllocatedBytes | Measure-Object -Average).Average
+                CollapseAllMutationMs = ($_.Group.CollapseAllMutationMs | Measure-Object -Average).Average
+                CollapseAllLayoutMs = ($_.Group.CollapseAllLayoutMs | Measure-Object -Average).Average
+                CollapseAllFrameMs = ($_.Group.CollapseAllFrameMs | Measure-Object -Average).Average
               }
             } |
             Sort-Object ExpandAllMeanMs
@@ -146,13 +152,13 @@ jobs:
             "",
             "## Native collapse all + render (source only, 149,792 rows to 32 roots)",
             "",
-            "| Implementation | Mode | Process means | Mean (ms) | 95% CI (ms) | Allocated (bytes) |",
-            "|---|---:|---:|---:|---:|---:|"
+            "| Implementation | Mode | Process means | Mean (ms) | 95% CI (ms) | Mutation (ms) | Layout (ms) | Frame (ms) | Allocated (bytes) |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|"
           )
           foreach ($aggregate in ($aggregates | Sort-Object CollapseAllMeanMs)) {
             $low = $aggregate.CollapseAllMeanMs - $aggregate.CollapseAllCi95MarginMs
             $high = $aggregate.CollapseAllMeanMs + $aggregate.CollapseAllCi95MarginMs
-            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.CollapseAllMeanMs.ToString('F2')) | $($low.ToString('F2'))-$($high.ToString('F2')) | $([Math]::Round($aggregate.CollapseAllAllocatedBytes).ToString('N0')) |"
+            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.CollapseAllMeanMs.ToString('F2')) | $($low.ToString('F2'))-$($high.ToString('F2')) | $($aggregate.CollapseAllMutationMs.ToString('F2')) | $($aggregate.CollapseAllLayoutMs.ToString('F2')) | $($aggregate.CollapseAllFrameMs.ToString('F2')) | $([Math]::Round($aggregate.CollapseAllAllocatedBytes).ToString('N0')) |"
           }
           $table | Add-Content $env:GITHUB_STEP_SUMMARY
           $aggregates | ConvertTo-Json | Set-Content "$results/aggregate.json"
