@@ -23,12 +23,6 @@ jobs:
         with:
           path: prodatagrid
 
-      - name: Checkout benchmark harness
-        uses: actions/checkout@v4
-        with:
-          repository: miloszkukla/avalonia-grid-hierarchy-comparison
-          path: comparison
-
       - name: Checkout open-source TreeDataGrid
         uses: actions/checkout@v4
         with:
@@ -42,31 +36,18 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Replace TreeDataGrid package reference with source
-        shell: pwsh
-        run: |
-          $project = Join-Path $env:GITHUB_WORKSPACE "comparison/GridHierarchyNativeBenchmarkHarness/Native.WieslawTree/Native.WieslawTree.csproj"
-          $content = Get-Content $project -Raw
-          $packageReference = '<PackageReference Include="TreeDataGrid" Version="12.0.0.4" />'
-          $projectReference = '<ProjectReference Include="$(WieslawTreeSourceRoot)/src/Avalonia.Controls.TreeDataGrid/Avalonia.Controls.TreeDataGrid.csproj" />'
-          if (-not $content.Contains($packageReference)) {
-            throw "Expected TreeDataGrid package reference was not found."
-          }
-          Set-Content $project ($content.Replace($packageReference, $projectReference))
-
       - name: Build source-only benchmark applications
         shell: pwsh
         run: |
-          $harness = Join-Path $env:GITHUB_WORKSPACE "comparison/GridHierarchyNativeBenchmarkHarness"
-          $proRoot = Join-Path $env:GITHUB_WORKSPACE "prodatagrid"
+          $harness = Join-Path $env:GITHUB_WORKSPACE "prodatagrid/tests/ProDataGrid.Hierarchy.NativeBenchmarks"
           $treeRoot = Join-Path $env:GITHUB_WORKSPACE "tree-datagrid"
-          dotnet build "$harness/Native.Pro/Native.Pro.csproj" -c Release -p:ProDataGridPr335=true -p:ProDataGridSourceRoot="$proRoot"
-          dotnet build "$harness/Native.WieslawTree/Native.WieslawTree.csproj" -c Release -p:WieslawTreeSourceRoot="$treeRoot"
+          dotnet build "$harness/Native.Pro/Native.Pro.csproj" -c Release
+          dotnet build "$harness/Native.Tree/Native.Tree.csproj" -c Release -p:TreeDataGridSourceRoot="$treeRoot"
 
       - name: Run independent native processes
         shell: pwsh
         run: |
-          $harness = Join-Path $env:GITHUB_WORKSPACE "comparison/GridHierarchyNativeBenchmarkHarness"
+          $harness = Join-Path $env:GITHUB_WORKSPACE "prodatagrid/tests/ProDataGrid.Hierarchy.NativeBenchmarks"
           $results = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
 
@@ -81,7 +62,7 @@ jobs:
           Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
 
           foreach ($process in 1..4) {
-            dotnet "$harness/Native.WieslawTree/bin/Release/net8.0/Native.WieslawTree.dll" `
+            dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
               --warmup 2 --iterations 10 --output "$results/tree-$process.json"
             if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid process $process failed." }
           }
