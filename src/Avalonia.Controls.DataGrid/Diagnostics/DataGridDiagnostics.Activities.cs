@@ -15,6 +15,7 @@ internal static partial class DataGridDiagnostics
 
     public static Activity? RefreshRowsAndColumns() => StartActivity("ProDataGrid.DataGrid.RefreshRowsAndColumns");
     public static Activity? RefreshRows() => StartActivity("ProDataGrid.DataGrid.RefreshRows");
+    public static Activity? HierarchicalBulkSplice() => StartActivity("ProDataGrid.DataGrid.HierarchicalBulkSplice");
     public static Activity? UpdateDisplayedRows() => StartActivity("ProDataGrid.DataGrid.UpdateDisplayedRows");
     public static Activity? GenerateRow() => StartActivity("ProDataGrid.DataGrid.GenerateRow");
     public static Activity? AutoGenerateColumns() => StartActivity("ProDataGrid.DataGrid.AutoGenerateColumns");

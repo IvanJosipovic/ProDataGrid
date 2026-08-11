@@ -3056,8 +3056,10 @@ internal
                 _pendingHierarchicalAnchorHint = null;
             }
 
-            var canApplyChanges = CanApplyHierarchicalFlattenedChanges(e) &&
-                                  !RequiresHierarchicalBulkRefresh(e.Changes);
+            var canApplyChanges = CanApplyHierarchicalFlattenedChanges(e);
+            var requiresBulkRefresh = canApplyChanges && RequiresHierarchicalBulkRefresh(e.Changes);
+            var canApplyBulkSplice = requiresBulkRefresh && CanApplyHierarchicalBulkSplice(e.Changes, e.IndexMap);
+            canApplyChanges = canApplyChanges && !requiresBulkRefresh;
             var hasAnchor = false;
             HierarchicalAnchor anchor = default;
 
@@ -3088,7 +3090,7 @@ internal
             using (_rowsPresenter?.BeginVirtualizationGuard())
             {
                 RemapSelectionForHierarchyChange(indexMap);
-                if (canApplyChanges)
+                if (canApplyChanges || canApplyBulkSplice)
                 {
                     var suppressOffsetAdjustments = hasAnchor;
                     if (suppressOffsetAdjustments)
@@ -3097,7 +3099,14 @@ internal
                     }
                     try
                     {
-                        ApplyHierarchicalFlattenedChanges(e.Changes);
+                        if (canApplyBulkSplice)
+                        {
+                            ApplyHierarchicalBulkSplice(e.Changes[0], e.IndexMap);
+                        }
+                        else
+                        {
+                            ApplyHierarchicalFlattenedChanges(e.Changes);
+                        }
                     }
                     finally
                     {
@@ -3269,6 +3278,153 @@ internal
             }
 
             return false;
+        }
+
+        private bool CanApplyHierarchicalBulkSplice(
+            IReadOnlyList<FlattenedChange> changes,
+            Avalonia.Controls.DataGridHierarchical.FlattenedIndexMap indexMap)
+        {
+            if (changes == null ||
+                changes.Count != 1 ||
+                DisplayData == null ||
+                DisplayData.LastScrollingSlot < 0 ||
+                EditingRow != null)
+            {
+                return false;
+            }
+
+            var change = changes[0];
+            if (change.NewCount <= 0)
+            {
+                return false;
+            }
+
+            if (CanApplyHierarchicalWholeRangeReplacement(change, indexMap))
+            {
+                return true;
+            }
+
+            if (change.OldCount != 0)
+            {
+                return false;
+            }
+
+            var insertionSlot = SlotFromRowIndex(change.Index);
+            if (insertionSlot <= DisplayData.LastScrollingSlot || insertionSlot > SlotCount)
+            {
+                return false;
+            }
+
+            if (CurrentSlot >= insertionSlot ||
+                (_focusedRow != null && _focusedRow.Slot >= insertionSlot))
+            {
+                return false;
+            }
+
+            foreach (var row in _loadedRows)
+            {
+                if (row.Slot >= insertionSlot)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool CanApplyHierarchicalWholeRangeReplacement(
+            FlattenedChange change,
+            Avalonia.Controls.DataGridHierarchical.FlattenedIndexMap indexMap)
+        {
+            if (indexMap == null ||
+                change.Index != 0 ||
+                change.OldCount != SlotCount ||
+                change.NewCount != DataConnection.Count ||
+                DisplayData.FirstScrollingSlot != 0 ||
+                CurrentSlot > 0 ||
+                (_focusedRow != null && _focusedRow.Slot > 0) ||
+                RowGroupHeadersTable.RangeCount != 0 ||
+                RowGroupFootersTable.RangeCount != 0 ||
+                !_showDetailsTable.IsEmpty ||
+                !_collapsedSlotsTable.IsEmpty)
+            {
+                return false;
+            }
+
+            // A retained first row gives the existing current-cell and viewport anchor logic a
+            // stable target while the remainder of the flattened hierarchy is replaced.
+            return indexMap.MapOldIndexToNew(0) == 0;
+        }
+
+        private void ApplyHierarchicalBulkSplice(
+            FlattenedChange change,
+            Avalonia.Controls.DataGridHierarchical.FlattenedIndexMap indexMap)
+        {
+            using var activity = DataGridDiagnostics.HierarchicalBulkSplice();
+            if (CanApplyHierarchicalWholeRangeReplacement(change, indexMap))
+            {
+                ApplyHierarchicalWholeRangeReplacement(change, activity);
+                return;
+            }
+
+            var insertionSlot = SlotFromRowIndex(change.Index);
+            var insertedCount = change.NewCount;
+            activity?.SetTag(DataGridDiagnostics.Tags.Rows, insertedCount);
+            activity?.SetTag(DataGridDiagnostics.Tags.SlotCount, SlotCount);
+
+            _scrollHeightIndexDirty = true;
+            _showDetailsTable.InsertIndexes(insertionSlot, insertedCount);
+            RowGroupHeadersTable.InsertIndexes(insertionSlot, insertedCount);
+            RowGroupFootersTable.InsertIndexes(insertionSlot, insertedCount);
+            _collapsedSlotsTable.InsertIndexes(insertionSlot, insertedCount);
+
+            SlotCount += insertedCount;
+            VisibleSlotCount += insertedCount;
+            if (_lastEstimatedRow >= insertionSlot)
+            {
+                _lastEstimatedRow += insertedCount;
+            }
+
+            ComputeScrollBarsLayout();
+            InvalidateRowsArrange();
+            OnElementsChanged(grew: true);
+            RequestPointerOverRefresh();
+        }
+
+        private void ApplyHierarchicalWholeRangeReplacement(FlattenedChange change, Activity activity)
+        {
+            activity?.SetTag(DataGridDiagnostics.Tags.Rows, change.NewCount);
+            activity?.SetTag(DataGridDiagnostics.Tags.SlotCount, SlotCount);
+
+            _scrollHeightIndexDirty = true;
+            using (DisplayData.BeginDeferredRecycleScope())
+            {
+                // The first flattened row is identity-mapped to slot zero. Keep its realized
+                // container and recycle only the rows whose item mapping changed.
+                while (DisplayData.LastScrollingSlot > 0)
+                {
+                    RemoveDisplayedElement(
+                        DisplayData.LastScrollingSlot,
+                        wasDeleted: false,
+                        updateSlotInformation: true);
+                }
+
+                SlotCount = change.NewCount;
+                VisibleSlotCount = change.NewCount;
+                _lastEstimatedRow = Math.Min(_lastEstimatedRow, SlotCount - 1);
+
+                var displayHeight = CellsEstimatedHeight;
+                if (ColumnsItemsInternal.Count > 0 && MathUtilities.GreaterThan(displayHeight, 0))
+                {
+                    NegVerticalOffset = 0;
+                    UpdateDisplayedRows(0, displayHeight);
+                }
+            }
+
+            ComputeScrollBarsLayout();
+            InvalidateRowsArrange();
+            OnElementsChanged(grew: change.NewCount > change.OldCount);
+            RequestPointerOverRefresh();
         }
 
         private void ApplyHierarchicalFlattenedChanges(IReadOnlyList<FlattenedChange> changes)
