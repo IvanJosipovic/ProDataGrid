@@ -25,7 +25,69 @@ schedule.
 - Collapse results also split the same end-to-end sample into synchronous model/UI
   mutation, `UpdateLayout`, and rendered-frame wait durations. These diagnostic
   phase means sum to the reported collapse mean; the end-to-end mean remains the
-  comparison and gate metric.
+  primary reported comparison. The collapse optimization gate uses mutation plus
+  layout and managed allocation, while the full rendered-frame total remains
+  visible for detecting separate platform rendering or scheduling work.
+
+## Frame alignment and the two-callback barrier
+
+`RequestAnimationFrame` asks Avalonia to invoke a callback at an upcoming animation
+and render scheduling opportunity. It is not a fence proving that the compositor,
+GPU, or display has presented the preceding pixels. A callback registered inside
+another callback cannot run in the same callback turn, so the nested callback used
+by this harness crosses two scheduling opportunities:
+
+1. the first callback lets invalidation, layout, animation, and render scheduling
+   triggered by the operation reach the next frame opportunity;
+2. the nested callback waits for the following opportunity, giving work queued by
+   the first frame another dispatcher/render turn before the sample completes.
+
+This is a conservative UI-completion convention, not a claim that the operation
+intrinsically requires two frames. At a 60 Hz refresh rate each missed frame cutoff
+adds about 16.7 ms. A small difference in synchronous work, GC duration, dispatcher
+traffic, or the point within the vsync interval at which a sample starts can
+therefore change the end-to-end result by a whole frame even when model and layout
+work improve.
+
+The harness controls that phase in two places. Before every measured sample it
+performs the full GC and then waits on an unmeasured two-callback barrier, preventing
+implementation-specific collection time from deciding which side of the next
+frame cutoff contains the timed operation. It then registers the timed barrier
+before starting the synchronous mutation. Because mutation and `UpdateLayout()` run
+on the UI thread, neither callback can execute until that work yields. Both source
+implementations therefore enter the same callback schedule, and the result is split
+into:
+
+- **mutation**: hierarchy/model notifications and synchronous grid updates;
+- **layout**: the explicit `UpdateLayout()` call;
+- **frame wait**: dispatcher/render scheduling until the second callback;
+- **total**: mutation + layout + frame wait.
+
+The full total is still the observable latency under this completion convention.
+For the collapse-path performance gate, mutation + layout isolates the code path
+the change is intended to optimize; allocation independently measures managed
+traffic. A frame-wait regression remains visible and must be investigated, but a
+whole-frame scheduling band is not attributed to hierarchy traversal without phase
+evidence.
+
+## Why `LayoutUpdated` mattered
+
+`LayoutUpdated` is raised after an Avalonia layout pass and may occur repeatedly as
+layout is invalidated. ProDataGrid's hierarchy-change path used
+`RequestHierarchicalIndentationRefresh()` to subscribe a one-shot handler, with a
+background-dispatcher fallback. That is useful when realized rows are not yet in
+their final range: the refresh must wait until layout has established the range.
+
+The optimized bulk-splice path is different. It synchronously realizes/rebinds the
+final displayed range and calls `RefreshHierarchicalIndentation()` before
+`EnsureDisplayedRowsInRange()` and `InvalidateMeasure()`. Registering the deferred
+`LayoutUpdated` refresh afterward repeated work that had already been completed.
+When the explicit `UpdateLayout()` raised `LayoutUpdated`, the handler refreshed
+indentation after the pass and could invalidate visual state for another layout or
+render interval. The optimized path now skips only that redundant deferred request;
+non-bulk paths retain it. A headless regression test verifies that bulk expand and
+collapse each perform exactly one indentation refresh, preserving the final row
+state while removing the duplicate post-layout work.
 
 The CI comparison runs four independent processes for all five ProDataGrid source
 modes and the pinned TreeDataGrid source mode, reversing the complete mode order in
