@@ -31,16 +31,24 @@ schedule.
 
 ## Frame alignment and the two-callback barrier
 
-`RequestAnimationFrame` asks Avalonia to invoke a callback at an upcoming animation
-and render scheduling opportunity. It is not a fence proving that the compositor,
-GPU, or display has presented the preceding pixels. A callback registered inside
-another callback cannot run in the same callback turn, so the nested callback used
-by this harness crosses two scheduling opportunities:
+`RequestAnimationFrame` asks Avalonia to invoke a callback on an upcoming animation
+clock pulse. It is not the composition batch's `Rendered` task or a GPU/display
+presentation fence. A callback registered inside another callback cannot run in
+the same pulse because Avalonia swaps its current and next callback queues before
+invoking them. The nested barrier therefore crosses two animation-clock pulses:
 
-1. the first callback lets invalidation, layout, animation, and render scheduling
-   triggered by the operation reach the next frame opportunity;
-2. the nested callback waits for the following opportunity, giving work queued by
-   the first frame another dispatcher/render turn before the sample completes.
+1. after synchronous mutation and `UpdateLayout()` yield the UI thread, pulse A
+   invokes callback 1 before Avalonia records and commits that UI render;
+2. callback 1 queues callback 2 for a later pulse. Avalonia records dirty visuals,
+   serializes and submits the composition batch, and suppresses another animation
+   pulse until the render thread has deserialized the batch and marked it
+   `Processed`; a later media pass then invokes callback 2 at pulse B.
+
+`Processed` means that the batch was accepted/deserialized and will soon be
+rendered. It is earlier than `Rendered`, so the second callback still does not
+prove GPU presentation. The callback-1-to-callback-2 interval can include UI render
+recording, composition serialization, render-thread scheduling and deserialization,
+the processed notification, and scheduling the next UI media pass.
 
 This is a conservative UI-completion convention, not a claim that the operation
 intrinsically requires two frames. At a 60 Hz refresh rate each missed frame cutoff
@@ -71,6 +79,14 @@ compositor-update, and compositor-render pass observed for each sample. That
 instrumented process is separate from the clean performance gate because meter
 collection intentionally adds overhead.
 
+The normal pre-sample alignment barrier has two callbacks. The diagnostic-only
+`--alignment-callbacks` option can increase that count without changing the timed
+two-callback completion barrier. CI compares two and three alignment callbacks in
+separate uninstrumented processes to detect a trailing composition batch from the
+alignment pass itself. It also captures sampled .NET traces for source-symbol
+attribution of the UI render, composition serialization, and batch-deserialization
+paths. These traces contain only the two source implementations in this harness.
+
 The full total is still the observable latency under this completion convention.
 For the collapse-path performance gate, mutation + layout isolates the code path
 the change is intended to optimize; allocation independently measures managed
@@ -80,8 +96,12 @@ evidence.
 
 ## Why `LayoutUpdated` mattered
 
-`LayoutUpdated` is raised after an Avalonia layout pass and may occur repeatedly as
-layout is invalidated. ProDataGrid's hierarchy-change path used
+`LayoutUpdated` is raised by Avalonia's layout manager after a root layout pass; a
+control's subscription is forwarded from that root event. It is not a render or
+presentation notification and can be raised even if that control's bounds did not
+change. A handler that changes measure-, arrange-, or render-affecting state can
+queue later work, and another layout pass raises another notification. ProDataGrid's
+hierarchy-change path used
 `RequestHierarchicalIndentationRefresh()` to subscribe a one-shot handler, with a
 background-dispatcher fallback. That is useful when realized rows are not yet in
 their final range: the refresh must wait until layout has established the range.

@@ -34,9 +34,21 @@ internal static class Program
             ShutdownMode.OnExplicitShutdown);
     }
 
-    public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<NativeBenchmarkApplication>()
+    public static AppBuilder BuildAvaloniaApp()
+    {
+        var builder = AppBuilder.Configure<NativeBenchmarkApplication>()
             .UsePlatformDetect();
+        NativePlatformInfo.RenderingSubsystem = builder.RenderingSubsystemName ?? "unknown";
+        NativePlatformInfo.RuntimePlatformServices = builder.RuntimePlatformServicesName ?? "unknown";
+        return builder;
+    }
+}
+
+internal static class NativePlatformInfo
+{
+    public static string RenderingSubsystem { get; set; } = "unknown";
+
+    public static string RuntimePlatformServices { get; set; } = "unknown";
 }
 
 internal sealed class NativeBenchmarkApplication : Application
@@ -152,6 +164,8 @@ internal static class NativeBenchmarkOptions
 
     public static bool AvaloniaDiagnostics { get; private set; }
 
+    public static int AlignmentCallbacks { get; private set; } = 2;
+
     public static string OutputPath { get; private set; } = Path.GetFullPath("native-result.json");
 
 #if PRO && PRODATAGRID_PR335
@@ -218,6 +232,12 @@ internal static class NativeBenchmarkOptions
                     break;
                 case "--avalonia-diagnostics":
                     AvaloniaDiagnostics = true;
+                    break;
+                case "--alignment-callbacks":
+                    AlignmentCallbacks = ParsePositive(
+                        RequireValue(args, ref i),
+                        "alignment callbacks",
+                        allowZero: false);
                     break;
             }
         }
@@ -292,6 +312,8 @@ internal sealed class NativeBenchmarkRunner
             OS = RuntimeInformation.OSDescription,
             Architecture = RuntimeInformation.ProcessArchitecture.ToString(),
             Processor = Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "unknown",
+            RenderingSubsystem = NativePlatformInfo.RenderingSubsystem,
+            RuntimePlatformServices = NativePlatformInfo.RuntimePlatformServices,
             LogicalProcessorCount = Environment.ProcessorCount,
             ClientWidth = _host.ClientSize.Width,
             ClientHeight = _host.ClientSize.Height,
@@ -299,6 +321,7 @@ internal sealed class NativeBenchmarkRunner
             WarmupIterations = NativeBenchmarkOptions.WarmupIterations,
             MeasuredIterations = NativeBenchmarkOptions.Iterations,
             ScrollJumpsPerIteration = NativeBenchmarkOptions.ScrollJumps,
+            AlignmentCallbacks = NativeBenchmarkOptions.AlignmentCallbacks,
             FirstExpandedRender = firstRender,
             ExpandAllAndRender = expandAndRender,
             CollapseAllAndRender = collapseAndRender,
@@ -570,7 +593,26 @@ internal sealed class NativeBenchmarkRunner
         // Full collection duration depends on each implementation's retained graph and can
         // otherwise shift the timed operation to opposite sides of a Windows vsync boundary.
         // Start every sample immediately after the same two-frame completion barrier.
-        await WaitForRenderedFrameAsync(topLevel);
+        await WaitForAnimationCallbacksAsync(topLevel, NativeBenchmarkOptions.AlignmentCallbacks);
+    }
+
+    private static Task WaitForAnimationCallbacksAsync(TopLevel topLevel, int callbackCount)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void RequestNext(int remaining)
+        {
+            topLevel.RequestAnimationFrame(_ =>
+            {
+                if (remaining == 1)
+                    completion.TrySetResult();
+                else
+                    RequestNext(remaining - 1);
+            });
+        }
+
+        RequestNext(callbackCount);
+        return completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
     public static async Task WaitForRenderedFrameAsync(TopLevel topLevel)
@@ -1201,6 +1243,10 @@ internal sealed class NativeBenchmarkResult
 
     public required string Processor { get; init; }
 
+    public required string RenderingSubsystem { get; init; }
+
+    public required string RuntimePlatformServices { get; init; }
+
     public int LogicalProcessorCount { get; init; }
 
     public double ClientWidth { get; init; }
@@ -1214,6 +1260,8 @@ internal sealed class NativeBenchmarkResult
     public int MeasuredIterations { get; init; }
 
     public int ScrollJumpsPerIteration { get; init; }
+
+    public int AlignmentCallbacks { get; init; }
 
     public NativeWorkloadResult? FirstExpandedRender { get; init; }
 

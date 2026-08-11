@@ -94,6 +94,57 @@ jobs:
             --output "$diagnostics/tree.json"
           if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid frame diagnostics failed." }
 
+      - name: Diagnose pre-sample frame alignment
+        shell: pwsh
+        run: |
+          $harness = Join-Path $env:GITHUB_WORKSPACE "prodatagrid/tests/ProDataGrid.Hierarchy.NativeBenchmarks"
+          $diagnostics = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source/alignment-diagnostics"
+          New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
+
+          foreach ($callbacks in @(2, 3)) {
+            $env:GRID_BENCH_PRO_MODE = "drawn"
+            dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
+              --collapse-only --alignment-callbacks $callbacks --warmup 6 --iterations 10 `
+              --output "$diagnostics/pro-drawn-$callbacks.json"
+            if ($LASTEXITCODE -ne 0) { throw "ProDataGrid $callbacks-callback alignment diagnostics failed." }
+            Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
+
+            dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
+              --collapse-only --alignment-callbacks $callbacks --warmup 6 --iterations 10 `
+              --output "$diagnostics/tree-$callbacks.json"
+            if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid $callbacks-callback alignment diagnostics failed." }
+          }
+
+      - name: Capture sampled collapse traces
+        shell: pwsh
+        run: |
+          dotnet tool install --global dotnet-trace --version 9.0.661903
+          $harness = Join-Path $env:GITHUB_WORKSPACE "prodatagrid/tests/ProDataGrid.Hierarchy.NativeBenchmarks"
+          $traces = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source/traces"
+          New-Item -ItemType Directory -Force -Path $traces | Out-Null
+
+          $env:GRID_BENCH_PRO_MODE = "drawn"
+          dotnet-trace collect --profile dotnet-sampled-thread-time `
+            --output "$traces/pro-drawn.nettrace" --show-child-io -- `
+            dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
+              --collapse-only --warmup 6 --iterations 20 --output "$traces/pro-drawn.json"
+          if ($LASTEXITCODE -ne 0) { throw "ProDataGrid sampled trace failed." }
+          Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
+          dotnet-trace report "$traces/pro-drawn.nettrace" topN -n 100 --inclusive |
+            Out-File "$traces/pro-drawn-topn-inclusive.txt" -Encoding utf8
+          dotnet-trace report "$traces/pro-drawn.nettrace" topN -n 100 |
+            Out-File "$traces/pro-drawn-topn-exclusive.txt" -Encoding utf8
+
+          dotnet-trace collect --profile dotnet-sampled-thread-time `
+            --output "$traces/tree.nettrace" --show-child-io -- `
+            dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
+              --collapse-only --warmup 6 --iterations 20 --output "$traces/tree.json"
+          if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid sampled trace failed." }
+          dotnet-trace report "$traces/tree.nettrace" topN -n 100 --inclusive |
+            Out-File "$traces/tree-topn-inclusive.txt" -Encoding utf8
+          dotnet-trace report "$traces/tree.nettrace" topN -n 100 |
+            Out-File "$traces/tree-topn-exclusive.txt" -Encoding utf8
+
       - name: Summarize hierarchy latency and allocation
         shell: pwsh
         run: |
@@ -211,6 +262,31 @@ jobs:
           )
           foreach ($row in $diagnosticRows) {
             $table += "| $($row.Implementation) | $($row.UiRenderMs.ToString('F2')) | $($row.CompositorUpdateMs.ToString('F2')) | $($row.CompositorRenderMs.ToString('F2')) |"
+          }
+
+          $alignmentRows = foreach ($file in Get-ChildItem (Join-Path $results "alignment-diagnostics") -Filter *.json) {
+            $result = Get-Content $file.FullName -Raw | ConvertFrom-Json
+            [pscustomobject]@{
+              Implementation = $result.Implementation
+              AlignmentCallbacks = [int]$result.AlignmentCallbacks
+              PathMs = [double]$result.CollapseAllAndRender.MeanMutationMilliseconds + [double]$result.CollapseAllAndRender.MeanLayoutMilliseconds
+              Callback1Ms = [double]$result.CollapseAllAndRender.MeanFirstFrameCallbackMilliseconds
+              Callback2Ms = [double]$result.CollapseAllAndRender.MeanSecondFrameCallbackMilliseconds
+              FrameMs = [double]$result.CollapseAllAndRender.MeanFrameMilliseconds
+              RenderingSubsystem = $result.RenderingSubsystem
+              RuntimePlatformServices = $result.RuntimePlatformServices
+            }
+          }
+          $table += @(
+            "",
+            "## Pre-sample alignment diagnostic (single uninstrumented process)",
+            "",
+            "| Implementation | Alignment callbacks | Mutation + layout (ms) | Callback 1 (ms) | Callback 2 interval (ms) | Frame wait (ms) | Avalonia backend |",
+            "|---|---:|---:|---:|---:|---:|---|"
+          )
+          foreach ($row in ($alignmentRows | Sort-Object AlignmentCallbacks, Implementation)) {
+            $backend = "$($row.RuntimePlatformServices) / $($row.RenderingSubsystem)"
+            $table += "| $($row.Implementation) | $($row.AlignmentCallbacks) | $($row.PathMs.ToString('F2')) | $($row.Callback1Ms.ToString('F2')) | $($row.Callback2Ms.ToString('F2')) | $($row.FrameMs.ToString('F2')) | $backend |"
           }
           $table | Add-Content $env:GITHUB_STEP_SUMMARY
           $aggregates | ConvertTo-Json | Set-Content "$results/aggregate.json"
