@@ -10,7 +10,10 @@ native desktop window, fixed 24-pixel rows, layout, and a two-animation-frame
 completion wait. Every measured operation begins from a fully rendered state. A
 full collection is followed by an unmeasured two-frame barrier before each sample,
 so implementation-specific GC duration cannot move the timed work to a different
-Windows vsync phase.
+Windows vsync phase. The timed two-frame completion barrier is armed at the sample
+boundary before the synchronous mutation; its callbacks cannot run until mutation
+and layout yield the UI thread, and both controls therefore enter the same frame
+schedule.
 
 - `ExpandAllAndRender` expands the 4,094-node binary-tree workload used by the
   existing native expansion comparison.

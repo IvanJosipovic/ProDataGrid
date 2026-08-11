@@ -312,10 +312,11 @@ internal sealed class NativeBenchmarkRunner
             await PrepareMeasurementAsync(_host);
 
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
+        var renderedFrame = WaitForRenderedFrameAsync(_host);
         var stopwatch = Stopwatch.StartNew();
         _host.Content = handle.Grid;
         _host.UpdateLayout();
-        await WaitForRenderedFrameAsync(_host);
+        await renderedFrame;
         stopwatch.Stop();
         var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
         var validation = NativeGridAdapter.Validate(handle);
@@ -355,10 +356,11 @@ internal sealed class NativeBenchmarkRunner
             await PrepareMeasurementAsync(_host);
 
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
+        var renderedFrame = WaitForRenderedFrameAsync(_host);
         var stopwatch = Stopwatch.StartNew();
         handle.ExpandAll();
         _host.UpdateLayout();
-        await WaitForRenderedFrameAsync(_host);
+        await renderedFrame;
         stopwatch.Stop();
         var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
         var validation = NativeGridAdapter.Validate(handle);
@@ -416,12 +418,13 @@ internal sealed class NativeBenchmarkRunner
             await PrepareMeasurementAsync(_host);
 
         var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
+        var renderedFrame = WaitForRenderedFrameAsync(_host);
         var stopwatch = Stopwatch.StartNew();
         handle.CollapseAll();
         var mutationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
         _host.UpdateLayout();
         var mutationAndLayoutMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
-        await WaitForRenderedFrameAsync(_host);
+        await renderedFrame;
         stopwatch.Stop();
         var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
         var validation = NativeGridAdapter.Validate(handle, expectedCount: 32);
@@ -477,10 +480,11 @@ internal sealed class NativeBenchmarkRunner
         {
             var operation = (batch * NativeBenchmarkOptions.ScrollJumps) + i;
             var row = ((operation * 509) % 2_000) + 1;
+            var renderedFrame = WaitForRenderedFrameAsync(_host);
             var stopwatch = Stopwatch.StartNew();
             NativeGridAdapter.SetScrollRow(viewer, row);
             handle.Grid.UpdateLayout();
-            await WaitForRenderedFrameAsync(_host);
+            await renderedFrame;
             stopwatch.Stop();
             times?.Add(stopwatch.Elapsed.TotalMilliseconds);
         }
@@ -490,9 +494,10 @@ internal sealed class NativeBenchmarkRunner
 
     private async Task DetachAsync()
     {
+        var renderedFrame = WaitForRenderedFrameAsync(_host);
         _host.Content = null;
         _host.UpdateLayout();
-        await WaitForRenderedFrameAsync(_host);
+        await renderedFrame;
     }
 
     private static void CollectForMeasurement()
@@ -796,6 +801,8 @@ internal static class NativeGridAdapter
             handle.Count,
             realizedRows,
             realizedCells,
+            handle.Grid.GetVisualDescendants().Count(),
+            handle.Grid.GetVisualDescendants().OfType<Control>().Count(),
             viewer.Extent.Width,
             viewer.Extent.Height,
             viewer.Viewport.Width,
@@ -875,6 +882,8 @@ internal sealed record NativeValidation(
     int RowCount,
     int RealizedRows,
     int RealizedCells,
+    int RealizedVisuals,
+    int RealizedControls,
     double ExtentWidth,
     double ExtentHeight,
     double ViewportWidth,
