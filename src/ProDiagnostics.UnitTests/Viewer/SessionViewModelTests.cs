@@ -11,6 +11,17 @@ namespace Avalonia.Diagnostics.UnitTests.Viewer;
 
 public class SessionViewModelTests
 {
+    [Fact]
+    public void Collection_views_keep_the_generated_schema_sources()
+    {
+        var session = new SessionViewModel(Guid.NewGuid());
+
+        Assert.Same(session.Metrics, session.MetricsView.SourceCollection);
+        Assert.Same(session.Activities, session.ActivitiesView.SourceCollection);
+        Assert.Empty(session.MetricsView.SortDescriptions);
+        Assert.Empty(session.ActivitiesView.SortDescriptions);
+    }
+
     [AvaloniaFact]
     public void AddMetric_Reuses_Series_For_Same_Tag_Key()
     {

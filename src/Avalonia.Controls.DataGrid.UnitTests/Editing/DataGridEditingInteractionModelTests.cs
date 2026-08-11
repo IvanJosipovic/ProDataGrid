@@ -88,4 +88,45 @@ public class DataGridEditingInteractionModelTests
         Assert.True(result);
         Assert.Equal("Nested", nested.Text);
     }
+
+    [AvaloniaFact]
+    public void Generated_factory_applies_declared_triggers_and_pointer_modifiers()
+    {
+        var factory = new DataGridGeneratedEditingInteractionModelFactory(
+            new DataGridGeneratedEditingInteractionProfile(
+                DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput,
+                restrictTextInputToCells: true,
+                requiredPointerModifiers: KeyModifiers.Alt));
+        IDataGridEditingInteractionModel model = factory.Create();
+        var grid = new DataGrid();
+
+        bool plainDoubleClick = model.ShouldBeginEditOnPointer(new DataGridPointerEditContext(
+            grid,
+            isDoubleClick: true,
+            editTriggers: DataGridEditTriggers.CellClick,
+            modifiers: KeyModifiers.None));
+        bool altDoubleClick = model.ShouldBeginEditOnPointer(new DataGridPointerEditContext(
+            grid,
+            isDoubleClick: true,
+            editTriggers: DataGridEditTriggers.CellClick,
+            modifiers: KeyModifiers.Alt));
+        string? text = model.GetTextInputForEdit(new DataGridTextInputEditContext(
+            grid,
+            "X",
+            isEditing: false,
+            isReadOnly: false,
+            canEditCurrentCell: true,
+            editTriggers: DataGridEditTriggers.None,
+            modifiers: KeyModifiers.None));
+
+        Assert.False(plainDoubleClick);
+        Assert.True(altDoubleClick);
+        Assert.Equal("X", text);
+        Assert.Equal(
+            new DataGridGeneratedEditingInteractionProfile(
+                DataGridEditTriggers.CellDoubleClick | DataGridEditTriggers.TextInput,
+                restrictTextInputToCells: true,
+                requiredPointerModifiers: KeyModifiers.Alt),
+            factory.Profile);
+    }
 }

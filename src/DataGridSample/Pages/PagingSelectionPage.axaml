@@ -7,7 +7,7 @@
 <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="2*,*" Margin="12" ColumnSpacing="12" RowSpacing="10">
     <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Spacing="4">
       <TextBlock Classes="h2">Paging with persistent selection</TextBlock>
-      <TextBlock Text="DataGridCollectionView paging with a shared SelectionModel. Pick rows across pages and watch the selection persist while you move between pages."
+      <TextBlock Text="A generated collection-view controller preserves selection and current-item currency by stable key across pages, refreshes, page-size changes, and source replacement."
                  TextWrapping="Wrap" />
     </StackPanel>
 
@@ -17,6 +17,8 @@
       <TextBlock VerticalAlignment="Center" Text="{Binding PageStatus}" />
       <Button Content="Next" Command="{Binding NextPageCommand}" />
       <Button Content="Last" Command="{Binding LastPageCommand}" />
+      <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Button Content="Replace source" Command="{Binding ReplaceSourceCommand}" />
       <StackPanel Orientation="Horizontal" Spacing="4" Margin="16,0,0,0" VerticalAlignment="Center">
         <TextBlock Text="Page size:" VerticalAlignment="Center" />
         <TextBox Width="48" Text="{Binding PageSize, UpdateSourceTrigger=PropertyChanged}"/>
@@ -27,6 +29,7 @@
       <Button Content="Select across pages" Command="{Binding SelectAcrossPagesCommand}" />
       <Button Content="Clear selection" Command="{Binding ClearSelectionCommand}" />
       <TextBlock VerticalAlignment="Center" Text="{Binding SelectionSummary}" />
+      <TextBlock VerticalAlignment="Center" Text="{Binding CurrencyStatus}" />
     </StackPanel>
 
     <Grid Grid.Row="2" Grid.Column="0" ColumnDefinitions="*" RowDefinitions="Auto,*" RowSpacing="6">
@@ -34,8 +37,10 @@
       <DataGrid Grid.Row="1"
                 ItemsSource="{Binding ItemsView}"
                 Selection="{Binding SelectionModel}"
+                ColumnDefinitionsSource="{Binding ColumnDefinitions}"
+                FastPathOptions="{Binding FastPathOptions}"
                 SelectionMode="Extended"
-                AutoGenerateColumns="True"
+                AutoGenerateColumns="False"
                 HeadersVisibility="All"
                 Height="450" />
     </Grid>

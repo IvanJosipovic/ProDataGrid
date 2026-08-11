@@ -1,0 +1,38 @@
+<UserControl
+    x:Class="DataGridSample.Pages.GeneratedAssemblyNamespacePolicyPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:policyViews="clr-namespace:DataGridSample.SourceGenerationPolicy.Views"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:GeneratedAssemblyNamespacePolicyPageViewModel">
+  <Grid Margin="12" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+    <StackPanel Spacing="3">
+      <TextBlock Classes="h2" Text="Generated assembly and namespace policy" />
+      <TextBlock TextWrapping="Wrap" Text="The left grid is discovered entirely by assembly namespace policy. The right grid applies explicit schema, ViewModel, and generated-view overrides with deterministic precedence." />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="8" Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="4">
+      <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="16" RowSpacing="4">
+        <TextBlock Text="{Binding NamespaceRegistryStatus}" TextWrapping="Wrap" />
+        <TextBlock Grid.Column="1" Text="{Binding ExplicitRegistryStatus}" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="1" Text="{Binding ExclusionStatus}" TextWrapping="Wrap" />
+        <TextBlock Grid.Row="1" Grid.Column="1" Text="Reflection-free XAML view registration is declared by assembly policy." TextWrapping="Wrap" />
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="10">
+      <Border Padding="8" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1" CornerRadius="4">
+        <Grid RowDefinitions="Auto,*" RowSpacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Namespace defaults: strict, streaming, high-frequency" />
+          <policyViews:NamespacePolicyRowsView Grid.Row="1" DataContext="{Binding NamespacePolicy}" />
+        </Grid>
+      </Border>
+      <Border Grid.Column="1" Padding="8" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1" CornerRadius="4">
+        <Grid RowDefinitions="Auto,*" RowSpacing="6">
+          <TextBlock FontWeight="SemiBold" Text="Explicit override: attributed-only, permissive, spreadsheet" />
+          <policyViews:ExplicitPolicyRowsView Grid.Row="1" DataContext="{Binding ExplicitPolicy}" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

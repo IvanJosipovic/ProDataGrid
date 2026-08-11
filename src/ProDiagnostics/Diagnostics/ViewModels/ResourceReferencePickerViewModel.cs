@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Diagnostics.Services;
+using ProDataGrid.SourceGeneration;
 
 namespace Avalonia.Diagnostics.ViewModels
 {
-    internal sealed class ResourceReferencePickerViewModel : ViewModelBase
+    [GenerateDataGridViewModel(typeof(ResourceReferenceEntryViewModel), ProviderName = "ResourceReferenceEntryGridSchema")]
+    internal sealed partial class ResourceReferencePickerViewModel : ViewModelBase
     {
         private readonly AvaloniaList<ResourceReferenceEntryViewModel> _entries = new();
         private readonly DataGridCollectionView _resourcesView;
@@ -26,13 +27,11 @@ namespace Avalonia.Diagnostics.ViewModels
             TargetType = property.PropertyType.GetTypeName();
             ResourcesFilter = new FilterViewModel();
             ResourcesFilter.RefreshFilter += (_, _) => RefreshResources();
-            _resourcesView = new DataGridCollectionView(_entries)
-            {
-                Filter = FilterResource
-            };
-            _resourcesView.SortDescriptions.Add(DataGridSortDescription.FromPath(
-                nameof(ResourceReferenceEntryViewModel.KeyDisplay),
-                ListSortDirection.Ascending));
+            _resourcesView = ResourceReferenceEntryGridSchema.CreateCollectionView(_entries);
+            _resourcesView.Filter = FilterResource;
+            ResourceReferenceEntryGridSchema.ApplyCollectionViewSorting(
+                _resourcesView,
+                [ResourceReferenceEntryGridSchema.KeyDisplay.Ascending()]);
 
             foreach (var entry in CreateEntries(candidates, formatter))
             {
@@ -210,6 +209,11 @@ namespace Avalonia.Diagnostics.ViewModels
         private readonly record struct ResourceCandidateGroupKey(string KeyText, string ScopePath, string? ThemeVariant);
     }
 
+    [GenerateDataGridColumns(
+        ProviderName = "ResourceReferenceEntryGridSchema",
+        SchemaId = "prodiagnostics/resource-reference/v1",
+        Discovery = DataGridColumnDiscovery.AttributedOnly,
+        Strict = true)]
     internal sealed class ResourceReferenceEntryViewModel
     {
         public ResourceReferenceEntryViewModel(
@@ -238,18 +242,25 @@ namespace Avalonia.Diagnostics.ViewModels
 
         public object Key { get; }
 
+        [DataGridColumn(Header = "Key", ColumnKey = "key", Order = 0, Width = "2*", IsReadOnly = true, CanUserSort = true)]
         public string KeyDisplay { get; }
 
+        [DataGridColumn(Header = "Type", ColumnKey = "type", Order = 3, Width = "1.5*", IsReadOnly = true, CanUserSort = true)]
         public string ValueTypeName { get; }
 
+        [DataGridColumn(Header = "Value", ColumnKey = "value", Order = 1, Width = "2*", IsReadOnly = true, CanUserSort = true)]
         public string ValuePreview { get; }
 
+        [DataGridColumn(DataGridColumnKind.Template, Header = "Preview", ColumnKey = "preview", Order = 2, Width = "1.4*", SortMemberPath = nameof(ValuePreview), TemplateKey = "ResourceValuePreviewCellTemplate", IsReadOnly = true)]
         public ResourceEntryPropertyViewModel ValueProperty { get; }
 
+        [DataGridColumn(Header = "Scope", ColumnKey = "scope", Order = 5, Width = "3*", IsReadOnly = true, CanUserSort = true)]
         public string ScopePath { get; }
 
+        [DataGridColumn(Header = "Theme", ColumnKey = "theme", Order = 6, Width = "1.2*", IsReadOnly = true, CanUserSort = true)]
         public string? ThemeVariant { get; }
 
+        [DataGridColumn(Header = "Reference", ColumnKey = "reference", Order = 4, Width = "2*", IsReadOnly = true, CanUserSort = true)]
         public string ReferenceKinds { get; }
 
         public ResourceReferenceCandidate? StaticCandidate { get; }

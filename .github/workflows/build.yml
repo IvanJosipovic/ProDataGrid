@@ -54,6 +54,9 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore -p:VersionSuffix="${{ steps.version.outputs.version-suffix }}"
 
+      - name: Validate source-generation benchmark semantics
+        run: dotnet run -c Release --no-build --no-restore --project tests/ProDataGrid.SourceGeneration.Benchmarks/ProDataGrid.SourceGeneration.Benchmarks.csproj -- --validate
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -101,10 +104,42 @@ jobs:
           reporter: dotnet-trx
           fail-on-empty: false
 
+  native-aot-smoke:
+    name: NativeAOT Source Generation Smoke
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore NativeAOT smoke application
+        run: dotnet restore tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGeneration.AotSmoke.csproj -r linux-x64
+
+      - name: Build with generated trimming warnings as errors
+        run: dotnet build tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGeneration.AotSmoke.csproj -c Release -r linux-x64 --no-restore -p:VersionSuffix="${{ needs.build.outputs.version-suffix }}"
+
+      - name: Publish NativeAOT smoke application
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts
+          dotnet publish tests/ProDataGrid.SourceGeneration.AotSmoke/ProDataGrid.SourceGeneration.AotSmoke.csproj -c Release -r linux-x64 --self-contained true --no-restore -p:WarningsAsErrors= -p:VersionSuffix="${{ needs.build.outputs.version-suffix }}" -o artifacts/nativeaot-smoke 2>&1 | tee artifacts/nativeaot-smoke.log
+          if grep -E 'obj/.*/ProDataGrid\.SourceGenerators/ProDataGrid\.SourceGenerators\.ProDataGridGenerator/.*(warning|error) IL[0-9]+' artifacts/nativeaot-smoke.log; then
+            exit 1
+          fi
+
+      - name: Run NativeAOT smoke application
+        run: ./artifacts/nativeaot-smoke/ProDataGrid.SourceGeneration.AotSmoke
+
   pack:
     name: Pack
     runs-on: ubuntu-latest
-    needs: [build, test]
+    needs: [build, test, native-aot-smoke]
     steps:
       - name: Checkout
         uses: actions/checkout@v4

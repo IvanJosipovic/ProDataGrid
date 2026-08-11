@@ -1,25 +1,31 @@
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
+using Avalonia;
 using Avalonia.Controls;
-using DataGridSample.Mvvm;
+using Avalonia.Layout;
+using Avalonia.Media;
+using DataGridSample.CustomDrawing;
+using ProDataGrid.SourceGeneration;
+using ReactiveUI;
+using ReactiveUI.Primitives;
 
 namespace DataGridSample.ViewModels;
 
-public sealed class CustomDrawingEditingViewModel : ObservableObject
+[GenerateDataGridViewModel(typeof(CustomDrawingEditingRow), ProviderName = "CustomDrawingEditingSchema")]
+public sealed partial class CustomDrawingEditingViewModel : ReactiveObject
 {
     public CustomDrawingEditingViewModel()
     {
         Rows = new ObservableCollection<CustomDrawingEditingRow>();
-        AddRowCommand = new RelayCommand(_ => AddRow());
-        ResetRowsCommand = new RelayCommand(_ => ResetRows());
+        AddRowCommand = ReactiveCommand.Create(AddRow);
+        ResetRowsCommand = ReactiveCommand.Create(ResetRows);
         ResetRows();
     }
 
     public ObservableCollection<CustomDrawingEditingRow> Rows { get; }
 
-    public RelayCommand AddRowCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> AddRowCommand { get; }
 
-    public RelayCommand ResetRowsCommand { get; }
+    public ReactiveCommand<RxVoid, RxVoid> ResetRowsCommand { get; }
 
     private void AddRow()
     {
@@ -67,99 +73,89 @@ public sealed class CustomDrawingEditingViewModel : ObservableObject
     }
 }
 
-[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)]
-public sealed class CustomDrawingEditingRow : ObservableObject, IDataGridCellDrawOperationItemCache
+[GenerateDataGridCellDrawCache(InitialCapacity = 2, MaximumCapacity = 2)]
+public sealed partial class CustomDrawingEditingRow : ReactiveObject
 {
-    private SlotEntry[]? _entries;
     private int _id;
     private string _title = string.Empty;
     private string _notes = string.Empty;
     private string _category = string.Empty;
 
+    [DataGridColumn(
+        DataGridColumnKind.Numeric,
+        Header = "ID",
+        Order = 0,
+        Width = "90",
+        IsReadOnly = true,
+        DisplayMode = DataGridColumnDisplayMode.Drawn)]
     public int Id
     {
         get => _id;
-        set => SetProperty(ref _id, value);
+        set => this.RaiseAndSetIfChanged(ref _id, value);
     }
 
+    [DataGridColumn(
+        DataGridColumnKind.Text,
+        Header = "Title",
+        Order = 1,
+        Width = "220",
+        IsReadOnly = false,
+        DisplayMode = DataGridColumnDisplayMode.Drawn)]
     public string Title
     {
         get => _title;
-        set => SetProperty(ref _title, value);
+        set => this.RaiseAndSetIfChanged(ref _title, value);
     }
 
+    [DataGridColumn(
+        DataGridColumnKind.CustomDrawing,
+        Header = "Notes",
+        Order = 2,
+        Width = "*",
+        IsReadOnly = false,
+        UseDirectValueAccessor = true,
+        DrawOperationFactoryMethod = nameof(CreateNotesFactory),
+        DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+        RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
+        TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
+        SharedTextLayoutCacheCapacity = 1024,
+        DrawOperationLayoutFastPath = true)]
     public string Notes
     {
         get => _notes;
-        set => SetProperty(ref _notes, value);
+        set => this.RaiseAndSetIfChanged(ref _notes, value);
     }
 
+    [DataGridColumn(
+        DataGridColumnKind.CustomDrawing,
+        Header = "Category",
+        Order = 3,
+        Width = "140",
+        IsReadOnly = false,
+        UseDirectValueAccessor = true,
+        DrawOperationFactoryMethod = nameof(CreateCategoryFactory),
+        DrawingMode = DataGridCustomDrawingMode.DrawOperation,
+        RenderBackend = DataGridCustomDrawingRenderBackend.CompositionCustomVisual,
+        TextLayoutCacheMode = DataGridCustomDrawingTextLayoutCacheMode.Shared,
+        SharedTextLayoutCacheCapacity = 1024,
+        DrawOperationLayoutFastPath = true)]
     public string Category
     {
         get => _category;
-        set => SetProperty(ref _category, value);
+        set => this.RaiseAndSetIfChanged(ref _category, value);
     }
 
-    public bool TryGetCellDrawCacheEntry(int cacheSlot, int cacheKey, out object value)
-    {
-        if (_entries is not null && cacheSlot >= 0 && cacheSlot < _entries.Length)
+    private static IDataGridCellDrawOperationFactory CreateFactory(int cacheSlot) =>
+        new SkiaTextCellDrawOperationFactory
         {
-            SlotEntry entry = _entries[cacheSlot];
-            if (entry.HasValue && entry.CacheKey == cacheKey && entry.Value is not null)
-            {
-                value = entry.Value;
-                return true;
-            }
-        }
-
-        value = null!;
-        return false;
-    }
-
-    public void SetCellDrawCacheEntry(int cacheSlot, int cacheKey, object value)
-    {
-        if (cacheSlot < 0)
-        {
-            return;
-        }
-
-        EnsureCapacity(cacheSlot + 1)[cacheSlot] = new SlotEntry
-        {
-            HasValue = true,
-            CacheKey = cacheKey,
-            Value = value
+            Padding = new Thickness(4, 2, 4, 2),
+            TextAlignment = TextAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            UseItemCacheContract = true,
+            ItemCacheSlot = cacheSlot
         };
-    }
 
-    private SlotEntry[] EnsureCapacity(int minLength)
-    {
-        if (_entries is null)
-        {
-            _entries = new SlotEntry[minLength];
-            return _entries;
-        }
+    public static IDataGridCellDrawOperationFactory CreateNotesFactory() => CreateFactory(NotesCellDrawCacheSlot);
 
-        if (_entries.Length >= minLength)
-        {
-            return _entries;
-        }
-
-        int newLength = _entries.Length;
-        while (newLength < minLength)
-        {
-            newLength *= 2;
-        }
-
-        var expanded = new SlotEntry[newLength];
-        _entries.CopyTo(expanded, 0);
-        _entries = expanded;
-        return _entries;
-    }
-
-    private struct SlotEntry
-    {
-        public bool HasValue;
-        public int CacheKey;
-        public object? Value;
-    }
+    public static IDataGridCellDrawOperationFactory CreateCategoryFactory() => CreateFactory(CategoryCellDrawCacheSlot);
 }

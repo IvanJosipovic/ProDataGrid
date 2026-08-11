@@ -31,8 +31,8 @@ public sealed class SessionViewModel : ObservableObject
         _currentBucketIndex = 0;
         Metrics = new ObservableCollection<MetricSeriesViewModel>();
         Activities = new ObservableCollection<ActivityEventViewModel>();
-        MetricsView = new DataGridCollectionView(Metrics);
-        ActivitiesView = new DataGridCollectionView(Activities);
+        MetricsView = MetricSeriesGridSchema.CreateCollectionView(Metrics);
+        ActivitiesView = ActivityEventGridSchema.CreateCollectionView(Activities);
         MetricTabs = new ObservableCollection<MetricDetailTabViewModel>();
         MetricTabs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasMetricTabs));
     }

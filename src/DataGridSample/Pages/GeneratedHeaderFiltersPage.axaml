@@ -1,0 +1,77 @@
+<UserControl
+    x:Class="DataGridSample.Pages.GeneratedHeaderFiltersPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:filtering="clr-namespace:Avalonia.Controls.DataGridFiltering;assembly=Avalonia.Controls.DataGrid"
+    xmlns:pages="clr-namespace:DataGridSample.Pages"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:GeneratedHeaderFiltersViewModel">
+  <UserControl.Resources>
+    <filtering:DataGridDistinctValueFilterFlyout
+        x:Key="GeneratedHeaderDeskDistinctFilterFlyout"
+        Placement="Bottom" />
+  </UserControl.Resources>
+
+  <Grid Margin="12" RowDefinitions="Auto,Auto,*" RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2" Text="Generated header filters and commands" />
+      <TextBlock
+          TextWrapping="Wrap"
+          Text="One strict schema supplies typed editor metadata, bounded local and remote distinct values, cached header commands, and a generated ReactiveUI grid interaction boundary." />
+    </StackPanel>
+
+    <Border Grid.Row="1" Padding="8" Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="4">
+      <StackPanel Spacing="3">
+        <TextBlock Text="{Binding EditorSummary}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="2" ColumnDefinitions="*,350" ColumnSpacing="10">
+      <pages:GeneratedHeaderFiltersGrid />
+
+      <Border Grid.Column="1" Padding="10" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1" CornerRadius="4">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <StackPanel Spacing="10">
+            <TextBlock FontWeight="SemiBold" Text="Typed filters" />
+            <WrapPanel>
+              <Button Content="Price 90–160" Command="{Binding ApplyPriceRangeCommand}" />
+              <Button Content="Active buys" Command="{Binding ApplyActiveBuyFilterCommand}" />
+              <Button Content="Clear all" Command="{Binding ClearOperationsCommand}" />
+            </WrapPanel>
+
+            <TextBlock FontWeight="SemiBold" Text="Header command sets" />
+            <WrapPanel>
+              <Button Content="Desk filter" Command="{Binding DeskHeaderCommands.ShowFilter}" />
+              <Button Content="Clear desk" Command="{Binding DeskHeaderCommands.ClearFilter}" />
+              <Button Content="Symbol ↑" Command="{Binding SymbolHeaderCommands.SortAscending}" />
+              <Button Content="Price ↓" Command="{Binding PriceHeaderCommands.SortDescending}" />
+              <Button Content="Hide side" Command="{Binding SideHeaderCommands.HideColumn}" />
+              <Button Content="Show side" Command="{Binding SideHeaderCommands.ShowColumn}" />
+            </WrapPanel>
+
+            <TextBlock FontWeight="SemiBold" Text="Grid-owned operations through generated interaction" />
+            <WrapPanel>
+              <Button Content="Pin price left" Command="{Binding PriceHeaderCommands.PinLeft}" />
+              <Button Content="Freeze through price" Command="{Binding PriceHeaderCommands.FreezeThrough}" />
+              <Button Content="Autosize price" Command="{Binding PriceHeaderCommands.AutoSize}" />
+              <Button Content="Reset layout" Command="{Binding PriceHeaderCommands.ResetLayout}" />
+            </WrapPanel>
+
+            <TextBlock FontWeight="SemiBold" Text="Bounded local Desk values" />
+            <ListBox Height="92" ItemsSource="{Binding LocalDeskValues}" />
+
+            <TextBlock FontWeight="SemiBold" Text="Cancellable remote Desk values" />
+            <TextBox PlaceholderText="Remote contains…" Text="{Binding RemoteQuery, Mode=TwoWay}" />
+            <WrapPanel>
+              <Button Content="Load remote" Command="{Binding LoadRemoteDeskValuesCommand}" />
+              <Button Content="Prove stale suppression" Command="{Binding RunStaleRemoteRequestCommand}" />
+            </WrapPanel>
+            <TextBlock Text="{Binding RemoteStatus}" TextWrapping="Wrap" />
+            <ListBox Height="92" ItemsSource="{Binding RemoteDeskValues}" />
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+    </Grid>
+  </Grid>
+</UserControl>

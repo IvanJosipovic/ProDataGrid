@@ -501,7 +501,6 @@ public sealed class MarketDashboardSampleTests
 
         public Task StartAsync(CancellationToken cancellationToken = default)
         {
-            SnapshotChanged?.Invoke(CurrentSnapshot);
             return Task.CompletedTask;
         }
 

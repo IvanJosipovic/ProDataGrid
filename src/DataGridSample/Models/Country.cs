@@ -1,10 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
+using ProDataGrid.SourceGeneration;
 
 namespace DataGridSample.Models
 {
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors | DynamicallyAccessedMemberTypes.PublicProperties)]
     public class Country
     {
+        [DataGridKey]
         public string Name { get; private set; }
         public string Region { get; private set; }
         public int Population { get; private set; }

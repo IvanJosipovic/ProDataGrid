@@ -341,6 +341,7 @@ namespace Avalonia.Controls
                 }
 
                 ApplyDefinitionDisplayIndexes(autoColumns, newColumns);
+                ApplyDefinitionFrozenColumnDefaults(snapshot.Count);
             }
             finally
             {
@@ -540,6 +541,29 @@ namespace Avalonia.Controls
                 _syncingColumnDefinitions = false;
                 _areHandlersSuspended = false;
             }
+        }
+
+        private void ApplyDefinitionFrozenColumnDefaults(int definitionCount)
+        {
+            if (_columnDefinitionsSource is not DataGridColumnDefinitionList definitions)
+            {
+                return;
+            }
+
+            if (!definitions.FrozenColumnCount.HasValue && !definitions.FrozenColumnCountRight.HasValue)
+            {
+                return;
+            }
+
+            int left = definitions.FrozenColumnCount ?? 0;
+            int right = definitions.FrozenColumnCountRight ?? 0;
+            if (left + right > definitionCount)
+            {
+                throw new InvalidOperationException("Generated frozen column counts cannot exceed the number of column definitions.");
+            }
+
+            SetCurrentValue(FrozenColumnCountProperty, left);
+            SetCurrentValue(FrozenColumnCountRightProperty, right);
         }
 
         private bool CanApplyColumnDefinitionsChange(NotifyCollectionChangedEventArgs e)

@@ -7,12 +7,6 @@ using System;
 
 namespace ProDataGrid.FormulaEngine
 {
-    public enum FormulaReferenceMode
-    {
-        A1,
-        R1C1
-    }
-
     public enum FormulaReferenceKind
     {
         Cell,

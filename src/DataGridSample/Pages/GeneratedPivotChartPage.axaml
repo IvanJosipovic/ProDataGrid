@@ -1,0 +1,87 @@
+<UserControl
+    x:Class="DataGridSample.Pages.GeneratedPivotChartPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:charts="clr-namespace:ProCharts.Avalonia;assembly=ProCharts.Avalonia"
+    xmlns:pages="clr-namespace:DataGridSample.Pages"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:GeneratedPivotChartViewModel">
+  <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+    <StackPanel Spacing="3">
+      <TextBlock Classes="h2" Text="Generated pivot and chart projections" />
+      <TextBlock TextWrapping="Wrap" Text="One canonical generated schema supplies typed pivot axes, values, a bounded spreadsheet-range chart, stable-key selection synchronization, source columns, and fast-path options without property paths." />
+    </StackPanel>
+
+    <WrapPanel Grid.Row="1">
+      <Button Content="Add period" Command="{Binding AddPeriodCommand}" />
+      <Button Content="Remove period" Command="{Binding RemovePeriodCommand}" />
+      <Button Content="Toggle pivot metric" Command="{Binding ToggleMetricCommand}" />
+      <Button Content="Toggle series source" Command="{Binding ToggleSeriesSourceCommand}" />
+      <Button Content="Restore baseline" Command="{Binding RestoreCommand}" />
+    </WrapPanel>
+
+    <Border Grid.Row="2" Padding="8" Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="4">
+      <Grid ColumnDefinitions="3*,Auto,Auto,Auto,Auto" ColumnSpacing="16">
+        <TextBlock Text="{Binding Status}" TextWrapping="Wrap" />
+        <TextBlock Grid.Column="1" Text="{Binding SourceRowCount, StringFormat='Rows: {0}'}" />
+        <TextBlock Grid.Column="2" Text="{Binding PivotRowCount, StringFormat='Pivot rows: {0}'}" />
+        <TextBlock Grid.Column="3" Text="{Binding PivotColumnCount, StringFormat='Pivot columns: {0}'}" />
+        <TextBlock Grid.Column="4" Text="{Binding SelectedMetric, StringFormat='Metric: {0}'}" />
+      </Grid>
+    </Border>
+
+    <TabControl Grid.Row="3">
+      <TabItem Header="Generated grouped source">
+        <Grid ColumnDefinitions="3*,2*" ColumnSpacing="10" Margin="0,8,0,0">
+          <pages:GeneratedPivotChartGrid />
+          <Border Grid.Column="1" Padding="8" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="5">
+            <Grid RowDefinitions="Auto,*" RowSpacing="6">
+              <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Generated range and selection adapter" />
+                <TextBlock TextWrapping="Wrap" Text="The latest eight source rows project Revenue and Profit directly; grid selection and chart crosshair synchronize by generated stable key." />
+              </StackPanel>
+              <charts:ProChartView Grid.Row="1" ChartModel="{Binding DirectChartModel}" ChartStyle="{Binding ChartStyle}" />
+            </Grid>
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Generated pivot chart">
+        <Grid ColumnDefinitions="3*,2*" ColumnSpacing="10" Margin="0,8,0,0">
+          <DataGrid ItemsSource="{Binding Pivot.Rows}"
+                    ColumnDefinitionsSource="{Binding Pivot.ColumnDefinitions}"
+                    AutoGenerateColumns="False"
+                    IsReadOnly="True"
+                    HeadersVisibility="All"
+                    CanUserResizeColumns="True"
+                    CanUserReorderColumns="True"
+                    RowHeight="28" />
+          <Border Grid.Column="1" Padding="8" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="5">
+            <Grid RowDefinitions="Auto,*" RowSpacing="6">
+              <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Pivot-derived chart" />
+                <TextBlock TextWrapping="Wrap" Text="Switch Revenue, Profit, and the generated [profit] / [revenue] calculated Margin while declarative field/layout hooks and cached selectors remain reflection-free." />
+              </StackPanel>
+              <charts:ProChartView Grid.Row="1" ChartModel="{Binding PivotChartModel}" ChartStyle="{Binding ChartStyle}" />
+            </Grid>
+          </Border>
+        </Grid>
+      </TabItem>
+
+      <TabItem Header="Generated long-form series">
+        <Grid ColumnDefinitions="3*,2*" ColumnSpacing="10" Margin="0,8,0,0">
+          <pages:GeneratedPivotChartGrid />
+          <Border Grid.Column="1" Padding="8" BorderBrush="{DynamicResource ThemeBorderLowBrush}" BorderThickness="1" CornerRadius="5">
+            <Grid RowDefinitions="Auto,*" RowSpacing="6">
+              <StackPanel>
+                <TextBlock FontWeight="SemiBold" Text="Generated long-form series" />
+                <TextBlock TextWrapping="Wrap" Text="The generated Region discriminator partitions Revenue and Profit while Period aligns categories and duplicate rows aggregate without property paths." />
+              </StackPanel>
+              <charts:ProChartView Grid.Row="1" ChartModel="{Binding LongFormChartModel}" ChartStyle="{Binding ChartStyle}" />
+            </Grid>
+          </Border>
+        </Grid>
+      </TabItem>
+    </TabControl>
+  </Grid>
+</UserControl>

@@ -1,0 +1,54 @@
+<UserControl
+    x:Class="DataGridSample.Pages.GeneratedGroupedSharedSelectionPage"
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="clr-namespace:DataGridSample.Models"
+    xmlns:pages="clr-namespace:DataGridSample.Pages"
+    xmlns:viewModels="clr-namespace:DataGridSample.ViewModels"
+    x:DataType="viewModels:GeneratedGroupedSharedSelectionViewModel">
+  <Grid Margin="12" RowDefinitions="Auto,Auto,Auto,*" RowSpacing="8">
+    <StackPanel Spacing="4">
+      <TextBlock Classes="h2" Text="Generated grouped + shared selection" />
+      <TextBlock TextWrapping="Wrap"
+                 Text="One generated group descriptor builds the collection view. One stable-key identity selection model is shared by the generated DataGrid and ListBox." />
+    </StackPanel>
+    <WrapPanel Grid.Row="1">
+      <Button Content="Select across groups" Command="{Binding SelectAcrossGroupsCommand}" />
+      <Button Content="Reverse source" Command="{Binding ReverseSourceCommand}" />
+      <Button Content="Clear" Command="{Binding ClearSelectionCommand}" />
+    </WrapPanel>
+    <Border Grid.Row="2" Padding="8" Background="{DynamicResource ThemeControlLowBrush}" CornerRadius="4">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+        <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+        <TextBlock Grid.Column="1" Text="{Binding SelectedKeys, StringFormat='Stable keys: {0}'}" />
+      </Grid>
+    </Border>
+    <Grid Grid.Row="3" ColumnDefinitions="2*,*" ColumnSpacing="12">
+      <pages:GeneratedGroupedSharedSelectionGrid />
+      <StackPanel Grid.Column="1" Spacing="8">
+        <TextBlock Classes="h3" Text="Same SelectionModel" />
+        <ListBox ItemsSource="{Binding GroupedItems}"
+                 Selection="{Binding SelectionModel}"
+                 SelectionMode="Multiple"
+                 Height="260">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="models:GeneratedFeatureRow">
+              <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <TextBlock Text="{Binding Symbol}" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Text="{Binding Desk}" />
+              </Grid>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Classes="h3" Text="Selected rows" />
+        <ItemsControl ItemsSource="{Binding SelectionModel.SelectedItems}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="models:GeneratedFeatureRow">
+              <TextBlock Text="{Binding Symbol}" />
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</UserControl>
