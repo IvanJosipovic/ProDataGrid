@@ -5,6 +5,7 @@ public enum TreeShape
     Wide2555Depth3,
     Deep4094Depth11,
     VeryDeep512Depth128,
+    OptimizedSample149792Depth5,
 }
 
 public sealed class Node
@@ -41,6 +42,7 @@ public static class TreeDataFactory
             TreeShape.Wide2555Depth3 => BuildWide(rootCount: 5, branchCount: 10, leafCount: 50),
             TreeShape.Deep4094Depth11 => BuildUniform(rootCount: 2, branching: 2, levelCount: 11),
             TreeShape.VeryDeep512Depth128 => BuildUniform(rootCount: 4, branching: 1, levelCount: 128),
+            TreeShape.OptimizedSample149792Depth5 => BuildUniform(rootCount: 32, branching: 8, levelCount: 5),
             _ => throw new ArgumentOutOfRangeException(nameof(shape)),
         };
     }
@@ -52,6 +54,7 @@ public static class TreeDataFactory
             TreeShape.Wide2555Depth3 => 2_555,
             TreeShape.Deep4094Depth11 => 4_094,
             TreeShape.VeryDeep512Depth128 => 512,
+            TreeShape.OptimizedSample149792Depth5 => 149_792,
             _ => throw new ArgumentOutOfRangeException(nameof(shape)),
         };
     }

@@ -52,9 +52,22 @@ jobs:
           $results = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source"
           New-Item -ItemType Directory -Force -Path $results | Out-Null
 
-          foreach ($mode in @("direct-cell", "drawn")) {
-            $env:GRID_BENCH_PRO_MODE = $mode
-            foreach ($process in 1..4) {
+          foreach ($process in 1..4) {
+            $modes = if (($process % 2) -eq 1) {
+              @("direct-cell", "drawn", "tree")
+            } else {
+              @("tree", "drawn", "direct-cell")
+            }
+
+            foreach ($mode in $modes) {
+              if ($mode -eq "tree") {
+                dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
+                  --warmup 2 --iterations 10 --output "$results/tree-$process.json"
+                if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid process $process failed." }
+                continue
+              }
+
+              $env:GRID_BENCH_PRO_MODE = $mode
               dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
                 --warmup 2 --iterations 10 --output "$results/pro-$mode-$process.json"
               if ($LASTEXITCODE -ne 0) { throw "ProDataGrid $mode process $process failed." }
@@ -62,15 +75,26 @@ jobs:
           }
           Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
 
-          foreach ($process in 1..4) {
-            dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
-              --warmup 2 --iterations 10 --output "$results/tree-$process.json"
-            if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid process $process failed." }
-          }
-
-      - name: Summarize expand-all latency
+      - name: Summarize hierarchy latency and allocation
         shell: pwsh
         run: |
+          function Get-Ci95Margin([double[]]$values) {
+            if ($values.Count -lt 2) { return 0.0 }
+            $mean = ($values | Measure-Object -Average).Average
+            $sumSquares = 0.0
+            foreach ($value in $values) {
+              $sumSquares += [Math]::Pow($value - $mean, 2)
+            }
+            $sampleStdDev = [Math]::Sqrt($sumSquares / ($values.Count - 1))
+            $critical = switch ($values.Count) {
+              2 { 12.706 }
+              3 { 4.303 }
+              4 { 3.182 }
+              default { 1.96 }
+            }
+            return $critical * $sampleStdDev / [Math]::Sqrt($values.Count)
+          }
+
           $results = Join-Path $env:GITHUB_WORKSPACE "artifacts/hierarchy-native-source"
           $rows = foreach ($file in Get-ChildItem $results -Filter *.json) {
             $result = Get-Content $file.FullName -Raw | ConvertFrom-Json
@@ -79,6 +103,9 @@ jobs:
               Implementation = $result.Implementation
               Mode = if ($result.Mode) { $result.Mode } else { "source" }
               ExpandAllMeanMs = [double]$result.ExpandAllAndRender.MeanMilliseconds
+              ExpandAllAllocatedBytes = [double]$result.ExpandAllAndRender.MeanAllocatedBytes
+              CollapseAllMeanMs = [double]$result.CollapseAllAndRender.MeanMilliseconds
+              CollapseAllAllocatedBytes = [double]$result.CollapseAllAndRender.MeanAllocatedBytes
               Runtime = $result.Runtime
               OS = $result.OS
             }
@@ -87,11 +114,18 @@ jobs:
           $aggregates = $rows |
             Group-Object Implementation, Mode |
             ForEach-Object {
+              $expandMeans = @($_.Group | ForEach-Object { [double]$_.ExpandAllMeanMs })
+              $collapseMeans = @($_.Group | ForEach-Object { [double]$_.CollapseAllMeanMs })
               [pscustomobject]@{
                 Implementation = $_.Group[0].Implementation
                 Mode = $_.Group[0].Mode
                 ProcessMeans = $_.Count
-                ExpandAllMeanMs = ($_.Group.ExpandAllMeanMs | Measure-Object -Average).Average
+                ExpandAllMeanMs = ($expandMeans | Measure-Object -Average).Average
+                ExpandAllCi95MarginMs = Get-Ci95Margin $expandMeans
+                ExpandAllAllocatedBytes = ($_.Group.ExpandAllAllocatedBytes | Measure-Object -Average).Average
+                CollapseAllMeanMs = ($collapseMeans | Measure-Object -Average).Average
+                CollapseAllCi95MarginMs = Get-Ci95Margin $collapseMeans
+                CollapseAllAllocatedBytes = ($_.Group.CollapseAllAllocatedBytes | Measure-Object -Average).Average
               }
             } |
             Sort-Object ExpandAllMeanMs
@@ -99,11 +133,26 @@ jobs:
           $table = @(
             "## Native expand all + render (source only)",
             "",
-            "| Implementation | Mode | Process means | Mean (ms) |",
-            "|---|---:|---:|---:|"
+            "| Implementation | Mode | Process means | Mean (ms) | 95% CI (ms) | Allocated (bytes) |",
+            "|---|---:|---:|---:|---:|---:|"
           )
           foreach ($aggregate in $aggregates) {
-            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.ExpandAllMeanMs.ToString('F2')) |"
+            $low = $aggregate.ExpandAllMeanMs - $aggregate.ExpandAllCi95MarginMs
+            $high = $aggregate.ExpandAllMeanMs + $aggregate.ExpandAllCi95MarginMs
+            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.ExpandAllMeanMs.ToString('F2')) | $($low.ToString('F2'))-$($high.ToString('F2')) | $([Math]::Round($aggregate.ExpandAllAllocatedBytes).ToString('N0')) |"
+          }
+
+          $table += @(
+            "",
+            "## Native collapse all + render (source only, 149,792 rows to 32 roots)",
+            "",
+            "| Implementation | Mode | Process means | Mean (ms) | 95% CI (ms) | Allocated (bytes) |",
+            "|---|---:|---:|---:|---:|---:|"
+          )
+          foreach ($aggregate in ($aggregates | Sort-Object CollapseAllMeanMs)) {
+            $low = $aggregate.CollapseAllMeanMs - $aggregate.CollapseAllCi95MarginMs
+            $high = $aggregate.CollapseAllMeanMs + $aggregate.CollapseAllCi95MarginMs
+            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ProcessMeans) | $($aggregate.CollapseAllMeanMs.ToString('F2')) | $($low.ToString('F2'))-$($high.ToString('F2')) | $([Math]::Round($aggregate.CollapseAllAllocatedBytes).ToString('N0')) |"
           }
           $table | Add-Content $env:GITHUB_STEP_SUMMARY
           $aggregates | ConvertTo-Json | Set-Content "$results/aggregate.json"
@@ -115,6 +164,22 @@ jobs:
           }
           if ($bestPro.ExpandAllMeanMs -ge $tree.ExpandAllMeanMs) {
             throw "Best ProDataGrid mean ($($bestPro.ExpandAllMeanMs) ms) is not faster than TreeDataGrid ($($tree.ExpandAllMeanMs) ms)."
+          }
+          $proCollapse = @($aggregates | Where-Object Implementation -Like "ProDataGrid*")
+          $bestProCollapse = $proCollapse | Sort-Object CollapseAllMeanMs | Select-Object -First 1
+          if ($null -eq $bestProCollapse) {
+            throw "Missing ProDataGrid collapse aggregate."
+          }
+          if ($bestProCollapse.CollapseAllMeanMs -ge $tree.CollapseAllMeanMs) {
+            throw "Best ProDataGrid collapse mean ($($bestProCollapse.CollapseAllMeanMs) ms) is not faster than TreeDataGrid ($($tree.CollapseAllMeanMs) ms)."
+          }
+          if ($bestProCollapse.CollapseAllAllocatedBytes -ge $tree.CollapseAllAllocatedBytes) {
+            throw "Best ProDataGrid collapse allocation ($($bestProCollapse.CollapseAllAllocatedBytes) bytes) is not lower than TreeDataGrid ($($tree.CollapseAllAllocatedBytes) bytes)."
+          }
+          foreach ($pro in $proCollapse) {
+            if ($pro.CollapseAllAllocatedBytes -ge $tree.CollapseAllAllocatedBytes) {
+              throw "$($pro.Implementation) collapse allocation ($($pro.CollapseAllAllocatedBytes) bytes) is not lower than TreeDataGrid ($($tree.CollapseAllAllocatedBytes) bytes)."
+            }
           }
 
       - name: Upload raw benchmark results

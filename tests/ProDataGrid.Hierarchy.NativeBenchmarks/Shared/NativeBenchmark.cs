@@ -250,6 +250,9 @@ internal sealed class NativeBenchmarkRunner
         var expandAndRender = NativeBenchmarkOptions.FirstRenderOnly
             ? null
             : await MeasureExpandAndRenderAsync();
+        var collapseAndRender = NativeBenchmarkOptions.FirstRenderOnly
+            ? null
+            : await MeasureCollapseAndRenderAsync();
         var scrollAndRender = NativeBenchmarkOptions.FirstRenderOnly
             ? null
             : await MeasureScrollAndRenderAsync();
@@ -277,6 +280,7 @@ internal sealed class NativeBenchmarkRunner
             ScrollJumpsPerIteration = NativeBenchmarkOptions.ScrollJumps,
             FirstExpandedRender = firstRender,
             ExpandAllAndRender = expandAndRender,
+            CollapseAllAndRender = collapseAndRender,
             ScrollAndRender = scrollAndRender,
         };
     }
@@ -358,6 +362,54 @@ internal sealed class NativeBenchmarkRunner
         stopwatch.Stop();
         var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
         var validation = NativeGridAdapter.Validate(handle);
+        await DetachAsync();
+
+        return new NativeMeasurement(stopwatch.Elapsed.TotalMilliseconds, allocated, validation);
+    }
+
+    private async Task<NativeWorkloadResult> MeasureCollapseAndRenderAsync()
+    {
+        for (var i = 0; i < NativeBenchmarkOptions.WarmupIterations; ++i)
+            await CollapseAndRenderIterationAsync(measure: false);
+
+        var times = new List<double>();
+        var allocations = new List<double>();
+        NativeValidation? validation = null;
+
+        for (var i = 0; i < NativeBenchmarkOptions.Iterations; ++i)
+        {
+            var measurement = await CollapseAndRenderIterationAsync(measure: true);
+            times.Add(measurement.ElapsedMilliseconds);
+            allocations.Add(measurement.AllocatedBytes);
+            validation = measurement.Validation;
+        }
+
+        return NativeWorkloadResult.Create("CollapseAllAndRender", times, allocations, validation!);
+    }
+
+    private async Task<NativeMeasurement> CollapseAndRenderIterationAsync(bool measure)
+    {
+        const TreeShape shape = TreeShape.OptimizedSample149792Depth5;
+        using var handle = NativeGridAdapter.Create(
+            expanded: true,
+            shape: shape,
+            retainCollapsedChildren: true);
+        _host.Content = handle.Grid;
+        _host.UpdateLayout();
+        await WaitForRenderedFrameAsync(_host);
+        NativeGridAdapter.Validate(handle, TreeDataFactory.ExpectedCount(shape));
+
+        if (measure)
+            CollectForMeasurement();
+
+        var allocatedBefore = measure ? GC.GetTotalAllocatedBytes(precise: false) : 0;
+        var stopwatch = Stopwatch.StartNew();
+        handle.CollapseAll();
+        _host.UpdateLayout();
+        await WaitForRenderedFrameAsync(_host);
+        stopwatch.Stop();
+        var allocated = measure ? GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore : 0;
+        var validation = NativeGridAdapter.Validate(handle, expectedCount: 32);
         await DetachAsync();
 
         return new NativeMeasurement(stopwatch.Elapsed.TotalMilliseconds, allocated, validation);
@@ -464,9 +516,12 @@ internal static class NativeGridAdapter
         return window;
     }
 
-    public static NativeGridHandle Create(bool expanded)
+    public static NativeGridHandle Create(
+        bool expanded,
+        TreeShape shape = TreeShape.Deep4094Depth11,
+        bool retainCollapsedChildren = false)
     {
-        var roots = TreeDataFactory.Create(TreeShape.Deep4094Depth11);
+        var roots = TreeDataFactory.Create(shape);
 #if PRO
 #if PRODATAGRID_PR335
         var optimized = NativeBenchmarkOptions.ProMode != "standard";
@@ -478,7 +533,7 @@ internal static class NativeGridAdapter
         {
             ChildrenSelector = node => node.Children,
             IsLeafSelector = node => node.Children.Count == 0,
-            VirtualizeChildren = true,
+            VirtualizeChildren = !retainCollapsedChildren,
         };
         var model = new HierarchicalModel<Node>(options);
         model.SetRoots(roots);
@@ -526,7 +581,7 @@ internal static class NativeGridAdapter
         {
             ChildrenSelector = node => node.Children,
             IsLeafSelector = node => node.Children.Count == 0,
-            VirtualizeChildren = true,
+            VirtualizeChildren = !retainCollapsedChildren,
         };
         var model = new HierarchicalModel<Node>(options);
         model.SetRoots(roots);
@@ -691,10 +746,10 @@ internal static class NativeGridAdapter
     }
 #endif
 
-    public static NativeValidation Validate(NativeGridHandle handle)
+    public static NativeValidation Validate(NativeGridHandle handle, int expectedCount = 4_094)
     {
-        if (handle.Count != 4_094)
-            throw new InvalidOperationException($"Expected 4,094 expanded rows, got {handle.Count:N0}.");
+        if (handle.Count != expectedCount)
+            throw new InvalidOperationException($"Expected {expectedCount:N0} rows, got {handle.Count:N0}.");
 
 #if PRO
         var realizedRows = handle.Grid.GetVisualDescendants().OfType<DataGridRow>().Count();
@@ -708,6 +763,7 @@ internal static class NativeGridAdapter
 
         var viewer = GetScrollViewer(handle);
         return new NativeValidation(
+            handle.Count,
             realizedRows,
             realizedCells,
             viewer.Extent.Width,
@@ -748,6 +804,8 @@ internal sealed class NativeGridHandle : IDisposable
 
     public void ExpandAll() => Model.ExpandAll();
 
+    public void CollapseAll() => Model.CollapseAll();
+
     public void Dispose()
     {
     }
@@ -769,6 +827,8 @@ internal sealed class NativeGridHandle : IDisposable
 
     public void ExpandAll() => Source.ExpandAll();
 
+    public void CollapseAll() => Source.CollapseAll();
+
     public void Dispose() => Source.Dispose();
 }
 #endif
@@ -779,6 +839,7 @@ internal sealed record NativeMeasurement(
     NativeValidation Validation);
 
 internal sealed record NativeValidation(
+    int RowCount,
     int RealizedRows,
     int RealizedCells,
     double ExtentWidth,
@@ -868,6 +929,8 @@ internal sealed class NativeBenchmarkResult
     public required NativeWorkloadResult FirstExpandedRender { get; init; }
 
     public NativeWorkloadResult? ExpandAllAndRender { get; init; }
+
+    public NativeWorkloadResult? CollapseAllAndRender { get; init; }
 
     public NativeWorkloadResult? ScrollAndRender { get; init; }
 }

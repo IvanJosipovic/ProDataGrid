@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for details.
 
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.Specialized;
@@ -2098,6 +2099,28 @@ namespace Avalonia.Controls.DataGridHierarchical
             return true;
         }
 
+        private static bool ReferenceSequenceEqual(
+            IList<HierarchicalNode> oldNodes,
+            int oldStartIndex,
+            int oldCount,
+            IList<HierarchicalNode> newNodes)
+        {
+            if (oldCount != newNodes.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < oldCount; i++)
+            {
+                if (!ReferenceEquals(oldNodes[oldStartIndex + i], newNodes[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         public void CollapseAll(HierarchicalNode? node = null, int? minDepth = null)
         {
             using var activity = Avalonia.Controls.DataGridDiagnostics.HierarchicalCollapseAll();
@@ -2113,47 +2136,74 @@ namespace Avalonia.Controls.DataGridHierarchical
             {
                 targetDepth++;
             }
-            List<HierarchicalNode>? collapsedNodes = null;
+            HierarchicalNode[]? collapsedNodes = null;
+            var collapsedCount = 0;
             var stack = new Stack<(HierarchicalNode Node, int Depth, bool Visited)>();
             stack.Push((start, 0, false));
 
-            while (stack.Count > 0)
+            try
             {
-                var (current, depth, visited) = stack.Pop();
-
-                if (!visited)
+                while (stack.Count > 0)
                 {
-                    if (current.IsExpanded || (hasVirtualRoot && ReferenceEquals(current, Root)))
+                    var (current, depth, visited) = stack.Pop();
+
+                    if (!visited)
                     {
-                        EnsureChildrenMaterialized(current);
-                        var children = current.Children;
-                        for (int i = children.Count - 1; i >= 0; i--)
+                        if (current.IsExpanded || (hasVirtualRoot && ReferenceEquals(current, Root)))
                         {
-                            stack.Push((children[i], depth + 1, false));
+                            EnsureChildrenMaterialized(current);
+                            var children = current.Children;
+                            for (int i = children.Count - 1; i >= 0; i--)
+                            {
+                                stack.Push((children[i], depth + 1, false));
+                            }
                         }
+
+                        stack.Push((current, depth, true));
+                        continue;
                     }
 
-                    stack.Push((current, depth, true));
-                    continue;
+                    if (depth < targetDepth || !current.IsExpanded || current.IsLeaf)
+                    {
+                        continue;
+                    }
+
+                    if (collapsedNodes == null)
+                    {
+                        collapsedNodes = ArrayPool<HierarchicalNode>.Shared.Rent(256);
+                    }
+                    else if (collapsedCount == collapsedNodes.Length)
+                    {
+                        var expandedBuffer = ArrayPool<HierarchicalNode>.Shared.Rent(
+                            checked(collapsedNodes.Length * 2));
+                        Array.Copy(collapsedNodes, expandedBuffer, collapsedCount);
+                        ArrayPool<HierarchicalNode>.Shared.Return(collapsedNodes, clearArray: true);
+                        collapsedNodes = expandedBuffer;
+                    }
+
+                    collapsedNodes[collapsedCount++] = current;
                 }
 
-                if (depth >= targetDepth && current.IsExpanded && !current.IsLeaf)
+                if (collapsedNodes == null)
                 {
-                    (collapsedNodes ??= new List<HierarchicalNode>()).Add(current);
+                    return;
+                }
+
+                CommitBulkCollapse(start, collapsedNodes, collapsedCount);
+            }
+            finally
+            {
+                if (collapsedNodes != null)
+                {
+                    ArrayPool<HierarchicalNode>.Shared.Return(collapsedNodes, clearArray: true);
                 }
             }
-
-            if (collapsedNodes == null)
-            {
-                return;
-            }
-
-            CommitBulkCollapse(start, collapsedNodes);
         }
 
         private void CommitBulkCollapse(
             HierarchicalNode start,
-            List<HierarchicalNode> collapsedNodes)
+            HierarchicalNode[] collapsedNodes,
+            int collapsedCount)
         {
             var isVirtualRoot = IsVirtualRootNode(start);
             var startIndex = isVirtualRoot ? -1 : GetFlattenedIndex(start);
@@ -2162,12 +2212,9 @@ namespace Avalonia.Controls.DataGridHierarchical
             var oldVisibleCount = isVisible
                 ? CountVisibleDescendantsInFlattened(start, startIndex)
                 : 0;
-            IList<HierarchicalNode>? oldVisibleNodes = oldVisibleCount > 0
-                ? _flattened.GetRange(rangeStart, oldVisibleCount)
-                : null;
             var oldExpandedCount = start.ExpandedCount;
 
-            for (int i = 0; i < collapsedNodes.Count; i++)
+            for (int i = 0; i < collapsedCount; i++)
             {
                 var collapsedNode = collapsedNodes[i];
                 CancelPendingLoad(collapsedNode);
@@ -2194,20 +2241,43 @@ namespace Avalonia.Controls.DataGridHierarchical
                 ApplyExpandedCountDelta(start.Parent, expandedCountDelta);
             }
 
-            var flattenedChanged = isVisible &&
-                !ReferenceSequenceEqual(oldVisibleNodes, visibleNodes);
+            var flattenedChanged = isVisible && !ReferenceSequenceEqual(
+                _flattened,
+                rangeStart,
+                oldVisibleCount,
+                visibleNodes);
             if (flattenedChanged)
             {
+                IReadOnlyDictionary<int, int>? indexMap = null;
+                if (oldVisibleCount > 0 && visibleNodes.Count > 0)
+                {
+                    indexMap = TryBuildOrderedRetainedIdentityMap(
+                        _flattened,
+                        oldCollectionStart: rangeStart,
+                        oldCount: oldVisibleCount,
+                        oldMapStartIndex: rangeStart,
+                        visibleNodes,
+                        newStartIndex: rangeStart);
+                    if (indexMap == null)
+                    {
+                        // Collapse normally retains an ordered subsequence, but preserve the
+                        // general item-equality mapping contract for custom or unusual models.
+                        var oldVisibleNodes = _flattened.GetRange(rangeStart, oldVisibleCount);
+                        indexMap = BuildIndexMap(
+                            oldVisibleNodes,
+                            rangeStart,
+                            visibleNodes,
+                            rangeStart);
+                    }
+                }
+
                 _flattened.ReplaceRange(rangeStart, oldVisibleCount, visibleNodes);
-                var indexMap = oldVisibleNodes != null && visibleNodes.Count > 0
-                    ? BuildIndexMap(oldVisibleNodes, rangeStart, visibleNodes, rangeStart)
-                    : null;
                 OnFlattenedChanged(
                     new[] { new FlattenedChange(rangeStart, oldVisibleCount, visibleNodes.Count) },
                     indexMap);
             }
 
-            for (int i = 0; i < collapsedNodes.Count; i++)
+            for (int i = 0; i < collapsedCount; i++)
             {
                 var collapsedNode = collapsedNodes[i];
                 if (collapsedNode.HasPropertyChangedObservers)
@@ -2226,8 +2296,13 @@ namespace Avalonia.Controls.DataGridHierarchical
             // Only the outermost collapsed nodes need culling; each cull owns its complete
             // descendant subtree. Retaining every collapsed descendant would repeat the same
             // traversal and dominate large collapse operations.
-            var collapsedSet = new HashSet<HierarchicalNode>(collapsedNodes);
-            for (int i = 0; i < collapsedNodes.Count; i++)
+            var collapsedSet = new HashSet<HierarchicalNode>(collapsedCount);
+            for (int i = 0; i < collapsedCount; i++)
+            {
+                collapsedSet.Add(collapsedNodes[i]);
+            }
+
+            for (int i = 0; i < collapsedCount; i++)
             {
                 var collapsedNode = collapsedNodes[i];
                 if (collapsedNode.Parent != null && collapsedSet.Contains(collapsedNode.Parent))
@@ -4332,16 +4407,33 @@ namespace Avalonia.Controls.DataGridHierarchical
             IList<HierarchicalNode> newNodes,
             int newStartIndex)
         {
+            return TryBuildOrderedRetainedIdentityMap(
+                oldNodes,
+                oldCollectionStart: 0,
+                oldCount: oldNodes.Count,
+                oldMapStartIndex: oldStartIndex,
+                newNodes,
+                newStartIndex);
+        }
+
+        private static IReadOnlyDictionary<int, int>? TryBuildOrderedRetainedIdentityMap(
+            IList<HierarchicalNode> oldNodes,
+            int oldCollectionStart,
+            int oldCount,
+            int oldMapStartIndex,
+            IList<HierarchicalNode> newNodes,
+            int newStartIndex)
+        {
             var map = new Dictionary<int, int>(newNodes.Count);
             var newIndex = 0;
-            for (int oldIndex = 0; oldIndex < oldNodes.Count; oldIndex++)
+            for (int oldIndex = 0; oldIndex < oldCount; oldIndex++)
             {
-                if (!ReferenceEquals(oldNodes[oldIndex], newNodes[newIndex]))
+                if (!ReferenceEquals(oldNodes[oldCollectionStart + oldIndex], newNodes[newIndex]))
                 {
                     continue;
                 }
 
-                map.Add(oldStartIndex + oldIndex, newStartIndex + newIndex);
+                map.Add(oldMapStartIndex + oldIndex, newStartIndex + newIndex);
                 newIndex++;
                 if (newIndex == newNodes.Count)
                 {
