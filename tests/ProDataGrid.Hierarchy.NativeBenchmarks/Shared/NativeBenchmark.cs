@@ -592,7 +592,7 @@ internal sealed class NativeBenchmarkRunner
         CollectForMeasurement();
         // Full collection duration depends on each implementation's retained graph and can
         // otherwise shift the timed operation to opposite sides of a Windows vsync boundary.
-        // Start every sample immediately after the same two-frame completion barrier.
+        // Start every sample after the same configurable animation-pulse quiescence barrier.
         await WaitForAnimationCallbacksAsync(topLevel, NativeBenchmarkOptions.AlignmentCallbacks);
     }
 
