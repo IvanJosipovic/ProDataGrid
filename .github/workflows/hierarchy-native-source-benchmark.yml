@@ -26,7 +26,8 @@ jobs:
       - name: Checkout open-source TreeDataGrid
         uses: actions/checkout@v4
         with:
-          repository: wieslawsoltes/Avalonia.Controls.TreeDataGrid
+          repository: wieslawsoltes/TreeDataGrid
+          ref: 7628bd18b49800fbe1301640349bd52398437420
           path: tree-datagrid
 
       - name: Setup .NET
