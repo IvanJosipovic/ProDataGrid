@@ -58,6 +58,27 @@ internal static partial class DataGridDiagnostics
         public const string RowGenerateTimeName = "prodatagrid.rows.generate.time";
         public const string RowGenerateTimeDescription = "Duration of row generation and preparation.";
 
+        public const string RowGenerateAcquireTimeName = "prodatagrid.rows.generate.acquire.time";
+        public const string RowGenerateAcquireTimeDescription = "Duration of locating, recycling, or creating a row container.";
+
+        public const string RowGenerateBindTimeName = "prodatagrid.rows.generate.bind.time";
+        public const string RowGenerateBindTimeDescription = "Duration of assigning a row container to its item and display slot.";
+
+        public const string RowGeneratePrepareTimeName = "prodatagrid.rows.generate.prepare.time";
+        public const string RowGeneratePrepareTimeDescription = "Duration of preparing row cells, state, and lifecycle notifications.";
+
+        public const string RowRecycleTimeName = "prodatagrid.rows.recycle.time";
+        public const string RowRecycleTimeDescription = "Duration of cleaning, detaching, hiding, and pooling a row container.";
+
+        public const string RowRecycleCleanupTimeName = "prodatagrid.rows.recycle.cleanup.time";
+        public const string RowRecycleCleanupTimeDescription = "Duration of row cleanup notifications and state reset before recycling.";
+
+        public const string RowRecycleDetachTimeName = "prodatagrid.rows.recycle.detach.time";
+        public const string RowRecycleDetachTimeDescription = "Duration of detaching and hiding a recycled row container.";
+
+        public const string RowRecyclePoolTimeName = "prodatagrid.rows.recycle.pool.time";
+        public const string RowRecyclePoolTimeDescription = "Duration of selecting and updating the row recycle pool.";
+
         public const string RowsDisplayElementInsertTimeName = "prodatagrid.rows.display.element.insert.time";
         public const string RowsDisplayElementInsertTimeDescription = "Duration of inserting one element into the displayed-row window.";
 
@@ -102,6 +123,9 @@ internal static partial class DataGridDiagnostics
 
         public const string RowsRecycledCountName = "prodatagrid.rows.recycled.count";
         public const string RowsRecycledCountDescription = "Number of row containers recycled by the DataGrid.";
+
+        public const string RowsRetargetedCountName = "prodatagrid.rows.retargeted.count";
+        public const string RowsRetargetedCountDescription = "Number of default virtual-surface rows rebound in place without pool recycling.";
 
         public const string RowsPreparedCountName = "prodatagrid.rows.prepared.count";
         public const string RowsPreparedCountDescription = "Number of row containers prepared by the DataGrid.";
@@ -196,5 +220,6 @@ internal static partial class DataGridDiagnostics
         public const string New = "new";
         public const string Recycled = "recycled";
         public const string OwnContainer = "own-container";
+        public const string Retargeted = "retargeted";
     }
 }

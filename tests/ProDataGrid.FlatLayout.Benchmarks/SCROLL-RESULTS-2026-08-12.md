@@ -138,6 +138,45 @@ In its matched campaign that row-recycling change reduced synchronous scroll
 work by 9.6%, explicit layout by 11.3%, measured active work by 8.2%, UI render
 recording by 12.6%, and allocation by 8.2%. The cache change is additive.
 
+### In-place virtual row retargeting
+
+Component diagnostics then split every discontinuous 20-row jump into row acquire,
+bind, prepare, cleanup, detach, pool, and insertion phases. The trace showed that
+the fixed-height surface still performed 20 complete recycle/generate cycles even
+though the same 20 zero-cell row controls were needed after the jump.
+
+The new guarded path retargets that displayed window in place. It is limited to
+exact built-in grids/rows with the default realization factory, no row headers,
+row numbers, details template, lifecycle handlers, focused/editor rows, or group
+slots. Any failed guard uses the full existing lifecycle pipeline. Focused tests
+verify both the handler-free retarget and routed `LoadingRow`/`UnloadingRow`
+fallback, including selection, validation, item, and zero-cell state.
+
+The clean comparison used three interleaved process pairs, three warmups and ten
+measured iterations of 32 jumps: 960 jumps per variant. Baseline was clean commit
+`76bb13df`; the candidate included the retarget path. Avalonia diagnostics were
+enabled for active-work attribution, while ProDataGrid's finer component listener
+was confined to a separate diagnostic run.
+
+| Metric | Recycle/generate baseline | In-place retarget | Change |
+|---|---:|---:|---:|
+| Explicit layout | 0.317 ms | **0.193 ms** | **−39.0%** |
+| Mutation | 0.096 ms | **0.096 ms** | −0.02% |
+| UI render recording | 0.470 ms | **0.469 ms** | −0.2% |
+| Compositor update | **0.018 ms** | 0.021 ms | +16.5% |
+| Compositor render | **0.453 ms** | 0.464 ms | +2.4% |
+| Measured active work | 1.353 ms | **1.242 ms** | **−8.2%** |
+| Managed allocation | 95.6 KB | **84.9 KB** | **−11.2%** |
+| End-to-end wall time | 7.369 ms | **7.331 ms** | −0.5% |
+| Full frame wait | **6.957 ms** | 7.042 ms | +1.2% |
+
+The component run reports 20 `prodatagrid.rows.retargeted.count` events per jump
+and no row generation or recycle-phase duration. Wall time is unchanged because
+the roughly 7 ms two-callback frame wait remains refresh pacing; the repeatable
+signal is the 39% layout reduction and lower active work/allocation. Raw results
+are under `artifacts/performance/virtual-row-path-2026-08-12`, with the clean six
+processes named `fresh-{baseline,final}-{a,b,c}.json` in `paired-clean/`.
+
 ## Why full frame wait does not fall with active work
 
 The Windows CI artifact for `077156c4` reports only about 0.006–0.009 ms from

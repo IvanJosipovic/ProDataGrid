@@ -199,12 +199,15 @@ internal
             // is empty. Keep the old item assigned until the recycled row receives its next item,
             // avoiding an otherwise redundant item -> null -> item binding transition. Derived grids
             // and custom containers retain the complete virtual cleanup contract below.
-            if (UsesVirtualCellSurface &&
-                UsesDefaultRealizationFactory &&
-                GetType() == typeof(DataGrid) &&
+            if (UsesDefaultVirtualRowPipeline &&
                 row.GetType() == typeof(DataGridRow))
             {
-                ClearContainerState(row, clearDataContext: false);
+                // A LoadingRow observer must see freshly prepared row state. Handler-free
+                // surface rows can defer these assignments until LoadRowVisualsForDisplay.
+                if (HasLoadingRowHandlers())
+                {
+                    ClearContainerState(row, clearDataContext: false);
+                }
                 return;
             }
 
@@ -223,6 +226,21 @@ internal
         {
             DataGridDiagnostics.RecordRowPrepared();
             PrepareContainerForItemOverride(row, item);
+        }
+
+        private void PrepareDefaultVirtualSurfaceRow(DataGridRow row, object item)
+        {
+            DataGridDiagnostics.RecordRowPrepared();
+
+            // Default surface rows have no cell containers. Recycling retains their previous
+            // item until this bind, so only reset row-level validation here; selection and other
+            // visual state are overwritten by LoadRowVisualsForDisplay before the row is shown.
+            row.IsValid = true;
+            row.ValidationSeverity = DataGridValidationSeverity.None;
+            if (item is INotifyDataErrorInfo)
+            {
+                RestoreRowValidationState(row, item);
+            }
         }
 
         private void NotifyPreparedRowCells(DataGridRow row)

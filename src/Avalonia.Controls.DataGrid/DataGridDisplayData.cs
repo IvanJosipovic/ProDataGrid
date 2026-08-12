@@ -60,6 +60,8 @@ namespace Avalonia.Controls
 
         internal double PendingVerticalScrollHeight { get; set; }
 
+        internal long RetargetedRowCount { get; private set; }
+
         #endregion
 
         #region Row Recycling
@@ -67,30 +69,42 @@ namespace Avalonia.Controls
         internal void RecycleRow(DataGridRow row)
         {
             Debug.Assert(row != null);
-            row.RecycledDataContext = row.DataContext;
-            row.RecycledIsPlaceholder = row.IsPlaceholder;
-            _owner.NotifyRowRecycling(row);
-            row.DetachFromDataGrid(true);
-            HideElement(row);
-            if (_owner.UsesDefaultRealizationFactory)
+            using var recycleTimer = DataGridDiagnostics.BeginRowRecycle();
+            using (DataGridDiagnostics.BeginRowRecycleCleanup())
             {
-                PushToRecyclePool(_recycledRows, row);
-                return;
+                row.RecycledDataContext = row.DataContext;
+                row.RecycledIsPlaceholder = row.IsPlaceholder;
+                _owner.NotifyRowRecycling(row);
             }
 
-            object? key = _owner.GetRowRecyclingKey(row);
-            if (key is null)
+            using (DataGridDiagnostics.BeginRowRecycleDetach())
             {
-                _owner.DiscardUnkeyedRecycledRow(row);
-                return;
+                row.DetachFromDataGrid(true);
+                HideElement(row);
             }
 
-            if (!_keyedRecycledRows.TryGetValue(key, out Stack<DataGridRow>? pool))
+            using (DataGridDiagnostics.BeginRowRecyclePool())
             {
-                pool = new Stack<DataGridRow>();
-                _keyedRecycledRows.Add(key, pool);
+                if (_owner.UsesDefaultRealizationFactory)
+                {
+                    PushToRecyclePool(_recycledRows, row);
+                    return;
+                }
+
+                object? key = _owner.GetRowRecyclingKey(row);
+                if (key is null)
+                {
+                    _owner.DiscardUnkeyedRecycledRow(row);
+                    return;
+                }
+
+                if (!_keyedRecycledRows.TryGetValue(key, out Stack<DataGridRow>? pool))
+                {
+                    pool = new Stack<DataGridRow>();
+                    _keyedRecycledRows.Add(key, pool);
+                }
+                PushToRecyclePool(pool, row);
             }
-            PushToRecyclePool(pool, row);
         }
 
         internal DataGridRow? GetRecycledRow(object dataContext, int rowIndex, int slot)
@@ -322,6 +336,46 @@ namespace Avalonia.Controls
         internal IEnumerable<Control> GetScrollingRows()
         {
             return GetScrollingElements(element => element is DataGridRow);
+        }
+
+        internal bool TryRetargetDefaultVirtualRows(int firstSlot, int lastSlot, int rowCount)
+        {
+            if (rowCount <= 0 || rowCount != _scrollingElements.Count)
+            {
+                return false;
+            }
+
+            int slot = firstSlot;
+            for (int index = 0; index < rowCount; index++)
+            {
+                if (GetLogicalScrollingElement(index) is not DataGridRow row)
+                {
+                    return false;
+                }
+
+                // A row leaving the displayed range cannot remain pointer-over. The ordinary
+                // recycle pipeline clears this before checking recyclability as well.
+                row.ClearPointerOverState();
+                if (!_owner.CanRetargetDefaultVirtualRow(row, slot))
+                {
+                    return false;
+                }
+
+                slot = _owner.GetNextVisibleSlot(slot);
+            }
+
+            slot = firstSlot;
+            for (int index = 0; index < rowCount; index++)
+            {
+                var row = (DataGridRow)GetLogicalScrollingElement(index);
+                _owner.RetargetDefaultVirtualRow(row, slot);
+                slot = _owner.GetNextVisibleSlot(slot);
+            }
+
+            FirstScrollingSlot = firstSlot;
+            LastScrollingSlot = lastSlot;
+            RetargetedRowCount += rowCount;
+            return true;
         }
 
         #endregion

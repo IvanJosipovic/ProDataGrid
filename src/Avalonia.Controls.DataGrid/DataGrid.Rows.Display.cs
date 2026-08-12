@@ -56,6 +56,30 @@ namespace Avalonia.Controls
 
             if (!CanRetainDisplayedRowsForScrollTarget(firstDisplayedScrollingSlot))
             {
+                if (TryRetargetDefaultVirtualRows(
+                    firstDisplayedScrollingSlot,
+                    displayHeight,
+                    out int retargetedLastSlot,
+                    out int retargetedRows,
+                    out double retargetedHeight))
+                {
+                    bool clipsLastRow =
+                        MathUtilities.GreaterThan(retargetedHeight, displayHeight) ||
+                        (MathUtilities.AreClose(retargetedHeight, displayHeight) &&
+                         MathUtilities.GreaterThan(NegVerticalOffset, 0));
+                    DisplayData.NumTotallyDisplayedScrollingElements =
+                        clipsLastRow ? retargetedRows - 1 : retargetedRows;
+                    AvailableSlotElementRoom = displayHeight - retargetedHeight;
+                    _rowsPresenter.InvalidateArrange();
+                    _rowsPresenter.InvalidateVirtualCellSurface();
+                    RequestPointerOverRefresh();
+
+                    activity?.SetTag(DataGridDiagnostics.Tags.FirstDisplayedSlot, firstDisplayedScrollingSlot);
+                    activity?.SetTag(DataGridDiagnostics.Tags.LastDisplayedSlot, retargetedLastSlot);
+                    activity?.SetTag(DataGridDiagnostics.Tags.DisplayedSlots, retargetedRows);
+                    return;
+                }
+
                 ResetDisplayedRows();
             }
 
@@ -113,6 +137,47 @@ namespace Avalonia.Controls
             activity?.SetTag(DataGridDiagnostics.Tags.FirstDisplayedSlot, DisplayData.FirstScrollingSlot);
             activity?.SetTag(DataGridDiagnostics.Tags.LastDisplayedSlot, DisplayData.LastScrollingSlot);
             activity?.SetTag(DataGridDiagnostics.Tags.DisplayedSlots, DisplayData.NumDisplayedScrollingElements);
+        }
+
+        private bool TryRetargetDefaultVirtualRows(
+            int firstSlot,
+            double displayHeight,
+            out int lastSlot,
+            out int rowCount,
+            out double realizedHeight)
+        {
+            lastSlot = -1;
+            rowCount = 0;
+            realizedHeight = -NegVerticalOffset;
+
+            if (!CanRetargetDefaultVirtualRowsNow() ||
+                DisplayData.NumDisplayedScrollingElements == 0)
+            {
+                return false;
+            }
+
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(this, RowHeight);
+            if (!double.IsFinite(rowHeight) || !MathUtilities.GreaterThan(rowHeight, 0))
+            {
+                return false;
+            }
+
+            int slot = firstSlot;
+            while (slot >= 0 && slot < SlotCount &&
+                   !MathUtilities.GreaterThanOrClose(realizedHeight, displayHeight))
+            {
+                if (IsGroupSlot(slot))
+                {
+                    return false;
+                }
+
+                realizedHeight += rowHeight;
+                rowCount++;
+                lastSlot = slot;
+                slot = GetNextVisibleSlot(slot);
+            }
+
+            return DisplayData.TryRetargetDefaultVirtualRows(firstSlot, lastSlot, rowCount);
         }
 
         private int NormalizeDisplayedFirstSlot(int slot)
@@ -233,7 +298,7 @@ namespace Avalonia.Controls
 
         private void ResetDisplayedRows(DataGridRecycleReuseOrder reuseOrder = DataGridRecycleReuseOrder.TopDown)
         {
-            if (UnloadingRowEvent.HasRaisedSubscriptions ||
+            if (HasUnloadingRowHandlers() ||
                 UnloadingRowGroupEvent.HasRaisedSubscriptions ||
                 HasCellClearingHandlers)
             {
@@ -305,6 +370,8 @@ namespace Avalonia.Controls
 
         private void LoadRowVisualsForDisplay(DataGridRow row)
         {
+            bool usesVirtualCellSurface = UsesVirtualCellSurface;
+
             // Restore visibility for rows that were hidden during recycling
             row.ClearValue(Visual.IsVisibleProperty);
             row.ClearValue(Visual.ClipProperty);
@@ -326,10 +393,10 @@ namespace Avalonia.Controls
             row.EnsureHeaderStyleAndVisibility(null);
 
             // Check to see if the row contains the CurrentCell, apply its state.
-            if (!UsesVirtualCellSurface &&
-            CurrentColumnIndex != -1 &&
-            CurrentSlot != -1 &&
-            row.Index == CurrentSlot)
+            if (!usesVirtualCellSurface &&
+                CurrentColumnIndex != -1 &&
+                CurrentSlot != -1 &&
+                row.Index == CurrentSlot)
             {
                 row.Cells[CurrentColumnIndex].UpdatePseudoClasses();
             }

@@ -154,6 +154,34 @@ Column layout records contain the resolved column, its presenter-relative left
 edge, and horizontal visibility. Frozen-left, scrolling, and frozen-right regions
 are resolved once rather than once per row.
 
+### Discontinuous fixed-height scrolling
+
+Large logical jumps normally unload the old displayed window, clean and pool every
+row, then generate and attach a new window. The default virtual surface can avoid
+that round trip because its retained `DataGridRow` instances are semantic containers
+with zero display cells and fixed item-independent height.
+
+`ScrollSlotsByHeight` therefore defers the discontinuous-window reset until
+`UpdateDisplayedRows`. The presenter retargets the existing row controls in place
+when all of these guards hold:
+
+- the grid and row containers are the exact built-in types with the default
+  realization factory;
+- the virtual surface is active, row headers and row numbers are absent, and no
+  row-details template is configured;
+- the target range contains ordinary rows only and exactly matches the realized
+  window size;
+- no row is editing, focused, or otherwise non-recyclable; and
+- the actual routed `LoadingRow` and `UnloadingRow` event routes have no handlers.
+
+Each eligible row receives its new index, slot, item, placeholder and validation
+state without detach, hide, recycle-pool mutation, generation, or visual-tree
+reattachment. Selection and current-row pseudo-classes are reapplied before the
+presenter arranges the unchanged control set. Diagnostics report these rows as
+`prodatagrid.rows.retargeted.count`, separate from physical recycling. Any failed
+guard falls back to the complete lifecycle pipeline, preserving derived-grid,
+custom-factory, own-container, row-details, validation, and routed-event behavior.
+
 ### 4. Surface rendering
 
 `DataGridVirtualCellSurface` is deliberately stateless. Its `Render` method calls

@@ -204,6 +204,93 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Retargets_Handler_Free_Default_Rows_In_Place()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            long retargetedBeforeJump = grid.DisplayData.RetargetedRowCount;
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 400 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.True(grid.DisplayData.RetargetedRowCount > retargetedBeforeJump);
+            Assert.Contains(presenter.Children.OfType<DataGridRow>(), row => row.Index >= 400);
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Layout_Recycled_Rows_Restore_State_And_Raise_Lifecycle_Events()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+        int loadingRows = 0;
+        int unloadingRows = 0;
+        grid.LoadingRow += (_, args) =>
+        {
+            loadingRows++;
+            Assert.Same(args.Row.DataContext, grid.ItemsSource!.Cast<Item>().ElementAt(args.Row.Index));
+            Assert.False(args.Row.IsSelected);
+            Assert.True(args.Row.IsValid);
+            Assert.Equal(DataGridValidationSeverity.None, args.Row.ValidationSeverity);
+        };
+        grid.UnloadingRow += (_, _) => unloadingRows++;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            DataGridRow recycledRow = presenter.Children.OfType<DataGridRow>().First();
+            recycledRow.IsSelected = true;
+            recycledRow.IsValid = false;
+            recycledRow.ValidationSeverity = DataGridValidationSeverity.Error;
+            int loadingRowsBeforeJump = loadingRows;
+            long retargetedBeforeJump = grid.DisplayData.RetargetedRowCount;
+
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 400 * rowHeight);
+            PumpLayout(grid);
+
+            DataGridRow[] jumpedRows = presenter.Children.OfType<DataGridRow>().ToArray();
+            Assert.True(loadingRows > loadingRowsBeforeJump);
+            Assert.True(unloadingRows > 0);
+            Assert.Equal(retargetedBeforeJump, grid.DisplayData.RetargetedRowCount);
+            Assert.Contains(recycledRow, jumpedRows);
+            Assert.All(jumpedRows, row =>
+            {
+                Assert.False(row.IsSelected);
+                Assert.True(row.IsValid);
+                Assert.Equal(DataGridValidationSeverity.None, row.ValidationSeverity);
+                Assert.False(row.IsPlaceholder);
+                Assert.Equal(0, row.Cells.Count);
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Falls_Back_To_Flat_Retained_For_Unsupported_Interactive_Columns()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);

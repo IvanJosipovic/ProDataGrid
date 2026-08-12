@@ -215,6 +215,11 @@ dotnet \
 ```
 
 Add `--avalonia-diagnostics` only for the separate active-work attribution run.
+Add `--prodatagrid-diagnostics` to a ProDataGrid-only attribution run when the
+virtual layout pipeline needs finer ownership: the JSON records per-jump means and
+raw samples for scrolling, displayed-row update, generation phases, recycling
+phases, element insertion, and row realization/recycling/retargeting counts. Both
+diagnostic switches add measurement overhead and remain outside the clean A/B gate.
 Use `virtual-checkbox` to exercise the mixed text/hierarchy/checkbox surface lane.
 `GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` exists only for controlled baseline
 experiments and must not be set when validating the candidate surface.

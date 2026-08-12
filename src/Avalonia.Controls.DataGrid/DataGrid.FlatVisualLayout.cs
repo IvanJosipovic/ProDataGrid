@@ -3,6 +3,9 @@
 
 #nullable enable
 
+using Avalonia.Collections;
+using Avalonia.Utilities;
+
 namespace Avalonia.Controls;
 
 #if !DATAGRID_INTERNAL
@@ -21,6 +24,76 @@ partial class DataGrid
 
     internal bool UsesVirtualCellSurfaceFallback =>
         VisualLayoutMode == DataGridVisualLayoutMode.Virtualized && !UsesVirtualCellSurface;
+
+    internal bool UsesDefaultVirtualRowPipeline =>
+        UsesVirtualCellSurface &&
+        UsesDefaultRealizationFactory &&
+        GetType() == typeof(DataGrid);
+
+    private bool CanRetargetDefaultVirtualRowsNow()
+    {
+        if (!UsesDefaultVirtualRowPipeline ||
+            AreRowHeadersVisible ||
+            ShowRowNumbers ||
+            RowDetailsTemplate is not null)
+        {
+            return false;
+        }
+
+        if (HasLoadingRowHandlers())
+        {
+            return false;
+        }
+
+        using var unloadingRoute = BuildEventRoute(UnloadingRowEvent);
+        return !unloadingRoute.HasHandlers;
+    }
+
+    private bool HasLoadingRowHandlers()
+    {
+        using var route = BuildEventRoute(LoadingRowEvent);
+        return route.HasHandlers;
+    }
+
+    private bool HasUnloadingRowHandlers()
+    {
+        using var route = BuildEventRoute(UnloadingRowEvent);
+        return route.HasHandlers;
+    }
+
+    internal bool CanRetargetDefaultVirtualRow(DataGridRow row, int slot)
+    {
+        if (row.GetType() != typeof(DataGridRow) ||
+            !IsRowRecyclable(row) ||
+            row.IsKeyboardFocusWithin ||
+            IsGroupSlot(slot) ||
+            !MathUtilities.AreClose(
+                row.DesiredSize.Height,
+                DataGridRow.GetFlatDesiredHeight(this, RowHeight)))
+        {
+            return false;
+        }
+
+        object item = DataConnection.GetDataItem(RowIndexFromSlot(slot));
+        return item is not DataGridRow;
+    }
+
+    internal void RetargetDefaultVirtualRow(DataGridRow row, int slot)
+    {
+        int rowIndex = RowIndexFromSlot(slot);
+        object item = DataConnection.GetDataItem(rowIndex);
+
+        DataGridDiagnostics.RecordRowRetargeted();
+        row.ClearDragDropState();
+        row.Index = rowIndex;
+        row.Slot = slot;
+        row.DataContext = item;
+        row.IsPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
+        PrepareDefaultVirtualSurfaceRow(row, item);
+        row.ApplyState();
+        _rowsPresenter?.InvalidateChildIndex(row);
+        DataGridDiagnostics.RecordRowRealized(DataGridDiagnostics.Sources.Retargeted);
+    }
 
     private bool CanDrawAllVisibleColumnsOnVirtualSurface()
     {

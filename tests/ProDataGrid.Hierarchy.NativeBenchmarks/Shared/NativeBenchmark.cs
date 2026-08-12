@@ -170,6 +170,8 @@ internal static class NativeBenchmarkOptions
 
     public static bool AvaloniaDiagnostics { get; private set; }
 
+    public static bool ProDataGridDiagnostics { get; private set; }
+
     public static int AlignmentCallbacks { get; private set; } = 3;
 
     public static string OutputPath { get; private set; } = Path.GetFullPath("native-result.json");
@@ -252,6 +254,9 @@ internal static class NativeBenchmarkOptions
                 case "--avalonia-diagnostics":
                     AvaloniaDiagnostics = true;
                     break;
+                case "--prodatagrid-diagnostics":
+                    ProDataGridDiagnostics = true;
+                    break;
                 case "--alignment-callbacks":
                     AlignmentCallbacks = ParsePositive(
                         RequireValue(args, ref i),
@@ -265,6 +270,16 @@ internal static class NativeBenchmarkOptions
         {
             AppContext.SetSwitch("Avalonia.Diagnostics.Diagnostic.IsEnabled", true);
             NativeAvaloniaDiagnostics.Initialize();
+        }
+
+        if (ProDataGridDiagnostics)
+        {
+#if PRO
+            AppContext.SetSwitch("ProDataGrid.Diagnostics.IsEnabled", true);
+            NativeProDataGridDiagnostics.Initialize();
+#else
+            throw new ArgumentException("--prodatagrid-diagnostics is supported only by ProDataGrid.");
+#endif
         }
 
 #if !ACCELERATE
@@ -565,6 +580,7 @@ internal sealed class NativeBenchmarkRunner
         var uiRenderTimes = new List<double>();
         var compositorUpdateTimes = new List<double>();
         var compositorRenderTimes = new List<double>();
+        var proDataGridDiagnostics = new List<IReadOnlyDictionary<string, double>>();
 
         for (var batch = 0; batch < NativeBenchmarkOptions.Iterations; ++batch)
         {
@@ -584,6 +600,10 @@ internal sealed class NativeBenchmarkRunner
                 uiRenderTimes.Add(measurement.UiRenderMilliseconds);
                 compositorUpdateTimes.Add(measurement.CompositorUpdateMilliseconds);
                 compositorRenderTimes.Add(measurement.CompositorRenderMilliseconds);
+                if (measurement.ProDataGridDiagnostics is not null)
+                {
+                    proDataGridDiagnostics.Add(measurement.ProDataGridDiagnostics);
+                }
             }
             allocationPerJump.Add(allocated / (double)NativeBenchmarkOptions.ScrollJumps);
         }
@@ -603,7 +623,8 @@ internal sealed class NativeBenchmarkRunner
             animationTickIntervals,
             uiRenderTimes: uiRenderTimes,
             compositorUpdateTimes: compositorUpdateTimes,
-            compositorRenderTimes: compositorRenderTimes);
+            compositorRenderTimes: compositorRenderTimes,
+            proDataGridDiagnostics: proDataGridDiagnostics);
     }
 
     private async Task<IReadOnlyList<NativeScrollMeasurement>> RunScrollBatchAsync(
@@ -621,6 +642,10 @@ internal sealed class NativeBenchmarkRunner
             {
                 NativeAvaloniaDiagnostics.Reset();
             }
+            if (NativeBenchmarkOptions.ProDataGridDiagnostics)
+            {
+                NativeProDataGridDiagnostics.Reset();
+            }
             NativeFrameBarrier renderedFrame = RequestRenderedFrame(_host);
             var stopwatch = Stopwatch.StartNew();
             NativeGridAdapter.SetScrollRow(viewer, row);
@@ -633,6 +658,10 @@ internal sealed class NativeBenchmarkRunner
             NativeRenderingDiagnostics renderingDiagnostics = measure && NativeBenchmarkOptions.AvaloniaDiagnostics
                 ? await NativeAvaloniaDiagnostics.SnapshotAsync()
                 : default;
+            IReadOnlyDictionary<string, double>? proDataGridDiagnostics =
+                measure && NativeBenchmarkOptions.ProDataGridDiagnostics
+                    ? NativeProDataGridDiagnostics.Snapshot()
+                    : null;
             measurements?.Add(new NativeScrollMeasurement(
                 stopwatch.Elapsed.TotalMilliseconds,
                 mutationMilliseconds,
@@ -648,7 +677,8 @@ internal sealed class NativeBenchmarkRunner
                     renderedFrame.FirstAnimationTimestamp).TotalMilliseconds,
                 renderingDiagnostics.UiRenderMilliseconds,
                 renderingDiagnostics.CompositorUpdateMilliseconds,
-                renderingDiagnostics.CompositorRenderMilliseconds));
+                renderingDiagnostics.CompositorRenderMilliseconds,
+                proDataGridDiagnostics));
         }
 
         return measurements is null ? Array.Empty<NativeScrollMeasurement>() : measurements;
@@ -824,6 +854,58 @@ internal readonly record struct NativeRenderingDiagnostics(
     double UiRenderMilliseconds,
     double CompositorUpdateMilliseconds,
     double CompositorRenderMilliseconds);
+
+internal static class NativeProDataGridDiagnostics
+{
+    private const string MeterName = "ProDataGrid.Diagnostic.Meter";
+    private static readonly ConcurrentQueue<NativeDiagnosticMeasurement> s_measurements = new();
+    private static MeterListener? s_listener;
+
+    public static void Initialize()
+    {
+        if (s_listener != null)
+        {
+            return;
+        }
+
+        s_listener = new MeterListener
+        {
+            InstrumentPublished = static (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == MeterName)
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            },
+        };
+        s_listener.SetMeasurementEventCallback<double>(static (instrument, value, _, _) =>
+            s_measurements.Enqueue(new NativeDiagnosticMeasurement(instrument.Name, value)));
+        s_listener.SetMeasurementEventCallback<long>(static (instrument, value, _, _) =>
+            s_measurements.Enqueue(new NativeDiagnosticMeasurement(instrument.Name, value)));
+        s_listener.Start();
+    }
+
+    public static void Reset()
+    {
+        while (s_measurements.TryDequeue(out _))
+        {
+        }
+    }
+
+    public static IReadOnlyDictionary<string, double> Snapshot()
+    {
+        var sums = new Dictionary<string, double>(StringComparer.Ordinal);
+        while (s_measurements.TryDequeue(out NativeDiagnosticMeasurement measurement))
+        {
+            sums.TryGetValue(measurement.Name, out double previous);
+            sums[measurement.Name] = previous + measurement.Value;
+        }
+
+        return sums;
+    }
+
+    private readonly record struct NativeDiagnosticMeasurement(string Name, double Value);
+}
 
 internal static class NativeGridAdapter
 {
@@ -1247,7 +1329,8 @@ internal readonly record struct NativeScrollMeasurement(
     double AnimationTickIntervalMilliseconds,
     double UiRenderMilliseconds,
     double CompositorUpdateMilliseconds,
-    double CompositorRenderMilliseconds);
+    double CompositorRenderMilliseconds,
+    IReadOnlyDictionary<string, double>? ProDataGridDiagnostics);
 
 internal sealed record NativeValidation(
     int RowCount,
@@ -1296,6 +1379,10 @@ internal sealed class NativeWorkloadResult
 
     public double MeanCompositorRenderMilliseconds { get; init; }
 
+    public IReadOnlyDictionary<string, double>? MeanProDataGridDiagnostics { get; init; }
+
+    public IReadOnlyDictionary<string, IReadOnlyList<double>>? ProDataGridDiagnosticSamples { get; init; }
+
     public required IReadOnlyList<double> MillisecondSamples { get; init; }
 
     public IReadOnlyList<double>? MutationMillisecondSamples { get; init; }
@@ -1328,11 +1415,14 @@ internal sealed class NativeWorkloadResult
         IReadOnlyList<int>? layoutUpdatedCounts = null,
         IReadOnlyList<double>? uiRenderTimes = null,
         IReadOnlyList<double>? compositorUpdateTimes = null,
-        IReadOnlyList<double>? compositorRenderTimes = null)
+        IReadOnlyList<double>? compositorRenderTimes = null,
+        IReadOnlyList<IReadOnlyDictionary<string, double>>? proDataGridDiagnostics = null)
     {
         var ordered = times.OrderBy(x => x).ToArray();
         var mean = times.Average();
         var variance = times.Sum(x => Math.Pow(x - mean, 2)) / times.Count;
+        IReadOnlyDictionary<string, IReadOnlyList<double>>? diagnosticSamples =
+            CreateDiagnosticSamples(proDataGridDiagnostics);
         return new NativeWorkloadResult
         {
             Name = name,
@@ -1352,6 +1442,11 @@ internal sealed class NativeWorkloadResult
             MeanUiRenderMilliseconds = uiRenderTimes?.Average() ?? 0,
             MeanCompositorUpdateMilliseconds = compositorUpdateTimes?.Average() ?? 0,
             MeanCompositorRenderMilliseconds = compositorRenderTimes?.Average() ?? 0,
+            MeanProDataGridDiagnostics = diagnosticSamples?.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Average(),
+                StringComparer.Ordinal),
+            ProDataGridDiagnosticSamples = diagnosticSamples,
             MillisecondSamples = times.ToArray(),
             MutationMillisecondSamples = mutationTimes?.ToArray(),
             LayoutMillisecondSamples = layoutTimes?.ToArray(),
@@ -1362,6 +1457,32 @@ internal sealed class NativeWorkloadResult
             LayoutUpdatedCountSamples = layoutUpdatedCounts?.ToArray(),
             Validation = validation,
         };
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyList<double>>? CreateDiagnosticSamples(
+        IReadOnlyList<IReadOnlyDictionary<string, double>>? measurements)
+    {
+        if (measurements is not { Count: > 0 })
+        {
+            return null;
+        }
+
+        string[] names = measurements
+            .SelectMany(measurement => measurement.Keys)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+        var samples = new Dictionary<string, IReadOnlyList<double>>(names.Length, StringComparer.Ordinal);
+        foreach (string name in names)
+        {
+            var values = new double[measurements.Count];
+            for (int index = 0; index < measurements.Count; index++)
+            {
+                measurements[index].TryGetValue(name, out values[index]);
+            }
+            samples.Add(name, values);
+        }
+        return samples;
     }
 
     private static double Percentile(IReadOnlyList<double> ordered, double percentile)

@@ -61,6 +61,13 @@ public class DataGridDiagnosticsTests
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsScrollExtentDeltaName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsLogicalOffsetSynchronizedDeltaName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowGenerateTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowGenerateAcquireTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowGenerateBindTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowGeneratePrepareTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowRecycleTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowRecycleCleanupTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowRecycleDetachTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowRecyclePoolTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.ColumnsAutoGenerateTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.SelectionChangedTimeName);
 
@@ -233,6 +240,13 @@ public class DataGridDiagnosticsTests
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRefreshTimeName);
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsDisplayUpdateTimeName);
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowGenerateTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowGenerateAcquireTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowGenerateBindTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowGeneratePrepareTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowRecycleTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowRecycleCleanupTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowRecycleDetachTimeName);
+        AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowRecyclePoolTimeName);
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.ColumnsAutoGenerateTimeName);
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.SelectionChangedTimeName);
     }

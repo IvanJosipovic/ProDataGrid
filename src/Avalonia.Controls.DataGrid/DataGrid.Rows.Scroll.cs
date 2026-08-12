@@ -233,10 +233,9 @@ namespace Avalonia.Controls
                                         {
                                             TrimDisplayedRowsBefore(newFirstScrollingSlot);
                                         }
-                                        else
-                                        {
-                                            ResetDisplayedRows();
-                                        }
+                                        // Keep a discontinuous window intact until UpdateDisplayedRows.
+                                        // The default virtual surface can retarget those rows in place;
+                                        // every other path performs the same reset there.
                                     }
                                 }
                                 else
@@ -317,10 +316,6 @@ namespace Avalonia.Controls
                             if (newVerticalOffset == 0)
                             {
                                 newFirstScrollingSlot = 0;
-                                if (!CanRetainDisplayedRowsForScrollTarget(newFirstScrollingSlot))
-                                {
-                                    ResetDisplayedRows();
-                                }
                             }
                             else
                             {
@@ -332,10 +327,8 @@ namespace Avalonia.Controls
                                     {
                                         TrimDisplayedRowsBefore(newFirstScrollingSlot);
                                     }
-                                    else
-                                    {
-                                        ResetDisplayedRows();
-                                    }
+                                    // Defer discontinuous-window reset to UpdateDisplayedRows so
+                                    // an eligible virtual surface can retarget rows in place.
                                 }
                                 else
                                 {

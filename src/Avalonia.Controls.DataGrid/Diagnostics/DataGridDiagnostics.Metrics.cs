@@ -29,6 +29,13 @@ internal static partial class DataGridDiagnostics
     private static Histogram<double>? s_rowsScrollExtentDelta;
     private static Histogram<double>? s_rowsLogicalOffsetSynchronizedDelta;
     private static Histogram<double>? s_rowGenerate;
+    private static Histogram<double>? s_rowGenerateAcquire;
+    private static Histogram<double>? s_rowGenerateBind;
+    private static Histogram<double>? s_rowGeneratePrepare;
+    private static Histogram<double>? s_rowRecycle;
+    private static Histogram<double>? s_rowRecycleCleanup;
+    private static Histogram<double>? s_rowRecycleDetach;
+    private static Histogram<double>? s_rowRecyclePool;
     private static Histogram<double>? s_columnsAutoGenerate;
     private static Histogram<double>? s_selectionChanged;
     private static Histogram<double>? s_collectionRefresh;
@@ -40,6 +47,7 @@ internal static partial class DataGridDiagnostics
 
     private static Counter<long>? s_rowsRealized;
     private static Counter<long>? s_rowsRecycled;
+    private static Counter<long>? s_rowsRetargeted;
     private static Counter<long>? s_rowsPrepared;
     private static Counter<long>? s_rowsMeasured;
     private static Counter<long>? s_rowsMeasureSkipped;
@@ -153,6 +161,34 @@ internal static partial class DataGridDiagnostics
             Meters.RowGenerateTimeName,
             Meters.MillisecondsUnit,
             Meters.RowGenerateTimeDescription);
+        s_rowGenerateAcquire = meter.CreateHistogram<double>(
+            Meters.RowGenerateAcquireTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowGenerateAcquireTimeDescription);
+        s_rowGenerateBind = meter.CreateHistogram<double>(
+            Meters.RowGenerateBindTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowGenerateBindTimeDescription);
+        s_rowGeneratePrepare = meter.CreateHistogram<double>(
+            Meters.RowGeneratePrepareTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowGeneratePrepareTimeDescription);
+        s_rowRecycle = meter.CreateHistogram<double>(
+            Meters.RowRecycleTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowRecycleTimeDescription);
+        s_rowRecycleCleanup = meter.CreateHistogram<double>(
+            Meters.RowRecycleCleanupTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowRecycleCleanupTimeDescription);
+        s_rowRecycleDetach = meter.CreateHistogram<double>(
+            Meters.RowRecycleDetachTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowRecycleDetachTimeDescription);
+        s_rowRecyclePool = meter.CreateHistogram<double>(
+            Meters.RowRecyclePoolTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowRecyclePoolTimeDescription);
         s_columnsAutoGenerate = meter.CreateHistogram<double>(
             Meters.ColumnsAutoGenerateTimeName,
             Meters.MillisecondsUnit,
@@ -194,6 +230,10 @@ internal static partial class DataGridDiagnostics
             Meters.RowsRecycledCountName,
             Meters.RowsUnit,
             Meters.RowsRecycledCountDescription);
+        s_rowsRetargeted = meter.CreateCounter<long>(
+            Meters.RowsRetargetedCountName,
+            Meters.RowsUnit,
+            Meters.RowsRetargetedCountDescription);
         s_rowsPrepared = meter.CreateCounter<long>(
             Meters.RowsPreparedCountName,
             Meters.RowsUnit,
@@ -280,6 +320,13 @@ internal static partial class DataGridDiagnostics
     public static HistogramReportDisposable BeginRowsDisplayElementHeightRecord() => Begin(s_rowsDisplayElementHeightRecord);
     public static HistogramReportDisposable BeginRowsDisplayElementLoad() => Begin(s_rowsDisplayElementLoad);
     public static HistogramReportDisposable BeginRowGenerate() => Begin(s_rowGenerate);
+    public static HistogramReportDisposable BeginRowGenerateAcquire() => Begin(s_rowGenerateAcquire);
+    public static HistogramReportDisposable BeginRowGenerateBind() => Begin(s_rowGenerateBind);
+    public static HistogramReportDisposable BeginRowGeneratePrepare() => Begin(s_rowGeneratePrepare);
+    public static HistogramReportDisposable BeginRowRecycle() => Begin(s_rowRecycle);
+    public static HistogramReportDisposable BeginRowRecycleCleanup() => Begin(s_rowRecycleCleanup);
+    public static HistogramReportDisposable BeginRowRecycleDetach() => Begin(s_rowRecycleDetach);
+    public static HistogramReportDisposable BeginRowRecyclePool() => Begin(s_rowRecyclePool);
     public static HistogramReportDisposable BeginColumnsAutoGenerate() => Begin(s_columnsAutoGenerate);
     public static HistogramReportDisposable BeginSelectionChanged() => Begin(s_selectionChanged);
     public static HistogramReportDisposable BeginCollectionRefresh() => Begin(s_collectionRefresh);
@@ -303,6 +350,8 @@ internal static partial class DataGridDiagnostics
     }
 
     public static void RecordRowRecycled() => s_rowsRecycled?.Add(1);
+
+    public static void RecordRowRetargeted() => s_rowsRetargeted?.Add(1);
 
     public static void RecordRowPrepared() => s_rowsPrepared?.Add(1);
 
