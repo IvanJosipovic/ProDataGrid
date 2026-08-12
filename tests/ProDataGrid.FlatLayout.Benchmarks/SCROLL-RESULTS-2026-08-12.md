@@ -84,7 +84,10 @@ The result aggregates three interleaved process pairs and 480 jumps per variant.
 Relative to the 8.360 ms TreeDataGrid ownership reference, the optimized nested
 drawn score is 61.7% lower, so all flat/direct/drawn/virtual architecture modes
 now clear the 50% active-work target. The standard and feature-preserving nested
-binding modes remain explicitly reported compatibility baselines.
+binding modes remain explicitly reported compatibility baselines. A separate
+10-iteration stress run measured 211.0 MB maximum RSS for the per-cell baseline
+and 212.2 MB for the per-column cache (+1.2 MB / 0.6%); peak footprint was
+slightly lower for the candidate (308.1 MB versus 309.4 MB).
 
 ## Latest virtual cache A/B
 
