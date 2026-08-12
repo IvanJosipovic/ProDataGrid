@@ -205,6 +205,7 @@ internal static class NativeBenchmarkOptions
             "virtual-checkbox" => "ProDataGrid (virtual cell surface with checkbox)",
             "virtual-date" => "ProDataGrid (virtual cell surface with date)",
             "virtual-time" => "ProDataGrid (virtual cell surface with time)",
+            "virtual-masked" => "ProDataGrid (virtual cell surface with masked text)",
             _ => $"ProDataGrid ({ProMode})",
         };
 #else
@@ -291,7 +292,7 @@ internal static class NativeBenchmarkOptions
 #if PRO && PRODATAGRID_PR335
         if (ProMode is not ("standard" or "optimized" or "direct" or "direct-cell" or "drawn" or
             "flat-direct-cell" or "flat-drawn" or "virtual" or "virtual-checkbox" or "virtual-date" or
-            "virtual-time"))
+            "virtual-time" or "virtual-masked"))
             throw new ArgumentException($"Unsupported GRID_BENCH_PRO_MODE: {ProMode}.");
 #endif
         if (ScrollOnly && (FirstRenderOnly || CollapseOnly))
@@ -952,10 +953,11 @@ internal static class NativeGridAdapter
         var drawn = NativeBenchmarkOptions.ProMode is "drawn" or "flat-drawn";
         var flatLayout = NativeBenchmarkOptions.ProMode is "flat-direct-cell" or "flat-drawn";
         var virtualSurface = NativeBenchmarkOptions.ProMode is "virtual" or "virtual-checkbox" or "virtual-date" or
-            "virtual-time";
+            "virtual-time" or "virtual-masked";
         var virtualCheckBox = NativeBenchmarkOptions.ProMode == "virtual-checkbox";
         var virtualDate = NativeBenchmarkOptions.ProMode == "virtual-date";
         var virtualTime = NativeBenchmarkOptions.ProMode == "virtual-time";
+        var virtualMasked = NativeBenchmarkOptions.ProMode == "virtual-masked";
         var options = new HierarchicalOptions<Node>
         {
             ChildrenSelector = node => node.Children,
@@ -1015,6 +1017,10 @@ internal static class NativeGridAdapter
         else if (virtualTime)
         {
             AddProTimeColumn(grid, "Time", 180, "Item.Time", node => ((Node)node.Item).Time);
+        }
+        else if (virtualMasked)
+        {
+            AddProMaskedTextColumn(grid, "Phone", 180, "Item.Phone", node => ((Node)node.Item).Phone);
         }
         else
         {
@@ -1236,6 +1242,26 @@ internal static class NativeGridAdapter
         DataGridColumnMetadata.SetValueAccessor(
             column,
             new DataGridColumnValueAccessor<HierarchicalNode, TimeSpan>(getter));
+        grid.Columns.Add(column);
+    }
+
+    private static void AddProMaskedTextColumn(
+        DataGrid grid,
+        string header,
+        double width,
+        string bindingPath,
+        Func<HierarchicalNode, string> getter)
+    {
+        var column = new DataGridMaskedTextColumn
+        {
+            Header = header,
+            Width = new DataGridLength(width),
+            Binding = new Binding(bindingPath),
+            Mask = "(000) 000-0000",
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(getter));
         grid.Columns.Add(column);
     }
 

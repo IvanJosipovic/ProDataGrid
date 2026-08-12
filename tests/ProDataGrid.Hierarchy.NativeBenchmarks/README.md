@@ -176,6 +176,11 @@ GRID_BENCH_PRO_MODE=virtual-time dotnet \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual-time.json
 
+GRID_BENCH_PRO_MODE=virtual-masked dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-masked.json
+
 GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \

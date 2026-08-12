@@ -648,6 +648,70 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Draws_Typed_Masked_Text_Column_And_Materializes_It_Only_For_Editing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var maskedColumn = new DataGridMaskedTextColumn
+        {
+            Header = "Phone",
+            Width = new DataGridLength(180),
+            Binding = new Binding(nameof(Item.Phone)),
+            Mask = "(000) 000-0000",
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            maskedColumn,
+            new DataGridColumnValueAccessor<Item, string>(item => item.Phone));
+        grid.Columns.Add(maskedColumn);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.False(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+
+            int valueChangeCount = presenter.VirtualValueChangeCount;
+            Item firstItem = grid.ItemsSource!.Cast<Item>().First();
+            firstItem.Phone = "(555) 999-0000";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(valueChangeCount + 1, presenter.VirtualValueChangeCount);
+
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                maskedColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            PumpLayout(grid);
+
+            DataGridCell editorCell = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Same(maskedColumn, editorCell.OwningColumn);
+            Assert.IsType<MaskedTextBox>(editorCell.Content);
+
+            Assert.True(grid.CommitEdit());
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+
+            grid.ScrollIntoView(grid.ItemsSource.Cast<Item>().ElementAt(90), maskedColumn);
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Preserves_Cell_Lifecycle_Events_Through_Retained_Fallback()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
@@ -1172,6 +1236,7 @@ public class DataGridFlatVisualLayoutTests
         private bool? _isActive;
         private DateTime? _date;
         private TimeSpan? _time;
+        private string _phone;
 
         public Item(int id, string name, double value)
         {
@@ -1181,6 +1246,7 @@ public class DataGridFlatVisualLayoutTests
             _isActive = id % 2 == 0;
             _date = new DateTime(2024, 1, 1).AddDays(id);
             _time = TimeSpan.FromSeconds(id % 86_400);
+            _phone = $"(555) {id % 1_000:D3}-{id % 10_000:D4}";
         }
 
         public int Id { get; set; }
@@ -1244,6 +1310,21 @@ public class DataGridFlatVisualLayoutTests
 
                 _time = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Time)));
+            }
+        }
+
+        public string Phone
+        {
+            get => _phone;
+            set
+            {
+                if (_phone == value)
+                {
+                    return;
+                }
+
+                _phone = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Phone)));
             }
         }
 

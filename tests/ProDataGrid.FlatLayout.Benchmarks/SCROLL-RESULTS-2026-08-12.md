@@ -443,6 +443,48 @@ a longer portion of the deliberately awaited animation-clock interval; that idle
 wait is excluded from active work. Raw JSON is under
 `artifacts/performance/virtual-time-2026-08-12/{clean,diagnostic}`.
 
+## Typed masked-text surface follow-up
+
+`DataGridMaskedTextColumn` previously forced the requested virtual mode to flat
+retained fallback even though its non-editing element is a plain bound `TextBlock`.
+The surface now reads exact built-in masked-text columns through a compatible typed
+text accessor and reproduces supported binding string formatting and culture. The
+mask, prompt, ASCII, reset, culture, and watermark properties remain on the normal
+`MaskedTextBox` editor, matching the retained column's existing display/editor
+split. Derived columns, missing accessors, explicit binding sources, arbitrary
+converters, delayed bindings, and other non-direct configurations remain on
+retained fallback.
+
+The matched hierarchy workload replaced only the payload column with a phone-text
+column whose editor mask is `(000) 000-0000`. Baseline was clean `055ea78e` with
+the identical benchmark-only lane and retained fallback explicitly allowed.
+Candidate and baseline were measured in three interleaved process pairs, two
+warmups, and five iterations of 32 jumps: 480 jumps per variant in each of separate
+clean-timing and diagnostic campaigns. The table compares the median of the three
+process means.
+
+| Metric | Retained masked fallback | Masked-text surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 6.577 ms | **1.361 ms** | **−79.3%** |
+| Explicit layout (clean) | 3.522 ms | **0.160 ms** | **−95.4%** |
+| UI render recording (diagnostic) | 0.566 ms | **0.511 ms** | **−9.7%** |
+| Compositor update (diagnostic) | 0.255 ms | **0.023 ms** | **−91.1%** |
+| Compositor render (diagnostic) | 0.737 ms | **0.528 ms** | **−28.3%** |
+| Managed allocation (clean) | 848.25 KB | **87.36 KB** | **−89.7%** |
+| End-to-end mean (clean) | 8.585 ms | **8.245 ms** | −4.0% |
+| Mean process median (clean) | 8.335 ms | **8.315 ms** | −0.2% |
+| Mean process p95 (clean) | **9.867 ms** | 9.904 ms | +0.4% |
+| Full frame wait (clean) | **5.034 ms** | 7.977 ms | +58.5% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 1,641 | **102** | **−93.8%** |
+
+The per-pair active-work changes were −80.6%, −77.8%, and −79.5%. The clean
+surface removes about 3.36 ms of layout and 761 KB of managed allocation per jump.
+The 0.04 ms p95 movement is below process noise, while active work, allocation,
+layout, and structure all move consistently. The longer frame wait is again the
+idle animation-clock interval reached after synchronous work completes. Raw JSON
+is under `artifacts/performance/virtual-masked-2026-08-13/{clean,diagnostic}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the
