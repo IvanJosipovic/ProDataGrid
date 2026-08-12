@@ -214,6 +214,48 @@ components all move in the expected direction, while wall time remains dominated
 by the excluded callback wait. Raw balanced results are
 `artifacts/performance/virtual-next-2026-08-12/final-{baseline,candidate}-{a,b,c}.json`.
 
+### Retarget layout reuse follow-up
+
+With row generation and recycling already removed, the next component profile
+showed that `ScrollSlotsByHeight` still led the presenter through duplicated row
+measure and arrange loops. The follow-up batches logical child-index notification,
+resolves selection state once, and reuses validated fixed-height row geometry.
+Measure reuse requires rows to remain valid after selector notification and an
+unchanged width. Arrange reuse additionally requires the same presenter size and
+fractional vertical offset; changed fractional offsets use normal arrangement.
+
+The publication run compared clean `bb2bd4c4` with the candidate in three process
+pairs ordered `B A`, `A B`, `B A`. Each process used three warmups and ten measured
+iterations of 32 discontinuous jumps, for 960 jumps per variant. Avalonia render
+diagnostics were enabled to calculate active work; ProDataGrid component meters
+were disabled for the gate and enabled only in a separate attribution run.
+
+| Metric | Sparse retarget baseline | Layout-reuse candidate | Change |
+|---|---:|---:|---:|
+| Mutation | **0.113 ms** | 0.118 ms | +4.6% |
+| Explicit layout | 0.207 ms | **0.158 ms** | **−23.8%** |
+| Mutation + layout | 0.320 ms | **0.276 ms** | **−13.8%** |
+| UI render recording | **0.521 ms** | 0.546 ms | +4.7% |
+| Compositor update | **0.022 ms** | 0.024 ms | +7.2% |
+| Compositor render | 0.529 ms | **0.522 ms** | −1.4% |
+| Measured active work | 1.393 ms | **1.367 ms** | −1.8% |
+| Managed allocation | 85.0 KB | **84.6 KB** | −0.5% |
+| End-to-end wall time | 7.325 ms | **7.315 ms** | −0.1% |
+| Full frame wait | **7.005 ms** | 7.039 ms | +0.5% |
+
+The clean result isolates the expected gain: explicit layout falls by 23.8% and
+synchronous mutation plus layout falls by 13.8%. Total active work falls only 1.8%
+because UI/compositor rendering is unchanged by row-container geometry reuse and
+dominates this workload. The separate component run reports 20 retargeted rows,
+20 reused measures, and 20 reused arrangements on every one of 320 measured integer
+jumps, with zero generated/recycled rows, zero realized cells, and 102 visuals.
+Focused headless coverage also proves that changing the fractional row offset
+disables arrangement reuse and moves row bounds correctly.
+
+Raw gate results are
+`artifacts/performance/virtual-next-2026-08-12/layout-reuse-final-{baseline,candidate}-{a,b,c}.json`;
+the instrumented proof is `layout-reuse-diagnostic.json` in the same directory.
+
 ## Why full frame wait does not fall with active work
 
 The Windows CI artifact for `077156c4` reports only about 0.006–0.009 ms from

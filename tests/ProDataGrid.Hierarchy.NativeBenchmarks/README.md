@@ -199,7 +199,10 @@ For a ProDataGrid-only component trace, add `--prodatagrid-diagnostics`. The
 result includes per-jump raw samples and means from `ProDataGrid.Diagnostic.Meter`,
 including `ScrollSlotsByHeight`, displayed-row update, row acquire/bind/prepare,
 retarget eligibility/validation/bind, element attach/measure/height recording,
-recycle cleanup/detach/pool, and realized/recycled/retargeted row counts. This
+recycle cleanup/detach/pool, realized/recycled/retargeted row counts, and retargeted
+row measure/arrange reuse counts. The reuse counters should match the realized row
+count for eligible equal-fraction fixed-height jumps; a lower value identifies a
+guarded fallback rather than an incomplete measurement. This
 option enables instrumentation and must not be used for the clean performance
 gate. It is intentionally rejected by the TreeDataGrid executable because those
 internal meters do not exist there.

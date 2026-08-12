@@ -10,6 +10,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -218,7 +219,22 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            var childIndexProvider = (IChildIndexProvider)presenter;
+            int childIndexesReset = 0;
+            int individualChildIndexesChanged = 0;
+            childIndexProvider.ChildIndexChanged += (_, args) =>
+            {
+                if (args.Action == ChildIndexChangedAction.ChildIndexesReset)
+                {
+                    childIndexesReset++;
+                }
+                else if (args.Action == ChildIndexChangedAction.ChildIndexChanged)
+                {
+                    individualChildIndexesChanged++;
+                }
+            };
             DataGridRow firstRow = presenter.Children.OfType<DataGridRow>().First();
+            Item initialSelectedItem = Assert.IsType<Item>(firstRow.DataContext);
             firstRow.ValidationSeverity = DataGridValidationSeverity.Error;
             firstRow.ApplyState();
             Assert.True(((IPseudoClasses)firstRow.Classes).Contains(":invalid"));
@@ -230,6 +246,7 @@ public class DataGridFlatVisualLayoutTests
                 scrollIntoView: false));
             Item targetItem = grid.ItemsSource!.Cast<Item>().ElementAt(400);
             grid.SelectedItems.Add(targetItem);
+            Assert.Equal(2, grid.SelectedItems.Count);
 
             long retargetedBeforeJump = grid.DisplayData.RetargetedRowCount;
             double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
@@ -237,6 +254,10 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             Assert.True(grid.DisplayData.RetargetedRowCount > retargetedBeforeJump);
+            Assert.Equal(1, childIndexesReset);
+            Assert.Equal(0, individualChildIndexesChanged);
+            Assert.True(presenter.RetargetedRowsMeasureFastPathCount > 0);
+            Assert.True(presenter.RetargetedRowsArrangeFastPathCount > 0);
             Assert.Contains(presenter.Children.OfType<DataGridRow>(), row => row.Index >= 400);
             Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
             Assert.Equal(DataGridValidationSeverity.None, firstRow.ValidationSeverity);
@@ -248,6 +269,50 @@ public class DataGridFlatVisualLayoutTests
                 row => ReferenceEquals(row.DataContext, targetItem));
             Assert.True(selectedRow.IsSelected);
             Assert.True(((IPseudoClasses)selectedRow.Classes).Contains(":selected"));
+            Assert.Equal(2, grid.SelectedItems.Count);
+            Assert.True(grid.SelectedItems.Contains(initialSelectedItem));
+            Assert.True(grid.SelectedItems.Contains(targetItem));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Layout_Retarget_Arranges_When_Fractional_Row_Offset_Changes()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            long initialMeasureFastPaths = presenter.RetargetedRowsMeasureFastPathCount;
+            long initialArrangeFastPaths = presenter.RetargetedRowsArrangeFastPathCount;
+
+            presenter.Offset = new Vector(0, 400.5 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.True(presenter.RetargetedRowsMeasureFastPathCount > initialMeasureFastPaths);
+            Assert.Equal(initialArrangeFastPaths, presenter.RetargetedRowsArrangeFastPathCount);
+            Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
+            Assert.Equal(-rowHeight * 0.5, presenter.Children.OfType<DataGridRow>().First().Bounds.Y, precision: 3);
+
+            long arrangeFastPathsAfterFractionChanged = presenter.RetargetedRowsArrangeFastPathCount;
+            presenter.Offset = new Vector(0, 450.5 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.True(presenter.RetargetedRowsArrangeFastPathCount > arrangeFastPathsAfterFractionChanged);
+            Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
+            Assert.Equal(-rowHeight * 0.5, presenter.Children.OfType<DataGridRow>().First().Bounds.Y, precision: 3);
         }
         finally
         {

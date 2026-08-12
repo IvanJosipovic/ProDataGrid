@@ -232,23 +232,17 @@ namespace Avalonia.Controls
         }
 
         internal void ApplyRetargetedVirtualSurfaceState(
-            bool wasFullySelected,
             bool wasCurrent,
-            DataGridValidationSeverity previousValidationSeverity)
+            DataGridValidationSeverity previousValidationSeverity,
+            bool isSelected,
+            bool isFullySelected)
         {
             if (RootElement == null || OwningGrid == null || !IsVisible)
             {
                 return;
             }
 
-            bool isSelected = Slot != -1 && OwningGrid.GetRowSelection(Slot);
-            IsSelected = isSelected;
-
-            bool isFullySelected = Slot != -1 && OwningGrid.IsRowFullySelected(Slot);
-            if (wasFullySelected != isFullySelected)
-            {
-                PseudoClassesHelper.Set(PseudoClasses, ":selected", isFullySelected);
-            }
+            ApplyRetargetedSelectionState(isSelected, isFullySelected);
 
             if (previousValidationSeverity != ValidationSeverity)
             {

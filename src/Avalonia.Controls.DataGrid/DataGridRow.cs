@@ -61,6 +61,7 @@ internal
         private bool _hasValidArrange;
         private int? _mouseOverColumnIndex;
         private bool _isDragging;
+        private bool _isApplyingRetargetedSelectionState;
         private DataGridRowDropPosition? _dropPosition;
         private DataGrid _owningGrid;
         private bool _isValid = true;
@@ -815,14 +816,17 @@ internal
             }
             else if (change.Property == IsSelectedProperty)
             {
-                var value = change.GetNewValue<bool>();
-
-                if (OwningGrid != null && Slot != -1)
+                if (!_isApplyingRetargetedSelectionState)
                 {
-                    OwningGrid.SetRowSelection(Slot, value, false);
-                }
+                    var value = change.GetNewValue<bool>();
 
-                UpdateSelectionPseudoClasses();
+                    if (OwningGrid != null && Slot != -1)
+                    {
+                        OwningGrid.SetRowSelection(Slot, value, false);
+                    }
+
+                    UpdateSelectionPseudoClasses();
+                }
             }
 
             base.OnPropertyChanged(change);
@@ -841,6 +845,27 @@ internal
             }
 
             PseudoClassesHelper.Set(PseudoClasses, ":selected", isSelected);
+        }
+
+        internal void ApplyRetargetedSelectionState(bool isSelected, bool isFullySelected)
+        {
+            if (_isSelected != isSelected)
+            {
+                _isApplyingRetargetedSelectionState = true;
+                try
+                {
+                    SetAndRaise(IsSelectedProperty, ref _isSelected, isSelected);
+                }
+                finally
+                {
+                    _isApplyingRetargetedSelectionState = false;
+                }
+            }
+
+            if (PseudoClasses.Contains(":selected") != isFullySelected)
+            {
+                PseudoClassesHelper.Set(PseudoClasses, ":selected", isFullySelected);
+            }
         }
 
         internal void UpdateSearchPseudoClasses(bool isSearchMatch, bool isSearchCurrent)

@@ -41,6 +41,14 @@ internal
         private DataGrid? _owningGrid;
         private double _lastArrangeHeight;
         private bool _lastArrangeMatchesDesired = true;
+        private bool _processingRowsMeasure;
+        private bool _canUseRetargetedRowsMeasureFastPath;
+        private bool _canUseRetargetedRowsArrangeFastPath;
+        private bool _retargetedRowsRemainArrangeValid;
+        private int _retargetedMeasureRowCount;
+        private double _retargetedMeasureRowHeight;
+        private double _lastArrangedNegVerticalOffset;
+        private Size _lastArrangedSize;
         private readonly HashSet<Control> _displayedElementsScratch = new();
         private readonly Dictionary<Control, Size> _measureConstraints = new();
         private readonly RectangleGeometry _clipRectGeometry = new();
@@ -48,6 +56,10 @@ internal
         internal double LastArrangeHeight => _lastArrangeHeight;
 
         internal int MeasureConstraintCacheCount => _measureConstraints.Count;
+
+        internal long RetargetedRowsMeasureFastPathCount { get; private set; }
+
+        internal long RetargetedRowsArrangeFastPathCount { get; private set; }
 
         public DataGridRowsPresenter()
         {
@@ -156,6 +168,25 @@ internal
             _childIndexChanged?.Invoke(this, new ChildIndexChangedEventArgs(row, row.Index));
         }
 
+        internal void InvalidateChildIndexes()
+        {
+            _childIndexChanged?.Invoke(this, ChildIndexChangedEventArgs.ChildIndexesReset);
+        }
+
+        internal void MarkDefaultVirtualRowsRetargeted(
+            int rowCount,
+            double rowHeight,
+            bool rowsRemainMeasureValid,
+            bool rowsRemainArrangeValid)
+        {
+            _canUseRetargetedRowsMeasureFastPath =
+                _processingRowsMeasure &&
+                rowsRemainMeasureValid;
+            _retargetedRowsRemainArrangeValid = rowsRemainArrangeValid;
+            _retargetedMeasureRowCount = rowCount;
+            _retargetedMeasureRowHeight = rowHeight;
+        }
+
         #endregion
 
         /// <summary>
@@ -193,6 +224,8 @@ internal
 
                 _lastArrangeHeight = viewportHeight;
                 _lastArrangeMatchesDesired = false;
+                _lastArrangedSize = new Size(finalSize.Width, viewportHeight);
+                _lastArrangedNegVerticalOffset = OwningGrid.NegVerticalOffset;
                 return base.ArrangeOverride(finalSize);
             }
 
@@ -275,6 +308,26 @@ internal
                 {
                     OwningGrid.DisplayData.TrimRecycledPools(this, recycleLimit, recycleLimit, recycleLimit);
                 }
+            }
+
+            bool useRetargetedRowsArrangeFastPath =
+                _canUseRetargetedRowsArrangeFastPath &&
+                OwningGrid.UsesVirtualCellSurface &&
+                AreClose(_lastArrangedSize, new Size(finalSize.Width, effectiveRowsHeight)) &&
+                MathUtilities.AreClose(_lastArrangedNegVerticalOffset, OwningGrid.NegVerticalOffset);
+            _canUseRetargetedRowsArrangeFastPath = false;
+            if (useRetargetedRowsArrangeFastPath)
+            {
+                _lastArrangeHeight = effectiveRowsHeight;
+                _lastArrangeMatchesDesired = MatchesDesiredHeight(finalSize.Height);
+                _lastArrangedSize = new Size(finalSize.Width, effectiveRowsHeight);
+                _lastArrangedNegVerticalOffset = OwningGrid.NegVerticalOffset;
+                RetargetedRowsArrangeFastPathCount++;
+                DataGridDiagnostics.RecordRowsArrangeSkipped(_retargetedMeasureRowCount);
+                DataGridDiagnostics.RecordRowsRetargetArrangeReused(_retargetedMeasureRowCount);
+                return new Size(
+                    finalSize.Width,
+                    Math.Max(_retargetedMeasureRowCount * _retargetedMeasureRowHeight, finalSize.Height));
             }
 
             _lastArrangeHeight = effectiveRowsHeight;
@@ -412,6 +465,9 @@ internal
 
             DataGridDiagnostics.RecordRowsArranged(arrangedElements);
             DataGridDiagnostics.RecordRowsArrangeSkipped(skippedArrangeElements);
+
+            _lastArrangedSize = new Size(finalSize.Width, effectiveRowsHeight);
+            _lastArrangedNegVerticalOffset = OwningGrid.NegVerticalOffset;
 
             return new Size(finalSize.Width, finalHeight);
         }
@@ -575,7 +631,17 @@ internal
             // and calculate the scrollbars
             OwningGrid.RowsPresenterAvailableSize = availableSize;
 
-            OwningGrid.OnRowsMeasure();
+            _canUseRetargetedRowsMeasureFastPath = false;
+            _canUseRetargetedRowsArrangeFastPath = false;
+            _processingRowsMeasure = true;
+            try
+            {
+                OwningGrid.OnRowsMeasure();
+            }
+            finally
+            {
+                _processingRowsMeasure = false;
+            }
             SyncFlatCells();
             if (OwningGrid.UsesFlatVisualLayout)
             {
@@ -600,58 +666,74 @@ internal
             int skippedMeasureElements = 0;
             int measuredSlot = OwningGrid.DisplayData.FirstScrollingSlot;
             using var measureScope = DataGridDiagnostics.BeginRowsMeasure();
-            foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
+            bool useRetargetedRowsMeasureFastPath =
+                _canUseRetargetedRowsMeasureFastPath &&
+                !invalidateRows &&
+                OwningGrid.UsesVirtualCellSurface;
+            _canUseRetargetedRowsMeasureFastPath = false;
+            if (useRetargetedRowsMeasureFastPath)
             {
-                DataGridRow? row = element as DataGridRow;
-                bool hasMatchingConstraint = _measureConstraints.TryGetValue(element, out var previousConstraint) &&
-                    AreClose(previousConstraint, measureConstraint);
-                double previousDesiredHeight = element.DesiredSize.Height;
-                if (row != null)
+                totalHeight += _retargetedMeasureRowCount * _retargetedMeasureRowHeight;
+                skippedMeasureElements = _retargetedMeasureRowCount;
+                _canUseRetargetedRowsArrangeFastPath = _retargetedRowsRemainArrangeValid;
+                RetargetedRowsMeasureFastPathCount++;
+                DataGridDiagnostics.RecordRowsRetargetMeasureReused(_retargetedMeasureRowCount);
+            }
+            else
+            {
+                foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
                 {
-                    if (invalidateRows)
+                    DataGridRow? row = element as DataGridRow;
+                    bool hasMatchingConstraint = _measureConstraints.TryGetValue(element, out var previousConstraint) &&
+                        AreClose(previousConstraint, measureConstraint);
+                    double previousDesiredHeight = element.DesiredSize.Height;
+                    if (row != null)
                     {
-                        row.InvalidateMeasure();
+                        if (invalidateRows)
+                        {
+                            row.InvalidateMeasure();
+                        }
                     }
-                }
 
-                if (invalidateRows || !element.IsMeasureValid || !hasMatchingConstraint)
-                {
-                    element.Measure(measureConstraint);
-                    _measureConstraints[element] = measureConstraint;
-                    measuredElements++;
-                }
-                else
-                {
-                    skippedMeasureElements++;
-                }
+                    if (invalidateRows || !element.IsMeasureValid || !hasMatchingConstraint)
+                    {
+                        element.Measure(measureConstraint);
+                        _measureConstraints[element] = measureConstraint;
+                        measuredElements++;
+                    }
+                    else
+                    {
+                        skippedMeasureElements++;
+                    }
 
-                if (row != null && row.HeaderCell != null)
-                {
-                    headerWidth = Math.Max(headerWidth, row.HeaderCell.DesiredSize.Width);
-                }
+                    if (row != null && row.HeaderCell != null)
+                    {
+                        headerWidth = Math.Max(headerWidth, row.HeaderCell.DesiredSize.Width);
+                    }
 
-                if (row != null && OwningGrid.UsesFlatVisualLayout && !OwningGrid.UsesVirtualCellSurface)
-                {
-                    MeasureFlatCells(row);
-                }
-                else if (row != null && OwningGrid.UsesVirtualCellSurface)
-                {
-                    MeasureVirtualCompatibilityCell(row);
-                }
-                else if (element is DataGridRowGroupHeader groupHeader && groupHeader.HeaderCell != null)
-                {
-                    headerWidth = Math.Max(headerWidth, groupHeader.HeaderCell.DesiredSize.Width);
-                }
+                    if (row != null && OwningGrid.UsesFlatVisualLayout && !OwningGrid.UsesVirtualCellSurface)
+                    {
+                        MeasureFlatCells(row);
+                    }
+                    else if (row != null && OwningGrid.UsesVirtualCellSurface)
+                    {
+                        MeasureVirtualCompatibilityCell(row);
+                    }
+                    else if (element is DataGridRowGroupHeader groupHeader && groupHeader.HeaderCell != null)
+                    {
+                        headerWidth = Math.Max(headerWidth, groupHeader.HeaderCell.DesiredSize.Width);
+                    }
 
-                if (measuredSlot >= 0 &&
-                    (!MathUtilities.AreClose(previousDesiredHeight, element.DesiredSize.Height) ||
-                     !hasMatchingConstraint))
-                {
-                    OwningGrid.UpdateScrollHeightEstimate(measuredSlot, element.DesiredSize.Height);
-                }
+                    if (measuredSlot >= 0 &&
+                        (!MathUtilities.AreClose(previousDesiredHeight, element.DesiredSize.Height) ||
+                         !hasMatchingConstraint))
+                    {
+                        OwningGrid.UpdateScrollHeightEstimate(measuredSlot, element.DesiredSize.Height);
+                    }
 
-                totalHeight += element.DesiredSize.Height;
-                measuredSlot = OwningGrid.GetNextVisibleSlot(measuredSlot);
+                    totalHeight += element.DesiredSize.Height;
+                    measuredSlot = OwningGrid.GetNextVisibleSlot(measuredSlot);
+                }
             }
 
             DataGridDiagnostics.RecordRowsMeasured(measuredElements);

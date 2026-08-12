@@ -51,6 +51,8 @@ internal static partial class DataGridDiagnostics
     private static Counter<long>? s_rowsRealized;
     private static Counter<long>? s_rowsRecycled;
     private static Counter<long>? s_rowsRetargeted;
+    private static Counter<long>? s_rowsRetargetMeasureReused;
+    private static Counter<long>? s_rowsRetargetArrangeReused;
     private static Counter<long>? s_rowsPrepared;
     private static Counter<long>? s_rowsMeasured;
     private static Counter<long>? s_rowsMeasureSkipped;
@@ -249,6 +251,14 @@ internal static partial class DataGridDiagnostics
             Meters.RowsRetargetedCountName,
             Meters.RowsUnit,
             Meters.RowsRetargetedCountDescription);
+        s_rowsRetargetMeasureReused = meter.CreateCounter<long>(
+            Meters.RowsRetargetMeasureReusedCountName,
+            Meters.RowsUnit,
+            Meters.RowsRetargetMeasureReusedCountDescription);
+        s_rowsRetargetArrangeReused = meter.CreateCounter<long>(
+            Meters.RowsRetargetArrangeReusedCountName,
+            Meters.RowsUnit,
+            Meters.RowsRetargetArrangeReusedCountDescription);
         s_rowsPrepared = meter.CreateCounter<long>(
             Meters.RowsPreparedCountName,
             Meters.RowsUnit,
@@ -370,6 +380,10 @@ internal static partial class DataGridDiagnostics
     public static void RecordRowRecycled() => s_rowsRecycled?.Add(1);
 
     public static void RecordRowRetargeted() => s_rowsRetargeted?.Add(1);
+
+    public static void RecordRowsRetargetMeasureReused(int count) => Record(s_rowsRetargetMeasureReused, count);
+
+    public static void RecordRowsRetargetArrangeReused(int count) => Record(s_rowsRetargetArrangeReused, count);
 
     public static void RecordRowPrepared() => s_rowsPrepared?.Add(1);
 

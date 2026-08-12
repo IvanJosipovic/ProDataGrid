@@ -28,6 +28,8 @@
     "prodatagrid.rows.retarget.eligibility.time": "Row Retarget Eligibility",
     "prodatagrid.rows.retarget.validation.time": "Row Retarget Validation",
     "prodatagrid.rows.retarget.bind.time": "Row Retarget Bind",
+    "prodatagrid.rows.retarget.measure.reused.count": "Retargeted Row Measures Reused",
+    "prodatagrid.rows.retarget.arrange.reused.count": "Retargeted Row Arranges Reused",
     "prodatagrid.rows.generate.time": "Row Generate Time",
     "prodatagrid.rows.generate.acquire.time": "Row Generate Acquire",
     "prodatagrid.rows.generate.bind.time": "Row Generate Bind",

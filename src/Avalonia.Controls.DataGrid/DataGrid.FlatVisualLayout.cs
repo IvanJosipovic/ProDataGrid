@@ -81,7 +81,6 @@ partial class DataGrid
         object item)
     {
         int previousSlot = row.Slot;
-        bool wasFullySelected = previousSlot >= 0 && IsRowFullySelected(previousSlot);
         bool wasCurrent = previousSlot == CurrentSlot;
         DataGridValidationSeverity previousValidationSeverity = row.ValidationSeverity;
 
@@ -92,12 +91,35 @@ partial class DataGrid
         row.DataContext = item;
         row.IsPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
         PrepareDefaultVirtualSurfaceRow(row, item);
+        bool isSelected = GetRowSelection(slot);
+        bool isFullySelected = IsRowFullySelected(slot, isSelected);
         row.ApplyRetargetedVirtualSurfaceState(
-            wasFullySelected,
             wasCurrent,
-            previousValidationSeverity);
-        _rowsPresenter?.InvalidateChildIndex(row);
+            previousValidationSeverity,
+            isSelected,
+            isFullySelected);
         DataGridDiagnostics.RecordRowRealized(DataGridDiagnostics.Sources.Retargeted);
+    }
+
+    internal void InvalidateDefaultVirtualRowsChildIndexes()
+    {
+        _rowsPresenter?.InvalidateChildIndexes();
+    }
+
+    internal void MarkDefaultVirtualRowsRetargeted(
+        int rowCount,
+        double rowHeight,
+        bool rowsRemainMeasureValid,
+        bool rowsRemainArrangeValid)
+    {
+        if (_rowsPresenter is { } rowsPresenter)
+        {
+            rowsPresenter.MarkDefaultVirtualRowsRetargeted(
+                rowCount,
+                rowHeight,
+                rowsRemainMeasureValid,
+                rowsRemainArrangeValid);
+        }
     }
 
     private bool CanDrawAllVisibleColumnsOnVirtualSurface()

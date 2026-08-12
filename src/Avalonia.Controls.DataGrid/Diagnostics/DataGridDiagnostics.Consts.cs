@@ -31,6 +31,12 @@ internal static partial class DataGridDiagnostics
         public const string RowsRetargetBindTimeName = "prodatagrid.rows.retarget.bind.time";
         public const string RowsRetargetBindTimeDescription = "Duration of rebinding and applying state to an in-place virtual-row retarget batch.";
 
+        public const string RowsRetargetMeasureReusedCountName = "prodatagrid.rows.retarget.measure.reused.count";
+        public const string RowsRetargetMeasureReusedCountDescription = "Number of retargeted rows whose validated fixed-height measure geometry was reused.";
+
+        public const string RowsRetargetArrangeReusedCountName = "prodatagrid.rows.retarget.arrange.reused.count";
+        public const string RowsRetargetArrangeReusedCountDescription = "Number of retargeted rows whose unchanged arrangement geometry was reused.";
+
         public const string RowsPresenterViewportChangedTimeName = "prodatagrid.rows.presenter.viewport.changed.time";
         public const string RowsPresenterViewportChangedTimeDescription = "Duration of handling a rows presenter viewport change notification.";
 

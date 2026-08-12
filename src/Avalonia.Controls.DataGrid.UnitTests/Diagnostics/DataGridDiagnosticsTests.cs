@@ -310,6 +310,12 @@ public class DataGridDiagnosticsTests
             Assert.True(GetLongMeasurementTotal(
                 listener,
                 DataGridDiagnostics.Meters.RowsRetargetedCountName) > 0);
+            Assert.True(GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsRetargetMeasureReusedCountName) > 0);
+            Assert.True(GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsRetargetArrangeReusedCountName) > 0);
         }
         finally
         {

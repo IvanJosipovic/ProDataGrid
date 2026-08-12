@@ -2304,9 +2304,14 @@ internal
 
         internal bool IsRowFullySelected(int slot)
         {
+            return IsRowFullySelected(slot, GetRowSelection(slot));
+        }
+
+        internal bool IsRowFullySelected(int slot, bool isRowSelected)
+        {
             if (SelectionUnit == DataGridSelectionUnit.FullRow)
             {
-                return GetRowSelection(slot);
+                return isRowSelected;
             }
 
             if (slot < 0 || ColumnsItemsInternal == null || ColumnsItemsInternal.Count == 0)
@@ -2314,7 +2319,7 @@ internal
                 return false;
             }
 
-            if (!GetRowSelection(slot))
+            if (!isRowSelected)
             {
                 return false;
             }

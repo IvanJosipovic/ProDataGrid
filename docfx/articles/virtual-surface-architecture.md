@@ -176,11 +176,25 @@ when all of these guards hold:
 
 Each eligible row receives its new index, slot, item, placeholder and validation
 state without detach, hide, recycle-pool mutation, generation, or visual-tree
-reattachment. Selection and current-row pseudo-classes are reapplied before the
-presenter arranges the unchanged control set. Diagnostics report these rows as
-`prodatagrid.rows.retargeted.count`, separate from physical recycling. Any failed
-guard falls back to the complete lifecycle pipeline, preserving derived-grid,
-custom-factory, own-container, row-details, validation, and routed-event behavior.
+reattachment. Selection state is resolved once and applied without writing it back
+through the selection model. After the complete batch, the presenter raises one
+logical child-index reset instead of one notification per row. Selector-driven
+style invalidation therefore still occurs before layout reuse is considered.
+
+The presenter may reuse fixed-height row geometry when all retargeted rows remain
+measure-valid after that logical-index reset and its width constraint is unchanged.
+It may also reuse arrangement only when the presenter size and fractional vertical
+offset match the preceding arrangement. A changed fractional offset uses normal
+row arrangement so bounds move by the required partial-row amount. Surface content
+is invalidated independently and is redrawn for the new items even when container
+geometry is reused.
+
+Diagnostics report the batch as `prodatagrid.rows.retargeted.count` and report
+geometry reuse separately as `prodatagrid.rows.retarget.measure.reused.count` and
+`prodatagrid.rows.retarget.arrange.reused.count`. Any failed guard falls back to
+the complete lifecycle or ordinary per-row layout pipeline, preserving derived-grid,
+custom-factory, own-container, row-details, validation, selector, and routed-event
+behavior.
 
 ### 4. Surface rendering
 
@@ -291,6 +305,15 @@ The mutation pass restores only state that can differ between the old and new sl
 This sparse state application is safe only inside the guarded default-surface path.
 The generic recycle/generate path remains responsible for arbitrary row types,
 templates, handlers, headers, details, and custom factories.
+
+Retarget completion is a batch boundary. It emits one logical child-index reset,
+then inspects the rows' resulting measure and arrange validity. Fixed-height measure
+geometry is reused only when the reset did not invalidate a row and the presenter
+width is unchanged. Arrangement is reused only when measure reuse succeeded and the
+presenter size and `NegVerticalOffset` are unchanged from the previous arrangement.
+This makes integer discontinuous jumps arithmetic-only for row geometry while a
+new fractional offset, selector-dependent size, or any other invalidation keeps the
+normal measure/arrange behavior.
 
 ## Structural and behavioral invariants
 

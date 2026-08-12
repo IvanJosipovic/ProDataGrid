@@ -403,6 +403,33 @@ namespace Avalonia.Controls
                         _retargetItems[index]);
                     slot = _owner.GetNextVisibleSlot(slot);
                 }
+
+                _owner.InvalidateDefaultVirtualRowsChildIndexes();
+
+                bool rowsRemainMeasureValid = true;
+                bool rowsRemainArrangeValid = true;
+                for (int index = 0; index < rowCount; index++)
+                {
+                    Control element = GetLogicalScrollingElement(index);
+                    if (!element.IsMeasureValid)
+                    {
+                        rowsRemainMeasureValid = false;
+                    }
+                    if (!element.IsArrangeValid)
+                    {
+                        rowsRemainArrangeValid = false;
+                    }
+                    if (!rowsRemainMeasureValid && !rowsRemainArrangeValid)
+                    {
+                        break;
+                    }
+                }
+
+                _owner.MarkDefaultVirtualRowsRetargeted(
+                    rowCount,
+                    rowHeight,
+                    rowsRemainMeasureValid,
+                    rowsRemainArrangeValid);
             }
 
             FirstScrollingSlot = firstSlot;
