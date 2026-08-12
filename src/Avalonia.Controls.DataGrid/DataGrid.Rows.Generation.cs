@@ -370,7 +370,13 @@ namespace Avalonia.Controls
 
                 using (DataGridDiagnostics.BeginRowsDisplayElementMeasure())
                 {
-                    row?.InvalidateMeasure();
+                    // Virtual surface rows have a finite, item-independent height and no display
+                    // cells. Preserve a valid recycled-row measurement; any measure-affecting row
+                    // property change still invalidates it through Avalonia's property metadata.
+                    if (row != null && !UsesVirtualCellSurface)
+                    {
+                        row.InvalidateMeasure();
+                    }
                     if (measureDeferred)
                     {
                         AvailableSlotElementRoom -= elementHeight;

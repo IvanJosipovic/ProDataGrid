@@ -147,6 +147,11 @@ internal
 #endif
         virtual void ClearContainerForItemOverride(DataGridRow element, object item)
         {
+            ClearContainerState(element, clearDataContext: true);
+        }
+
+        private void ClearContainerState(DataGridRow element, bool clearDataContext)
+        {
             var previousSuppress = _suppressSelectionUpdatesFromRows;
             _suppressSelectionUpdatesFromRows = true;
             try
@@ -155,7 +160,10 @@ internal
                 element.IsPlaceholder = false;
                 element.ClearDragDropState();
                 ClearRowValidation(element);
-                element.DataContext = null;
+                if (clearDataContext)
+                {
+                    element.DataContext = null;
+                }
                 element.ClearPointerOverState();
             }
             finally
@@ -186,6 +194,20 @@ internal
             DataGridDiagnostics.RecordRowRecycled();
             row.RecycledDataContext ??= row.DataContext;
             row.RecycledIsPlaceholder = row.IsPlaceholder;
+
+            // The default virtual surface has no retained display cells and its base cleanup hook
+            // is empty. Keep the old item assigned until the recycled row receives its next item,
+            // avoiding an otherwise redundant item -> null -> item binding transition. Derived grids
+            // and custom containers retain the complete virtual cleanup contract below.
+            if (UsesVirtualCellSurface &&
+                UsesDefaultRealizationFactory &&
+                GetType() == typeof(DataGrid) &&
+                row.GetType() == typeof(DataGridRow))
+            {
+                ClearContainerState(row, clearDataContext: false);
+                return;
+            }
+
             row.PreserveRecycledRootDataContext();
             OnCleanUpVirtualizedItem(row);
             ClearContainerForItemOverride(row, row.DataContext);

@@ -158,6 +158,52 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Recycles_Default_Rows_Without_Null_DataContext_Transition()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            DataGridRow[] rows = presenter.Children.OfType<DataGridRow>().ToArray();
+            Assert.NotEmpty(rows);
+            int nullDataContextTransitions = 0;
+            foreach (DataGridRow row in rows)
+            {
+                row.PropertyChanged += (_, change) =>
+                {
+                    if (change.Property == StyledElement.DataContextProperty &&
+                        change.GetNewValue<object?>() is null)
+                    {
+                        nullDataContextTransitions++;
+                    }
+                };
+            }
+
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 400 * rowHeight);
+            PumpLayout(grid);
+
+            DataGridRow[] jumpedRows = presenter.Children.OfType<DataGridRow>().ToArray();
+            Assert.Equal(rows.Length, jumpedRows.Length);
+            Assert.True(rows.SequenceEqual(jumpedRows));
+            Assert.Equal(0, nullDataContextTransitions);
+            Assert.Contains(jumpedRows, row => row.Index >= 400);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Falls_Back_To_Flat_Retained_For_Unsupported_Interactive_Columns()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
