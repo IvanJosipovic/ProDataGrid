@@ -63,6 +63,29 @@ feature-preserving optimized retained modes intentionally keep their nested
 presenters, bindings, and template semantics; they are compatibility baselines,
 not aliases for the new flat architecture.
 
+### Nested drawn shared-cache follow-up
+
+Ordinary text columns in explicit `Drawn` mode previously kept one formatted-text
+cache per recycled cell. They now share the existing bounded cache per column.
+The retained editor, automation peer, cell type, and drawing semantics are
+unchanged. Flat drawn was used as a control because its rows presenter already
+shares layouts.
+
+| Mode | Metric | Per-cell baseline | Shared candidate | Change |
+|---|---|---:|---:|---:|
+| Nested drawn | Active work | 3.507 ms | **3.198 ms** | **−8.8%** |
+| Nested drawn | UI render | 1.232 ms | **0.809 ms** | **−34.4%** |
+| Nested drawn | Allocation | 561.7 KB | **432.9 KB** | **−22.9%** |
+| Nested drawn | End-to-end | 7.729 ms | **7.486 ms** | −3.1% |
+| Flat drawn control | Active work | **3.180 ms** | 3.256 ms | +2.4% |
+| Flat drawn control | Allocation | **475.0 KB** | 475.0 KB | +0.01% |
+
+The result aggregates three interleaved process pairs and 480 jumps per variant.
+Relative to the 8.360 ms TreeDataGrid ownership reference, the optimized nested
+drawn score is 61.7% lower, so all flat/direct/drawn/virtual architecture modes
+now clear the 50% active-work target. The standard and feature-preserving nested
+binding modes remain explicitly reported compatibility baselines.
+
 ## Latest virtual cache A/B
 
 The virtual renderer already cached shaped `TextLayout` instances, but its

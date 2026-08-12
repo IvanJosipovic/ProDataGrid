@@ -650,9 +650,13 @@ public class DataGridFlatVisualLayoutTests
 
             Assert.All(cells, cell =>
             {
-                Assert.Equal(DataGridCustomDrawingTextLayoutCacheMode.PerCell, cell.TextLayoutCacheMode);
-                Assert.Null(cell.SharedTextLayoutCache);
+                Assert.Equal(DataGridCustomDrawingTextLayoutCacheMode.Shared, cell.TextLayoutCacheMode);
+                Assert.NotNull(cell.SharedTextLayoutCache);
+                Assert.NotSame(cache, cell.SharedTextLayoutCache);
             });
+            Assert.All(
+                cells.GroupBy(cell => cell.OwningColumn),
+                columnCells => Assert.Single(columnCells.Select(cell => cell.SharedTextLayoutCache).Distinct()));
         }
         finally
         {
