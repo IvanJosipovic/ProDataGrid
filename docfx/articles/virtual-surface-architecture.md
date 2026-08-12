@@ -87,6 +87,7 @@ The surface currently draws these built-in column configurations:
 | `DataGridNumericColumn` | Direct raw binding and typed accessor | Column formatting and right-aligned text |
 | `DataGridCheckBoxColumn` | Direct raw binding and typed accessor | Centered two- or three-state indicator |
 | `DataGridDatePickerColumn` | Direct raw binding and typed `DateTime` accessor | Short, long, or custom formatted date text with column alignment |
+| `DataGridTimePickerColumn` | Direct raw binding and typed `TimeSpan` accessor | 12/24-hour, optional-seconds, or custom formatted time text |
 | `DataGridImageColumn` | Fixed image dimensions, direct raw binding, typed accessor | Stretch and stretch-direction geometry |
 | `DataGridProgressBarColumn` | No progress text, direct raw binding, typed accessor | Background, foreground, min/max, and fixed bar height |
 | `DataGridHierarchicalColumn` | No custom cell template and compatible typed text accessor | Indentation, expander, and hierarchy text |
@@ -209,7 +210,7 @@ For each cell the presenter:
 2. intersects it with the cells viewport and frozen regions;
 3. draws selection background when selected;
 4. reads the value through the column's typed provider/accessor;
-5. draws text, checkbox, image, progress, or hierarchy content;
+5. draws text, checkbox, date/time text, image, progress, or hierarchy content;
 6. draws current-cell chrome; and
 7. draws a vertical grid line when enabled.
 

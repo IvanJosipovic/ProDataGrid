@@ -583,6 +583,71 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Draws_Typed_Time_Column_And_Materializes_It_Only_For_Editing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var timeColumn = new DataGridTimePickerColumn
+        {
+            Header = "Time",
+            Width = new DataGridLength(120),
+            Binding = new Binding(nameof(Item.Time)),
+            ClockIdentifier = "24HourClock",
+            UseSeconds = true,
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            timeColumn,
+            new DataGridColumnValueAccessor<Item, TimeSpan?>(item => item.Time));
+        grid.Columns.Add(timeColumn);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.False(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+
+            int valueChangeCount = presenter.VirtualValueChangeCount;
+            Item firstItem = grid.ItemsSource!.Cast<Item>().First();
+            firstItem.Time = new TimeSpan(23, 59, 58);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(valueChangeCount + 1, presenter.VirtualValueChangeCount);
+
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                timeColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            PumpLayout(grid);
+
+            DataGridCell editorCell = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Same(timeColumn, editorCell.OwningColumn);
+            Assert.IsType<TimePicker>(editorCell.Content);
+
+            Assert.True(grid.CommitEdit());
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+
+            grid.ScrollIntoView(grid.ItemsSource.Cast<Item>().ElementAt(90), timeColumn);
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Preserves_Cell_Lifecycle_Events_Through_Retained_Fallback()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
@@ -1106,6 +1171,7 @@ public class DataGridFlatVisualLayoutTests
         private string _name;
         private bool? _isActive;
         private DateTime? _date;
+        private TimeSpan? _time;
 
         public Item(int id, string name, double value)
         {
@@ -1114,6 +1180,7 @@ public class DataGridFlatVisualLayoutTests
             Value = value;
             _isActive = id % 2 == 0;
             _date = new DateTime(2024, 1, 1).AddDays(id);
+            _time = TimeSpan.FromSeconds(id % 86_400);
         }
 
         public int Id { get; set; }
@@ -1162,6 +1229,21 @@ public class DataGridFlatVisualLayoutTests
 
                 _date = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Date)));
+            }
+        }
+
+        public TimeSpan? Time
+        {
+            get => _time;
+            set
+            {
+                if (_time == value)
+                {
+                    return;
+                }
+
+                _time = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Time)));
             }
         }
 

@@ -404,6 +404,45 @@ animation-clock interval, explaining why the full frame-wait component rises
 while active work, layout, allocation, and structure all fall sharply. Raw JSON
 is under `artifacts/performance/virtual-date-2026-08-12/{clean,diagnostic}`.
 
+## Typed time surface follow-up
+
+A typed `DataGridTimePickerColumn` also previously forced the requested virtual
+mode to flat retained fallback. The surface now reads exact built-in time columns
+through a direct `TimeSpan`/`TimeSpan?` accessor and applies the column's 12- or
+24-hour clock, optional seconds, or custom `TimeSpan` format. Null values remain
+empty. Missing or non-time accessors, derived columns, binding converters or
+formats, and non-direct bindings remain on retained fallback. Editing still
+materializes the normal `TimePicker` in the one compatibility cell.
+
+The matched hierarchy workload replaced only the payload column with a 24-hour
+time column including seconds. Baseline was clean `b0f02560` with the identical
+benchmark-only lane and retained fallback explicitly allowed. Candidate and
+baseline were measured in three interleaved process pairs, two warmups, and five
+iterations of 32 jumps: 480 jumps per variant in each of separate clean-timing and
+diagnostic campaigns. The table compares the median of the three process means.
+
+| Metric | Retained time fallback | Time surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 5.977 ms | **1.239 ms** | **−79.3%** |
+| Explicit layout (clean) | 3.468 ms | **0.143 ms** | **−95.9%** |
+| UI render recording (diagnostic) | 0.486 ms | **0.462 ms** | −4.9% |
+| Compositor update (diagnostic) | 0.247 ms | **0.021 ms** | **−91.6%** |
+| Compositor render (diagnostic) | 0.680 ms | **0.480 ms** | **−29.4%** |
+| Managed allocation (clean) | 851.33 KB | **88.51 KB** | **−89.6%** |
+| End-to-end mean (clean) | 8.662 ms | **8.285 ms** | −4.3% |
+| Mean process median (clean) | 8.334 ms | **8.323 ms** | −0.1% |
+| Mean process p95 (clean) | 9.799 ms | **9.411 ms** | −4.0% |
+| Full frame wait (clean) | **5.129 ms** | 8.046 ms | +56.9% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 1,641 | **102** | **−93.8%** |
+
+The per-pair active-work changes were −78.5%, −79.6%, and −80.1%. The clean
+surface removes about 3.33 ms of layout and 763 KB of managed allocation per jump.
+As with the date path, finishing synchronous work sooner shifts the benchmark onto
+a longer portion of the deliberately awaited animation-clock interval; that idle
+wait is excluded from active work. Raw JSON is under
+`artifacts/performance/virtual-time-2026-08-12/{clean,diagnostic}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the
