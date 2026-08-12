@@ -284,9 +284,12 @@ sealed partial class DataGridRowsPresenter
         FontStyle fontStyle = FontStyle.Normal;
         FontWeight fontWeight = FontWeight.Normal;
         FontStretch fontStretch = FontStretch.Normal;
-        TextAlignment textAlignment = column is DataGridNumericColumn
-            ? TextAlignment.Right
-            : TextAlignment.Left;
+        TextAlignment textAlignment = column switch
+        {
+            DataGridNumericColumn => TextAlignment.Right,
+            DataGridDatePickerColumn dateColumn => dateColumn.GetTextAlignment(),
+            _ => TextAlignment.Left,
+        };
         if (column is DataGridTextColumn textColumn)
         {
             fontFamily = textColumn.FontFamily ?? fontFamily;

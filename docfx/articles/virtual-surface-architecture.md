@@ -86,6 +86,7 @@ The surface currently draws these built-in column configurations:
 | `DataGridTextColumn` | Compatible typed text accessor | Typography, trimming, foreground, and left alignment |
 | `DataGridNumericColumn` | Direct raw binding and typed accessor | Column formatting and right-aligned text |
 | `DataGridCheckBoxColumn` | Direct raw binding and typed accessor | Centered two- or three-state indicator |
+| `DataGridDatePickerColumn` | Direct raw binding and typed `DateTime` accessor | Short, long, or custom formatted date text with column alignment |
 | `DataGridImageColumn` | Fixed image dimensions, direct raw binding, typed accessor | Stretch and stretch-direction geometry |
 | `DataGridProgressBarColumn` | No progress text, direct raw binding, typed accessor | Background, foreground, min/max, and fixed bar height |
 | `DataGridHierarchicalColumn` | No custom cell template and compatible typed text accessor | Indentation, expander, and hierarchy text |

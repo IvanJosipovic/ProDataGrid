@@ -517,6 +517,72 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Draws_Typed_Date_Column_And_Materializes_It_Only_For_Editing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var dateColumn = new DataGridDatePickerColumn
+        {
+            Header = "Date",
+            Width = new DataGridLength(120),
+            Binding = new Binding(nameof(Item.Date)),
+            SelectedDateFormat = CalendarDatePickerFormat.Custom,
+            CustomDateFormatString = "yyyy-MM-dd",
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            dateColumn,
+            new DataGridColumnValueAccessor<Item, DateTime?>(item => item.Date));
+        grid.Columns.Add(dateColumn);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.False(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+
+            int valueChangeCount = presenter.VirtualValueChangeCount;
+            Item firstItem = grid.ItemsSource!.Cast<Item>().First();
+            firstItem.Date = new DateTime(2030, 12, 31);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(valueChangeCount + 1, presenter.VirtualValueChangeCount);
+
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                dateColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            PumpLayout(grid);
+
+            DataGridCell editorCell = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Same(dateColumn, editorCell.OwningColumn);
+            Assert.IsType<CalendarDatePicker>(editorCell.Content);
+
+            Assert.True(grid.CommitEdit());
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+
+            grid.ScrollIntoView(grid.ItemsSource.Cast<Item>().ElementAt(90), dateColumn);
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Preserves_Cell_Lifecycle_Events_Through_Retained_Fallback()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
@@ -1039,6 +1105,7 @@ public class DataGridFlatVisualLayoutTests
     {
         private string _name;
         private bool? _isActive;
+        private DateTime? _date;
 
         public Item(int id, string name, double value)
         {
@@ -1046,6 +1113,7 @@ public class DataGridFlatVisualLayoutTests
             _name = name;
             Value = value;
             _isActive = id % 2 == 0;
+            _date = new DateTime(2024, 1, 1).AddDays(id);
         }
 
         public int Id { get; set; }
@@ -1079,6 +1147,21 @@ public class DataGridFlatVisualLayoutTests
 
                 _isActive = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsActive)));
+            }
+        }
+
+        public DateTime? Date
+        {
+            get => _date;
+            set
+            {
+                if (_date == value)
+                {
+                    return;
+                }
+
+                _date = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Date)));
             }
         }
 

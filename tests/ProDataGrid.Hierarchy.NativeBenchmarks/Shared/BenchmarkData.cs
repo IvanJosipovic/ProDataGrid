@@ -16,6 +16,7 @@ public sealed class Node
         Depth = depth;
         Name = $"Node {id:N0} at depth {depth}";
         Payload = $"Payload-{id % 997:D3}";
+        Date = new DateTime(2020, 1, 1).AddDays(id % 3_650);
     }
 
     public int Id { get; }
@@ -25,6 +26,8 @@ public sealed class Node
     public string Name { get; }
 
     public string Payload { get; }
+
+    public DateTime Date { get; }
 
     public int ChildCount => Children.Count;
 

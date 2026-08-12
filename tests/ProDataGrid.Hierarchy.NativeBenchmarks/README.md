@@ -166,6 +166,11 @@ GRID_BENCH_PRO_MODE=virtual-checkbox dotnet \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual-checkbox.json
 
+GRID_BENCH_PRO_MODE=virtual-date dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-date.json
+
 GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \

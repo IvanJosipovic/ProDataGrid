@@ -366,6 +366,44 @@ structure all move in the expected direction. Raw JSON is under
 `artifacts/performance/virtual-checkbox-2026-08-12`; clean timing is in `clean/`
 and the instrumented campaign is in `{baseline,candidate}`.
 
+## Typed date surface follow-up
+
+A typed `DataGridDatePickerColumn` previously forced the requested virtual mode
+to flat retained fallback. The surface now reads exact built-in date columns
+through a direct `DateTime`/`DateTime?` accessor and applies the column's short,
+long, or custom format plus horizontal alignment. Missing or non-date accessors,
+derived columns, binding converters or formats, and non-direct bindings remain on
+retained fallback. Editing still materializes the normal `CalendarDatePicker` in
+the one compatibility cell.
+
+The matched hierarchy workload replaced only the payload column with a custom
+`yyyy-MM-dd` date column. Baseline was clean `faf1eb2a` with the identical
+benchmark-only lane and retained fallback explicitly allowed. Candidate and
+baseline were measured in three interleaved process pairs, two warmups, and five
+iterations of 32 jumps: 480 jumps per variant in each of separate clean-timing and
+diagnostic campaigns. The table compares the median of the three process means.
+
+| Metric | Retained date fallback | Date surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 6.066 ms | **1.101 ms** | **−81.8%** |
+| Explicit layout (clean) | 3.376 ms | **0.127 ms** | **−96.2%** |
+| UI render recording (diagnostic) | 0.480 ms | **0.476 ms** | −0.7% |
+| Compositor update (diagnostic) | 0.250 ms | **0.022 ms** | **−91.2%** |
+| Compositor render (diagnostic) | 0.699 ms | **0.399 ms** | **−42.9%** |
+| Managed allocation (clean) | 855.23 KB | **88.53 KB** | **−89.6%** |
+| End-to-end mean (clean) | 8.399 ms | **8.219 ms** | −2.1% |
+| Mean process median (clean) | 8.326 ms | **8.321 ms** | −0.1% |
+| Mean process p95 (clean) | 9.304 ms | **9.265 ms** | −0.4% |
+| Full frame wait (clean) | **4.993 ms** | 8.019 ms | +60.6% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 1,641 | **102** | **−93.8%** |
+
+The per-pair active-work changes were −80.6%, −74.2%, and −89.3%. The clean
+surface finishes layout roughly 3.25 ms earlier and then awaits more of the next
+animation-clock interval, explaining why the full frame-wait component rises
+while active work, layout, allocation, and structure all fall sharply. Raw JSON
+is under `artifacts/performance/virtual-date-2026-08-12/{clean,diagnostic}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the
