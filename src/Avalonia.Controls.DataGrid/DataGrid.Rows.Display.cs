@@ -326,7 +326,8 @@ namespace Avalonia.Controls
             row.EnsureHeaderStyleAndVisibility(null);
 
             // Check to see if the row contains the CurrentCell, apply its state.
-            if (CurrentColumnIndex != -1 &&
+            if (!UsesVirtualCellSurface &&
+            CurrentColumnIndex != -1 &&
             CurrentSlot != -1 &&
             row.Index == CurrentSlot)
             {

@@ -362,6 +362,28 @@ internal
 
             var startCol = startColumn.Index;
             var endCol = endColumn.Index;
+            if (UsesVirtualCellSurface && _rowsPresenter != null &&
+                _rowsPresenter.TryGetVirtualCellBounds(topRow, startColumn, out Rect topLeftBounds) &&
+                _rowsPresenter.TryGetVirtualCellBounds(bottomRow, endColumn, out Rect bottomRightBounds))
+            {
+                Point? topLeftPoint = _rowsPresenter.TranslatePoint(topLeftBounds.TopLeft, _selectionOverlay);
+                Point? bottomRightPoint = _rowsPresenter.TranslatePoint(bottomRightBounds.BottomRight, _selectionOverlay);
+                if (topLeftPoint == null || bottomRightPoint == null)
+                {
+                    return false;
+                }
+
+                bounds = new Rect(topLeftPoint.Value, bottomRightPoint.Value);
+                const double virtualTolerance = 0.5;
+                Rect virtualOverlayBounds = _selectionOverlay.Bounds;
+                isFullyVisible = isVerticallyVisible &&
+                    bounds.Left >= -virtualTolerance &&
+                    bounds.Top >= -virtualTolerance &&
+                    bounds.Right <= virtualOverlayBounds.Width + virtualTolerance &&
+                    bounds.Bottom <= virtualOverlayBounds.Height + virtualTolerance;
+                return bounds.Width > 0d && bounds.Height > 0d;
+            }
+
             if (startCol < 0 || startCol >= topRow.Cells.Count || endCol < 0 || endCol >= bottomRow.Cells.Count)
             {
                 return false;

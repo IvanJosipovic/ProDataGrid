@@ -20,9 +20,13 @@ schedule.
 - `CollapseAllAndRender` starts with the sample's 149,792-node workload fully
   expanded, retains materialized children for equivalent post-collapse semantics,
   collapses to 32 roots, updates layout, and waits for rendered completion.
+- `ScrollAndRender` moves through 32 deterministic offsets in the expanded
+  hierarchy and records mutation, explicit layout, frame wait, and managed
+  allocation for every jump. `--scroll-only` skips the other scenarios so the
+  process can be used for focused scroll profiling and paired comparisons.
 - Managed allocation is `GC.GetTotalAllocatedBytes` traffic during the timed
   operation. It is not retained heap, native allocation, RSS, or GPU memory.
-- Collapse results also split the same end-to-end sample into synchronous model/UI
+- Collapse and scroll results also split the same end-to-end sample into synchronous model/UI
   mutation, `UpdateLayout`, and rendered-frame wait durations. These diagnostic
   phase means sum to the reported collapse mean; the end-to-end mean remains the
   primary reported comparison. The collapse optimization gate uses mutation plus
@@ -147,11 +151,39 @@ GRID_BENCH_PRO_MODE=direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --warmup 2 --iterations 10 --output /tmp/pro-direct-cell.json
 
+GRID_BENCH_PRO_MODE=virtual dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual.json
+
+GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-flat-direct-cell.json
+
+GRID_BENCH_PRO_MODE=flat-drawn dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-flat-drawn.json
+
 dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Tree/bin/Release/net8.0/Native.Tree.dll \
-  --warmup 2 --iterations 10 --output /tmp/tree.json
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/tree.json
 ```
 
 On a machine without .NET 8, `DOTNET_ROLL_FORWARD=Major` can run the net8.0
 applications on a newer installed runtime, but the report must record that change.
 Use the same runtime and machine for both implementations.
+
+The `virtual` mode uses `DataGridVisualLayoutMode.Virtualized` with the flat row
+theme and typed column accessors. Harness validation requires zero realized
+`DataGridCell` controls for every measured display state; a retained fallback is
+reported as a validation failure rather than being mislabeled as a virtual run.
+`flat-direct-cell` and `flat-drawn` use the centralized flat row/cell layout with
+the corresponding retained or drawn cell content. Add `--avalonia-diagnostics`
+only to a separate diagnostic run; it records Avalonia UI-render and compositor
+meter durations but intentionally adds measurement overhead.
+
+See [the 2026-08-12 focused scroll report](../ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
+for the paired renderer optimization and flat-versus-nested source results.

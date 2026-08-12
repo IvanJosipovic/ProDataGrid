@@ -2200,6 +2200,11 @@ internal
 
         private void UpdateSelectionVisuals(IReadOnlyList<DataGridCellInfo> cells)
         {
+            if (UsesVirtualCellSurface)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+            }
+
             if (cells.Count == 0 || DisplayData == null)
             {
                 return;

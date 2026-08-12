@@ -205,6 +205,10 @@ internal
 
         private void NotifyPreparedRowCells(DataGridRow row)
         {
+            if (UsesFlatVisualLayout)
+            {
+                row.UpdateFlatCellDataContexts();
+            }
             NotifyCellsPrepared(row);
         }
 
@@ -540,6 +544,8 @@ internal
             CanUserResizeColumnsProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnCanUserResizeColumnsChanged(e));
             ColumnWidthProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnColumnWidthChanged(e));
             ColumnWidthSharingScopeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnColumnWidthSharingScopeChanged(e));
+            VisualLayoutModeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnVisualLayoutModeChanged(e));
+            CellThemeProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.RefreshVirtualCellBackendIfEligibilityChanged());
             FrozenColumnCountProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnFrozenColumnCountChanged(e));
             FrozenColumnCountRightProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnFrozenColumnCountRightChanged(e));
             GridLinesVisibilityProperty.Changed.AddClassHandler<DataGrid>((x, e) => x.OnGridLinesVisibilityChanged(e));
@@ -2914,6 +2920,7 @@ internal
 
         private void SearchModel_ResultsChanged(object sender, SearchResultsChangedEventArgs e)
         {
+            RefreshVirtualCellBackendAfterColumnsChanged();
             UpdateSearchResults(e.NewResults);
             TryRestorePendingSearchCurrent();
         }
@@ -2928,6 +2935,7 @@ internal
             if (e.PropertyName == nameof(ISearchModel.HighlightMode)
                 || e.PropertyName == nameof(ISearchModel.HighlightCurrent))
             {
+                RefreshVirtualCellBackendAfterColumnsChanged();
                 RefreshSearchStates();
             }
         }
@@ -5659,6 +5667,7 @@ internal
 
         private void ConditionalFormattingAdapter_FormattingChanged(object sender, EventArgs e)
         {
+            RefreshVirtualCellBackendAfterColumnsChanged();
             RefreshConditionalFormatting();
         }
 

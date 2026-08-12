@@ -448,6 +448,18 @@
     <TabItem Header="Optimized Cell Paths (Hierarchy)">
       <pages:OptimizedHierarchyCellPathsPage />
     </TabItem>
+    <TabItem Header="Flat Surface (Flat Data)">
+      <pages:FlatSurfaceFlatDataPage />
+    </TabItem>
+    <TabItem Header="Nested Surface Baseline (Flat Data)">
+      <pages:NestedSurfaceFlatDataPage />
+    </TabItem>
+    <TabItem Header="Flat Surface (Hierarchy)">
+      <pages:FlatSurfaceHierarchyPage />
+    </TabItem>
+    <TabItem Header="Nested Surface Baseline (Hierarchy)">
+      <pages:NestedSurfaceHierarchyPage />
+    </TabItem>
     <TabItem Header="Resize Recycling">
       <pages:RecycleDiagnosticsPage />
     </TabItem>

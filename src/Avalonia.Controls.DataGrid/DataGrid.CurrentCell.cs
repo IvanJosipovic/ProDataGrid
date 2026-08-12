@@ -242,11 +242,12 @@ internal
                 {
                     row.ApplyHeaderStatus();
                 }
-                DataGridCell cell = row.Cells[columnIndex];
-                if (applyCellState)
+                if (!UsesVirtualCellSurface && applyCellState)
                 {
-                    cell.UpdatePseudoClasses();
+                    row.Cells[columnIndex].UpdatePseudoClasses();
                 }
+
+                _rowsPresenter?.InvalidateVirtualCellSurface();
             }
             else if (displayedElement is DataGridRowGroupHeader groupHeader)
             {

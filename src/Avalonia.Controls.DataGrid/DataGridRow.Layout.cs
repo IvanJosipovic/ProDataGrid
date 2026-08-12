@@ -183,6 +183,10 @@ namespace Avalonia.Controls
             }
 
             Size desiredSize = base.MeasureOverride(availableSize);
+            if (OwningGrid.UsesFlatVisualLayout)
+            {
+                desiredSize = desiredSize.WithHeight(GetFlatDesiredHeight(OwningGrid, desiredSize.Height));
+            }
             return desiredSize.WithWidth(Math.Max(desiredSize.Width, OwningGrid.CellsWidth));
         }
 
@@ -303,6 +307,11 @@ namespace Avalonia.Controls
         {
             if (OwningGrid != null)
             {
+                if (OwningGrid.UsesFlatVisualLayout)
+                {
+                    InvalidateFlatGridLine();
+                }
+
                 if (_bottomGridLine != null)
                 {
                     // It looks like setting Visibility sometimes has side effects so make sure the value is actually

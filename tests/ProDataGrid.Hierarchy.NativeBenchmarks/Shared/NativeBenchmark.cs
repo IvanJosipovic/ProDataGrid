@@ -64,6 +64,10 @@ internal sealed class NativeBenchmarkApplication : Application
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Fluent.v2.xaml"),
         });
+        Styles.Add(new StyleInclude(new Uri("avares://Avalonia.Controls.DataGrid/Themes/"))
+        {
+            Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Flat.xaml"),
+        });
 #else
         Styles.Add(new StyleInclude(new Uri("avares://Avalonia.Controls.TreeDataGrid/Themes/"))
         {
@@ -162,6 +166,8 @@ internal static class NativeBenchmarkOptions
 
     public static bool CollapseOnly { get; private set; }
 
+    public static bool ScrollOnly { get; private set; }
+
     public static bool AvaloniaDiagnostics { get; private set; }
 
     public static int AlignmentCallbacks { get; private set; } = 3;
@@ -185,6 +191,9 @@ internal static class NativeBenchmarkOptions
             "direct" => "ProDataGrid (direct-content retained)",
             "direct-cell" => "ProDataGrid (direct-cell retained)",
             "drawn" => "ProDataGrid (drawn ordinary cells)",
+            "flat-direct-cell" => "ProDataGrid (flat direct-cell retained)",
+            "flat-drawn" => "ProDataGrid (flat drawn ordinary cells)",
+            "virtual" => "ProDataGrid (virtual cell surface)",
             _ => $"ProDataGrid ({ProMode})",
         };
 #else
@@ -230,6 +239,9 @@ internal static class NativeBenchmarkOptions
                 case "--collapse-only":
                     CollapseOnly = true;
                     break;
+                case "--scroll-only":
+                    ScrollOnly = true;
+                    break;
                 case "--avalonia-diagnostics":
                     AvaloniaDiagnostics = true;
                     break;
@@ -253,9 +265,12 @@ internal static class NativeBenchmarkOptions
             throw new ArgumentException("--drawn true is supported only by Accelerate TreeDataGrid.");
 #endif
 #if PRO && PRODATAGRID_PR335
-        if (ProMode is not ("standard" or "optimized" or "direct" or "direct-cell" or "drawn"))
+        if (ProMode is not ("standard" or "optimized" or "direct" or "direct-cell" or "drawn" or
+            "flat-direct-cell" or "flat-drawn" or "virtual"))
             throw new ArgumentException($"Unsupported GRID_BENCH_PRO_MODE: {ProMode}.");
 #endif
+        if (ScrollOnly && (FirstRenderOnly || CollapseOnly))
+            throw new ArgumentException("--scroll-only cannot be combined with --first-render-only or --collapse-only.");
     }
 
     private static string RequireValue(string[] args, ref int index)
@@ -284,13 +299,14 @@ internal sealed class NativeBenchmarkRunner
 
     public async Task<NativeBenchmarkResult> RunAsync()
     {
-        var firstRender = NativeBenchmarkOptions.CollapseOnly
+        var firstRender = NativeBenchmarkOptions.CollapseOnly || NativeBenchmarkOptions.ScrollOnly
             ? null
             : await MeasureFirstRenderAsync();
-        var expandAndRender = NativeBenchmarkOptions.FirstRenderOnly || NativeBenchmarkOptions.CollapseOnly
+        var expandAndRender = NativeBenchmarkOptions.FirstRenderOnly || NativeBenchmarkOptions.CollapseOnly ||
+            NativeBenchmarkOptions.ScrollOnly
             ? null
             : await MeasureExpandAndRenderAsync();
-        var collapseAndRender = NativeBenchmarkOptions.FirstRenderOnly
+        var collapseAndRender = NativeBenchmarkOptions.FirstRenderOnly || NativeBenchmarkOptions.ScrollOnly
             ? null
             : await MeasureCollapseAndRenderAsync();
         var scrollAndRender = NativeBenchmarkOptions.FirstRenderOnly
@@ -423,13 +439,13 @@ internal sealed class NativeBenchmarkRunner
         var mutationTimes = new List<double>();
         var layoutTimes = new List<double>();
         var frameTimes = new List<double>();
+        var uiRenderTimes = new List<double>();
+        var compositorUpdateTimes = new List<double>();
+        var compositorRenderTimes = new List<double>();
         var firstFrameCallbackTimes = new List<double>();
         var secondFrameCallbackTimes = new List<double>();
         var animationTickIntervals = new List<double>();
         var layoutUpdatedCounts = new List<int>();
-        var uiRenderTimes = new List<double>();
-        var compositorUpdateTimes = new List<double>();
-        var compositorRenderTimes = new List<double>();
         NativeValidation? validation = null;
 
         for (var i = 0; i < NativeBenchmarkOptions.Iterations; ++i)
@@ -533,43 +549,84 @@ internal sealed class NativeBenchmarkRunner
 
         var times = new List<double>();
         var allocationPerJump = new List<double>();
+        var mutationTimes = new List<double>();
+        var layoutTimes = new List<double>();
+        var frameTimes = new List<double>();
+        var uiRenderTimes = new List<double>();
+        var compositorUpdateTimes = new List<double>();
+        var compositorRenderTimes = new List<double>();
 
         for (var batch = 0; batch < NativeBenchmarkOptions.Iterations; ++batch)
         {
             await PrepareMeasurementAsync(_host);
             var allocatedBefore = GC.GetTotalAllocatedBytes(precise: false);
-            var batchTimes = await RunScrollBatchAsync(handle, viewer, batch, measure: true);
+            var batchMeasurements = await RunScrollBatchAsync(handle, viewer, batch, measure: true);
             var allocated = GC.GetTotalAllocatedBytes(precise: false) - allocatedBefore;
-            times.AddRange(batchTimes);
+            foreach (NativeScrollMeasurement measurement in batchMeasurements)
+            {
+                times.Add(measurement.ElapsedMilliseconds);
+                mutationTimes.Add(measurement.MutationMilliseconds);
+                layoutTimes.Add(measurement.LayoutMilliseconds);
+                frameTimes.Add(measurement.FrameMilliseconds);
+                uiRenderTimes.Add(measurement.UiRenderMilliseconds);
+                compositorUpdateTimes.Add(measurement.CompositorUpdateMilliseconds);
+                compositorRenderTimes.Add(measurement.CompositorRenderMilliseconds);
+            }
             allocationPerJump.Add(allocated / (double)NativeBenchmarkOptions.ScrollJumps);
         }
 
         var validation = NativeGridAdapter.Validate(handle);
         await DetachAsync();
-        return NativeWorkloadResult.Create("ScrollAndRender", times, allocationPerJump, validation);
+        return NativeWorkloadResult.Create(
+            "ScrollAndRender",
+            times,
+            allocationPerJump,
+            validation,
+            mutationTimes,
+            layoutTimes,
+            frameTimes,
+            uiRenderTimes: uiRenderTimes,
+            compositorUpdateTimes: compositorUpdateTimes,
+            compositorRenderTimes: compositorRenderTimes);
     }
 
-    private async Task<IReadOnlyList<double>> RunScrollBatchAsync(
+    private async Task<IReadOnlyList<NativeScrollMeasurement>> RunScrollBatchAsync(
         NativeGridHandle handle,
         ScrollViewer viewer,
         int batch,
         bool measure)
     {
-        var times = measure ? new List<double>(NativeBenchmarkOptions.ScrollJumps) : null;
+        var measurements = measure ? new List<NativeScrollMeasurement>(NativeBenchmarkOptions.ScrollJumps) : null;
         for (var i = 0; i < NativeBenchmarkOptions.ScrollJumps; ++i)
         {
             var operation = (batch * NativeBenchmarkOptions.ScrollJumps) + i;
             var row = ((operation * 509) % 2_000) + 1;
+            if (NativeBenchmarkOptions.AvaloniaDiagnostics)
+            {
+                NativeAvaloniaDiagnostics.Reset();
+            }
             var renderedFrame = WaitForRenderedFrameAsync(_host);
             var stopwatch = Stopwatch.StartNew();
             NativeGridAdapter.SetScrollRow(viewer, row);
+            double mutationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
             handle.Grid.UpdateLayout();
+            double mutationAndLayoutMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
             await renderedFrame;
             stopwatch.Stop();
-            times?.Add(stopwatch.Elapsed.TotalMilliseconds);
+            NativeRenderingDiagnostics renderingDiagnostics = measure && NativeBenchmarkOptions.AvaloniaDiagnostics
+                ? await NativeAvaloniaDiagnostics.SnapshotAsync()
+                : default;
+            measurements?.Add(new NativeScrollMeasurement(
+                stopwatch.Elapsed.TotalMilliseconds,
+                mutationMilliseconds,
+                mutationAndLayoutMilliseconds - mutationMilliseconds,
+                stopwatch.Elapsed.TotalMilliseconds - mutationAndLayoutMilliseconds,
+                renderingDiagnostics.UiRenderMilliseconds,
+                renderingDiagnostics.CompositorUpdateMilliseconds,
+                renderingDiagnostics.CompositorRenderMilliseconds));
         }
 
-        return times is null ? Array.Empty<double>() : times;
+        return measurements is null ? Array.Empty<NativeScrollMeasurement>() : measurements;
     }
 
     private async Task DetachAsync()
@@ -778,10 +835,13 @@ internal static class NativeGridAdapter
 #if PRO
 #if PRODATAGRID_PR335
         var optimized = NativeBenchmarkOptions.ProMode != "standard";
-        var directHierarchy = NativeBenchmarkOptions.ProMode is "direct" or "direct-cell" or "drawn";
+        var directHierarchy = NativeBenchmarkOptions.ProMode is "direct" or "direct-cell" or "drawn" or
+            "flat-direct-cell" or "flat-drawn";
         var directContent = NativeBenchmarkOptions.ProMode == "direct";
-        var directCell = NativeBenchmarkOptions.ProMode == "direct-cell";
-        var drawn = NativeBenchmarkOptions.ProMode == "drawn";
+        var directCell = NativeBenchmarkOptions.ProMode is "direct-cell" or "flat-direct-cell";
+        var drawn = NativeBenchmarkOptions.ProMode is "drawn" or "flat-drawn";
+        var flatLayout = NativeBenchmarkOptions.ProMode is "flat-direct-cell" or "flat-drawn";
+        var virtualSurface = NativeBenchmarkOptions.ProMode == "virtual";
         var options = new HierarchicalOptions<Node>
         {
             ChildrenSelector = node => node.Children,
@@ -808,6 +868,11 @@ internal static class NativeGridAdapter
             CanUserResizeColumns = false,
             CanUserReorderColumns = false,
             UseLightweightFiller = optimized,
+            VisualLayoutMode = virtualSurface
+                ? DataGridVisualLayoutMode.Virtualized
+                : flatLayout
+                    ? DataGridVisualLayoutMode.Flat
+                    : DataGridVisualLayoutMode.Nested,
         };
         var hierarchyColumn = new DataGridHierarchicalColumn
         {
@@ -828,6 +893,15 @@ internal static class NativeGridAdapter
         AddProTextColumn(grid, "Payload", 180, "Item.Payload", node => ((Node)node.Item).Payload, directContent, directCell, drawn);
         if (optimized)
             ApplyProOptimizedThemes(grid, featurePreserving: NativeBenchmarkOptions.ProMode == "optimized");
+        if (virtualSurface)
+        {
+            grid.CellTheme = null;
+            ApplyProFlatThemes(grid);
+        }
+        else if (flatLayout)
+        {
+            ApplyProFlatThemes(grid);
+        }
         return new NativeGridHandle(model, grid);
 #else
         var options = new HierarchicalOptions<Node>
@@ -986,6 +1060,12 @@ internal static class NativeGridAdapter
             featurePreserving ? "DataGridOptimizedFeatureColumnHeaderTheme" : "DataGridOptimizedColumnHeaderTheme");
     }
 
+    private static void ApplyProFlatThemes(DataGrid grid)
+    {
+        grid.Theme = FindProTheme(grid, "DataGridFlatTheme");
+        grid.RowTheme = FindProTheme(grid, "DataGridFlatRowTheme");
+    }
+
     private static ControlTheme FindProTheme(DataGrid grid, string key)
     {
         if ((grid.TryFindResource(key, out object? value) ||
@@ -1013,6 +1093,10 @@ internal static class NativeGridAdapter
 #endif
         if (realizedRows <= 0 || realizedRows >= 200)
             throw new InvalidOperationException($"Virtualization validation failed: {realizedRows} realized rows.");
+#if PRO && PRODATAGRID_PR335
+        if (NativeBenchmarkOptions.ProMode == "virtual" && realizedCells != 0)
+            throw new InvalidOperationException($"Virtual cell surface realized {realizedCells} retained cells.");
+#endif
 
         var viewer = GetScrollViewer(handle);
         return new NativeValidation(
@@ -1102,6 +1186,15 @@ internal sealed record NativeMeasurement(
     double UiRenderMilliseconds = 0,
     double CompositorUpdateMilliseconds = 0,
     double CompositorRenderMilliseconds = 0);
+
+internal readonly record struct NativeScrollMeasurement(
+    double ElapsedMilliseconds,
+    double MutationMilliseconds,
+    double LayoutMilliseconds,
+    double FrameMilliseconds,
+    double UiRenderMilliseconds,
+    double CompositorUpdateMilliseconds,
+    double CompositorRenderMilliseconds);
 
 internal sealed record NativeValidation(
     int RowCount,

@@ -513,6 +513,8 @@ internal
 
         internal override bool SupportsDrawnDisplay => true;
 
+        internal override bool SupportsVirtualCellSurface => CanUseDirectValueAccessor;
+
         object IDataGridDrawnCellValueProvider.GetDrawnCellValue(object item) => GetDirectCellText(item);
 
         bool IDataGridDrawnCellValueChangeTracking.TrackDrawnCellValueChanges => TrackDirectTextValueChanges;

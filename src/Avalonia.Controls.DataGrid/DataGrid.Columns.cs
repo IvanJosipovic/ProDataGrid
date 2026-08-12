@@ -438,6 +438,18 @@ internal
 
         internal void OnColumnBindingChanged(DataGridBoundColumn column)
         {
+            RefreshVirtualCellBackendIfEligibilityChanged();
+            if (UsesVirtualCellSurface)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+                OnColumnBindingChangedForValidation();
+                if (column.HasSummaries)
+                {
+                    OnColumnSummariesChanged(column);
+                }
+                return;
+            }
+
             // Update Binding in Displayed rows by regenerating the affected elements
             if (_rowsPresenter != null)
             {
@@ -561,10 +573,15 @@ internal
             ColumnHeaders?.InvalidateChildIndex();
             foreach (var row in GetAllRows())
             {
-                row.Cells[updatedColumn.Index].IsVisible = updatedColumn.IsVisible;
+                if (updatedColumn.Index < row.Cells.Count)
+                {
+                    row.Cells[updatedColumn.Index].IsVisible = updatedColumn.IsVisible;
+                }
                 row.InvalidateCellsIndex();
                 row.UpdateSelectionPseudoClasses();
             }
+
+            RefreshVirtualCellBackendAfterColumnsChanged();
 
             UpdateSearchAdapterView();
             RequestSelectionOverlayRefresh();
@@ -605,6 +622,7 @@ internal
             }
 
             ColumnWidthSharingScope?.ReportWidth(updatedColumn);
+            RefreshVirtualCellBackendIfEligibilityChanged();
         }
 
         internal void OnFillerColumnWidthNeeded(double finalWidth)
@@ -652,7 +670,7 @@ internal
             InsertDisplayedColumnHeader(insertedColumn);
 
             // Insert the missing data cells
-            if (SlotCount > 0)
+            if (SlotCount > 0 && VisualLayoutMode != DataGridVisualLayoutMode.Virtualized)
             {
                 int newColumnCount = ColumnsItemsInternal.Count;
 
@@ -682,6 +700,8 @@ internal
             {
                 boundColumn.SetHeaderFromBinding();
             }
+
+            RefreshVirtualCellBackendAfterColumnsChanged();
         }
 
         internal DataGridCellCoordinates OnInsertingColumn(int columnIndexInserted, DataGridColumn insertColumn)
@@ -741,7 +761,7 @@ internal
             // Fix the existing rows by removing cells at correct index
             int newColumnCount = ColumnsItemsInternal.Count;
 
-            if (_rowsPresenter != null)
+            if (_rowsPresenter != null && VisualLayoutMode != DataGridVisualLayoutMode.Virtualized)
             {
                 foreach (DataGridRow row in GetAllRows())
                 {
@@ -760,6 +780,7 @@ internal
             OnGroupSummaryColumnRemoved(removedColumn);
 
             RemoveDisplayedColumnHeader(removedColumn, removedHeader);
+            RefreshVirtualCellBackendAfterColumnsChanged();
         }
 
         internal void NotifyCellsClearingForColumnRemoval(DataGridColumn removedColumn)
@@ -932,6 +953,8 @@ internal
                 return;
             }
 
+            RefreshVirtualCellBackendIfEligibilityChanged();
+
             if (_editingColumnIndex == column.Index &&
                 !CommitEdit(DataGridEditingUnit.Cell, exitEditingMode: true))
             {
@@ -964,6 +987,12 @@ internal
 
         private void RecreateColumnCell(DataGridRow row, DataGridColumn column)
         {
+            if (UsesVirtualCellSurface)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+                return;
+            }
+
             if (row == null || column.Index >= row.Cells.Count)
             {
                 return;
@@ -1481,10 +1510,16 @@ internal
             }
         }
 
-        private static void RefreshCellElement(DataGridColumn dataGridColumn, DataGridRow dataGridRow, string propertyName)
+        private void RefreshCellElement(DataGridColumn dataGridColumn, DataGridRow dataGridRow, string propertyName)
         {
             Debug.Assert(dataGridColumn != null);
             Debug.Assert(dataGridRow != null);
+
+            if (UsesVirtualCellSurface || dataGridColumn.Index >= dataGridRow.Cells.Count)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+                return;
+            }
 
             DataGridCell dataGridCell = dataGridRow.Cells[dataGridColumn.Index];
             Debug.Assert(dataGridCell != null);

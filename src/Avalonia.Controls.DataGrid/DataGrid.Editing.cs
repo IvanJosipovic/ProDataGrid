@@ -306,6 +306,8 @@ internal
             }
             Debug.Assert(dataGridRow != null);
 
+            EnsureVirtualCompatibilityRow(dataGridRow);
+
             // Cache these to see if they change later
             int currentRowIndex = CurrentSlot;
             int currentColumnIndex = CurrentColumnIndex;
@@ -1129,6 +1131,7 @@ internal
 
         private void ResetEditingRow()
         {
+            DataGridRow previousEditingRow = EditingRow;
             if (EditingRow != null
                 && EditingRow != _focusedRow
                 && !IsSlotVisible(EditingRow.Slot))
@@ -1138,6 +1141,10 @@ internal
                 UnloadRow(EditingRow);
             }
             EditingRow = null;
+            if (UsesVirtualCellSurface && ReferenceEquals(_virtualCompatibilityRow, previousEditingRow))
+            {
+                ReleaseVirtualCompatibilityRow();
+            }
             _editingRowValidationSnapshot = null;
             _editingCellValidationSnapshot = null;
             _editingCellHadNotifyDataErrorInfoValidation = false;

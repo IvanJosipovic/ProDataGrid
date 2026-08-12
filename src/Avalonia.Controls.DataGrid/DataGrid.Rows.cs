@@ -1774,6 +1774,7 @@ internal
                 InvalidateRowsMeasure(invalidateIndividualElements: true);
                 // DataGrid needs to update the layout information and the ScrollBars
                 InvalidateMeasure();
+                RefreshVirtualCellBackendIfEligibilityChanged();
             }
         }
 

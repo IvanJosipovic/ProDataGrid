@@ -604,10 +604,18 @@ internal
         {
             // Walk up the tree to find the DataGridRow that contains the element
             Visual parent = element;
+            if (parent is DataGridCell flatCell && flatCell.OwningRow != null)
+            {
+                return flatCell.OwningRow;
+            }
             DataGridRow row = parent as DataGridRow;
             while ((parent != null) && (row == null))
             {
                 parent = parent.GetVisualParent();
+                if (parent is DataGridCell cell && cell.OwningRow != null)
+                {
+                    return cell.OwningRow;
+                }
                 row = parent as DataGridRow;
             }
             return row;
@@ -647,7 +655,7 @@ internal
                 _cellsElement.OwningRow = this;
                 // Cells that were already added before the Template was applied need to
                 // be added to the Canvas
-                if (Cells.Count > 0)
+                if (Cells.Count > 0 && OwningGrid?.UsesFlatVisualLayout != true)
                 {
                     foreach (DataGridCell cell in Cells)
                     {
@@ -712,13 +720,21 @@ internal
 
         private void DataGridCellCollection_CellAdded(object sender, DataGridCellEventArgs e)
         {
-            _cellsElement?.Children.Add(e.Cell);
+            if (OwningGrid?.UsesFlatVisualLayout != true)
+            {
+                _cellsElement?.Children.Add(e.Cell);
+            }
+            else
+            {
+                OwningGrid.InvalidateMeasure();
+            }
         }
 
         private void DataGridCellCollection_CellRemoved(object sender, DataGridCellEventArgs e)
         {
             OwningGrid?.OnCellRemovedForValidation(e.Cell);
             _cellsElement?.Children.Remove(e.Cell);
+            OwningGrid?.InvalidateMeasure();
         }
 
         private void DataGridRow_PointerPressed(PointerPressedEventArgs e)

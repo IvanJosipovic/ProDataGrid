@@ -229,6 +229,8 @@
   items:
   - name: Scrolling and Virtualization
     href: scrolling-virtualization.md
+  - name: Flat Row and Cell Layout
+    href: flat-row-cell-layout.md
   - name: Cell Template Reuse
     href: cell-template-reuse.md
   - name: Row Details and Templates

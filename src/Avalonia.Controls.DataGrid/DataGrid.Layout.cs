@@ -322,6 +322,17 @@ internal
         private void CompleteCellsCollection(DataGridRow dataGridRow)
         {
             Debug.Assert(dataGridRow != null);
+
+            if (UsesVirtualCellSurface && !IsVirtualCompatibilityRow(dataGridRow))
+            {
+                for (var cellIndex = dataGridRow.Cells.Count - 1; cellIndex >= 0; cellIndex--)
+                {
+                    dataGridRow.Cells.RemoveAt(cellIndex);
+                }
+
+                return;
+            }
+
             var expectedCellCount = ColumnsItemsInternal.Count;
             var shouldRebuildCells = dataGridRow.Cells.Count != expectedCellCount;
 

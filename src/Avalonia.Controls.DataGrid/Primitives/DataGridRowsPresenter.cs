@@ -95,18 +95,26 @@ internal
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnhookTopLevel();
+            ResetFlatVisualLayout();
+            DetachVirtualCellSurface();
             _measureConstraints.Clear();
             base.OnDetachedFromVisualTree(e);
         }
 
         internal void ClearTrackedChildren()
         {
+            ResetFlatVisualLayout();
+            DetachVirtualCellSurface();
             _measureConstraints.Clear();
             Children.Clear();
         }
 
         internal void RemoveTrackedChild(Control child)
         {
+            if (child is DataGridRow row)
+            {
+                RemoveFlatCells(row);
+            }
             _measureConstraints.Remove(child);
             Children.Remove(child);
         }
@@ -276,6 +284,10 @@ internal
 
             double rowDesiredWidth = OwningGrid.RowHeadersDesiredWidth + OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth + OwningGrid.ColumnsInternal.FillerColumn.FillerWidth;
             double topEdge = -OwningGrid.NegVerticalOffset;
+            if (OwningGrid.UsesFlatVisualLayout)
+            {
+                PrepareFlatColumnLayouts();
+            }
             var displayedElements = _displayedElementsScratch;
             displayedElements.Clear();
             int arrangedElements = 0;
@@ -292,7 +304,9 @@ internal
                     // Visibility for all filler cells needs to be set in one place.  Setting it individually in
                     // each CellsPresenter causes an NxN layout cycle (see DevDiv Bugs 211557)
                     row.EnsureFillerVisibility();
-                    var targetRect = new Rect(-OwningGrid.HorizontalOffset, topEdge, rowDesiredWidth, element.DesiredSize.Height);
+                    var targetRect = OwningGrid.UsesFlatVisualLayout
+                        ? new Rect(0, topEdge, Math.Max(finalSize.Width, rowDesiredWidth), element.DesiredSize.Height)
+                        : new Rect(-OwningGrid.HorizontalOffset, topEdge, rowDesiredWidth, element.DesiredSize.Height);
                     if (ShouldArrangeElement(row, targetRect))
                     {
                         row.Arrange(targetRect);
@@ -301,6 +315,15 @@ internal
                     else
                     {
                         skippedArrangeElements++;
+                    }
+
+                    if (OwningGrid.UsesFlatVisualLayout && !OwningGrid.UsesVirtualCellSurface)
+                    {
+                        ArrangeFlatCells(row, topEdge, element.DesiredSize.Height);
+                    }
+                    else if (OwningGrid.UsesVirtualCellSurface)
+                    {
+                        ArrangeVirtualCompatibilityCell(row, topEdge);
                     }
                 }
                 else if (element is DataGridRowGroupHeader groupHeader)
@@ -336,6 +359,7 @@ internal
             }
 
             double finalHeight = Math.Max(topEdge + OwningGrid.NegVerticalOffset, finalSize.Height);
+            ArrangeVirtualCellSurface(finalSize.Width, finalHeight);
 
             // Clip the RowsPresenter so rows cannot overlap other elements in certain styling scenarios
             var clipRect = new Rect(0, 0, finalSize.Width, finalHeight);
@@ -552,6 +576,11 @@ internal
             OwningGrid.RowsPresenterAvailableSize = availableSize;
 
             OwningGrid.OnRowsMeasure();
+            SyncFlatCells();
+            if (OwningGrid.UsesFlatVisualLayout)
+            {
+                PrepareFlatColumnLayouts();
+            }
 
             double totalHeight = -OwningGrid.NegVerticalOffset;
             double totalCellsWidth = OwningGrid.ColumnsInternal.VisibleEdgedColumnsWidth;
@@ -600,6 +629,15 @@ internal
                 {
                     headerWidth = Math.Max(headerWidth, row.HeaderCell.DesiredSize.Width);
                 }
+
+                if (row != null && OwningGrid.UsesFlatVisualLayout && !OwningGrid.UsesVirtualCellSurface)
+                {
+                    MeasureFlatCells(row);
+                }
+                else if (row != null && OwningGrid.UsesVirtualCellSurface)
+                {
+                    MeasureVirtualCompatibilityCell(row);
+                }
                 else if (element is DataGridRowGroupHeader groupHeader && groupHeader.HeaderCell != null)
                 {
                     headerWidth = Math.Max(headerWidth, groupHeader.HeaderCell.DesiredSize.Width);
@@ -643,6 +681,8 @@ internal
             
             // Sync our offset with the DataGrid's current offset
             SyncOffset(OwningGrid.HorizontalOffset, OwningGrid.GetVerticalOffset());
+
+            MeasureVirtualCellSurface(availableSize);
 
             return new Size(totalCellsWidth + headerWidth, totalHeight);
         }
