@@ -712,6 +712,70 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Draws_Typed_AutoComplete_Column_And_Materializes_It_Only_For_Editing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var autoCompleteColumn = new DataGridAutoCompleteColumn
+        {
+            Header = "Category",
+            Width = new DataGridLength(180),
+            Binding = new Binding(nameof(Item.Category)),
+            ItemsSource = new[] { "Hardware", "Software", "Services" },
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            autoCompleteColumn,
+            new DataGridColumnValueAccessor<Item, string>(item => item.Category));
+        grid.Columns.Add(autoCompleteColumn);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.False(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+
+            int valueChangeCount = presenter.VirtualValueChangeCount;
+            Item firstItem = grid.ItemsSource!.Cast<Item>().First();
+            firstItem.Category = "Services";
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(valueChangeCount + 1, presenter.VirtualValueChangeCount);
+
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                autoCompleteColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            PumpLayout(grid);
+
+            DataGridCell editorCell = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Same(autoCompleteColumn, editorCell.OwningColumn);
+            Assert.IsType<AutoCompleteBox>(editorCell.Content);
+
+            Assert.True(grid.CommitEdit());
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+
+            grid.ScrollIntoView(grid.ItemsSource.Cast<Item>().ElementAt(90), autoCompleteColumn);
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Preserves_Cell_Lifecycle_Events_Through_Retained_Fallback()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
@@ -1237,6 +1301,7 @@ public class DataGridFlatVisualLayoutTests
         private DateTime? _date;
         private TimeSpan? _time;
         private string _phone;
+        private string _category;
 
         public Item(int id, string name, double value)
         {
@@ -1247,6 +1312,7 @@ public class DataGridFlatVisualLayoutTests
             _date = new DateTime(2024, 1, 1).AddDays(id);
             _time = TimeSpan.FromSeconds(id % 86_400);
             _phone = $"(555) {id % 1_000:D3}-{id % 10_000:D4}";
+            _category = $"Category {id % 32:D2}";
         }
 
         public int Id { get; set; }
@@ -1325,6 +1391,21 @@ public class DataGridFlatVisualLayoutTests
 
                 _phone = value;
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Phone)));
+            }
+        }
+
+        public string Category
+        {
+            get => _category;
+            set
+            {
+                if (_category == value)
+                {
+                    return;
+                }
+
+                _category = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Category)));
             }
         }
 

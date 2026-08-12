@@ -485,6 +485,47 @@ layout, and structure all move consistently. The longer frame wait is again the
 idle animation-clock interval reached after synchronous work completes. Raw JSON
 is under `artifacts/performance/virtual-masked-2026-08-13/{clean,diagnostic}`.
 
+## Typed autocomplete surface follow-up
+
+`DataGridAutoCompleteColumn` previously forced the requested virtual mode to flat
+retained fallback even though its non-editing element is the same themed one-line
+`TextBlock` used by the text-only surface path. The surface now reads exact built-in
+autocomplete columns through a compatible typed text accessor and reproduces
+supported binding formatting and culture. Suggestions, filtering, completion,
+item templates, dropdown sizing, and watermark remain on the normal
+`AutoCompleteBox` editor. Derived columns, missing accessors, explicit binding
+sources, arbitrary converters, delayed bindings, and other non-direct
+configurations remain on retained fallback.
+
+The matched hierarchy workload replaced only the payload column with a category
+autocomplete column. Baseline was clean `51968565` with the identical benchmark-only
+lane and retained fallback explicitly allowed. Candidate and baseline were measured
+in three interleaved process pairs, two warmups, and five iterations of 32 jumps:
+480 jumps per variant in each of separate clean-timing and diagnostic campaigns.
+The table compares the median of the three process means.
+
+| Metric | Retained autocomplete fallback | Autocomplete surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 6.194 ms | **1.284 ms** | **−79.3%** |
+| Explicit layout (clean) | 3.470 ms | **0.150 ms** | **−95.7%** |
+| UI render recording (diagnostic) | 0.534 ms | **0.470 ms** | **−11.9%** |
+| Compositor update (diagnostic) | 0.259 ms | **0.022 ms** | **−91.6%** |
+| Compositor render (diagnostic) | 0.716 ms | **0.480 ms** | **−32.9%** |
+| Managed allocation (clean) | 847.98 KB | **85.54 KB** | **−89.9%** |
+| End-to-end mean (clean) | 8.591 ms | **8.245 ms** | −4.0% |
+| Mean process median (clean) | 8.330 ms | **8.310 ms** | −0.2% |
+| Mean process p95 (clean) | 10.394 ms | **10.320 ms** | −0.7% |
+| Full frame wait (clean) | **5.061 ms** | 7.997 ms | +58.0% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 1,641 | **102** | **−93.8%** |
+
+The per-pair active-work changes were −79.5%, −80.4%, and −78.2%. The clean
+surface removes about 3.32 ms of layout and 762 KB of managed allocation per jump.
+All three active-work pairs agree, while wall, median, and p95 remain refresh-clock
+guardrails. The longer frame wait is the idle animation-clock interval reached
+after synchronous work completes. Raw JSON is under
+`artifacts/performance/virtual-autocomplete-2026-08-13/{clean,diagnostic}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the

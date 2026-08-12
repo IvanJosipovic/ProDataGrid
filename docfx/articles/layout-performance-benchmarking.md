@@ -230,6 +230,9 @@ complete active-work score. A faster target lookup is accepted only when the
 application-level active components also improve; full frame wait remains a
 separate refresh-pacing diagnostic.
 Use `virtual-checkbox` to exercise the mixed text/hierarchy/checkbox surface lane.
+Use `virtual-autocomplete` to compare retained autocomplete display text with its
+typed zero-cell surface path; suggestion/filter behavior remains outside the
+read-only scrolling workload and is covered by editing tests.
 `GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` exists only for controlled baseline
 experiments and must not be set when validating the candidate surface.
 

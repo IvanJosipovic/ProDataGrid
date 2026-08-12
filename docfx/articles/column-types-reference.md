@@ -15,7 +15,7 @@ This reference summarizes the built-in column types shipped with ProDataGrid and
 | `DataGridTextColumn` | `TextBox` / `TextBlock` | `Binding` to text; text styling and watermark support. |
 | `DataGridCheckBoxColumn` | `CheckBox` | `Binding` to `bool?`; `IsThreeState`. |
 | `DataGridComboBoxColumn` | `ComboBox` | `ItemsSource` plus `SelectedItemBinding`/`SelectedValueBinding`/`TextBinding`. |
-| `DataGridAutoCompleteColumn` | `AutoCompleteBox` | `ItemsSource`, `FilterMode`, `MinimumPrefixLength`, `Binding` to text. |
+| `DataGridAutoCompleteColumn` | `AutoCompleteBox` / `TextBlock` | `ItemsSource`, `FilterMode`, `MinimumPrefixLength`, and text binding; compatible typed raw text can use the virtual surface. |
 | `DataGridMaskedTextColumn` | `MaskedTextBox` / `TextBlock` | `Mask`, `PromptChar`, and other editor options; compatible typed raw text can use the virtual surface. |
 | `DataGridDatePickerColumn` | `CalendarDatePicker` | `Binding` to `SelectedDate`, date range and format options. |
 | `DataGridTimePickerColumn` | `TimePicker` | `Binding` to `SelectedTime`. |

@@ -181,6 +181,11 @@ GRID_BENCH_PRO_MODE=virtual-masked dotnet \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual-masked.json
 
+GRID_BENCH_PRO_MODE=virtual-autocomplete dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-autocomplete.json
+
 GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
@@ -227,6 +232,10 @@ internal meters do not exist there.
 surface and that no retained display cells are realized. The diagnostic-only
 `GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` override exists for matched historical
 baseline experiments; never set it when validating the candidate backend.
+
+`virtual-autocomplete` replaces the payload text column with a typed
+`DataGridAutoCompleteColumn`. Display remains text-only on the surface; the
+suggestion list and filtering controls are materialized only while editing.
 
 The complete experiment design and interpretation rules are in
 [Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).
