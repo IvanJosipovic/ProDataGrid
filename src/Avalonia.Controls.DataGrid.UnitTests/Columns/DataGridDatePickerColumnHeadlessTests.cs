@@ -105,7 +105,7 @@ public class DataGridDatePickerColumnHeadlessTests
         Assert.Equal(KeyboardNavigationMode.None, KeyboardNavigation.GetTabNavigation(editingElement));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DatePickerColumn_Virtual_Value_Uses_Configured_Format()
     {
         var column = new DataGridDatePickerColumn
@@ -137,7 +137,7 @@ public class DataGridDatePickerColumnHeadlessTests
         Assert.Null(provider.GetDrawnCellValue(item));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DatePickerColumn_Virtual_Surface_Requires_Direct_Typed_Date_Access()
     {
         var column = new DataGridDatePickerColumn
