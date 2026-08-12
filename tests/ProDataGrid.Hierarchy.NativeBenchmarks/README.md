@@ -191,6 +191,11 @@ GRID_BENCH_PRO_MODE=virtual-slider-text dotnet \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual-slider-text.json
 
+GRID_BENCH_PRO_MODE=virtual-combobox-text dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-combobox-text.json
+
 GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
@@ -246,6 +251,12 @@ suggestion list and filtering controls are materialized only while editing.
 `DataGridSliderColumn` configured with `ShowValueText`. The centered formatted
 value stays on the surface; the interactive slider is materialized only while
 editing. Graphical slider display continues to use retained fallback.
+
+`virtual-combobox-text` replaces the payload text column with a typed, editable
+`DataGridComboBoxColumn.TextBinding`. The formatted text and dropdown glyph stay
+on the surface; the real ComboBox, item source/template, editability, selection,
+and dropdown interaction are materialized while editing. Selected-item and
+selected-value display modes continue to use retained fallback.
 
 The complete experiment design and interpretation rules are in
 [Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).

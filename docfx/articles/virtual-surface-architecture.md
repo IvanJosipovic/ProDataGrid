@@ -91,14 +91,16 @@ The surface currently draws these built-in column configurations:
 | `DataGridMaskedTextColumn` | Direct text binding and compatible typed text accessor | Raw bound display text; mask, prompts, culture, and watermark remain editor concerns |
 | `DataGridAutoCompleteColumn` | Direct text binding and compatible typed text accessor | Raw bound display text; suggestions, filtering, completion, item templates, and watermark remain editor concerns |
 | `DataGridSliderColumn` | `ShowValueText`, direct `Binding`, and compatible typed text accessor | Centered `ValueTextFormat` display; graphical slider display remains retained and the interactive slider remains the editor |
+| `DataGridComboBoxColumn` | `IsEditable`, direct `TextBinding`, no selected-item/value binding, and compatible typed text accessor | Formatted text and dropdown glyph; items, templates, free-form input, selection, and dropdown interaction remain on the editor |
 | `DataGridImageColumn` | Fixed image dimensions, direct raw binding, typed accessor | Stretch and stretch-direction geometry |
 | `DataGridProgressBarColumn` | No progress text, direct raw binding, typed accessor | Background, foreground, min/max, and fixed bar height |
 | `DataGridHierarchicalColumn` | No custom cell template and compatible typed text accessor | Indentation, expander, and hierarchy text |
 
 Derived columns remain conservative unless their exact implementation participates
-in the surface contract. Template columns, buttons, toggle controls with custom
-content or commands, arbitrary converters requiring the binding engine, and custom
-draw operations currently use retained fallback.
+in the surface contract. Combo-box selected-item/value display, template columns,
+buttons, toggle controls with custom content or commands, arbitrary converters
+requiring the binding engine, and custom draw operations currently use retained
+fallback.
 
 ## End-to-end pipeline
 

@@ -23,6 +23,7 @@ sealed partial class DataGridRowsPresenter
 {
     private const double VirtualCellHorizontalPadding = 12d;
     private const double VirtualExpanderSize = 16d;
+    private const double VirtualComboBoxGlyphWidth = 20d;
     // Keep several viewports of shaped text so discontinuous scrolling does not
     // evict the entire working set between render passes.
     private const int VirtualTextLayoutCacheCapacity = 4096;
@@ -274,11 +275,17 @@ sealed partial class DataGridRowsPresenter
 
         string text = value?.ToString() ?? string.Empty;
         double left = bounds.Left + VirtualCellHorizontalPadding;
+        double right = bounds.Right - VirtualCellHorizontalPadding;
         if (column is DataGridHierarchicalColumn hierarchicalColumn && item is HierarchicalNode node)
         {
             double indent = Math.Max(0, node.Level) * hierarchicalColumn.Indent;
             DrawVirtualExpander(context, node, bounds.Left + indent, bounds.Top, bounds.Height, expanderPen);
             left += indent + VirtualExpanderSize;
+        }
+        else if (column is DataGridComboBoxColumn)
+        {
+            DrawVirtualComboBoxChevron(context, bounds, expanderPen);
+            right -= VirtualComboBoxGlyphWidth;
         }
 
         FontStyle fontStyle = FontStyle.Normal;
@@ -289,6 +296,7 @@ sealed partial class DataGridRowsPresenter
             DataGridNumericColumn => TextAlignment.Right,
             DataGridDatePickerColumn dateColumn => dateColumn.GetTextAlignment(),
             DataGridSliderColumn { ShowValueText: true } => TextAlignment.Center,
+            DataGridComboBoxColumn comboBoxColumn => comboBoxColumn.GetTextAlignment(),
             _ => TextAlignment.Left,
         };
         if (column is DataGridTextColumn textColumn)
@@ -303,7 +311,7 @@ sealed partial class DataGridRowsPresenter
             foreground = textColumn.Foreground ?? foreground;
         }
 
-        double maxWidth = Math.Max(0d, bounds.Right - left - VirtualCellHorizontalPadding);
+        double maxWidth = Math.Max(0d, right - left);
         if (maxWidth <= 0d || string.IsNullOrEmpty(text))
         {
             return;
@@ -470,6 +478,23 @@ sealed partial class DataGridRowsPresenter
                 new Point(indicator.Left + inset, center),
                 new Point(indicator.Right - inset, center));
         }
+    }
+
+    private static void DrawVirtualComboBoxChevron(
+        DrawingContext context,
+        Rect bounds,
+        Pen pen)
+    {
+        double centerX = bounds.Right - VirtualCellHorizontalPadding - 5d;
+        double centerY = bounds.Top + (bounds.Height * 0.5d);
+        context.DrawLine(
+            pen,
+            new Point(centerX - 3.5d, centerY - 1.75d),
+            new Point(centerX, centerY + 1.75d));
+        context.DrawLine(
+            pen,
+            new Point(centerX, centerY + 1.75d),
+            new Point(centerX + 3.5d, centerY - 1.75d));
     }
 
     private static void DrawVirtualImage(

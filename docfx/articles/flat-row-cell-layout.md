@@ -102,10 +102,11 @@ One normal cell is overlaid for editing and validation. Visible model objects
 implementing `INotifyPropertyChanged` invalidate the surface without creating
 bindings or cell controls.
 
-The virtual surface supports text, masked text, autocomplete text, slider value text,
-numeric, checkbox, date, time, image, progress, and hierarchical columns when they have
-compatible typed accessors. Text, masked/autocomplete binding formatting, numeric, date,
-time and slider-value formatting, text column typography, image stretch, progress styling,
+The virtual surface supports text, masked text, autocomplete text, editable combo-box text,
+slider value text, numeric, checkbox, date, time, image, progress, and hierarchical columns
+when they have compatible typed accessors. Text, masked/autocomplete/combo-box binding
+formatting, numeric, date, time and slider-value formatting, text column typography,
+combo-box dropdown glyphs, image stretch, progress styling,
 hierarchy indentation, selection, grid lines, and frozen clipping are drawn directly. It deliberately
 falls back to `Flat` for arbitrary templates, interactive display controls,
 custom grid or column cell themes, auto/size-to-cells columns, progress text, custom converters
@@ -215,7 +216,7 @@ presenter, direct hierarchy, built-in drawn, and custom Skia paths.
 | Fixed-height flat rows | Supported | Preferred workload. |
 | `HierarchicalModel` rows | Supported | Use fixed heights and explicit column widths. |
 | Text, checkbox, template, direct, retained, and drawn cells | Supported by `Flat` | Cell controls keep their existing behavior. |
-| Typed text, masked/autocomplete/slider text, numeric, checkbox, date, time, image, progress, hierarchy display | Drawn by `Virtualized` | Uses one surface and zero display-cell controls. |
+| Typed text, masked/autocomplete/editable-combo-box/slider text, numeric, checkbox, date, time, image, progress, hierarchy display | Drawn by `Virtualized` | Uses one surface and zero display-cell controls. |
 | Editing and validation | Supported | `Virtualized` overlays one normal active editor cell. |
 | Templates, interactive display controls, custom themes | Retained fallback | `Virtualized` automatically uses flat retained cells. |
 | Frozen left/right columns | Supported | Geometry and clipping are computed centrally. |

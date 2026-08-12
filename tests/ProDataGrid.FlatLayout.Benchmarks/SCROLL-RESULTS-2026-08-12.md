@@ -566,6 +566,47 @@ and longer frame wait remain animation-clock pacing effects after synchronous wo
 completes. Raw JSON is under
 `artifacts/performance/virtual-slider-text-2026-08-13/{clean,diagnostic}`.
 
+## Typed editable ComboBox-text surface follow-up
+
+An editable `DataGridComboBoxColumn.TextBinding` previously forced virtual mode to
+flat retained fallback, even though its non-editing observable output is formatted
+text plus the dropdown glyph. The surface now reads that exact built-in
+configuration through a compatible typed text accessor and draws the glyph and
+column alignment. The normal editable `ComboBox`, item source/template, selection,
+free-form input, and dropdown interaction remain on the editor. `IsEditable=false`
+is excluded because Avalonia does not display `ComboBox.Text` in that mode.
+Selected-item/value bindings, derived columns, missing accessors, explicit sources,
+arbitrary converters, delayed bindings, and other non-direct configurations remain
+on retained fallback.
+
+The matched hierarchy workload replaced only the payload column with an editable
+ComboBox text binding. Baseline was clean `9d88cb06` with the identical
+benchmark-only lane and retained fallback explicitly allowed. Candidate and
+baseline were measured in three interleaved process pairs, two warmups, and five
+iterations of 32 jumps: 480 jumps per variant in each of separate clean-timing and
+diagnostic campaigns. The table compares the median of the three process means.
+
+| Metric | Retained editable ComboBox | ComboBox text surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 34.557 ms | **1.399 ms** | **−96.0%** |
+| Explicit layout (clean) | 27.869 ms | **0.287 ms** | **−99.0%** |
+| UI render recording (diagnostic) | 2.115 ms | **0.447 ms** | **−78.9%** |
+| Compositor update (diagnostic) | 0.220 ms | **0.021 ms** | **−90.7%** |
+| Compositor render (diagnostic) | 0.717 ms | **0.651 ms** | **−9.2%** |
+| Managed allocation (clean) | 10,707.57 KB | **85.62 KB** | **−99.2%** |
+| End-to-end mean (clean) | 35.936 ms | **8.283 ms** | **−76.9%** |
+| Mean process median (clean) | 33.359 ms | **8.323 ms** | **−75.0%** |
+| Mean process p95 (clean) | 57.455 ms | **9.757 ms** | **−83.0%** |
+| Full frame wait (clean) | 8.012 ms | **7.869 ms** | −1.8% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 2,401 | **102** | **−95.8%** |
+
+The per-pair active-work changes were −95.8%, −96.0%, and −96.4%. The surface
+removes about 27.58 ms of clean layout and 10.37 MB of managed allocation per
+jump. Active work, allocation, structure, wall mean, median, p95, and even frame
+wait all move in the same direction. Raw JSON is under
+`artifacts/performance/virtual-combobox-text-2026-08-13/{clean,diagnostic}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the

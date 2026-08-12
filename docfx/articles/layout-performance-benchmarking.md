@@ -236,6 +236,10 @@ read-only scrolling workload and is covered by editing tests.
 Use `virtual-slider-text` to compare retained centered slider value text with its
 typed zero-cell surface path; the graphical display mode is intentionally outside
 the contract and slider interaction is covered by editing tests.
+Use `virtual-combobox-text` to compare an editable retained ComboBox `TextBinding`
+display with its typed zero-cell text-and-glyph surface path. Selected-item/value
+display remains outside the contract; editing and dropdown interaction are covered
+by focused tests.
 `GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` exists only for controlled baseline
 experiments and must not be set when validating the candidate surface.
 
