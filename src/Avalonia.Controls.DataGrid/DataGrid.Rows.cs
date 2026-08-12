@@ -245,6 +245,20 @@ internal
                 Debug.Assert(_verticalOffset >= 0);
                 Debug.Assert(NegVerticalOffset >= 0);
 
+                // The virtual cell surface requires a finite row height. Without collection-view
+                // group headers every visible slot therefore has identical geometry, so the extent
+                // does not need to rebuild a displayed-height list or update an estimator on every
+                // measure pass.
+                if (UsesVirtualCellSurface &&
+                    (RowGroupHeadersTable?.RangeCount ?? 0) == 0 &&
+                    (RowGroupFootersTable?.RangeCount ?? 0) == 0)
+                {
+                    int virtualCollapsedSlotCount = _collapsedSlotsTable.GetIndexCount(0, SlotCount - 1);
+                    int visibleSlotCount = Math.Max(0, SlotCount - virtualCollapsedSlotCount);
+                    double fixedRowHeight = DataGridRow.GetFlatDesiredHeight(this, RowHeight);
+                    return fixedRowHeight * visibleSlotCount;
+                }
+
                 var estimator = RowHeightEstimator;
                 double previousRowEstimate = estimator?.RowHeightEstimate ?? 0;
                 double previousDetailsEstimate = estimator?.RowDetailsHeightEstimate ?? 0;

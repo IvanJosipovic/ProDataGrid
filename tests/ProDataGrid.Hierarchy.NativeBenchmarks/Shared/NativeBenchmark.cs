@@ -1136,11 +1136,7 @@ internal static class NativeGridAdapter
 
     public static void SetScrollRow(ScrollViewer viewer, int row)
     {
-#if PRO
-        viewer.Offset = new Vector(0, row);
-#else
         viewer.Offset = new Vector(0, row * 24.0);
-#endif
     }
 }
 

@@ -78,6 +78,10 @@ public class DataGridFlatVisualLayoutTests
             Assert.Equal(0, presenter.FlatRealizedCellCount);
             Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
             Assert.All(rows, row => Assert.Equal(0, row.Cells.Count));
+            Assert.Equal(
+                100 * DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight),
+                presenter.Extent.Height,
+                precision: 3);
         }
         finally
         {
