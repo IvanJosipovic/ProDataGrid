@@ -6,7 +6,11 @@ using System.Diagnostics.Metrics;
 using System.Linq;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Headless.XUnit;
+using Avalonia.Styling;
+using Avalonia.VisualTree;
 using Xunit;
 
 namespace Avalonia.Controls.DataGridTests;
@@ -54,6 +58,7 @@ public class DataGridDiagnosticsTests
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.DataGridRefreshTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsRefreshTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsDisplayUpdateTimeName);
+        AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsRetargetEligibilityTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsPresenterViewportChangedTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsMeasureTimeName);
         AssertHasDoubleMeasurement(listener, DataGridDiagnostics.Meters.RowsArrangeTimeName);
@@ -249,6 +254,67 @@ public class DataGridDiagnosticsTests
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowRecyclePoolTimeName);
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.ColumnsAutoGenerateTimeName);
         AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.SelectionChangedTimeName);
+    }
+
+    [AvaloniaFact]
+    public void Virtual_Row_Retarget_Reports_Component_Durations()
+    {
+        var items = CreateItems(500);
+        using var listener = new DiagnosticsListener();
+        var root = new Window
+        {
+            Width = 320,
+            Height = 200,
+        };
+        root.SetThemeStyles(DataGridTheme.SimpleFlat);
+
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ItemsSource = items,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            RowHeight = 24,
+            UseLogicalScrollable = true,
+            VisualLayoutMode = DataGridVisualLayoutMode.Virtualized,
+        };
+        var column = new DataGridTextColumn
+        {
+            Header = "Name",
+            Width = new DataGridLength(220),
+            Binding = new Binding(nameof(TestItem.Name)),
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<TestItem, string>(item => item.Name));
+        grid.Columns.Add(column);
+        root.Content = grid;
+        Assert.True(grid.TryFindResource("DataGridFlatTheme", out object? resource));
+        grid.Theme = Assert.IsType<ControlTheme>(resource);
+
+        try
+        {
+            root.Show();
+            grid.UpdateLayout();
+            Assert.True(grid.UsesVirtualCellSurface);
+
+            DataGridRowsPresenter presenter = grid
+                .GetVisualDescendants()
+                .OfType<DataGridRowsPresenter>()
+                .Single();
+            presenter.Offset = new Vector(0, 400 * grid.RowHeight);
+            grid.UpdateLayout();
+
+            AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetEligibilityTimeName);
+            AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetValidationTimeName);
+            AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetBindTimeName);
+            Assert.True(GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsRetargetedCountName) > 0);
+        }
+        finally
+        {
+            root.Close();
+        }
     }
 
     [AvaloniaFact]

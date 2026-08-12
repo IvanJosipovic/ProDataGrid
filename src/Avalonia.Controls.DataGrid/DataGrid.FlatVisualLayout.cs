@@ -61,27 +61,29 @@ partial class DataGrid
         return route.HasHandlers;
     }
 
-    internal bool CanRetargetDefaultVirtualRow(DataGridRow row, int slot)
+    internal bool CanRetargetDefaultVirtualRow(DataGridRow row, double rowHeight)
     {
         if (row.GetType() != typeof(DataGridRow) ||
             !IsRowRecyclable(row) ||
             row.IsKeyboardFocusWithin ||
-            IsGroupSlot(slot) ||
-            !MathUtilities.AreClose(
-                row.DesiredSize.Height,
-                DataGridRow.GetFlatDesiredHeight(this, RowHeight)))
+            !MathUtilities.AreClose(row.DesiredSize.Height, rowHeight))
         {
             return false;
         }
 
-        object item = DataConnection.GetDataItem(RowIndexFromSlot(slot));
-        return item is not DataGridRow;
+        return true;
     }
 
-    internal void RetargetDefaultVirtualRow(DataGridRow row, int slot)
+    internal void RetargetDefaultVirtualRow(
+        DataGridRow row,
+        int slot,
+        int rowIndex,
+        object item)
     {
-        int rowIndex = RowIndexFromSlot(slot);
-        object item = DataConnection.GetDataItem(rowIndex);
+        int previousSlot = row.Slot;
+        bool wasFullySelected = previousSlot >= 0 && IsRowFullySelected(previousSlot);
+        bool wasCurrent = previousSlot == CurrentSlot;
+        DataGridValidationSeverity previousValidationSeverity = row.ValidationSeverity;
 
         DataGridDiagnostics.RecordRowRetargeted();
         row.ClearDragDropState();
@@ -90,7 +92,10 @@ partial class DataGrid
         row.DataContext = item;
         row.IsPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
         PrepareDefaultVirtualSurfaceRow(row, item);
-        row.ApplyState();
+        row.ApplyRetargetedVirtualSurfaceState(
+            wasFullySelected,
+            wasCurrent,
+            previousValidationSeverity);
         _rowsPresenter?.InvalidateChildIndex(row);
         DataGridDiagnostics.RecordRowRealized(DataGridDiagnostics.Sources.Retargeted);
     }

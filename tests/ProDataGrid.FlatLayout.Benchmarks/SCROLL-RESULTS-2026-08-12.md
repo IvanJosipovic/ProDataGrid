@@ -177,6 +177,43 @@ signal is the 39% layout reduction and lower active work/allocation. Raw results
 are under `artifacts/performance/virtual-row-path-2026-08-12`, with the clean six
 processes named `fresh-{baseline,final}-{a,b,c}.json` in `paired-clean/`.
 
+### Retarget state and target-lookup follow-up
+
+After row retargeting removed generation/recycling, a component probe attributed
+the residual displayed-row update to three phases: approximately 0.056 ms in the
+20-row bind/state batch, 0.015 ms in row validation, and 0.011 ms in eligibility
+and target-range calculation. The follow-up therefore keeps lifecycle guards
+unchanged and optimizes only the already-eligible path:
+
+- pointer and drag/drop cleanup is conditional on tracked transient state;
+- row selection/current/validation pseudo-classes are changed only when the old
+  and new slot states differ; and
+- validation captures target row indices/items in reusable arrays so the bind
+  pass does not repeat hierarchical lookup and slot mapping.
+
+The publication run compared clean `2cae9137` with the candidate in three process
+pairs ordered `B A`, `A B`, `B A`. Each process used three warmups and ten measured
+iterations of 32 discontinuous jumps, for 960 jumps per variant. Avalonia render
+diagnostics were enabled to calculate active work; ProDataGrid component meters
+were disabled for this gate and used only in the separate attribution probe.
+
+| Metric | Initial retarget path | Sparse retarget state | Change |
+|---|---:|---:|---:|
+| Mutation | 0.103 ms | **0.099 ms** | **−3.9%** |
+| Explicit layout | 0.200 ms | **0.182 ms** | **−9.0%** |
+| UI render recording | 0.442 ms | **0.420 ms** | **−5.1%** |
+| Compositor update | 0.020 ms | **0.020 ms** | **−4.3%** |
+| Compositor render | 0.475 ms | **0.459 ms** | **−3.4%** |
+| Measured active work | 1.240 ms | **1.179 ms** | **−5.0%** |
+| Managed allocation | **84.916 KB** | 84.961 KB | +0.05% |
+| End-to-end wall time | 6.568 ms | **6.528 ms** | −0.6% |
+| Full frame wait | 6.266 ms | **6.247 ms** | −0.3% |
+
+The allocation movement is 45 bytes per jump and is treated as noise. The active
+components all move in the expected direction, while wall time remains dominated
+by the excluded callback wait. Raw balanced results are
+`artifacts/performance/virtual-next-2026-08-12/final-{baseline,candidate}-{a,b,c}.json`.
+
 ## Why full frame wait does not fall with active work
 
 The Windows CI artifact for `077156c4` reports only about 0.006–0.009 ms from

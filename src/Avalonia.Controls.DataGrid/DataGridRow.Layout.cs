@@ -231,8 +231,46 @@ namespace Avalonia.Controls
             }
         }
 
+        internal void ApplyRetargetedVirtualSurfaceState(
+            bool wasFullySelected,
+            bool wasCurrent,
+            DataGridValidationSeverity previousValidationSeverity)
+        {
+            if (RootElement == null || OwningGrid == null || !IsVisible)
+            {
+                return;
+            }
+
+            bool isSelected = Slot != -1 && OwningGrid.GetRowSelection(Slot);
+            IsSelected = isSelected;
+
+            bool isFullySelected = Slot != -1 && OwningGrid.IsRowFullySelected(Slot);
+            if (wasFullySelected != isFullySelected)
+            {
+                PseudoClassesHelper.Set(PseudoClasses, ":selected", isFullySelected);
+            }
+
+            if (previousValidationSeverity != ValidationSeverity)
+            {
+                PseudoClassesHelper.Set(PseudoClasses, ":invalid", ValidationSeverity == DataGridValidationSeverity.Error);
+                PseudoClassesHelper.Set(PseudoClasses, ":warning", ValidationSeverity == DataGridValidationSeverity.Warning);
+                PseudoClassesHelper.Set(PseudoClasses, ":info", ValidationSeverity == DataGridValidationSeverity.Info);
+            }
+
+            bool isCurrent = Slot != -1 && OwningGrid.CurrentSlot == Slot;
+            if (wasCurrent != isCurrent)
+            {
+                PseudoClassesHelper.Set(PseudoClasses, ":current", isCurrent);
+            }
+        }
+
         internal void ClearPointerOverState()
         {
+            if (!IsMouseOver && MouseOverColumnIndex is null)
+            {
+                return;
+            }
+
             OwningGrid?.ClearPointerOverRowForRecycle(this);
             MouseOverColumnIndex = null;
             PseudoClassesHelper.Set(PseudoClasses, ":pointerover", false);
@@ -240,6 +278,13 @@ namespace Avalonia.Controls
 
         internal void ClearDragDropState()
         {
+            if (!_isDragging && _dropPosition is null)
+            {
+                return;
+            }
+
+            _isDragging = false;
+            _dropPosition = null;
             PseudoClassesHelper.Set(PseudoClasses, ":dragging", false);
             PseudoClassesHelper.Set(PseudoClasses, ":drag-over-before", false);
             PseudoClassesHelper.Set(PseudoClasses, ":drag-over-after", false);
@@ -248,11 +293,23 @@ namespace Avalonia.Controls
 
         internal void SetDragging(bool dragging)
         {
+            if (_isDragging == dragging)
+            {
+                return;
+            }
+
+            _isDragging = dragging;
             PseudoClassesHelper.Set(PseudoClasses, ":dragging", dragging);
         }
 
         internal void SetDropPosition(DataGridRowDropPosition? position)
         {
+            if (_dropPosition == position)
+            {
+                return;
+            }
+
+            _dropPosition = position;
             PseudoClassesHelper.Set(PseudoClasses, ":drag-over-before", position == DataGridRowDropPosition.Before);
             PseudoClassesHelper.Set(PseudoClasses, ":drag-over-after", position == DataGridRowDropPosition.After);
             PseudoClassesHelper.Set(PseudoClasses, ":drag-over-inside", position == DataGridRowDropPosition.Inside);

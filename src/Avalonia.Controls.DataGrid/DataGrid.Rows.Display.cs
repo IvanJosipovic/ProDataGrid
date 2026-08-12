@@ -149,35 +149,43 @@ namespace Avalonia.Controls
             lastSlot = -1;
             rowCount = 0;
             realizedHeight = -NegVerticalOffset;
+            double rowHeight;
 
-            if (!CanRetargetDefaultVirtualRowsNow() ||
-                DisplayData.NumDisplayedScrollingElements == 0)
+            using (DataGridDiagnostics.BeginRowsRetargetEligibility())
             {
-                return false;
-            }
-
-            double rowHeight = DataGridRow.GetFlatDesiredHeight(this, RowHeight);
-            if (!double.IsFinite(rowHeight) || !MathUtilities.GreaterThan(rowHeight, 0))
-            {
-                return false;
-            }
-
-            int slot = firstSlot;
-            while (slot >= 0 && slot < SlotCount &&
-                   !MathUtilities.GreaterThanOrClose(realizedHeight, displayHeight))
-            {
-                if (IsGroupSlot(slot))
+                if (!CanRetargetDefaultVirtualRowsNow() ||
+                    DisplayData.NumDisplayedScrollingElements == 0)
                 {
                     return false;
                 }
 
-                realizedHeight += rowHeight;
-                rowCount++;
-                lastSlot = slot;
-                slot = GetNextVisibleSlot(slot);
+                rowHeight = DataGridRow.GetFlatDesiredHeight(this, RowHeight);
+                if (!double.IsFinite(rowHeight) || !MathUtilities.GreaterThan(rowHeight, 0))
+                {
+                    return false;
+                }
+
+                int slot = firstSlot;
+                while (slot >= 0 && slot < SlotCount &&
+                       !MathUtilities.GreaterThanOrClose(realizedHeight, displayHeight))
+                {
+                    if (IsGroupSlot(slot))
+                    {
+                        return false;
+                    }
+
+                    realizedHeight += rowHeight;
+                    rowCount++;
+                    lastSlot = slot;
+                    slot = GetNextVisibleSlot(slot);
+                }
             }
 
-            return DisplayData.TryRetargetDefaultVirtualRows(firstSlot, lastSlot, rowCount);
+            return DisplayData.TryRetargetDefaultVirtualRows(
+                firstSlot,
+                lastSlot,
+                rowCount,
+                rowHeight);
         }
 
         private int NormalizeDisplayedFirstSlot(int slot)

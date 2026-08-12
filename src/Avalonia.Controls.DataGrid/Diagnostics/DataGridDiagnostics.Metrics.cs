@@ -9,6 +9,9 @@ internal static partial class DataGridDiagnostics
     private static Histogram<double>? s_dataGridRefresh;
     private static Histogram<double>? s_rowsRefresh;
     private static Histogram<double>? s_rowsDisplayUpdate;
+    private static Histogram<double>? s_rowsRetargetEligibility;
+    private static Histogram<double>? s_rowsRetargetValidation;
+    private static Histogram<double>? s_rowsRetargetBind;
     private static Histogram<double>? s_rowsPresenterViewportChanged;
     private static Histogram<double>? s_rowsScrollSlotsByHeight;
     private static Histogram<double>? s_rowsScrollEstimateOffset;
@@ -81,6 +84,18 @@ internal static partial class DataGridDiagnostics
             Meters.RowsDisplayUpdateTimeName,
             Meters.MillisecondsUnit,
             Meters.RowsDisplayUpdateTimeDescription);
+        s_rowsRetargetEligibility = meter.CreateHistogram<double>(
+            Meters.RowsRetargetEligibilityTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsRetargetEligibilityTimeDescription);
+        s_rowsRetargetValidation = meter.CreateHistogram<double>(
+            Meters.RowsRetargetValidationTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsRetargetValidationTimeDescription);
+        s_rowsRetargetBind = meter.CreateHistogram<double>(
+            Meters.RowsRetargetBindTimeName,
+            Meters.MillisecondsUnit,
+            Meters.RowsRetargetBindTimeDescription);
         s_rowsPresenterViewportChanged = meter.CreateHistogram<double>(
             Meters.RowsPresenterViewportChangedTimeName,
             Meters.MillisecondsUnit,
@@ -303,6 +318,9 @@ internal static partial class DataGridDiagnostics
     public static HistogramReportDisposable BeginDataGridRefresh() => Begin(s_dataGridRefresh);
     public static HistogramReportDisposable BeginRowsRefresh() => Begin(s_rowsRefresh);
     public static HistogramReportDisposable BeginRowsDisplayUpdate() => Begin(s_rowsDisplayUpdate);
+    public static HistogramReportDisposable BeginRowsRetargetEligibility() => Begin(s_rowsRetargetEligibility);
+    public static HistogramReportDisposable BeginRowsRetargetValidation() => Begin(s_rowsRetargetValidation);
+    public static HistogramReportDisposable BeginRowsRetargetBind() => Begin(s_rowsRetargetBind);
     public static HistogramReportDisposable BeginRowsPresenterViewportChanged() => Begin(s_rowsPresenterViewportChanged);
     public static HistogramReportDisposable BeginRowsScrollSlotsByHeight() => Begin(s_rowsScrollSlotsByHeight);
     public static HistogramReportDisposable BeginRowsScrollEstimateOffset() => Begin(s_rowsScrollEstimateOffset);

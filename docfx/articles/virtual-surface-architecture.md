@@ -266,6 +266,32 @@ The implementation avoids calling `UpdateLayout` from production paths. Layout i
 driven by Avalonia invalidation; explicit `UpdateLayout` is confined to tests and
 benchmark phase boundaries.
 
+## Discontinuous row-window retargeting
+
+Large fixed-height jumps normally discard the displayed window and run the complete
+row recycle/generate lifecycle. The default virtual surface instead keeps the same
+zero-cell row controls and retargets them to the new slots when all compatibility
+guards pass. The guard requires exact built-in `DataGrid`/`DataGridRow` types, the
+default realization factory, ordinary fixed-height slots, no row headers, row
+numbers, details, lifecycle handlers, focused row, or active editor. Any mismatch
+uses the normal lifecycle path.
+
+Retargeting has separate validation and mutation passes. Validation captures each
+target row index and item into reusable display-window arrays, rejecting item-owned
+`DataGridRow` containers before any row is changed. The mutation pass consumes those
+captured targets, so hierarchical item lookup and slot-to-row mapping occur once per
+row rather than once during validation and again during binding.
+
+The mutation pass restores only state that can differ between the old and new slot:
+
+- item, index, slot, placeholder, validation, selection, and current-row identity;
+- pointer-over state only when the row actually owns pointer state; and
+- drag/drop pseudo-classes only when a tracked drag or drop indicator is active.
+
+This sparse state application is safe only inside the guarded default-surface path.
+The generic recycle/generate path remains responsible for arbitrary row types,
+templates, handlers, headers, details, and custom factories.
+
 ## Structural and behavioral invariants
 
 A valid surface state must satisfy all of these conditions:

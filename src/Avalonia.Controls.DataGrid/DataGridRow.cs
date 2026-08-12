@@ -6,6 +6,7 @@
 #nullable disable
 
 using Avalonia.Controls.Metadata;
+using Avalonia.Controls.DataGridDragDrop;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Controls.Templates;
@@ -59,6 +60,8 @@ internal
         private Size _lastArrangeResult;
         private bool _hasValidArrange;
         private int? _mouseOverColumnIndex;
+        private bool _isDragging;
+        private DataGridRowDropPosition? _dropPosition;
         private DataGrid _owningGrid;
         private bool _isValid = true;
         private DataGridValidationSeverity _validationSeverity = DataGridValidationSeverity.None;

@@ -198,10 +198,11 @@ meter durations but intentionally adds measurement overhead.
 For a ProDataGrid-only component trace, add `--prodatagrid-diagnostics`. The
 result includes per-jump raw samples and means from `ProDataGrid.Diagnostic.Meter`,
 including `ScrollSlotsByHeight`, displayed-row update, row acquire/bind/prepare,
-element attach/measure/height recording, recycle cleanup/detach/pool, and
-realized/recycled/retargeted row counts. This option enables instrumentation and
-must not be used for the clean performance gate. It is intentionally rejected by
-the TreeDataGrid executable because those internal meters do not exist there.
+retarget eligibility/validation/bind, element attach/measure/height recording,
+recycle cleanup/detach/pool, and realized/recycled/retargeted row counts. This
+option enables instrumentation and must not be used for the clean performance
+gate. It is intentionally rejected by the TreeDataGrid executable because those
+internal meters do not exist there.
 
 `virtual-checkbox` replaces the payload text column with a typed
 `DataGridCheckBoxColumn`. It validates that the checkbox remains on the single

@@ -22,6 +22,15 @@ internal static partial class DataGridDiagnostics
         public const string RowsDisplayUpdateTimeName = "prodatagrid.rows.display.update.time";
         public const string RowsDisplayUpdateTimeDescription = "Duration of updating displayed rows during scrolling/virtualization.";
 
+        public const string RowsRetargetEligibilityTimeName = "prodatagrid.rows.retarget.eligibility.time";
+        public const string RowsRetargetEligibilityTimeDescription = "Duration of validating the default virtual-row retarget pipeline and calculating its target range.";
+
+        public const string RowsRetargetValidationTimeName = "prodatagrid.rows.retarget.validation.time";
+        public const string RowsRetargetValidationTimeDescription = "Duration of validating realized rows before an in-place virtual-row retarget.";
+
+        public const string RowsRetargetBindTimeName = "prodatagrid.rows.retarget.bind.time";
+        public const string RowsRetargetBindTimeDescription = "Duration of rebinding and applying state to an in-place virtual-row retarget batch.";
+
         public const string RowsPresenterViewportChangedTimeName = "prodatagrid.rows.presenter.viewport.changed.time";
         public const string RowsPresenterViewportChangedTimeDescription = "Duration of handling a rows presenter viewport change notification.";
 

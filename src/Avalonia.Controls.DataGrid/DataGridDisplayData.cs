@@ -26,6 +26,8 @@ namespace Avalonia.Controls
         private HashSet<Control>? _deferredHideElements;
         private readonly List<Control> _scrollingElements;
         private readonly DataGrid _owner;
+        private object[] _retargetItems = Array.Empty<object>();
+        private int[] _retargetRowIndexes = Array.Empty<int>();
         private bool _deferRecycledElementHiding;
         private DataGridRecycleReuseOrder _deferredReuseOrder;
         private int _deferredRecycleScopeDepth;
@@ -241,6 +243,7 @@ namespace Avalonia.Controls
             }
             
             _scrollingElements.Clear();
+            Array.Clear(_retargetItems);
         }
 
         private void RecycleAllScrollingElements()
@@ -338,38 +341,68 @@ namespace Avalonia.Controls
             return GetScrollingElements(element => element is DataGridRow);
         }
 
-        internal bool TryRetargetDefaultVirtualRows(int firstSlot, int lastSlot, int rowCount)
+        internal bool TryRetargetDefaultVirtualRows(
+            int firstSlot,
+            int lastSlot,
+            int rowCount,
+            double rowHeight)
         {
             if (rowCount <= 0 || rowCount != _scrollingElements.Count)
             {
                 return false;
             }
 
-            int slot = firstSlot;
-            for (int index = 0; index < rowCount; index++)
+            if (_retargetItems.Length < rowCount)
             {
-                if (GetLogicalScrollingElement(index) is not DataGridRow row)
-                {
-                    return false;
-                }
+                Array.Resize(ref _retargetItems, rowCount);
+                Array.Resize(ref _retargetRowIndexes, rowCount);
+            }
 
-                // A row leaving the displayed range cannot remain pointer-over. The ordinary
-                // recycle pipeline clears this before checking recyclability as well.
-                row.ClearPointerOverState();
-                if (!_owner.CanRetargetDefaultVirtualRow(row, slot))
+            int slot = firstSlot;
+            using (DataGridDiagnostics.BeginRowsRetargetValidation())
+            {
+                for (int index = 0; index < rowCount; index++)
                 {
-                    return false;
-                }
+                    if (GetLogicalScrollingElement(index) is not DataGridRow row)
+                    {
+                        return false;
+                    }
 
-                slot = _owner.GetNextVisibleSlot(slot);
+                    // A row leaving the displayed range cannot remain pointer-over. The ordinary
+                    // recycle pipeline clears this before checking recyclability as well.
+                    row.ClearPointerOverState();
+                    if (!_owner.CanRetargetDefaultVirtualRow(row, rowHeight))
+                    {
+                        return false;
+                    }
+
+                    int rowIndex = _owner.RowIndexFromSlot(slot);
+                    object item = _owner.DataConnection.GetDataItem(rowIndex);
+                    if (item is DataGridRow)
+                    {
+                        return false;
+                    }
+
+                    _retargetItems[index] = item;
+                    _retargetRowIndexes[index] = rowIndex;
+
+                    slot = _owner.GetNextVisibleSlot(slot);
+                }
             }
 
             slot = firstSlot;
-            for (int index = 0; index < rowCount; index++)
+            using (DataGridDiagnostics.BeginRowsRetargetBind())
             {
-                var row = (DataGridRow)GetLogicalScrollingElement(index);
-                _owner.RetargetDefaultVirtualRow(row, slot);
-                slot = _owner.GetNextVisibleSlot(slot);
+                for (int index = 0; index < rowCount; index++)
+                {
+                    var row = (DataGridRow)GetLogicalScrollingElement(index);
+                    _owner.RetargetDefaultVirtualRow(
+                        row,
+                        slot,
+                        _retargetRowIndexes[index],
+                        _retargetItems[index]);
+                    slot = _owner.GetNextVisibleSlot(slot);
+                }
             }
 
             FirstScrollingSlot = firstSlot;

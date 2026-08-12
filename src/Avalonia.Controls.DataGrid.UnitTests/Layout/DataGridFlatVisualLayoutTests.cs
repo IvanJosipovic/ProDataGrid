@@ -218,6 +218,19 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            DataGridRow firstRow = presenter.Children.OfType<DataGridRow>().First();
+            firstRow.ValidationSeverity = DataGridValidationSeverity.Error;
+            firstRow.ApplyState();
+            Assert.True(((IPseudoClasses)firstRow.Classes).Contains(":invalid"));
+
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                grid.ColumnsInternal[0].Index,
+                firstRow.Slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Item targetItem = grid.ItemsSource!.Cast<Item>().ElementAt(400);
+            grid.SelectedItems.Add(targetItem);
+
             long retargetedBeforeJump = grid.DisplayData.RetargetedRowCount;
             double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
             presenter.Offset = new Vector(0, 400 * rowHeight);
@@ -226,6 +239,15 @@ public class DataGridFlatVisualLayoutTests
             Assert.True(grid.DisplayData.RetargetedRowCount > retargetedBeforeJump);
             Assert.Contains(presenter.Children.OfType<DataGridRow>(), row => row.Index >= 400);
             Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+            Assert.Equal(DataGridValidationSeverity.None, firstRow.ValidationSeverity);
+            Assert.False(((IPseudoClasses)firstRow.Classes).Contains(":invalid"));
+            Assert.False(((IPseudoClasses)firstRow.Classes).Contains(":current"));
+
+            DataGridRow selectedRow = Assert.Single(
+                presenter.Children.OfType<DataGridRow>(),
+                row => ReferenceEquals(row.DataContext, targetItem));
+            Assert.True(selectedRow.IsSelected);
+            Assert.True(((IPseudoClasses)selectedRow.Classes).Contains(":selected"));
         }
         finally
         {
