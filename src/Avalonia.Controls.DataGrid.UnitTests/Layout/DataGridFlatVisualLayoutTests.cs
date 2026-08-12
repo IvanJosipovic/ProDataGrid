@@ -207,11 +207,11 @@ public class DataGridFlatVisualLayoutTests
     public void Virtualized_Layout_Falls_Back_To_Flat_Retained_For_Unsupported_Interactive_Columns()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
-        grid.Columns.Add(new DataGridCheckBoxColumn
+        grid.Columns.Add(new DataGridButtonColumn
         {
             Header = "Interactive",
             Width = new DataGridLength(90),
-            Binding = new Binding(nameof(Item.Id)),
+            Content = "Open",
         });
         grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
 
@@ -224,6 +224,79 @@ public class DataGridFlatVisualLayoutTests
             Assert.True(grid.UsesVirtualCellSurfaceFallback);
             Assert.Equal(0, presenter.VirtualSurfaceCount);
             Assert.NotEmpty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Layout_Draws_Typed_CheckBox_Column_And_Materializes_It_Only_For_Editing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var checkBoxColumn = new DataGridCheckBoxColumn
+        {
+            Header = "Active",
+            Width = new DataGridLength(90),
+            Binding = new Binding(nameof(Item.IsActive)),
+            IsThreeState = true,
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            checkBoxColumn,
+            new DataGridColumnValueAccessor<Item, bool?>(item => item.IsActive));
+        grid.Columns.Add(checkBoxColumn);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.False(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+
+            int valueChangeCount = presenter.VirtualValueChangeCount;
+            Item firstItem = grid.ItemsSource!.Cast<Item>().First();
+            firstItem.IsActive = null;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(valueChangeCount + 1, presenter.VirtualValueChangeCount);
+
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                checkBoxColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            var keyArgs = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Route = InputElement.KeyDownEvent.RoutingStrategies,
+                Key = Key.Space,
+                Source = grid,
+                KeyDeviceType = KeyDeviceType.Keyboard,
+            };
+            grid.RaiseEvent(keyArgs);
+            PumpLayout(grid);
+
+            Assert.True(keyArgs.Handled);
+            DataGridCell editorCell = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Same(checkBoxColumn, editorCell.OwningColumn);
+            Assert.IsType<CheckBox>(editorCell.Content);
+
+            Assert.True(grid.CommitEdit());
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+
+            grid.ScrollIntoView(grid.ItemsSource.Cast<Item>().ElementAt(90), checkBoxColumn);
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
         }
         finally
         {
@@ -753,12 +826,14 @@ public class DataGridFlatVisualLayoutTests
     private sealed class Item : INotifyPropertyChanged
     {
         private string _name;
+        private bool? _isActive;
 
         public Item(int id, string name, double value)
         {
             Id = id;
             _name = name;
             Value = value;
+            _isActive = id % 2 == 0;
         }
 
         public int Id { get; set; }
@@ -779,6 +854,21 @@ public class DataGridFlatVisualLayoutTests
         }
 
         public double Value { get; set; }
+
+        public bool? IsActive
+        {
+            get => _isActive;
+            set
+            {
+                if (_isActive == value)
+                {
+                    return;
+                }
+
+                _isActive = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsActive)));
+            }
+        }
 
         public event PropertyChangedEventHandler? PropertyChanged;
     }

@@ -179,6 +179,12 @@ internal static class NativeBenchmarkOptions
         (Environment.GetEnvironmentVariable("GRID_BENCH_PRO_MODE") ?? "standard")
         .Trim()
         .ToLowerInvariant();
+
+    public static bool AllowVirtualFallback { get; } =
+        string.Equals(
+            Environment.GetEnvironmentVariable("GRID_BENCH_ALLOW_VIRTUAL_FALLBACK"),
+            "1",
+            StringComparison.Ordinal);
 #endif
 
     public static string ImplementationName =>
@@ -194,6 +200,7 @@ internal static class NativeBenchmarkOptions
             "flat-direct-cell" => "ProDataGrid (flat direct-cell retained)",
             "flat-drawn" => "ProDataGrid (flat drawn ordinary cells)",
             "virtual" => "ProDataGrid (virtual cell surface)",
+            "virtual-checkbox" => "ProDataGrid (virtual cell surface with checkbox)",
             _ => $"ProDataGrid ({ProMode})",
         };
 #else
@@ -266,7 +273,7 @@ internal static class NativeBenchmarkOptions
 #endif
 #if PRO && PRODATAGRID_PR335
         if (ProMode is not ("standard" or "optimized" or "direct" or "direct-cell" or "drawn" or
-            "flat-direct-cell" or "flat-drawn" or "virtual"))
+            "flat-direct-cell" or "flat-drawn" or "virtual" or "virtual-checkbox"))
             throw new ArgumentException($"Unsupported GRID_BENCH_PRO_MODE: {ProMode}.");
 #endif
         if (ScrollOnly && (FirstRenderOnly || CollapseOnly))
@@ -859,7 +866,8 @@ internal static class NativeGridAdapter
         var directCell = NativeBenchmarkOptions.ProMode is "direct-cell" or "flat-direct-cell";
         var drawn = NativeBenchmarkOptions.ProMode is "drawn" or "flat-drawn";
         var flatLayout = NativeBenchmarkOptions.ProMode is "flat-direct-cell" or "flat-drawn";
-        var virtualSurface = NativeBenchmarkOptions.ProMode == "virtual";
+        var virtualSurface = NativeBenchmarkOptions.ProMode is "virtual" or "virtual-checkbox";
+        var virtualCheckBox = NativeBenchmarkOptions.ProMode == "virtual-checkbox";
         var options = new HierarchicalOptions<Node>
         {
             ChildrenSelector = node => node.Children,
@@ -908,7 +916,14 @@ internal static class NativeGridAdapter
         AddProTextColumn(grid, "Id", 90, "Item.Id", node => ((Node)node.Item).Id, directContent, directCell, drawn);
         AddProTextColumn(grid, "Depth", 90, "Item.Depth", node => ((Node)node.Item).Depth, directContent, directCell, drawn);
         AddProTextColumn(grid, "Children", 100, "Item.ChildCount", node => ((Node)node.Item).ChildCount, directContent, directCell, drawn);
-        AddProTextColumn(grid, "Payload", 180, "Item.Payload", node => ((Node)node.Item).Payload, directContent, directCell, drawn);
+        if (virtualCheckBox)
+        {
+            AddProCheckBoxColumn(grid, "Has children", 180, "Item.HasChildren", node => ((Node)node.Item).HasChildren);
+        }
+        else
+        {
+            AddProTextColumn(grid, "Payload", 180, "Item.Payload", node => ((Node)node.Item).Payload, directContent, directCell, drawn);
+        }
         if (optimized)
             ApplyProOptimizedThemes(grid, featurePreserving: NativeBenchmarkOptions.ProMode == "optimized");
         if (virtualSurface)
@@ -1067,6 +1082,25 @@ internal static class NativeGridAdapter
         grid.Columns.Add(column);
     }
 
+    private static void AddProCheckBoxColumn(
+        DataGrid grid,
+        string header,
+        double width,
+        string bindingPath,
+        Func<HierarchicalNode, bool> getter)
+    {
+        var column = new DataGridCheckBoxColumn
+        {
+            Header = header,
+            Width = new DataGridLength(width),
+            Binding = new Binding(bindingPath),
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, bool>(getter));
+        grid.Columns.Add(column);
+    }
+
     private static void ApplyProOptimizedThemes(DataGrid grid, bool featurePreserving)
     {
         grid.RowTheme = FindProTheme(
@@ -1112,7 +1146,9 @@ internal static class NativeGridAdapter
         if (realizedRows <= 0 || realizedRows >= 200)
             throw new InvalidOperationException($"Virtualization validation failed: {realizedRows} realized rows.");
 #if PRO && PRODATAGRID_PR335
-        if (NativeBenchmarkOptions.ProMode == "virtual" && realizedCells != 0)
+        if (NativeBenchmarkOptions.ProMode.StartsWith("virtual", StringComparison.Ordinal) &&
+            !NativeBenchmarkOptions.AllowVirtualFallback &&
+            realizedCells != 0)
             throw new InvalidOperationException($"Virtual cell surface realized {realizedCells} retained cells.");
 #endif
 

@@ -161,6 +161,11 @@ GRID_BENCH_PRO_MODE=virtual dotnet \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual.json
 
+GRID_BENCH_PRO_MODE=virtual-checkbox dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-checkbox.json
+
 GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
@@ -189,6 +194,15 @@ reported as a validation failure rather than being mislabeled as a virtual run.
 the corresponding retained or drawn cell content. Add `--avalonia-diagnostics`
 only to a separate diagnostic run; it records Avalonia UI-render and compositor
 meter durations but intentionally adds measurement overhead.
+
+`virtual-checkbox` replaces the payload text column with a typed
+`DataGridCheckBoxColumn`. It validates that the checkbox remains on the single
+surface and that no retained display cells are realized. The diagnostic-only
+`GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` override exists for matched historical
+baseline experiments; never set it when validating the candidate backend.
+
+The complete experiment design and interpretation rules are in
+[Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).
 
 See [the 2026-08-12 focused scroll report](../ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
 for the paired renderer optimization and flat-versus-nested source results.

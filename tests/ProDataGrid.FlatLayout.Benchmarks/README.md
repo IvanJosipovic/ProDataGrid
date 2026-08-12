@@ -6,6 +6,10 @@ three use the same 149,792-node
 hierarchy, 1200 × 760 headless host, 520-pixel DataGrid viewport, and six cell
 paths from the optimized hierarchy sample.
 
+The authoritative cross-suite phase definitions, structural gates, A/B run
+ordering, frame-pacing interpretation, and memory rules are documented in
+[Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).
+
 `HierarchyCollapseLayoutBenchmarks` measures the pending Avalonia layout pass
 after `CollapseAll`. `HierarchyCollapseEndToEndBenchmarks` measures
 `CollapseAll` plus dispatcher/layout completion. Iteration setup expands and
@@ -59,3 +63,5 @@ metadata. Run intrusive profilers separately from this clean timing pass.
 The checked-in report for the current implementation is
 [RESULTS-2026-08-12.md](RESULTS-2026-08-12.md). The virtual-surface follow-up is
 [VIRTUAL-SURFACE-RESULTS-2026-08-12.md](VIRTUAL-SURFACE-RESULTS-2026-08-12.md).
+The latest scroll, cache, recycling, and typed-checkbox comparisons are in
+[SCROLL-RESULTS-2026-08-12.md](SCROLL-RESULTS-2026-08-12.md).

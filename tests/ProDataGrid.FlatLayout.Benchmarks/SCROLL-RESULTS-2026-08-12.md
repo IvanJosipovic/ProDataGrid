@@ -151,10 +151,54 @@ detecting a frame-band regression, but a 50% reduction in the deliberately
 awaited callback interval would require changing the completion convention or
 display/render-loop frequency rather than optimizing `ScrollSlotsByHeight`.
 
+## Typed checkbox surface follow-up
+
+A typed `DataGridCheckBoxColumn` previously made the requested virtual mode fall
+back to flat retained cells for the entire grid. The new renderer reads the
+column's typed accessor, draws centered two- and three-state indicators on the
+surface, and materializes the normal retained `CheckBox` only while editing.
+Derived columns and bindings without a compatible accessor remain on retained
+fallback.
+
+The matched A/B used the same five-column native hierarchy workload, replacing
+only the payload text column with `HasChildren`. Separate clean-timing and
+instrumented-attribution campaigns each used three interleaved process pairs,
+two warmups, and five measured iterations of 32 jumps (480 jumps per variant per
+campaign). The baseline production source was clean `63e5e50e`; the identical
+benchmark-only lane was applied to its isolated worktree and retained fallback was
+explicitly allowed by the harness. The candidate required zero retained display
+cells.
+
+| Metric | Retained fallback | Checkbox surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 14.909 ms | **2.420 ms** | **−83.8%** |
+| Explicit layout (clean) | 9.541 ms | **0.257 ms** | **−97.3%** |
+| UI render recording (diagnostic) | 0.974 ms | **0.694 ms** | **−28.7%** |
+| Compositor update (diagnostic) | 0.236 ms | **0.030 ms** | **−87.1%** |
+| Compositor render (diagnostic) | **0.675 ms** | 0.921 ms | +36.5% |
+| Managed allocation (clean) | 3,382.6 KB | **90.5 KB** | **−97.3%** |
+| End-to-end mean (clean) | 16.442 ms | **8.227 ms** | **−50.0%** |
+| Mean process median (clean) | 16.484 ms | **8.323 ms** | **−49.5%** |
+| Mean process p95 (clean) | 24.663 ms | **9.423 ms** | **−61.8%** |
+| Full frame wait (clean) | **6.833 ms** | 7.893 ms | +15.5% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 1,841 | **102** | **−94.5%** |
+
+The diagnostic compositor-render increase is 0.246 ms and is outweighed by the
+clean run removing 9.283 ms of layout plus 3.29 MB of allocation per jump. The
+candidate's 7.893 ms frame wait contains a 7.806 ms callback interval and only
+0.007 ms of pickup, so its increase is animation-clock phase rather than grid
+execution. Active work, clean end-to-end latency, tails, allocation, and
+structure all move in the expected direction. Raw JSON is under
+`artifacts/performance/virtual-checkbox-2026-08-12`; clean timing is in `clean/`
+and the instrumented campaign is in `{baseline,candidate}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the
 [native benchmark README](../ProDataGrid.Hierarchy.NativeBenchmarks/README.md).
+The cross-suite measurement and acceptance rules are documented in
+[the layout benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).
 Local raw JSON and traces are under
 `artifacts/performance/active-all-modes-2026-08-12`; the artifact directory is
 gitignored. The cache comparison is in

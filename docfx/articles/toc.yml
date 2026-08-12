@@ -231,6 +231,10 @@
     href: scrolling-virtualization.md
   - name: Flat Row and Cell Layout
     href: flat-row-cell-layout.md
+  - name: Virtual Cell-Surface Architecture
+    href: virtual-surface-architecture.md
+  - name: Layout Performance Benchmarking
+    href: layout-performance-benchmarking.md
   - name: Cell Template Reuse
     href: cell-template-reuse.md
   - name: Row Details and Templates

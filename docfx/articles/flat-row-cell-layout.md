@@ -102,7 +102,7 @@ One normal cell is overlaid for editing and validation. Visible model objects
 implementing `INotifyPropertyChanged` invalidate the surface without creating
 bindings or cell controls.
 
-The virtual surface supports text, numeric, image, progress, and hierarchical
+The virtual surface supports text, numeric, checkbox, image, progress, and hierarchical
 columns when they have compatible typed accessors. Text and numeric formatting,
 text column typography, image stretch, progress styling, hierarchy indentation,
 selection, grid lines, and frozen clipping are drawn directly. It deliberately
@@ -214,7 +214,7 @@ presenter, direct hierarchy, built-in drawn, and custom Skia paths.
 | Fixed-height flat rows | Supported | Preferred workload. |
 | `HierarchicalModel` rows | Supported | Use fixed heights and explicit column widths. |
 | Text, checkbox, template, direct, retained, and drawn cells | Supported by `Flat` | Cell controls keep their existing behavior. |
-| Typed text, numeric, image, progress, hierarchy display | Drawn by `Virtualized` | Uses one surface and zero display-cell controls. |
+| Typed text, numeric, checkbox, image, progress, hierarchy display | Drawn by `Virtualized` | Uses one surface and zero display-cell controls. |
 | Editing and validation | Supported | `Virtualized` overlays one normal active editor cell. |
 | Templates, interactive display controls, custom themes | Retained fallback | `Virtualized` automatically uses flat retained cells. |
 | Frozen left/right columns | Supported | Geometry and clipping are computed centrally. |
@@ -294,7 +294,7 @@ each iteration is shorter than BenchmarkDotNet's recommended 100 ms; the native
 source comparison below supplies the broader first-render, expand, collapse,
 scroll, allocation, and structural evidence.
 
-The full [virtual-surface report](../../tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RESULTS-2026-08-12.md),
+The full [virtual-surface report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RESULTS-2026-08-12.md),
 including the matched ProDataGrid retained, drawn-cell, and Wieslaw TreeDataGrid
 source runs, is checked in with the benchmark harness. Raw output remains under
 the gitignored `artifacts/virtual-cell-surface` directory.
@@ -312,4 +312,7 @@ The approach is inspired by the sibling-surface layout in the
 [CDP project](https://github.com/wieslawsoltes/CDP). See also
 [Scrolling and virtualization](scrolling-virtualization.md),
 [Optimized retained and drawn cells](optimized-cell-paths.md), and
-[Hierarchical data](hierarchical-data.md).
+[Hierarchical data](hierarchical-data.md). The implementation-level contracts are
+documented in [Virtual cell-surface architecture](virtual-surface-architecture.md),
+and the phase model and acceptance rules are in
+[Layout performance benchmark methodology](layout-performance-benchmarking.md).

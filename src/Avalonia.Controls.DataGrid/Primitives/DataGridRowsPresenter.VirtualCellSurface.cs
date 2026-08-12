@@ -260,6 +260,12 @@ sealed partial class DataGridRowsPresenter
             return;
         }
 
+        if (column is DataGridCheckBoxColumn checkBoxColumn)
+        {
+            DrawVirtualCheckBox(context, checkBoxColumn, value, bounds, expanderPen);
+            return;
+        }
+
         if (column is DataGridImageColumn && value is IImage image)
         {
             DrawVirtualImage(context, (DataGridImageColumn)column, image, bounds);
@@ -419,6 +425,47 @@ sealed partial class DataGridRowsPresenter
             column.Foreground ?? fallbackForeground,
             null,
             new Rect(bar.X, bar.Y, bar.Width * ratio, bar.Height));
+    }
+
+    private static void DrawVirtualCheckBox(
+        DrawingContext context,
+        DataGridCheckBoxColumn column,
+        object? value,
+        Rect bounds,
+        Pen pen)
+    {
+        const double indicatorSize = 14d;
+        double size = Math.Min(indicatorSize, Math.Max(0d, Math.Min(bounds.Width, bounds.Height) - 4d));
+        if (size <= 0d)
+        {
+            return;
+        }
+
+        Rect indicator = new(
+            bounds.Left + ((bounds.Width - size) * 0.5d),
+            bounds.Top + ((bounds.Height - size) * 0.5d),
+            size,
+            size);
+        context.DrawRectangle(null, pen, indicator.Deflate(0.75d));
+
+        if (value is true)
+        {
+            double left = indicator.Left + (size * 0.22d);
+            double middle = indicator.Left + (size * 0.43d);
+            double right = indicator.Left + (size * 0.80d);
+            double center = indicator.Top + (size * 0.52d);
+            context.DrawLine(pen, new Point(left, center), new Point(middle, indicator.Top + (size * 0.72d)));
+            context.DrawLine(pen, new Point(middle, indicator.Top + (size * 0.72d)), new Point(right, indicator.Top + (size * 0.28d)));
+        }
+        else if (value is null && column.IsThreeState)
+        {
+            double inset = size * 0.25d;
+            double center = indicator.Top + (size * 0.5d);
+            context.DrawLine(
+                pen,
+                new Point(indicator.Left + inset, center),
+                new Point(indicator.Right - inset, center));
+        }
     }
 
     private static void DrawVirtualImage(
