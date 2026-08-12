@@ -23,10 +23,13 @@ sealed partial class DataGridRowsPresenter
 {
     private const double VirtualCellHorizontalPadding = 12d;
     private const double VirtualExpanderSize = 16d;
+    // Keep several viewports of shaped text so discontinuous scrolling does not
+    // evict the entire working set between render passes.
+    private const int VirtualTextLayoutCacheCapacity = 4096;
 
     private DataGridVirtualCellSurface? _virtualCellSurface;
     private readonly DataGridVirtualTextLayoutCache _virtualTextLayoutCache =
-        new(DataGridCustomDrawingCell.DefaultSharedTextLayoutCacheCapacity);
+        new(VirtualTextLayoutCacheCapacity);
     private HashSet<INotifyPropertyChanged> _virtualValueNotifiers =
         new(ReferenceEqualityComparer.Instance);
     private HashSet<INotifyPropertyChanged> _nextVirtualValueNotifiers =

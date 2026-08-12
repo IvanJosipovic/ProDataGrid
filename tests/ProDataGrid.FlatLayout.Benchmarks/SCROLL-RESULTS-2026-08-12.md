@@ -1,124 +1,135 @@
 # Scroll architecture benchmark results — 2026-08-12
 
-This report measures the final virtual-cell renderer optimizations and compares
-the virtual, flat, and nested ProDataGrid architectures with Wieslaw's
-TreeDataGrid source implementation. Results use the native benchmark harness's
-`--scroll-only` path.
+This report compares the virtual, flat, and nested ProDataGrid scroll paths with
+Wieslaw's TreeDataGrid source implementation. It also records the matched A/B
+result for the latest virtual text-layout-cache optimization.
 
 ## Environment and method
 
 - macOS 26.6, Apple M3 Pro Arm64, .NET 10.0.5, Avalonia 12.1, Skia.
-- Native window: 800 × 500, render scale 2, fixed 24-pixel rows, and five matched
-  hierarchy columns.
-- Each architecture result is the average of four independent process means.
-  Every process used two warmups and five measured iterations of 32 deterministic
-  scroll jumps, for 640 measured jumps per architecture. Complete mode order was
-  reversed in alternating process pairs.
-- P95 is the average of the four per-process P95 values. Allocation is managed
-  allocation traffic per jump, not retained heap, native allocation, RSS, or GPU
-  memory.
-- Total latency crosses the harness's two-callback Avalonia frame barrier.
-  Mutation, explicit layout, and frame wait are reported separately because a
-  process can move into an adjacent display-frame band.
+- Native window: 800 × 500, render scale 2, fixed 24-pixel rows, five matched
+  hierarchy columns, and the same expanded 4,094-row tree.
+- Each all-mode diagnostic process used two warmups and five measured iterations
+  of 32 deterministic equal-distance scroll jumps (160 measured jumps per mode).
+- The cache A/B used three interleaved process pairs. Each process used two
+  warmups and five measured iterations (480 jumps per variant), with order
+  reversed in the middle pair.
+- `DOTNET_TieredCompilation=0` was used and the net8.0 applications ran on the
+  installed .NET 10 runtime with major-version roll-forward.
+- Allocation is managed allocation traffic per jump, not retained heap, native
+  allocation, RSS, or GPU memory.
 
-## Final architecture comparison
+The all-mode table is a diagnostic ownership sweep, not a statistical gate: it
+contains one independent process per mode. The cache result is the stronger
+matched, interleaved comparison used to accept the source change.
 
-| Architecture | Mean | Mean process P95 | Allocated | Mutation | Layout | Frame wait |
-|---|---:|---:|---:|---:|---:|---:|
-| Pro virtual cell surface | **8.252 ms** | **8.738 ms** | **94.3 KB** | 0.118 ms | **1.366 ms** | 6.768 ms |
-| Pro flat direct-cell retained | 8.524 ms | 9.814 ms | 488.7 KB | 0.102 ms | 4.594 ms | **3.828 ms** |
-| Pro flat drawn | 8.547 ms | 9.251 ms | 453.1 KB | 0.104 ms | 2.914 ms | 5.529 ms |
-| Pro nested direct-cell retained | 8.870 ms | 11.591 ms | 459.2 KB | 0.109 ms | 5.033 ms | 3.728 ms |
-| Pro nested drawn | 8.985 ms | 15.272 ms | 571.3 KB | 0.110 ms | 2.824 ms | 6.052 ms |
-| Wieslaw TreeDataGrid | 9.625 ms | 15.987 ms | 784.5 KB | **0.072 ms** | 5.186 ms | 4.367 ms |
+## What counts as active work
 
-Every ProDataGrid mode beat TreeDataGrid's end-to-end scroll mean and P95. The
-virtual surface was 14.27% faster on the mean, 45.34% lower on P95, and allocated
-87.98% less than TreeDataGrid. It allocated 79.46% less than the nested
-direct-cell retained path.
+The benchmark's complete `frame wait` crosses two Avalonia animation callbacks.
+Most of that interval is refresh-clock pacing. It is not CPU time spent by the
+grid and cannot be reduced by row recycling or layout code.
 
-Centralized flat drawing improved on nested drawn cells by 4.87% in total time
-and 20.71% in managed allocation. Flat retained improved on nested retained by
-3.90% in total time and 8.73% in explicit layout, but allocated 6.44% more. The
-retained flat path therefore does not support an allocation-win claim. Against
-TreeDataGrid, flat retained was 11.44% faster on the mean and 38.61% lower on
-P95; flat drawn was 11.20% faster on the mean and 42.13% lower on P95.
+For optimization attribution this report uses **measured active work**:
 
-## Virtual renderer optimization
+```text
+mutation + explicit layout + UI render recording
+         + compositor update + compositor render
+```
 
-The final renderer caches `TextLayout` objects rather than `FormattedText`.
-`FormattedText` caches metrics but enumerates and formats its lines again on each
-draw. `TextLayout` retains its shaped text lines, removing that repeated shaping
-and glyph construction from every scroll render. Its bounded LRU cache disposes
-layouts on eviction and detach.
+The compositor values are the maximum instrumented pass durations associated
+with each sample. Their sum is an attribution score rather than process CPU
+time, because UI and render-thread work can overlap. Full wall time and frame
+wait remain visible as scheduling diagnostics.
 
-The renderer also avoids a capturing cache-factory delegate, skips redundant
-full-cell clip scopes, and does not build notifier-tracking state when all
-compatible columns explicitly opt out of value-change tracking.
+## Corrected all-mode ownership sweep
 
-## Why end-to-end does not show a 71% reduction
+These results are from clean commit `077156c4`, before the cache-capacity change.
 
-The native total intentionally waits through a two-animation-callback completion
-barrier. On this display it has an approximately 8 ms scheduling floor even if
-the grid work approaches zero. The total is useful user-visible latency, but it
-cannot attribute CPU work below that floor.
+| Mode | Active work | Mutation | Layout | UI render | Comp. update | Comp. render | Allocated | Reduction vs Tree |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Virtual surface | **2.752 ms** | 0.145 ms | **0.455 ms** | 1.361 ms | **0.029 ms** | 0.764 ms | **241.4 KB** | **67.1%** |
+| Flat direct-cell | 3.554 ms | 0.141 ms | 2.350 ms | 0.265 ms | 0.073 ms | 0.725 ms | 461.0 KB | 57.5% |
+| Flat drawn | 3.699 ms | 0.151 ms | 1.411 ms | 1.363 ms | 0.055 ms | 0.721 ms | 475.1 KB | 55.7% |
+| Nested direct | 3.751 ms | 0.153 ms | 2.485 ms | 0.313 ms | 0.078 ms | 0.722 ms | 442.3 KB | 55.1% |
+| Nested direct-cell | 3.900 ms | 0.162 ms | 2.651 ms | 0.277 ms | 0.075 ms | 0.735 ms | 447.7 KB | 53.3% |
+| Nested drawn | 4.250 ms | 0.167 ms | 1.679 ms | 1.605 ms | 0.056 ms | 0.743 ms | 561.8 KB | 49.2% |
+| Optimized retained | 5.295 ms | 0.168 ms | 3.812 ms | 0.399 ms | 0.113 ms | 0.804 ms | 542.5 KB | 36.7% |
+| Standard retained | 6.088 ms | **0.106 ms** | 4.305 ms | 0.424 ms | 0.370 ms | 0.883 ms | 579.7 KB | 27.2% |
+| Wieslaw TreeDataGrid | 8.360 ms | 0.166 ms | 6.565 ms | 0.687 ms | 0.130 ms | 0.812 ms | 787.7 KB | — |
 
-A separate four-process diagnostic comparison enables Avalonia's meters. The
-instrumented result is attribution evidence rather than the clean performance
-gate because meter collection adds overhead. “Measured active work” is the sum
-of mutation, explicit layout, UI render recording, compositor update, and
-compositor render durations; it excludes the idle frame wait.
+Virtual had the least active work and allocation. The flat and direct modes also
+removed more than half of TreeDataGrid's measured active work. Standard and
+feature-preserving optimized retained modes intentionally keep their nested
+presenters, bindings, and template semantics; they are compatibility baselines,
+not aliases for the new flat architecture.
 
-| Diagnostic metric | Pro virtual | TreeDataGrid | Reduction |
+## Latest virtual cache A/B
+
+The virtual renderer already cached shaped `TextLayout` instances, but its
+1,024-entry bound was smaller than the discontinuous-scroll working set. The LRU
+therefore evicted layouts that later jumps needed again. The candidate raises
+only the virtual-surface cache to 4,096 entries; retained and drawn-cell cache
+defaults are unchanged.
+
+| Metric | 1,024-entry baseline | 4,096-entry candidate | Change |
 |---|---:|---:|---:|
-| Mutation + explicit layout | 0.780 ms | 4.091 ms | **80.93%** |
-| UI render recording | 0.369 ms | 0.483 ms | **23.60%** |
-| Compositor update | 0.0358 ms | 0.1192 ms | **69.95%** |
-| Compositor render | 0.400 ms | 0.703 ms | **43.14%** |
-| Measured active work | **1.557 ms** | 5.397 ms | **71.15%** |
-| Managed allocation | **94.9 KB** | 785.4 KB | **87.92%** |
-| End-to-end including frame wait | 7.019 ms | 9.549 ms | 26.50% |
+| UI render recording | 0.952 ms | **0.480 ms** | **−49.5%** |
+| Managed allocation | 241.3 KB | **99.5 KB** | **−58.8%** |
+| Measured active work | 2.007 ms | **1.511 ms** | **−24.7%** |
+| Mutation | **0.106 ms** | 0.113 ms | +6.3% |
+| Explicit layout | **0.323 ms** | 0.345 ms | +6.6% |
+| Compositor update | **0.023 ms** | 0.030 ms | +31.4% |
+| Compositor render | 0.603 ms | **0.543 ms** | −10.0% |
+| End-to-end wall time | **7.162 ms** | 7.486 ms | +4.5% |
+| Full frame wait | **6.732 ms** | 7.028 ms | +4.4% |
 
-The `TextLayout` change itself reduced virtual UI render recording from 2.307
-to 0.369 ms (84.0%), measured active work from 3.743 to 1.557 ms (58.4%), and
-managed allocation from 456.7 to 94.9 KB (79.2%) in matched four-process
-diagnostic campaigns.
+The small mutation/layout changes and compositor-update percentage are below
+0.01 ms in absolute terms and vary between process pairs. The repeatable signal
+is the approximately halved UI-render duration and 58.8% allocation reduction.
+Using the ownership-sweep TreeDataGrid reference, the optimized virtual result's
+1.511 ms active-work score is 81.9% lower.
 
-## Frame-wait ownership follow-up
+A separate 10-iteration memory run measured 212.8 MB maximum RSS and 315.3 MB
+peak footprint for the 1,024-entry baseline, versus 218.4 MB maximum RSS and
+316.6 MB peak footprint for 4,096 entries. The accepted bound therefore cost
+about 5.6 MB maximum RSS in this stress workload. An 8,192-entry trial did not
+improve UI render or allocation and was rejected.
 
-A second four-process campaign added callback-phase telemetry to every scroll
-jump for all eight ProDataGrid modes. Each row aggregates 640 measured jumps.
-The existing `Frame wait` value spans two callback phases; the new columns split
-layout-to-callback-1 frame pickup from the callback-1-to-callback-2 interval.
+## Virtual row recycling and generation
 
-| Mode | Mutation + layout | Frame wait | Frame pickup | Callback interval | Animation tick |
-|---|---:|---:|---:|---:|---:|
-| Virtual surface | **1.383 ms** | 6.857 ms | **0.014 ms** | 6.771 ms | 6.770 ms |
-| Flat drawn | 2.547 ms | 8.852 ms | 2.005 ms | 6.750 ms | 6.749 ms |
-| Flat direct-cell | 4.057 ms | 7.517 ms | 1.483 ms | 5.953 ms | 5.953 ms |
-| Nested drawn | 2.487 ms | 9.145 ms | 2.044 ms | 7.026 ms | 7.026 ms |
-| Nested direct-cell | 4.145 ms | 7.336 ms | 1.397 ms | 5.854 ms | 5.853 ms |
-| Nested direct-content | 4.154 ms | 7.360 ms | 1.410 ms | 5.868 ms | 5.868 ms |
-| Optimized retained | 4.716 ms | 7.434 ms | 1.187 ms | 6.167 ms | 6.166 ms |
-| Standard retained | 5.780 ms | 6.938 ms | 1.056 ms | 5.780 ms | 5.780 ms |
+The preceding `077156c4` change optimizes the other half of the requested path:
 
-For virtual surface, callback interval and animation tick differ by only
-0.00037 ms. That interval is 98.7% of its reported frame wait and is refresh
-pacing, not DataGrid execution. Virtual reduces the DataGrid-owned frame-pickup
-portion by 98.7% versus the next-lowest retained mode and by 99.3% versus flat
-drawn. Reducing the complete 6.857 ms value by 50% while retaining the same
-two-animation-callback convention would require a higher display/render-loop
-frequency; row/cell layout cannot remove the deliberately awaited callback
-interval.
+- exact built-in virtual rows retain their previous non-null `DataContext` until
+  the recycled row is rebound, avoiding the item → null → item binding cascade;
+- fixed-height virtual rows preserve a valid recycled measure instead of forcing
+  an insertion-time measure invalidation;
+- custom/derived rows and retained compatibility fallbacks keep the conservative
+  lifecycle path;
+- a headless regression test verifies that a large virtual jump reuses the same
+  row objects without a null `DataContext` transition.
 
-The 71% work reduction is the expected architectural benefit. The smaller 14%
-clean end-to-end reduction is the same work observed through a frame-quantized
-completion convention, not evidence that virtual rendering still performs the
-same amount of work as TreeDataGrid.
+In its matched campaign that row-recycling change reduced synchronous scroll
+work by 9.6%, explicit layout by 11.3%, measured active work by 8.2%, UI render
+recording by 12.6%, and allocation by 8.2%. The cache change is additive.
+
+## Why full frame wait does not fall with active work
+
+The Windows CI artifact for `077156c4` reports only about 0.006–0.009 ms from
+layout completion to callback 1 across ProDataGrid modes. For virtual surface,
+the callback-1-to-callback-2 interval accounts for virtually the complete frame
+wait and matches the animation-clock interval. That is idle refresh pacing.
+
+Consequently, row/cell optimization should be judged primarily on mutation,
+layout, UI render, compositor work, and allocation. Wall time remains useful for
+detecting a frame-band regression, but a 50% reduction in the deliberately
+awaited callback interval would require changing the completion convention or
+display/render-loop frequency rather than optimizing `ScrollSlotsByHeight`.
 
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the
 [native benchmark README](../ProDataGrid.Hierarchy.NativeBenchmarks/README.md).
-Local raw JSON, traces, and published baseline/candidate apps are under
-`artifacts/performance/scroll-2026-08-12`; the artifact directory is gitignored.
+Local raw JSON and traces are under
+`artifacts/performance/active-all-modes-2026-08-12`; the artifact directory is
+gitignored. The cache comparison is in
+`interleaved-virtual-cache-4096-final/{baseline,candidate}`.
