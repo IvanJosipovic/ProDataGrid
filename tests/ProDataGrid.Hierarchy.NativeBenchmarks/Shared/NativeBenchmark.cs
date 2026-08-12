@@ -552,6 +552,9 @@ internal sealed class NativeBenchmarkRunner
         var mutationTimes = new List<double>();
         var layoutTimes = new List<double>();
         var frameTimes = new List<double>();
+        var firstFrameCallbackTimes = new List<double>();
+        var secondFrameCallbackTimes = new List<double>();
+        var animationTickIntervals = new List<double>();
         var uiRenderTimes = new List<double>();
         var compositorUpdateTimes = new List<double>();
         var compositorRenderTimes = new List<double>();
@@ -568,6 +571,9 @@ internal sealed class NativeBenchmarkRunner
                 mutationTimes.Add(measurement.MutationMilliseconds);
                 layoutTimes.Add(measurement.LayoutMilliseconds);
                 frameTimes.Add(measurement.FrameMilliseconds);
+                firstFrameCallbackTimes.Add(measurement.FirstFrameCallbackMilliseconds);
+                secondFrameCallbackTimes.Add(measurement.SecondFrameCallbackMilliseconds);
+                animationTickIntervals.Add(measurement.AnimationTickIntervalMilliseconds);
                 uiRenderTimes.Add(measurement.UiRenderMilliseconds);
                 compositorUpdateTimes.Add(measurement.CompositorUpdateMilliseconds);
                 compositorRenderTimes.Add(measurement.CompositorRenderMilliseconds);
@@ -585,6 +591,9 @@ internal sealed class NativeBenchmarkRunner
             mutationTimes,
             layoutTimes,
             frameTimes,
+            firstFrameCallbackTimes,
+            secondFrameCallbackTimes,
+            animationTickIntervals,
             uiRenderTimes: uiRenderTimes,
             compositorUpdateTimes: compositorUpdateTimes,
             compositorRenderTimes: compositorRenderTimes);
@@ -605,13 +614,14 @@ internal sealed class NativeBenchmarkRunner
             {
                 NativeAvaloniaDiagnostics.Reset();
             }
-            var renderedFrame = WaitForRenderedFrameAsync(_host);
+            NativeFrameBarrier renderedFrame = RequestRenderedFrame(_host);
             var stopwatch = Stopwatch.StartNew();
             NativeGridAdapter.SetScrollRow(viewer, row);
             double mutationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
             handle.Grid.UpdateLayout();
             double mutationAndLayoutMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
-            await renderedFrame;
+            long layoutCompletedTimestamp = Stopwatch.GetTimestamp();
+            await renderedFrame.Completion;
             stopwatch.Stop();
             NativeRenderingDiagnostics renderingDiagnostics = measure && NativeBenchmarkOptions.AvaloniaDiagnostics
                 ? await NativeAvaloniaDiagnostics.SnapshotAsync()
@@ -621,6 +631,14 @@ internal sealed class NativeBenchmarkRunner
                 mutationMilliseconds,
                 mutationAndLayoutMilliseconds - mutationMilliseconds,
                 stopwatch.Elapsed.TotalMilliseconds - mutationAndLayoutMilliseconds,
+                Stopwatch.GetElapsedTime(
+                    layoutCompletedTimestamp,
+                    renderedFrame.FirstCallbackTimestamp).TotalMilliseconds,
+                Stopwatch.GetElapsedTime(
+                    renderedFrame.FirstCallbackTimestamp,
+                    renderedFrame.SecondCallbackTimestamp).TotalMilliseconds,
+                (renderedFrame.SecondAnimationTimestamp -
+                    renderedFrame.FirstAnimationTimestamp).TotalMilliseconds,
                 renderingDiagnostics.UiRenderMilliseconds,
                 renderingDiagnostics.CompositorUpdateMilliseconds,
                 renderingDiagnostics.CompositorRenderMilliseconds));
@@ -1192,6 +1210,9 @@ internal readonly record struct NativeScrollMeasurement(
     double MutationMilliseconds,
     double LayoutMilliseconds,
     double FrameMilliseconds,
+    double FirstFrameCallbackMilliseconds,
+    double SecondFrameCallbackMilliseconds,
+    double AnimationTickIntervalMilliseconds,
     double UiRenderMilliseconds,
     double CompositorUpdateMilliseconds,
     double CompositorRenderMilliseconds);

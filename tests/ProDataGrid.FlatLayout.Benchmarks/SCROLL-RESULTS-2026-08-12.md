@@ -84,6 +84,33 @@ to 0.369 ms (84.0%), measured active work from 3.743 to 1.557 ms (58.4%), and
 managed allocation from 456.7 to 94.9 KB (79.2%) in matched four-process
 diagnostic campaigns.
 
+## Frame-wait ownership follow-up
+
+A second four-process campaign added callback-phase telemetry to every scroll
+jump for all eight ProDataGrid modes. Each row aggregates 640 measured jumps.
+The existing `Frame wait` value spans two callback phases; the new columns split
+layout-to-callback-1 frame pickup from the callback-1-to-callback-2 interval.
+
+| Mode | Mutation + layout | Frame wait | Frame pickup | Callback interval | Animation tick |
+|---|---:|---:|---:|---:|---:|
+| Virtual surface | **1.383 ms** | 6.857 ms | **0.014 ms** | 6.771 ms | 6.770 ms |
+| Flat drawn | 2.547 ms | 8.852 ms | 2.005 ms | 6.750 ms | 6.749 ms |
+| Flat direct-cell | 4.057 ms | 7.517 ms | 1.483 ms | 5.953 ms | 5.953 ms |
+| Nested drawn | 2.487 ms | 9.145 ms | 2.044 ms | 7.026 ms | 7.026 ms |
+| Nested direct-cell | 4.145 ms | 7.336 ms | 1.397 ms | 5.854 ms | 5.853 ms |
+| Nested direct-content | 4.154 ms | 7.360 ms | 1.410 ms | 5.868 ms | 5.868 ms |
+| Optimized retained | 4.716 ms | 7.434 ms | 1.187 ms | 6.167 ms | 6.166 ms |
+| Standard retained | 5.780 ms | 6.938 ms | 1.056 ms | 5.780 ms | 5.780 ms |
+
+For virtual surface, callback interval and animation tick differ by only
+0.00037 ms. That interval is 98.7% of its reported frame wait and is refresh
+pacing, not DataGrid execution. Virtual reduces the DataGrid-owned frame-pickup
+portion by 98.7% versus the next-lowest retained mode and by 99.3% versus flat
+drawn. Reducing the complete 6.857 ms value by 50% while retaining the same
+two-animation-callback convention would require a higher display/render-loop
+frequency; row/cell layout cannot remove the deliberately awaited callback
+interval.
+
 The 71% work reduction is the expected architectural benefit. The smaller 14%
 clean end-to-end reduction is the same work observed through a frame-quantized
 completion convention, not evidence that virtual rendering still performs the

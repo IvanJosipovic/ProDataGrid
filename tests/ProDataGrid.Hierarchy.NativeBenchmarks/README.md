@@ -75,9 +75,14 @@ into:
 - **frame wait**: dispatcher/render scheduling until the second callback;
 - **total**: mutation + layout + frame wait.
 
-The JSON also records the delay from layout completion to callback 1, the interval
-from callback 1 to callback 2, the animation-clock interval, raw per-iteration phase
-samples, and the number of `LayoutUpdated` notifications. The CI diagnostic process
+The JSON records these callback phases for both collapse and every individual
+scroll jump: the delay from layout completion to callback 1, the interval from
+callback 1 to callback 2, the animation-clock interval, raw per-operation phase
+samples, and the number of collapse `LayoutUpdated` notifications. The CI summary
+reports frame pickup and the callback interval as separate scroll columns. If the
+callback interval tracks the animation-clock interval, that portion is refresh
+pacing rather than DataGrid execution and cannot be reduced by changing row or cell
+layout. The CI diagnostic process
 enables Avalonia's built-in meters and records the maximum UI render-recording,
 compositor-update, and compositor-render pass observed for each sample. That
 instrumented process is separate from the clean performance gate because meter
