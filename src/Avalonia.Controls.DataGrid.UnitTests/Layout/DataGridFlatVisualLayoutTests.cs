@@ -7,6 +7,7 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -297,22 +298,59 @@ public class DataGridFlatVisualLayoutTests
             double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
             long initialMeasureFastPaths = presenter.RetargetedRowsMeasureFastPathCount;
             long initialArrangeFastPaths = presenter.RetargetedRowsArrangeFastPathCount;
+            long initialUniformScrollTargets = grid.UniformScrollTargetCount;
 
             presenter.Offset = new Vector(0, 400.5 * rowHeight);
             PumpLayout(grid);
 
+            Assert.True(grid.UniformScrollTargetCount > initialUniformScrollTargets);
             Assert.True(presenter.RetargetedRowsMeasureFastPathCount > initialMeasureFastPaths);
             Assert.Equal(initialArrangeFastPaths, presenter.RetargetedRowsArrangeFastPathCount);
             Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
             Assert.Equal(-rowHeight * 0.5, presenter.Children.OfType<DataGridRow>().First().Bounds.Y, precision: 3);
 
             long arrangeFastPathsAfterFractionChanged = presenter.RetargetedRowsArrangeFastPathCount;
+            long uniformScrollTargetsAfterFractionChanged = grid.UniformScrollTargetCount;
             presenter.Offset = new Vector(0, 450.5 * rowHeight);
             PumpLayout(grid);
 
+            Assert.True(grid.UniformScrollTargetCount > uniformScrollTargetsAfterFractionChanged);
             Assert.True(presenter.RetargetedRowsArrangeFastPathCount > arrangeFastPathsAfterFractionChanged);
             Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
             Assert.Equal(-rowHeight * 0.5, presenter.Children.OfType<DataGridRow>().First().Bounds.Y, precision: 3);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Layout_Uniform_Scroll_Target_Falls_Back_For_Row_Details()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+        grid.RowDetailsTemplate = new FuncDataTemplate<Item>(
+            static (_, _) => new Border { Height = 48 });
+        grid.RowDetailsVisibilityMode = DataGridRowDetailsVisibilityMode.Collapsed;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            long uniformScrollTargetsBeforeJump = grid.UniformScrollTargetCount;
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+
+            presenter.Offset = new Vector(0, 400 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.Equal(uniformScrollTargetsBeforeJump, grid.UniformScrollTargetCount);
+            Assert.Contains(presenter.Children.OfType<DataGridRow>(), row => row.Index >= 400);
         }
         finally
         {

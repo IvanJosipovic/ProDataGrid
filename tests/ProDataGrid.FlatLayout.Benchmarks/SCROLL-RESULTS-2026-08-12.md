@@ -2,7 +2,8 @@
 
 This report compares the virtual, flat, and nested ProDataGrid scroll paths with
 Wieslaw's TreeDataGrid source implementation. It also records the matched A/B
-result for the latest virtual text-layout-cache optimization.
+campaigns used to optimize the virtual text, row-recycling, retargeting, layout,
+and fixed-height scroll-geometry paths.
 
 ## Environment and method
 
@@ -255,6 +256,60 @@ disables arrangement reuse and moves row bounds correctly.
 Raw gate results are
 `artifacts/performance/virtual-next-2026-08-12/layout-reuse-final-{baseline,candidate}-{a,b,c}.json`;
 the instrumented proof is `layout-reuse-diagnostic.json` in the same directory.
+
+### Fixed-height scroll geometry follow-up
+
+After layout reuse, the owned component trace still showed
+`prodatagrid.rows.scroll.slots.by.height.time` ahead of every other synchronous
+DataGrid phase. Large discontinuous jumps entered the general indexed geometry
+path even though the benchmark's virtual rows have one explicit fixed height.
+That path can require height-index maintenance, a binary target lookup, and an
+estimated offset lookup before deriving the same slot and fractional offset.
+
+The guarded virtual path now calculates both values directly:
+
+```text
+target slot       = floor(vertical offset / fixed row height)
+fractional offset = vertical offset - (target slot * fixed row height)
+```
+
+This O(1) geometry is used only by the exact default virtual row pipeline with a
+finite explicit row height and no group headers/footers, collapsed slots, row
+details template, or per-row details visibility. Tail anchoring uses the same
+fixed geometry. Every variable, grouped, detailed, custom, or retained path
+continues through the existing indexed/estimated implementation. Headless tests
+prove fractional positioning and arrangement behavior, activation on the fixed
+surface path, and fallback when a row-details template is present.
+
+The confirmation campaign compared clean `16340647` with the candidate in three
+process pairs ordered `C B`, `B C`, `C B`. Each process used five warmups and 25
+measured iterations of 32 discontinuous jumps: 2,400 measured jumps per variant.
+Both Avalonia and ProDataGrid diagnostics were enabled because this campaign's
+gate was active/component work rather than callback-paced wall time. The table
+compares the median of the three process means.
+
+| Metric | Indexed baseline | Uniform geometry | Change |
+|---|---:|---:|---:|
+| `ScrollSlotsByHeight` | 0.092 ms | **0.078 ms** | **−15.2%** |
+| Mutation | 0.098 ms | **0.084 ms** | **−14.1%** |
+| Explicit layout | 0.148 ms | **0.125 ms** | **−15.4%** |
+| Mutation + layout | 0.246 ms | **0.208 ms** | **−15.4%** |
+| UI render recording | 0.568 ms | **0.462 ms** | **−18.6%** |
+| Compositor update | 0.020 ms | **0.019 ms** | −4.9% |
+| Compositor render | 0.519 ms | **0.452 ms** | **−12.9%** |
+| Measured active work | 1.354 ms | **1.144 ms** | **−15.5%** |
+| Managed allocation | 91.50 KB | **91.47 KB** | −0.03% |
+| End-to-end wall time | **7.317 ms** | 7.334 ms | +0.2% |
+| Full frame wait | **7.087 ms** | 7.126 ms | +0.5% |
+
+The per-pair active-work changes were −10.9%, −18.6%, and −0.8%; the third pair
+was correspondingly neutral/noisy, but the median and two earlier shorter
+three-pair campaigns moved in the same direction. The target component fell from
+0.092 ms to 0.078 ms while allocation stayed flat. The wall/frame movements are
+under 0.04 ms and remain excluded refresh-clock variation.
+
+Raw confirmation results are in
+`artifacts/performance/uniform-scroll-2026-08-12/confirmation/{baseline,candidate}-{a,b,c}.json`.
 
 ## Why full frame wait does not fall with active work
 

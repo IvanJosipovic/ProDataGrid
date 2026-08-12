@@ -224,6 +224,11 @@ realization/recycling/retargeting counts. Retarget probes also expose
 `prodatagrid.rows.retarget.arrange.reused.count`; compare them with the realized
 row count to prove whether the guarded geometry-reuse path actually ran. Both
 diagnostic switches add measurement overhead and remain outside the clean A/B gate.
+For fixed-height virtual-scroll work, compare
+`prodatagrid.rows.scroll.slots.by.height.time` with mutation plus layout and the
+complete active-work score. A faster target lookup is accepted only when the
+application-level active components also improve; full frame wait remains a
+separate refresh-pacing diagnostic.
 Use `virtual-checkbox` to exercise the mixed text/hierarchy/checkbox surface lane.
 `GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` exists only for controlled baseline
 experiments and must not be set when validating the candidate surface.
