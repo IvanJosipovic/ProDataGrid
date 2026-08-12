@@ -776,6 +776,71 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Draws_Typed_Slider_Text_And_Materializes_Slider_Only_For_Editing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var sliderColumn = new DataGridSliderColumn
+        {
+            Header = "Rating",
+            Width = new DataGridLength(180),
+            Binding = new Binding(nameof(Item.Value)),
+            ShowValueText = true,
+            ValueTextFormat = "{0:0.0}",
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            sliderColumn,
+            new DataGridColumnValueAccessor<Item, double>(item => item.Value));
+        grid.Columns.Add(sliderColumn);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.False(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+
+            int valueChangeCount = presenter.VirtualValueChangeCount;
+            Item firstItem = grid.ItemsSource!.Cast<Item>().First();
+            firstItem.Value = 42.5;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(valueChangeCount + 1, presenter.VirtualValueChangeCount);
+
+            int slot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                sliderColumn.Index,
+                slot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+            Assert.True(grid.BeginEdit());
+            PumpLayout(grid);
+
+            DataGridCell editorCell = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Same(sliderColumn, editorCell.OwningColumn);
+            Assert.IsType<Slider>(editorCell.Content);
+
+            Assert.True(grid.CommitEdit());
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Equal(1, presenter.VirtualSurfaceCount);
+
+            grid.ScrollIntoView(grid.ItemsSource.Cast<Item>().ElementAt(90), sliderColumn);
+            PumpLayout(grid);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Preserves_Cell_Lifecycle_Events_Through_Retained_Fallback()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
@@ -1302,12 +1367,13 @@ public class DataGridFlatVisualLayoutTests
         private TimeSpan? _time;
         private string _phone;
         private string _category;
+        private double _value;
 
         public Item(int id, string name, double value)
         {
             Id = id;
             _name = name;
-            Value = value;
+            _value = value;
             _isActive = id % 2 == 0;
             _date = new DateTime(2024, 1, 1).AddDays(id);
             _time = TimeSpan.FromSeconds(id % 86_400);
@@ -1332,7 +1398,20 @@ public class DataGridFlatVisualLayoutTests
             }
         }
 
-        public double Value { get; set; }
+        public double Value
+        {
+            get => _value;
+            set
+            {
+                if (_value == value)
+                {
+                    return;
+                }
+
+                _value = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+            }
+        }
 
         public bool? IsActive
         {

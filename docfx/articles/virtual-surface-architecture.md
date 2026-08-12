@@ -90,6 +90,7 @@ The surface currently draws these built-in column configurations:
 | `DataGridTimePickerColumn` | Direct raw binding and typed `TimeSpan` accessor | 12/24-hour, optional-seconds, or custom formatted time text |
 | `DataGridMaskedTextColumn` | Direct text binding and compatible typed text accessor | Raw bound display text; mask, prompts, culture, and watermark remain editor concerns |
 | `DataGridAutoCompleteColumn` | Direct text binding and compatible typed text accessor | Raw bound display text; suggestions, filtering, completion, item templates, and watermark remain editor concerns |
+| `DataGridSliderColumn` | `ShowValueText`, direct `Binding`, and compatible typed text accessor | Centered `ValueTextFormat` display; graphical slider display remains retained and the interactive slider remains the editor |
 | `DataGridImageColumn` | Fixed image dimensions, direct raw binding, typed accessor | Stretch and stretch-direction geometry |
 | `DataGridProgressBarColumn` | No progress text, direct raw binding, typed accessor | Background, foreground, min/max, and fixed bar height |
 | `DataGridHierarchicalColumn` | No custom cell template and compatible typed text accessor | Indentation, expander, and hierarchy text |

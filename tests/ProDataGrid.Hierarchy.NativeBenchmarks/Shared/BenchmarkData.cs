@@ -20,6 +20,7 @@ public sealed class Node
         Time = TimeSpan.FromSeconds(id % 86_400);
         Phone = $"(555) {id % 1_000:D3}-{id % 10_000:D4}";
         Category = $"Category-{id % 997:D3}";
+        SliderValue = (id % 1_000) / 10d;
     }
 
     public int Id { get; }
@@ -37,6 +38,8 @@ public sealed class Node
     public string Phone { get; }
 
     public string Category { get; }
+
+    public double SliderValue { get; }
 
     public int ChildCount => Children.Count;
 

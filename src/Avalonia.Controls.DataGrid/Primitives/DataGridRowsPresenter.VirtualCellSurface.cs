@@ -288,6 +288,7 @@ sealed partial class DataGridRowsPresenter
         {
             DataGridNumericColumn => TextAlignment.Right,
             DataGridDatePickerColumn dateColumn => dateColumn.GetTextAlignment(),
+            DataGridSliderColumn { ShowValueText: true } => TextAlignment.Center,
             _ => TextAlignment.Left,
         };
         if (column is DataGridTextColumn textColumn)

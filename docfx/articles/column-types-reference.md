@@ -20,7 +20,7 @@ This reference summarizes the built-in column types shipped with ProDataGrid and
 | `DataGridDatePickerColumn` | `CalendarDatePicker` | `Binding` to `SelectedDate`, date range and format options. |
 | `DataGridTimePickerColumn` | `TimePicker` | `Binding` to `SelectedTime`. |
 | `DataGridNumericColumn` | `NumericUpDown` | `Binding` to value; `Minimum`/`Maximum`/`Increment` and format options. |
-| `DataGridSliderColumn` | `Slider` | `Binding` to value; `Minimum`/`Maximum`/`SmallChange`/`LargeChange`. |
+| `DataGridSliderColumn` | `Slider` / optional `TextBlock` | `Binding` to value; `Minimum`/`Maximum`/`SmallChange`/`LargeChange`; compatible typed `ShowValueText` display can use the virtual surface. |
 | `DataGridProgressBarColumn` | `ProgressBar` | `Binding` to value; `Minimum`/`Maximum`, `ShowProgressText`. |
 | `DataGridToggleSwitchColumn` | `ToggleSwitch` | `Binding` to `IsChecked`; on/off content and templates. |
 | `DataGridToggleButtonColumn` | `ToggleButton` | `Binding` to `IsChecked`; checked/unchecked content, `IsThreeState`. |

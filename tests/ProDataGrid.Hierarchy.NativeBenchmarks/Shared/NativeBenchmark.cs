@@ -207,6 +207,7 @@ internal static class NativeBenchmarkOptions
             "virtual-time" => "ProDataGrid (virtual cell surface with time)",
             "virtual-masked" => "ProDataGrid (virtual cell surface with masked text)",
             "virtual-autocomplete" => "ProDataGrid (virtual cell surface with autocomplete text)",
+            "virtual-slider-text" => "ProDataGrid (virtual cell surface with slider text)",
             _ => $"ProDataGrid ({ProMode})",
         };
 #else
@@ -293,7 +294,7 @@ internal static class NativeBenchmarkOptions
 #if PRO && PRODATAGRID_PR335
         if (ProMode is not ("standard" or "optimized" or "direct" or "direct-cell" or "drawn" or
             "flat-direct-cell" or "flat-drawn" or "virtual" or "virtual-checkbox" or "virtual-date" or
-            "virtual-time" or "virtual-masked" or "virtual-autocomplete"))
+            "virtual-time" or "virtual-masked" or "virtual-autocomplete" or "virtual-slider-text"))
             throw new ArgumentException($"Unsupported GRID_BENCH_PRO_MODE: {ProMode}.");
 #endif
         if (ScrollOnly && (FirstRenderOnly || CollapseOnly))
@@ -954,12 +955,13 @@ internal static class NativeGridAdapter
         var drawn = NativeBenchmarkOptions.ProMode is "drawn" or "flat-drawn";
         var flatLayout = NativeBenchmarkOptions.ProMode is "flat-direct-cell" or "flat-drawn";
         var virtualSurface = NativeBenchmarkOptions.ProMode is "virtual" or "virtual-checkbox" or "virtual-date" or
-            "virtual-time" or "virtual-masked" or "virtual-autocomplete";
+            "virtual-time" or "virtual-masked" or "virtual-autocomplete" or "virtual-slider-text";
         var virtualCheckBox = NativeBenchmarkOptions.ProMode == "virtual-checkbox";
         var virtualDate = NativeBenchmarkOptions.ProMode == "virtual-date";
         var virtualTime = NativeBenchmarkOptions.ProMode == "virtual-time";
         var virtualMasked = NativeBenchmarkOptions.ProMode == "virtual-masked";
         var virtualAutoComplete = NativeBenchmarkOptions.ProMode == "virtual-autocomplete";
+        var virtualSliderText = NativeBenchmarkOptions.ProMode == "virtual-slider-text";
         var options = new HierarchicalOptions<Node>
         {
             ChildrenSelector = node => node.Children,
@@ -1027,6 +1029,10 @@ internal static class NativeGridAdapter
         else if (virtualAutoComplete)
         {
             AddProAutoCompleteColumn(grid, "Category", 180, "Item.Category", node => ((Node)node.Item).Category);
+        }
+        else if (virtualSliderText)
+        {
+            AddProSliderTextColumn(grid, "Value", 180, "Item.SliderValue", node => ((Node)node.Item).SliderValue);
         }
         else
         {
@@ -1288,6 +1294,29 @@ internal static class NativeGridAdapter
         DataGridColumnMetadata.SetValueAccessor(
             column,
             new DataGridColumnValueAccessor<HierarchicalNode, string>(getter));
+        grid.Columns.Add(column);
+    }
+
+    private static void AddProSliderTextColumn(
+        DataGrid grid,
+        string header,
+        double width,
+        string bindingPath,
+        Func<HierarchicalNode, double> getter)
+    {
+        var column = new DataGridSliderColumn
+        {
+            Header = header,
+            Width = new DataGridLength(width),
+            Binding = new Binding(bindingPath),
+            Minimum = 0,
+            Maximum = 100,
+            ShowValueText = true,
+            ValueTextFormat = "{0:0.0}",
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, double>(getter));
         grid.Columns.Add(column);
     }
 

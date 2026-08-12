@@ -526,6 +526,46 @@ guardrails. The longer frame wait is the idle animation-clock interval reached
 after synchronous work completes. Raw JSON is under
 `artifacts/performance/virtual-autocomplete-2026-08-13/{clean,diagnostic}`.
 
+## Typed slider-value surface follow-up
+
+`DataGridSliderColumn` previously forced virtual mode to flat retained fallback,
+including when `ShowValueText` made its non-editing element a centered one-line
+`TextBlock`. The surface now reads the exact built-in text-display configuration
+through a compatible typed text accessor and applies `ValueTextFormat`. The normal
+`Slider` is still materialized for editing. Graphical slider display, derived
+columns, non-`Binding` binding types, missing accessors, explicit sources, arbitrary
+converters, delayed bindings, and other non-direct configurations remain retained.
+
+The matched hierarchy workload replaced only the payload column with a slider
+column configured for centered value text. Baseline was clean `bb15d6d1` with the
+identical benchmark-only lane and retained fallback explicitly allowed. Candidate
+and baseline were measured in three interleaved process pairs, two warmups, and
+five iterations of 32 jumps: 480 jumps per variant in each of separate clean-timing
+and diagnostic campaigns. The table compares the median of the three process means.
+
+| Metric | Retained slider-text fallback | Slider-text surface | Change |
+|---|---:|---:|---:|
+| Active-work attribution (diagnostic) | 5.823 ms | **1.048 ms** | **−82.0%** |
+| Explicit layout (clean) | 5.718 ms | **0.276 ms** | **−95.2%** |
+| UI render recording (diagnostic) | 0.734 ms | **0.302 ms** | **−58.8%** |
+| Compositor update (diagnostic) | 0.300 ms | **0.024 ms** | **−92.1%** |
+| Compositor render (diagnostic) | 0.733 ms | **0.491 ms** | **−33.1%** |
+| Managed allocation (clean) | 842.26 KB | **90.55 KB** | **−89.2%** |
+| End-to-end mean (clean) | 10.575 ms | **8.264 ms** | **−21.8%** |
+| Mean process median (clean) | 8.353 ms | **8.322 ms** | −0.4% |
+| Mean process p95 (clean) | 16.745 ms | **9.395 ms** | **−43.9%** |
+| Full frame wait (clean) | **4.779 ms** | 7.889 ms | +65.1% |
+| Realized display cells | 100 | **0** | **−100%** |
+| Realized visuals | 1,641 | **102** | **−93.8%** |
+
+The per-pair active-work changes were −84.7%, −80.1%, and −77.4%. The clean
+surface removes about 5.44 ms of layout and 752 KB of managed allocation per jump.
+All active-work pairs agree, and the heavier retained slider-text controls also
+produce clear wall-mean and p95 improvements. The nearly unchanged process median
+and longer frame wait remain animation-clock pacing effects after synchronous work
+completes. Raw JSON is under
+`artifacts/performance/virtual-slider-text-2026-08-13/{clean,diagnostic}`.
+
 ## Reproduction and raw data
 
 The harness modes and command lines are documented in the

@@ -186,6 +186,11 @@ GRID_BENCH_PRO_MODE=virtual-autocomplete dotnet \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual-autocomplete.json
 
+GRID_BENCH_PRO_MODE=virtual-slider-text dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-slider-text.json
+
 GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
@@ -236,6 +241,11 @@ baseline experiments; never set it when validating the candidate backend.
 `virtual-autocomplete` replaces the payload text column with a typed
 `DataGridAutoCompleteColumn`. Display remains text-only on the surface; the
 suggestion list and filtering controls are materialized only while editing.
+
+`virtual-slider-text` replaces the payload text column with a typed
+`DataGridSliderColumn` configured with `ShowValueText`. The centered formatted
+value stays on the surface; the interactive slider is materialized only while
+editing. Graphical slider display continues to use retained fallback.
 
 The complete experiment design and interpretation rules are in
 [Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).

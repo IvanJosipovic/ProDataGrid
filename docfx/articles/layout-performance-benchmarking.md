@@ -233,6 +233,9 @@ Use `virtual-checkbox` to exercise the mixed text/hierarchy/checkbox surface lan
 Use `virtual-autocomplete` to compare retained autocomplete display text with its
 typed zero-cell surface path; suggestion/filter behavior remains outside the
 read-only scrolling workload and is covered by editing tests.
+Use `virtual-slider-text` to compare retained centered slider value text with its
+typed zero-cell surface path; the graphical display mode is intentionally outside
+the contract and slider interaction is covered by editing tests.
 `GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` exists only for controlled baseline
 experiments and must not be set when validating the candidate surface.
 
