@@ -49,6 +49,7 @@ internal
         private double _retargetedMeasureRowHeight;
         private double _lastArrangedNegVerticalOffset;
         private Size _lastArrangedSize;
+        private bool _cleanupRetainedRowsForLightweightLayout;
         private readonly HashSet<Control> _displayedElementsScratch = new();
         private readonly Dictionary<Control, Size> _measureConstraints = new();
         private readonly RectangleGeometry _clipRectGeometry = new();
@@ -129,6 +130,40 @@ internal
             }
             _measureConstraints.Remove(child);
             Children.Remove(child);
+        }
+
+        internal void RequestRetainedRowsCleanupForLightweightLayout()
+        {
+            _cleanupRetainedRowsForLightweightLayout = true;
+            InvalidateMeasure();
+        }
+
+        private void CleanupRetainedRowsForLightweightLayout()
+        {
+            bool hasLightweightRangeWithRetainedChildren =
+                OwningGrid?.DisplayData.HasVirtualScrollingElements == true &&
+                Children.Count != 0;
+            if (!_cleanupRetainedRowsForLightweightLayout &&
+                !hasLightweightRangeWithRetainedChildren)
+            {
+                return;
+            }
+
+            if (OwningGrid?.DisplayData.HasVirtualScrollingElements != true)
+            {
+                return;
+            }
+
+            _cleanupRetainedRowsForLightweightLayout = false;
+            for (int index = Children.Count - 1; index >= 0; index--)
+            {
+                if (Children[index] is DataGridRow
+                    or DataGridRowGroupHeader
+                    or DataGridRowGroupFooter)
+                {
+                    RemoveTrackedChild(Children[index]);
+                }
+            }
         }
 
         private void RemoveTrackedChildAt(int index)
@@ -646,6 +681,7 @@ internal
             {
                 _processingRowsMeasure = false;
             }
+            CleanupRetainedRowsForLightweightLayout();
             SyncFlatCells();
             if (OwningGrid.UsesFlatVisualLayout)
             {

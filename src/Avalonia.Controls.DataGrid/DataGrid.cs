@@ -3467,16 +3467,26 @@ internal
             activity?.SetTag(DataGridDiagnostics.Tags.SlotCount, SlotCount);
 
             _scrollHeightIndexDirty = true;
+            bool replacedLightweightVirtualRange = DisplayData.HasVirtualScrollingElements;
             using (DisplayData.BeginDeferredRecycleScope())
             {
-                // The first flattened row is identity-mapped to slot zero. Keep its realized
-                // container and recycle only the rows whose item mapping changed.
-                while (DisplayData.LastScrollingSlot > 0)
+                if (replacedLightweightVirtualRange)
                 {
-                    RemoveDisplayedElement(
-                        DisplayData.LastScrollingSlot,
-                        wasDeleted: false,
-                        updateSlotInformation: true);
+                    // A lightweight virtual range has no retained controls to remove.
+                    // Clear the projection before publishing the replacement range.
+                    ResetDisplayedRows();
+                }
+                else
+                {
+                    // The first flattened row is identity-mapped to slot zero. Keep its realized
+                    // container and recycle only the rows whose item mapping changed.
+                    while (DisplayData.LastScrollingSlot > 0)
+                    {
+                        RemoveDisplayedElement(
+                            DisplayData.LastScrollingSlot,
+                            wasDeleted: false,
+                            updateSlotInformation: true);
+                    }
                 }
 
                 SlotCount = change.NewCount;
@@ -3494,6 +3504,10 @@ internal
             ComputeScrollBarsLayout();
             InvalidateRowsArrange();
             OnElementsChanged(grew: change.NewCount > change.OldCount);
+            if (replacedLightweightVirtualRange && DisplayData.HasVirtualScrollingElements)
+            {
+                _rowsPresenter?.RequestRetainedRowsCleanupForLightweightLayout();
+            }
             RequestPointerOverRefresh();
         }
 

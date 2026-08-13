@@ -8,6 +8,7 @@ using System.Linq;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Automation.Peers;
+using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
@@ -115,6 +116,81 @@ public class DataGridFlatVisualLayoutTests
             Assert.NotEmpty(presenter.Children.OfType<DataGridRow>());
             Assert.Empty(presenter.LightweightVirtualRows);
             Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Layout_Rebuilds_Lightweight_Rows_After_Hierarchical_ExpandAll()
+    {
+        var rootItem = new HierarchyItem("Root");
+        for (int index = 0; index < 40; index++)
+        {
+            rootItem.Children.Add(new HierarchyItem($"Child {index}"));
+        }
+
+        var model = new HierarchicalModel<HierarchyItem>(new HierarchicalOptions<HierarchyItem>
+        {
+            ChildrenSelector = item => item.Children,
+            IsLeafSelector = item => item.Children.Count == 0,
+        });
+        model.SetRoot(rootItem);
+
+        var grid = new DataGrid
+        {
+            Width = 420,
+            Height = 220,
+            AutoGenerateColumns = false,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            HierarchicalModel = model,
+            HierarchicalRowsEnabled = true,
+            RowHeight = 32,
+            UseLogicalScrollable = true,
+            VisualLayoutMode = DataGridVisualLayoutMode.Virtualized,
+        };
+        var column = new DataGridHierarchicalColumn
+        {
+            Header = "Name",
+            Width = new DataGridLength(260),
+            Binding = new Binding("Item.Name"),
+        };
+        DataGridColumnMetadata.SetValueAccessor(
+            column,
+            new DataGridColumnValueAccessor<HierarchicalNode, string>(
+                node => ((HierarchyItem)node.Item).Name));
+        grid.Columns.Add(column);
+
+        var window = new Window
+        {
+            Width = 460,
+            Height = 260,
+            Content = grid,
+        };
+        window.SetThemeStyles(DataGridTheme.SimpleFlat);
+        Assert.True(grid.TryFindResource("DataGridFlatTheme", out object? resource));
+        grid.Theme = Assert.IsType<ControlTheme>(resource);
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.Single(model.Flattened);
+
+            model.ExpandAll();
+            PumpLayout(grid);
+
+            Assert.Equal(41, model.Count);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.NotEmpty(presenter.LightweightVirtualRows);
+            Assert.Contains(presenter.LightweightVirtualRows, row => row.RowIndex > 0);
         }
         finally
         {
@@ -1542,5 +1618,17 @@ public class DataGridFlatVisualLayoutTests
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
+    }
+
+    private sealed class HierarchyItem
+    {
+        public HierarchyItem(string name)
+        {
+            Name = name;
+        }
+
+        public string Name { get; }
+
+        public List<HierarchyItem> Children { get; } = new();
     }
 }
