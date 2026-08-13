@@ -212,6 +212,8 @@ internal static class SamplePageCatalog
             ("DataGridSample.Pages.TreeViewMimicSortModelPage", static () => new global::DataGridSample.Pages.TreeViewMimicSortModelPage()),
             ("DataGridSample.Pages.ValidationColumnsPage", static () => new global::DataGridSample.Pages.ValidationColumnsPage()),
             ("DataGridSample.Pages.ValidationStylingPage", static () => new global::DataGridSample.Pages.ValidationStylingPage()),
+            ("DataGridSample.Pages.VirtualSurfaceFlatDataPage", static () => new global::DataGridSample.Pages.VirtualSurfaceFlatDataPage()),
+            ("DataGridSample.Pages.VirtualSurfaceHierarchyPage", static () => new global::DataGridSample.Pages.VirtualSurfaceHierarchyPage()),
             ("DataGridSample.Pages.XYFocusModesPage", static () => new global::DataGridSample.Pages.XYFocusModesPage()),
             ("DataGridSample.PixelColumnsPage", static () => new global::DataGridSample.PixelColumnsPage()),
             ("DataGridSample.RightFrozenColumnsPage", static () => new global::DataGridSample.RightFrozenColumnsPage()),

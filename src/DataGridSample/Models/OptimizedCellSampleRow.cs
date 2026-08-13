@@ -1,3 +1,5 @@
+using System;
+
 namespace DataGridSample.Models;
 
 public sealed record OptimizedCellSampleRow(
@@ -7,4 +9,9 @@ public sealed record OptimizedCellSampleRow(
     string Owner,
     string Region,
     string State,
-    string Detail);
+    string Detail,
+    bool IsActive,
+    DateTime Date,
+    TimeSpan Time,
+    string Phone,
+    double SliderValue);

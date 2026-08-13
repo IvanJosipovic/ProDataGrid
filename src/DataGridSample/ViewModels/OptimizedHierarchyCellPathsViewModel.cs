@@ -25,11 +25,16 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         { "eu-central", "eu-west", "us-east", "us-west", "ap-south", "ap-northeast" };
     private static readonly string[] s_states =
         { "Healthy", "Busy", "Pending", "Throttled", "Recovering" };
+    private static readonly string[] s_categories =
+        { "Category-000", "Category-001", "Category-002" };
 
-    private readonly IReadOnlyDictionary<string, IReadOnlyList<DataGridColumnDefinition>> _columnsByPath;
+    private readonly IReadOnlyDictionary<string, IList<DataGridColumnDefinition>> _columnsByPath;
+    private readonly IReadOnlyDictionary<string, IList<DataGridColumnDefinition>> _virtualColumnsByMode;
     private HierarchicalModel<OptimizedHierarchyCellSampleNode> _model;
-    private IReadOnlyList<DataGridColumnDefinition> _activeColumns;
+    private readonly DataGridColumnDefinitionList _activeColumns;
+    private readonly DataGridColumnDefinitionList _activeVirtualColumns;
     private OptimizedCellPathOption _selectedPath;
+    private VirtualSurfaceModeOption _selectedVirtualMode;
     private OptimizedHierarchyCellSampleNode? _selectedItem;
     private int _rootCount = 32;
     private int _branchingFactor = 8;
@@ -41,11 +46,12 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
     public OptimizedHierarchyCellPathsViewModel()
     {
         Paths = CreatePaths();
+        VirtualModes = CreateVirtualModes();
         var customDrawingFactory = new SkiaTextCellDrawOperationFactory
         {
             MetricsCacheCapacity = 8_192,
         };
-        _columnsByPath = new Dictionary<string, IReadOnlyList<DataGridColumnDefinition>>(StringComparer.Ordinal)
+        _columnsByPath = new Dictionary<string, IList<DataGridColumnDefinition>>(StringComparer.Ordinal)
         {
             ["standard"] = CreateColumns(HierarchyColumnPath.Standard, customDrawingFactory),
             ["optimized-theme"] = CreateColumns(HierarchyColumnPath.Standard, customDrawingFactory),
@@ -55,8 +61,12 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             ["custom-drawn"] = CreateColumns(HierarchyColumnPath.CustomDrawn, customDrawingFactory),
         };
 
+        _virtualColumnsByMode = CreateVirtualColumns();
+
         _selectedPath = Paths[0];
-        _activeColumns = _columnsByPath[_selectedPath.Key];
+        _activeColumns = new DataGridColumnDefinitionList(_columnsByPath[_selectedPath.Key]);
+        _selectedVirtualMode = VirtualModes[0];
+        _activeVirtualColumns = new DataGridColumnDefinitionList(_virtualColumnsByMode[_selectedVirtualMode.Key]);
 
         (IReadOnlyList<OptimizedHierarchyCellSampleNode> previewRoots, int previewCount) =
             CreateTree(rootCount: 4, branchingFactor: 4, depth: 3);
@@ -76,6 +86,8 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
 
     public IReadOnlyList<OptimizedCellPathOption> Paths { get; }
 
+    public IReadOnlyList<VirtualSurfaceModeOption> VirtualModes { get; }
+
     public HierarchicalModel<OptimizedHierarchyCellSampleNode> Model
     {
         get => _model;
@@ -86,11 +98,9 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         }
     }
 
-    public IReadOnlyList<DataGridColumnDefinition> ActiveColumns
-    {
-        get => _activeColumns;
-        private set => this.RaiseAndSetIfChanged(ref _activeColumns, value);
-    }
+    public IList<DataGridColumnDefinition> ActiveColumns => _activeColumns;
+
+    public IList<DataGridColumnDefinition> ActiveVirtualColumns => _activeVirtualColumns;
 
     public OptimizedCellPathOption SelectedPath
     {
@@ -103,8 +113,23 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             }
 
             this.RaiseAndSetIfChanged(ref _selectedPath, value);
-            ActiveColumns = _columnsByPath[value.Key];
+            ReplaceColumns(_activeColumns, _columnsByPath[value.Key]);
             this.RaisePropertyChanged(nameof(UseOptimizedTheme));
+        }
+    }
+
+    public VirtualSurfaceModeOption SelectedVirtualMode
+    {
+        get => _selectedVirtualMode;
+        set
+        {
+            if (value is null || ReferenceEquals(_selectedVirtualMode, value))
+            {
+                return;
+            }
+
+            this.RaiseAndSetIfChanged(ref _selectedVirtualMode, value);
+            ReplaceColumns(_activeVirtualColumns, _virtualColumnsByMode[value.Key]);
         }
     }
 
@@ -198,6 +223,17 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
 
     public ReactiveCommand<RxVoid, RxVoid> RefreshManagedMemoryCommand { get; }
 
+    private static void ReplaceColumns(
+        DataGridColumnDefinitionList target,
+        IEnumerable<DataGridColumnDefinition> columns)
+    {
+        using (target.SuspendNotifications())
+        {
+            target.Clear();
+            target.AddRange(columns);
+        }
+    }
+
     public async Task LoadRepresentativeWorkloadAsync()
     {
         int roots = RootCount;
@@ -272,7 +308,179 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
                 true),
         };
 
-    private static IReadOnlyList<DataGridColumnDefinition> CreateColumns(
+    private static IReadOnlyList<VirtualSurfaceModeOption> CreateVirtualModes() =>
+        new[]
+        {
+            new VirtualSurfaceModeOption(
+                "virtual",
+                "Hierarchy + text — fastest",
+                "The benchmark endpoint: a surface-drawn hierarchy column plus typed text columns.",
+                true),
+            new VirtualSurfaceModeOption("virtual-checkbox", "Hierarchy + checkbox", "Surface hierarchy with a centered two-state checkbox.", true),
+            new VirtualSurfaceModeOption("virtual-date", "Hierarchy + date", "Surface hierarchy with custom yyyy-MM-dd date text.", true),
+            new VirtualSurfaceModeOption("virtual-time", "Hierarchy + time", "Surface hierarchy with 24-hour time and seconds.", true),
+            new VirtualSurfaceModeOption("virtual-masked", "Hierarchy + masked text", "Mask behavior remains in the editor while raw typed text is drawn.", true),
+            new VirtualSurfaceModeOption("virtual-autocomplete", "Hierarchy + autocomplete", "Suggestions remain in the editor while typed display text is drawn.", true),
+            new VirtualSurfaceModeOption("virtual-slider-text", "Hierarchy + slider text", "The formatted slider value is drawn without a display Slider control.", true),
+            new VirtualSurfaceModeOption("virtual-combobox-text", "Hierarchy + ComboBox text", "Text and dropdown glyph are drawn; interaction remains in the editor.", true),
+            new VirtualSurfaceModeOption(
+                "virtual-all",
+                "All supported renderers",
+                "Shows hierarchy, text, checkbox, date, time, masked, autocomplete, slider-text, and ComboBox-text together.",
+                true),
+        };
+
+    private static IReadOnlyDictionary<string, IList<DataGridColumnDefinition>> CreateVirtualColumns() =>
+        new Dictionary<string, IList<DataGridColumnDefinition>>(StringComparer.Ordinal)
+        {
+            ["virtual"] = CreateVirtualTextColumns(),
+            ["virtual-all"] = CreateAllVirtualColumns(),
+            ["virtual-checkbox"] = CreateVirtualVariantColumns(CreateVirtualCheckBoxColumn()),
+            ["virtual-date"] = CreateVirtualVariantColumns(CreateVirtualDateColumn()),
+            ["virtual-time"] = CreateVirtualVariantColumns(CreateVirtualTimeColumn()),
+            ["virtual-masked"] = CreateVirtualVariantColumns(CreateVirtualMaskedColumn()),
+            ["virtual-autocomplete"] = CreateVirtualVariantColumns(CreateVirtualAutoCompleteColumn()),
+            ["virtual-slider-text"] = CreateVirtualVariantColumns(CreateVirtualSliderColumn()),
+            ["virtual-combobox-text"] = CreateVirtualVariantColumns(CreateVirtualComboBoxColumn()),
+        };
+
+    private static IList<DataGridColumnDefinition> CreateVirtualTextColumns() =>
+        new DataGridColumnDefinition[]
+        {
+            CreateHierarchyColumn(HierarchyColumnPath.Standard),
+            CreateVirtualTextColumn("Kind", nameof(OptimizedHierarchyCellSampleNode.Kind), static item => item.Kind, 130),
+            CreateVirtualTextColumn("Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, 130),
+            CreateVirtualTextColumn("Region", nameof(OptimizedHierarchyCellSampleNode.Region), static item => item.Region, 140),
+            CreateVirtualTextColumn("Detail", nameof(OptimizedHierarchyCellSampleNode.Detail), static item => item.Detail, 280),
+        };
+
+    private static IList<DataGridColumnDefinition> CreateVirtualVariantColumns(DataGridColumnDefinition variant) =>
+        new DataGridColumnDefinition[]
+        {
+            CreateHierarchyColumn(HierarchyColumnPath.Standard),
+            CreateVirtualTextColumn("Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, 130),
+            CreateVirtualTextColumn("Region", nameof(OptimizedHierarchyCellSampleNode.Region), static item => item.Region, 140),
+            variant,
+        };
+
+    private static IList<DataGridColumnDefinition> CreateAllVirtualColumns() =>
+        new DataGridColumnDefinition[]
+        {
+            CreateHierarchyColumn(HierarchyColumnPath.Standard),
+            CreateVirtualTextColumn("Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, 130),
+            CreateVirtualCheckBoxColumn(),
+            CreateVirtualDateColumn(),
+            CreateVirtualTimeColumn(),
+            CreateVirtualMaskedColumn(),
+            CreateVirtualAutoCompleteColumn(),
+            CreateVirtualSliderColumn(),
+            CreateVirtualComboBoxColumn(),
+        };
+
+    private static DataGridTextColumnDefinition CreateVirtualTextColumn(
+        string header,
+        string propertyName,
+        Func<OptimizedHierarchyCellSampleNode, string> getter,
+        double width) =>
+        new()
+        {
+            Header = header,
+            Binding = CreateNodeBinding(propertyName, getter),
+            Width = new DataGridLength(width),
+            IsReadOnly = true,
+            TrackDirectTextValueChanges = false,
+        };
+
+    private static DataGridCheckBoxColumnDefinition CreateVirtualCheckBoxColumn() =>
+        new()
+        {
+            Header = "Has children",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.HasChildren),
+                static item => item.HasChildren),
+            Width = new DataGridLength(125),
+            IsReadOnly = true,
+        };
+
+    private static DataGridDatePickerColumnDefinition CreateVirtualDateColumn() =>
+        new()
+        {
+            Header = "Date",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.Date),
+                static item => item.Date),
+            Width = new DataGridLength(150),
+            IsReadOnly = true,
+            SelectedDateFormat = CalendarDatePickerFormat.Custom,
+            CustomDateFormatString = "yyyy-MM-dd",
+        };
+
+    private static DataGridTimePickerColumnDefinition CreateVirtualTimeColumn() =>
+        new()
+        {
+            Header = "Time",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.Time),
+                static item => item.Time),
+            Width = new DataGridLength(135),
+            IsReadOnly = true,
+            ClockIdentifier = "24HourClock",
+            UseSeconds = true,
+        };
+
+    private static DataGridMaskedTextColumnDefinition CreateVirtualMaskedColumn() =>
+        new()
+        {
+            Header = "Phone",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.Phone),
+                static item => item.Phone),
+            Width = new DataGridLength(170),
+            IsReadOnly = true,
+            Mask = "(000) 000-0000",
+        };
+
+    private static DataGridAutoCompleteColumnDefinition CreateVirtualAutoCompleteColumn() =>
+        new()
+        {
+            Header = "Autocomplete",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.Category),
+                static item => item.Category),
+            Width = new DataGridLength(175),
+            IsReadOnly = true,
+            ItemsSource = s_categories,
+        };
+
+    private static DataGridSliderColumnDefinition CreateVirtualSliderColumn() =>
+        new()
+        {
+            Header = "Slider text",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.SliderValue),
+                static item => item.SliderValue),
+            Width = new DataGridLength(145),
+            IsReadOnly = true,
+            Minimum = 0,
+            Maximum = 100,
+            ShowValueText = true,
+            ValueTextFormat = "{0:0.0}",
+        };
+
+    private static DataGridComboBoxColumnDefinition CreateVirtualComboBoxColumn() =>
+        new()
+        {
+            Header = "ComboBox text",
+            TextBinding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.Category),
+                static item => item.Category),
+            Width = new DataGridLength(185),
+            IsReadOnly = true,
+            IsEditable = true,
+            ItemsSource = s_categories,
+        };
+
+    private static IList<DataGridColumnDefinition> CreateColumns(
         HierarchyColumnPath path,
         SkiaTextCellDrawOperationFactory customDrawingFactory)
     {
@@ -350,10 +558,10 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         };
     }
 
-    private static DataGridBindingDefinition CreateNodeBinding(
+    private static DataGridBindingDefinition CreateNodeBinding<TValue>(
         string propertyName,
-        Func<OptimizedHierarchyCellSampleNode, string> getter) =>
-        ColumnDefinitionBindingFactory.CreateBinding<HierarchicalNode, string>(
+        Func<OptimizedHierarchyCellSampleNode, TValue> getter) =>
+        ColumnDefinitionBindingFactory.CreateBinding<HierarchicalNode, TValue>(
             propertyName,
             node => getter((OptimizedHierarchyCellSampleNode)node.Item));
 
@@ -426,6 +634,7 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         string region = s_regions[(id / 7) % s_regions.Length];
         string state = s_states[(id / 13) % s_states.Length];
         return new OptimizedHierarchyCellSampleNode(
+            id,
             $"{kind} {id:D7}",
             kind,
             owner,
