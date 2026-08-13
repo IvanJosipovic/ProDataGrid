@@ -22,8 +22,12 @@ schedule.
   collapses to 32 roots, updates layout, and waits for rendered completion.
 - `ScrollAndRender` moves through 32 deterministic offsets in the expanded
   hierarchy and records mutation, explicit layout, frame wait, and managed
-  allocation for every jump. `--scroll-only` skips the other scenarios so the
-  process can be used for focused scroll profiling and paired comparisons.
+  allocation for every movement. `--scroll-pattern discontinuous` is the default
+  worst-case projection replacement workload. `--scroll-pattern line` advances
+  exactly one fixed-height row per operation, while `--scroll-pattern fractional`
+  alternates two offsets inside one row slot to isolate offset-only work.
+  `--scroll-only` skips the other scenarios so the process can be used for focused
+  scroll profiling and paired comparisons.
 - Managed allocation is `GC.GetTotalAllocatedBytes` traffic during the timed
   operation. It is not retained heap, native allocation, RSS, or GPU memory.
 - Collapse and scroll results also split the same end-to-end sample into synchronous model/UI
@@ -160,6 +164,16 @@ GRID_BENCH_PRO_MODE=virtual dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
   --output /tmp/pro-virtual.json
+
+GRID_BENCH_PRO_MODE=virtual dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-pattern line --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-line.json
+
+GRID_BENCH_PRO_MODE=virtual dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-pattern fractional --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-fractional.json
 
 GRID_BENCH_PRO_MODE=virtual-checkbox dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \

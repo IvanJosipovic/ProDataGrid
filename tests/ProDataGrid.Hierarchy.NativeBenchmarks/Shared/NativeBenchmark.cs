@@ -150,6 +150,13 @@ internal sealed class NativeBenchmarkApplication : Application
     }
 }
 
+internal enum NativeScrollPattern
+{
+    Discontinuous,
+    Line,
+    Fractional,
+}
+
 internal static class NativeBenchmarkOptions
 {
     public static bool Inspect { get; private set; }
@@ -161,6 +168,8 @@ internal static class NativeBenchmarkOptions
     public static int Iterations { get; private set; } = 5;
 
     public static int ScrollJumps { get; private set; } = 32;
+
+    public static NativeScrollPattern ScrollPattern { get; private set; }
 
     public static bool FirstRenderOnly { get; private set; }
 
@@ -248,6 +257,9 @@ internal static class NativeBenchmarkOptions
                 case "--scroll-jumps":
                     ScrollJumps = ParsePositive(RequireValue(args, ref i), "scroll jumps", allowZero: false);
                     break;
+                case "--scroll-pattern":
+                    ScrollPattern = ParseScrollPattern(RequireValue(args, ref i));
+                    break;
                 case "--first-render-only":
                     FirstRenderOnly = true;
                     break;
@@ -316,6 +328,18 @@ internal static class NativeBenchmarkOptions
             throw new ArgumentException($"Invalid {name}: {value}.");
         return result;
     }
+
+    private static NativeScrollPattern ParseScrollPattern(string value)
+    {
+        if (!Enum.TryParse(value, ignoreCase: true, out NativeScrollPattern result) ||
+            !Enum.IsDefined(result))
+        {
+            throw new ArgumentException(
+                $"Invalid scroll pattern '{value}'. Expected discontinuous, line, or fractional.");
+        }
+
+        return result;
+    }
 }
 
 internal sealed class NativeBenchmarkRunner
@@ -367,6 +391,7 @@ internal sealed class NativeBenchmarkRunner
             WarmupIterations = NativeBenchmarkOptions.WarmupIterations,
             MeasuredIterations = NativeBenchmarkOptions.Iterations,
             ScrollJumpsPerIteration = NativeBenchmarkOptions.ScrollJumps,
+            ScrollPattern = NativeBenchmarkOptions.ScrollPattern.ToString(),
             AlignmentCallbacks = NativeBenchmarkOptions.AlignmentCallbacks,
             FirstExpandedRender = firstRender,
             ExpandAllAndRender = expandAndRender,
@@ -575,7 +600,10 @@ internal sealed class NativeBenchmarkRunner
         var viewer = NativeGridAdapter.GetScrollViewer(handle);
 
         for (var batch = 0; batch < NativeBenchmarkOptions.WarmupIterations; ++batch)
+        {
+            await PrepareScrollBatchAsync(handle, viewer, batch);
             await RunScrollBatchAsync(handle, viewer, batch, measure: false);
+        }
 
         var times = new List<double>();
         var allocationPerJump = new List<double>();
@@ -592,6 +620,7 @@ internal sealed class NativeBenchmarkRunner
 
         for (var batch = 0; batch < NativeBenchmarkOptions.Iterations; ++batch)
         {
+            await PrepareScrollBatchAsync(handle, viewer, batch);
             await PrepareMeasurementAsync(_host);
             var allocatedBefore = GC.GetTotalAllocatedBytes(precise: false);
             var batchMeasurements = await RunScrollBatchAsync(handle, viewer, batch, measure: true);
@@ -635,6 +664,18 @@ internal sealed class NativeBenchmarkRunner
             proDataGridDiagnostics: proDataGridDiagnostics);
     }
 
+    private async Task PrepareScrollBatchAsync(NativeGridHandle handle, ScrollViewer viewer, int batch)
+    {
+        if (NativeBenchmarkOptions.ScrollPattern == NativeScrollPattern.Discontinuous)
+        {
+            return;
+        }
+
+        NativeGridAdapter.SetScrollRowOffset(viewer, GetSmoothBatchStartRow(batch));
+        handle.Grid.UpdateLayout();
+        await WaitForRenderedFrameAsync(_host);
+    }
+
     private async Task<IReadOnlyList<NativeScrollMeasurement>> RunScrollBatchAsync(
         NativeGridHandle handle,
         ScrollViewer viewer,
@@ -645,7 +686,7 @@ internal sealed class NativeBenchmarkRunner
         for (var i = 0; i < NativeBenchmarkOptions.ScrollJumps; ++i)
         {
             var operation = (batch * NativeBenchmarkOptions.ScrollJumps) + i;
-            var row = ((operation * 509) % 2_000) + 1;
+            double rowOffset = GetScrollRowOffset(batch, i, operation);
             if (NativeBenchmarkOptions.AvaloniaDiagnostics)
             {
                 NativeAvaloniaDiagnostics.Reset();
@@ -656,7 +697,7 @@ internal sealed class NativeBenchmarkRunner
             }
             NativeFrameBarrier renderedFrame = RequestRenderedFrame(_host);
             var stopwatch = Stopwatch.StartNew();
-            NativeGridAdapter.SetScrollRow(viewer, row);
+            NativeGridAdapter.SetScrollRowOffset(viewer, rowOffset);
             double mutationMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
             handle.Grid.UpdateLayout();
             double mutationAndLayoutMilliseconds = stopwatch.Elapsed.TotalMilliseconds;
@@ -691,6 +732,20 @@ internal sealed class NativeBenchmarkRunner
 
         return measurements is null ? Array.Empty<NativeScrollMeasurement>() : measurements;
     }
+
+    private static double GetScrollRowOffset(int batch, int index, int operation)
+    {
+        return NativeBenchmarkOptions.ScrollPattern switch
+        {
+            NativeScrollPattern.Discontinuous => ((operation * 509) % 2_000) + 1,
+            NativeScrollPattern.Line => GetSmoothBatchStartRow(batch) + index + 1,
+            NativeScrollPattern.Fractional =>
+                GetSmoothBatchStartRow(batch) + ((index & 1) == 0 ? 0.375 : 0.625),
+            _ => throw new ArgumentOutOfRangeException(),
+        };
+    }
+
+    private static int GetSmoothBatchStartRow(int batch) => 500 + ((batch * 131) % 1_000);
 
     private async Task DetachAsync()
     {
@@ -1429,9 +1484,9 @@ internal static class NativeGridAdapter
             .OfType<ScrollViewer>()
             .First(x => x.Name == "PART_ScrollViewer");
 
-    public static void SetScrollRow(ScrollViewer viewer, int row)
+    public static void SetScrollRowOffset(ScrollViewer viewer, double rowOffset)
     {
-        viewer.Offset = new Vector(0, row * 24.0);
+        viewer.Offset = new Vector(0, rowOffset * 24.0);
     }
 }
 
@@ -1704,6 +1759,8 @@ internal sealed class NativeBenchmarkResult
     public int MeasuredIterations { get; init; }
 
     public int ScrollJumpsPerIteration { get; init; }
+
+    public required string ScrollPattern { get; init; }
 
     public int AlignmentCallbacks { get; init; }
 
