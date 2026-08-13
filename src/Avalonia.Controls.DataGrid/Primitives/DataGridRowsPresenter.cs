@@ -346,6 +346,10 @@ internal
             int arrangedElements = 0;
             int skippedArrangeElements = 0;
             using var arrangeScope = DataGridDiagnostics.BeginRowsArrange();
+            if (OwningGrid.DisplayData.HasVirtualScrollingElements)
+            {
+                topEdge += RefreshLightweightVirtualRowGeometry();
+            }
             foreach (Control element in OwningGrid.DisplayData.GetScrollingElements())
             {
                 displayedElements.Add(element);
@@ -671,7 +675,12 @@ internal
                 !invalidateRows &&
                 OwningGrid.UsesVirtualCellSurface;
             _canUseRetargetedRowsMeasureFastPath = false;
-            if (useRetargetedRowsMeasureFastPath)
+            if (OwningGrid.DisplayData.HasVirtualScrollingElements &&
+                OwningGrid.TryGetLightweightVirtualRowHeight(out double lightweightRowHeight))
+            {
+                totalHeight += OwningGrid.DisplayData.NumDisplayedScrollingElements * lightweightRowHeight;
+            }
+            else if (useRetargetedRowsMeasureFastPath)
             {
                 totalHeight += _retargetedMeasureRowCount * _retargetedMeasureRowHeight;
                 skippedMeasureElements = _retargetedMeasureRowCount;

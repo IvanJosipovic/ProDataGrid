@@ -1074,6 +1074,12 @@ internal
 
         private void ApplyDisplayedRowsState(int startSlot, int endSlot)
         {
+            if (DisplayData.HasVirtualScrollingElements)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+                return;
+            }
+
             int firstSlot = Math.Max(DisplayData.FirstScrollingSlot, startSlot);
             int lastSlot = Math.Min(DisplayData.LastScrollingSlot, endSlot);
 
@@ -1444,6 +1450,12 @@ internal
             bool isDisplayed = IsSlotVisible(slot);
             if (isDisplayed)
             {
+                if (DisplayData.HasVirtualScrollingElements &&
+                    TryGetLightweightVirtualRowHeight(out double virtualRowHeight))
+                {
+                    return virtualRowHeight;
+                }
+
                 Control element = DisplayData.GetDisplayedElement(slot);
                 Debug.Assert(element != null);
                 return element is DataGridRow row && row.HasDeferredHeight
@@ -1464,6 +1476,12 @@ internal
 
             if (IsSlotVisible(slot))
             {
+                if (DisplayData.HasVirtualScrollingElements &&
+                    TryGetLightweightVirtualRowHeight(out double virtualRowHeight))
+                {
+                    return virtualRowHeight;
+                }
+
                 Control element = DisplayData.GetDisplayedElement(slot);
                 return element is DataGridRow row && row.HasDeferredHeight
                     ? row.DeferredHeight
@@ -1537,6 +1555,12 @@ internal
         {
             if (IsSlotVisible(slot))
             {
+                if (DisplayData.HasVirtualScrollingElements &&
+                    TryGetLightweightVirtualRowHeight(out double virtualRowHeight))
+                {
+                    return virtualRowHeight;
+                }
+
                 Control element = DisplayData.GetDisplayedElement(slot);
                 return element is DataGridRow row && row.HasDeferredHeight
                     ? row.DeferredHeight
@@ -1599,6 +1623,12 @@ internal
             Debug.Assert(slot >= 0 && slot < SlotCount);
             if (IsSlotVisible(slot))
             {
+                if (DisplayData.HasVirtualScrollingElements &&
+                    TryGetLightweightVirtualRowHeight(out double virtualRowHeight))
+                {
+                    return virtualRowHeight;
+                }
+
                 Debug.Assert(DisplayData.GetDisplayedElement(slot) != null);
                 return DisplayData.GetDisplayedElement(slot).DesiredSize.Height;
             }

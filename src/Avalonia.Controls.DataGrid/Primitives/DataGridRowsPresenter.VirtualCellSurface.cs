@@ -19,6 +19,14 @@ using Avalonia.VisualTree;
 
 namespace Avalonia.Controls.Primitives;
 
+internal readonly record struct DataGridVirtualRowInfo(
+    DataGridRow? Container,
+    int Slot,
+    int RowIndex,
+    object Item,
+    double Top,
+    double Height);
+
 sealed partial class DataGridRowsPresenter
 {
     private const double VirtualCellHorizontalPadding = 12d;
@@ -36,6 +44,7 @@ sealed partial class DataGridRowsPresenter
     private HashSet<INotifyPropertyChanged> _nextVirtualValueNotifiers =
         new(ReferenceEqualityComparer.Instance);
     private int _virtualValueChangeCount;
+    private readonly List<DataGridVirtualRowInfo> _lightweightVirtualRows = new();
 
     internal int VirtualSurfaceCount => _virtualCellSurface?.GetVisualParent() == this ? 1 : 0;
 
@@ -43,7 +52,82 @@ sealed partial class DataGridRowsPresenter
 
     internal int VirtualValueChangeCount => Volatile.Read(ref _virtualValueChangeCount);
 
+    internal int LightweightVirtualRowCount => _lightweightVirtualRows.Count;
+
+    internal IReadOnlyList<DataGridVirtualRowInfo> LightweightVirtualRows => _lightweightVirtualRows;
+
     internal void InvalidateVirtualCellSurface() => _virtualCellSurface?.InvalidateVisual();
+
+    internal bool TryUpdateLightweightVirtualRows(
+        int firstSlot,
+        int lastSlot,
+        int count,
+        double rowHeight)
+    {
+        DataGrid? grid = OwningGrid;
+        _lightweightVirtualRows.Clear();
+        if (grid is null || count <= 0)
+        {
+            return false;
+        }
+
+        if (_lightweightVirtualRows.Capacity < count)
+        {
+            _lightweightVirtualRows.Capacity = count;
+        }
+
+        double top = -grid.NegVerticalOffset;
+        int slot = firstSlot;
+        for (int index = 0; index < count && slot <= lastSlot; index++)
+        {
+            int rowIndex = grid.RowIndexFromSlot(slot);
+            object item = grid.DataConnection.GetDataItem(rowIndex);
+            if (item is DataGridRow)
+            {
+                _lightweightVirtualRows.Clear();
+                grid.RequireRetainedVirtualRowsForItems();
+                return false;
+            }
+
+            _lightweightVirtualRows.Add(new DataGridVirtualRowInfo(
+                null,
+                slot,
+                rowIndex,
+                item,
+                top,
+                rowHeight));
+            top += rowHeight;
+            slot = grid.GetNextVisibleSlot(slot);
+        }
+
+        return true;
+    }
+
+    internal void ClearLightweightVirtualRows()
+    {
+        _lightweightVirtualRows.Clear();
+        ClearVirtualValueNotifiers();
+    }
+
+    private double RefreshLightweightVirtualRowGeometry()
+    {
+        DataGrid? grid = OwningGrid;
+        if (grid is null || _lightweightVirtualRows.Count == 0)
+        {
+            return 0;
+        }
+
+        double top = -grid.NegVerticalOffset;
+        double height = _lightweightVirtualRows[0].Height;
+        for (int index = 0; index < _lightweightVirtualRows.Count; index++)
+        {
+            DataGridVirtualRowInfo row = _lightweightVirtualRows[index];
+            _lightweightVirtualRows[index] = row with { Top = top };
+            top += height;
+        }
+
+        return _lightweightVirtualRows.Count * height;
+    }
 
     private void SyncVirtualCellSurface()
     {
@@ -128,70 +212,84 @@ sealed partial class DataGridRowsPresenter
         Pen expanderPen = new(foreground, 1.5d, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
         bool drawVerticalGridLines = grid.GridLinesVisibility is DataGridGridLinesVisibility.Vertical or DataGridGridLinesVisibility.All;
 
+        if (grid.DisplayData.HasVirtualScrollingElements)
+        {
+            for (int index = 0; index < _lightweightVirtualRows.Count; index++)
+            {
+                DrawVirtualRow(context, grid, _lightweightVirtualRows[index], fontFamily, fontSize,
+                    foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
+                    drawVerticalGridLines);
+            }
+            return;
+        }
+
         foreach (DataGridRow row in grid.DisplayData.GetScrollingRows())
         {
-            double rowHeight = row.GetFlatCellsHeight();
-            if (rowHeight <= 0d || row.Bounds.Bottom < 0d || row.Bounds.Top > Bounds.Height)
+            var rowInfo = new DataGridVirtualRowInfo(
+                row,
+                row.Slot,
+                row.Index,
+                row.DataContext!,
+                row.Bounds.Top,
+                row.GetFlatCellsHeight());
+            DrawVirtualRow(context, grid, rowInfo, fontFamily, fontSize, foreground,
+                expanderPen, selectedBackground, currentPen, verticalGridPen,
+                drawVerticalGridLines);
+        }
+    }
+
+    private void DrawVirtualRow(
+        DrawingContext context,
+        DataGrid grid,
+        DataGridVirtualRowInfo row,
+        FontFamily fontFamily,
+        double fontSize,
+        IBrush foreground,
+        Pen expanderPen,
+        IBrush? selectedBackground,
+        Pen? currentPen,
+        Pen? verticalGridPen,
+        bool drawVerticalGridLines)
+    {
+        double rowHeight = row.Height;
+        if (rowHeight <= 0d || row.Top + rowHeight < 0d || row.Top > Bounds.Height)
+        {
+            return;
+        }
+
+        for (int layoutIndex = 0; layoutIndex < _flatColumnLayouts.Count; layoutIndex++)
+        {
+            FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
+            if (!layout.ShouldDisplay)
             {
                 continue;
             }
 
-            for (int layoutIndex = 0; layoutIndex < _flatColumnLayouts.Count; layoutIndex++)
+            DataGridColumn column = layout.Column;
+            if (row.Container is not null && grid.IsVirtualCompatibilityCell(row.Container, column))
             {
-                FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
-                if (!layout.ShouldDisplay)
-                {
-                    continue;
-                }
+                continue;
+            }
+            Rect cellBounds = GetVirtualCellBounds(grid, row, layout);
+            Rect visibleBounds = GetVisibleVirtualCellBounds(grid, column, cellBounds);
+            if (visibleBounds.Width <= 0d || visibleBounds.Height <= 0d)
+            {
+                continue;
+            }
 
-                DataGridColumn column = layout.Column;
-                if (grid.IsVirtualCompatibilityCell(row, column))
-                {
-                    continue;
-                }
-                Rect cellBounds = GetVirtualCellBounds(grid, row, layout, rowHeight);
-                Rect visibleBounds = GetVisibleVirtualCellBounds(grid, column, cellBounds);
-                if (visibleBounds.Width <= 0d || visibleBounds.Height <= 0d)
-                {
-                    continue;
-                }
+            if (AreClose(cellBounds, visibleBounds))
+            {
+                DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
+                    foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
+                    drawVerticalGridLines);
+                continue;
+            }
 
-                if (AreClose(cellBounds, visibleBounds))
-                {
-                    DrawVirtualCell(
-                        context,
-                        grid,
-                        row,
-                        column,
-                        cellBounds,
-                        fontFamily,
-                        fontSize,
-                        foreground,
-                        expanderPen,
-                        selectedBackground,
-                        currentPen,
-                        verticalGridPen,
-                        drawVerticalGridLines);
-                    continue;
-                }
-
-                using (context.PushClip(visibleBounds))
-                {
-                    DrawVirtualCell(
-                        context,
-                        grid,
-                        row,
-                        column,
-                        cellBounds,
-                        fontFamily,
-                        fontSize,
-                        foreground,
-                        expanderPen,
-                        selectedBackground,
-                        currentPen,
-                        verticalGridPen,
-                        drawVerticalGridLines);
-                }
+            using (context.PushClip(visibleBounds))
+            {
+                DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
+                    foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
+                    drawVerticalGridLines);
             }
         }
     }
@@ -199,7 +297,7 @@ sealed partial class DataGridRowsPresenter
     private void DrawVirtualCell(
         DrawingContext context,
         DataGrid grid,
-        DataGridRow row,
+        DataGridVirtualRowInfo row,
         DataGridColumn column,
         Rect cellBounds,
         FontFamily fontFamily,
@@ -211,7 +309,7 @@ sealed partial class DataGridRowsPresenter
         Pen? verticalGridPen,
         bool drawVerticalGridLines)
     {
-        bool selected = grid.IsCellSelected(row.Index, column.Index);
+        bool selected = grid.IsCellSelected(row.RowIndex, column.Index);
         bool current = grid.CurrentSlot == row.Slot && grid.CurrentColumnIndex == column.Index;
         if (selected && selectedBackground is not null)
         {
@@ -244,7 +342,7 @@ sealed partial class DataGridRowsPresenter
     private void DrawVirtualCellContent(
         DrawingContext context,
         DataGrid grid,
-        DataGridRow row,
+        DataGridVirtualRowInfo row,
         DataGridColumn column,
         Rect bounds,
         FontFamily fontFamily,
@@ -252,7 +350,7 @@ sealed partial class DataGridRowsPresenter
         IBrush foreground,
         Pen expanderPen)
     {
-        object? item = row.DataContext;
+        object? item = row.Item;
         object? value = GetVirtualCellValue(column, item);
 
         if (column is DataGridProgressBarColumn progressColumn)
@@ -582,16 +680,16 @@ sealed partial class DataGridRowsPresenter
         DataGrid? grid = OwningGrid;
         if (grid?.UsesVirtualCellSurface != true ||
             !e.GetCurrentPoint(_virtualCellSurface).Properties.IsLeftButtonPressed ||
-            !TryHitVirtualCell(e.GetPosition(_virtualCellSurface), out DataGridRow? row, out DataGridColumn? column))
+            !TryHitVirtualCell(e.GetPosition(_virtualCellSurface), out DataGridVirtualRowInfo row, out DataGridColumn? column))
         {
             return false;
         }
 
         Point point = e.GetPosition(_virtualCellSurface);
-        if (column is DataGridHierarchicalColumn && row.DataContext is HierarchicalNode node && !node.IsLeaf)
+        if (column is DataGridHierarchicalColumn && row.Item is HierarchicalNode node && !node.IsLeaf)
         {
             FlatColumnLayout layout = FindFlatColumnLayout(column);
-            double expanderLeft = GetVirtualCellBounds(grid, row, layout, row.GetFlatCellsHeight()).Left +
+            double expanderLeft = GetVirtualCellBounds(grid, row, layout).Left +
                 (Math.Max(0, node.Level) * ((DataGridHierarchicalColumn)column).Indent);
             if (point.X >= expanderLeft && point.X <= expanderLeft + VirtualExpanderSize)
             {
@@ -603,9 +701,9 @@ sealed partial class DataGridRowsPresenter
         return grid.UpdateStateOnMouseLeftButtonDown(e, column.Index, row.Slot, allowEdit);
     }
 
-    private bool TryHitVirtualCell(Point point, out DataGridRow? row, out DataGridColumn? column)
+    private bool TryHitVirtualCell(Point point, out DataGridVirtualRowInfo row, out DataGridColumn? column)
     {
-        row = null;
+        row = default;
         column = null;
         DataGrid? grid = OwningGrid;
         if (grid?.UsesVirtualCellSurface != true)
@@ -619,32 +717,64 @@ sealed partial class DataGridRowsPresenter
             return false;
         }
 
+        if (grid.DisplayData.HasVirtualScrollingElements)
+        {
+            for (int index = 0; index < _lightweightVirtualRows.Count; index++)
+            {
+                if (TryHitVirtualRow(point, grid, _lightweightVirtualRows[index], out column))
+                {
+                    row = _lightweightVirtualRows[index];
+                    return true;
+                }
+            }
+            return false;
+        }
+
         foreach (DataGridRow candidate in grid.DisplayData.GetScrollingRows())
         {
-            double height = candidate.GetFlatCellsHeight();
-            if (point.Y < candidate.Bounds.Top || point.Y >= candidate.Bounds.Top + height)
+            var candidateInfo = new DataGridVirtualRowInfo(
+                candidate,
+                candidate.Slot,
+                candidate.Index,
+                candidate.DataContext!,
+                candidate.Bounds.Top,
+                candidate.GetFlatCellsHeight());
+            if (TryHitVirtualRow(point, grid, candidateInfo, out column))
+            {
+                row = candidateInfo;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryHitVirtualRow(
+        Point point,
+        DataGrid grid,
+        DataGridVirtualRowInfo candidate,
+        out DataGridColumn? column)
+    {
+        column = null;
+        if (point.Y < candidate.Top || point.Y >= candidate.Top + candidate.Height)
+        {
+            return false;
+        }
+
+        for (int layoutIndex = _flatColumnLayouts.Count - 1; layoutIndex >= 0; layoutIndex--)
+        {
+            FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
+            if (!layout.ShouldDisplay)
             {
                 continue;
             }
 
-            for (int layoutIndex = _flatColumnLayouts.Count - 1; layoutIndex >= 0; layoutIndex--)
+            Rect cellBounds = GetVirtualCellBounds(grid, candidate, layout);
+            if (GetVisibleVirtualCellBounds(grid, layout.Column, cellBounds).Contains(point))
             {
-                FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
-                if (!layout.ShouldDisplay)
-                {
-                    continue;
-                }
-
-                Rect cellBounds = GetVirtualCellBounds(grid, candidate, layout, height);
-                if (GetVisibleVirtualCellBounds(grid, layout.Column, cellBounds).Contains(point))
-                {
-                    row = candidate;
-                    column = layout.Column;
-                    return true;
-                }
+                column = layout.Column;
+                return true;
             }
-
-            return false;
         }
 
         return false;
@@ -666,16 +796,15 @@ sealed partial class DataGridRowsPresenter
 
     private static Rect GetVirtualCellBounds(
         DataGrid grid,
-        DataGridRow row,
-        FlatColumnLayout layout,
-        double height)
+        DataGridVirtualRowInfo row,
+        FlatColumnLayout layout)
     {
         double headerWidth = grid.AreRowHeadersVisible ? grid.RowHeadersDesiredWidth : 0d;
         return new Rect(
             headerWidth + layout.Left,
-            row.Bounds.Top,
+            row.Top,
             layout.Column.LayoutRoundedWidth,
-            height);
+            row.Height);
     }
 
     private static Rect GetVisibleVirtualCellBounds(
@@ -717,8 +846,50 @@ sealed partial class DataGridRowsPresenter
         bounds = GetVisibleVirtualCellBounds(
             grid,
             column,
-            GetVirtualCellBounds(grid, row, layout, row.GetFlatCellsHeight()));
+            GetVirtualCellBounds(
+                grid,
+                new DataGridVirtualRowInfo(
+                    row,
+                    row.Slot,
+                    row.Index,
+                    row.DataContext!,
+                    row.Bounds.Top,
+                    row.GetFlatCellsHeight()),
+                layout));
         return bounds.Width > 0d && bounds.Height > 0d;
+    }
+
+    internal bool TryGetVirtualCellBounds(int slot, DataGridColumn column, out Rect bounds)
+    {
+        bounds = default;
+        DataGrid? grid = OwningGrid;
+        if (grid?.DisplayData.HasVirtualScrollingElements != true)
+        {
+            return false;
+        }
+
+        FlatColumnLayout layout = FindFlatColumnLayout(column);
+        if (!ReferenceEquals(layout.Column, column) || !layout.ShouldDisplay)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < _lightweightVirtualRows.Count; index++)
+        {
+            DataGridVirtualRowInfo row = _lightweightVirtualRows[index];
+            if (row.Slot != slot)
+            {
+                continue;
+            }
+
+            bounds = GetVisibleVirtualCellBounds(
+                grid,
+                column,
+                GetVirtualCellBounds(grid, row, layout));
+            return bounds.Width > 0d && bounds.Height > 0d;
+        }
+
+        return false;
     }
 
     private void SyncVirtualValueNotifiers()
@@ -737,17 +908,18 @@ sealed partial class DataGridRowsPresenter
         }
 
         _nextVirtualValueNotifiers.Clear();
-        foreach (DataGridRow row in grid.DisplayData.GetScrollingRows())
+        if (grid.DisplayData.HasVirtualScrollingElements)
         {
-            if (row.DataContext is INotifyPropertyChanged rowNotifier)
+            for (int index = 0; index < _lightweightVirtualRows.Count; index++)
             {
-                _nextVirtualValueNotifiers.Add(rowNotifier);
+                AddVirtualValueNotifier(_lightweightVirtualRows[index].Item);
             }
-
-            if (row.DataContext is HierarchicalNode node &&
-                node.Item is INotifyPropertyChanged itemNotifier)
+        }
+        else
+        {
+            foreach (DataGridRow row in grid.DisplayData.GetScrollingRows())
             {
-                _nextVirtualValueNotifiers.Add(itemNotifier);
+                AddVirtualValueNotifier(row.DataContext);
             }
         }
 
@@ -769,6 +941,20 @@ sealed partial class DataGridRowsPresenter
 
         (_virtualValueNotifiers, _nextVirtualValueNotifiers) =
             (_nextVirtualValueNotifiers, _virtualValueNotifiers);
+    }
+
+    private void AddVirtualValueNotifier(object? item)
+    {
+        if (item is INotifyPropertyChanged rowNotifier)
+        {
+            _nextVirtualValueNotifiers.Add(rowNotifier);
+        }
+
+        if (item is HierarchicalNode node &&
+            node.Item is INotifyPropertyChanged itemNotifier)
+        {
+            _nextVirtualValueNotifiers.Add(itemNotifier);
+        }
     }
 
     private bool ShouldTrackVirtualValueChanges()

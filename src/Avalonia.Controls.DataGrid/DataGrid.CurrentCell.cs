@@ -89,7 +89,8 @@ internal
                 Debug.Assert(CurrentSlot < SlotCount);
 
                 if (!IsInnerCellOutOfBounds(oldCurrentCell.ColumnIndex, oldCurrentCell.Slot) &&
-                    IsSlotVisible(oldCurrentCell.Slot))
+                    IsSlotVisible(oldCurrentCell.Slot) &&
+                    !DisplayData.HasVirtualScrollingElements)
                 {
                     oldDisplayedElement = DisplayData.GetDisplayedElement(oldCurrentCell.Slot);
                 }
@@ -166,7 +167,14 @@ internal
                 Debug.Assert(CurrentSlot < SlotCount);
                 if (IsSlotVisible(CurrentSlot))
                 {
-                    UpdateCurrentState(DisplayData.GetDisplayedElement(CurrentSlot), CurrentColumnIndex, applyCellState: true);
+                    if (DisplayData.HasVirtualScrollingElements)
+                    {
+                        _rowsPresenter?.InvalidateVirtualCellSurface();
+                    }
+                    else
+                    {
+                        UpdateCurrentState(DisplayData.GetDisplayedElement(CurrentSlot), CurrentColumnIndex, applyCellState: true);
+                    }
                 }
             }
 

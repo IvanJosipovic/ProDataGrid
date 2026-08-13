@@ -21,6 +21,8 @@ namespace Avalonia.Controls
 
         internal long UniformScrollTargetCount { get; private set; }
 
+        internal long LightweightVirtualScrollCount { get; private set; }
+
         private bool CanUseEstimatedScrollFastPath()
         {
             return RowDetailsVisibilityMode != DataGridRowDetailsVisibilityMode.VisibleWhenSelected || RowDetailsTemplate == null;
@@ -198,6 +200,11 @@ namespace Avalonia.Controls
             using var _ = DataGridDiagnostics.BeginRowsScrollSlotsByHeight();
 
             if (SlotCount == 0)
+            {
+                return;
+            }
+
+            if (TryScrollLightweightVirtualRows(height))
             {
                 return;
             }
@@ -638,6 +645,37 @@ namespace Avalonia.Controls
             {
                 _scrollingByHeight = false;
             }
+        }
+
+        private bool TryScrollLightweightVirtualRows(double height)
+        {
+            if (!DisplayData.HasVirtualScrollingElements ||
+                !TryGetLightweightVirtualRowHeight(out double rowHeight) ||
+                _rowsPresenter is null)
+            {
+                return false;
+            }
+
+            double viewportHeight = Math.Max(0, CellsEstimatedHeight);
+            double maximumOffset = Math.Max(0, (SlotCount * rowHeight) - viewportHeight);
+            double newVerticalOffset = Math.Clamp(_verticalOffset + height, 0, maximumOffset);
+            int firstSlot = Math.Min(
+                SlotCount - 1,
+                (int)Math.Floor(newVerticalOffset / rowHeight));
+            double negVerticalOffset = newVerticalOffset - (firstSlot * rowHeight);
+            if (MathUtilities.GreaterThanOrClose(negVerticalOffset, rowHeight))
+            {
+                firstSlot = Math.Min(SlotCount - 1, firstSlot + 1);
+                negVerticalOffset = 0;
+            }
+
+            NegVerticalOffset = Math.Max(0, negVerticalOffset);
+            _verticalOffset = newVerticalOffset;
+            UpdateDisplayedRows(firstSlot, viewportHeight);
+            SetVerticalOffset(_verticalOffset);
+            SyncLogicalScrollableOffset();
+            LightweightVirtualScrollCount++;
+            return true;
         }
 
         private double EstimateOffsetToVisibleSlot(

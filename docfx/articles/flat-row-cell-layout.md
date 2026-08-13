@@ -2,10 +2,11 @@
 
 The flat row and cell layout is an opt-in rendering architecture for large,
 fixed-height grids. `Flat` keeps the existing row and cell containers but places
-them directly under one `DataGridRowsPresenter`. `Virtualized` keeps retained
-rows but draws compatible display cells on one presenter-owned surface. It
-materializes only the active editing cell and falls back to flat retained cells
-whenever a column or grid feature requires a control.
+them directly under one `DataGridRowsPresenter`. The eligible fixed-height
+`Virtualized` path keeps neither row nor display-cell controls: it projects visible
+items into lightweight presenter-owned records and draws them on one surface.
+Editing, automation, and row-level compatibility features materialize retained rows;
+unsupported columns fall back to flat retained cells.
 
 The default is still `DataGridVisualLayoutMode.Nested`. Existing applications do
 not change unless they select the keyed `DataGridFlatTheme` or set
@@ -49,10 +50,7 @@ The virtual cell mode removes the display-cell controls as well:
 ```text
 DataGridRowsPresenter
 ├─ DataGridVirtualCellSurface  (all compatible display cells)
-├─ DataGridRow
-├─ DataGridRow
-├─ ...
-└─ DataGridCell               (active editor only, while editing)
+└─ DataGridVirtualRowInfo      (non-visual record per visible row)
 ```
 
 This follows the central idea used by CDP's `FlatSplitPanel`: keep the semantic
@@ -94,13 +92,13 @@ The implementation preserves these invariants:
 | Compatibility | Nested layout remains the default and retains its existing templates and behavior. |
 | AOT | The path uses ordinary typed APIs and introduces no reflection. |
 
-Rows remain controls because they carry selection, automation, drag, and
-lifecycle semantics. In `Flat`, cells remain controls. In `Virtualized`, the
-surface centrally owns cell geometry, drawing, clipping, hit testing, selection,
-current-cell state, frozen regions, hierarchy expanders, and shared text layout.
-One normal cell is overlaid for editing and validation. Visible model objects
-implementing `INotifyPropertyChanged` invalidate the surface without creating
-bindings or cell controls.
+In `Flat`, rows and cells remain controls. In the eligible `Virtualized` steady
+state, the surface centrally owns row/cell geometry, drawing, clipping, hit testing,
+selection, current-cell state, frozen regions, hierarchy expanders, and shared text
+layout. Editing temporarily materializes the retained visible row window and its
+normal editor; automation permanently selects retained rows for that grid instance.
+Visible model objects implementing `INotifyPropertyChanged` invalidate the surface
+without creating bindings or cell controls.
 
 The virtual surface supports text, masked text, autocomplete text, editable combo-box text,
 slider value text, numeric, checkbox, date, time, image, progress, and hierarchical columns
@@ -217,7 +215,8 @@ presenter, direct hierarchy, built-in drawn, and custom Skia paths.
 | `HierarchicalModel` rows | Supported | Use fixed heights and explicit column widths. |
 | Text, checkbox, template, direct, retained, and drawn cells | Supported by `Flat` | Cell controls keep their existing behavior. |
 | Typed text, masked/autocomplete/editable-combo-box/slider text, numeric, checkbox, date, time, image, progress, hierarchy display | Drawn by `Virtualized` | Uses one surface and zero display-cell controls. |
-| Editing and validation | Supported | `Virtualized` overlays one normal active editor cell. |
+| Editing and validation | Supported | `Virtualized` temporarily materializes retained rows and the normal active editor. |
+| Automation peers | Supported through compatibility rows | Creating the grid peer selects retained rows for the grid instance. |
 | Templates, interactive display controls, custom themes | Retained fallback | `Virtualized` automatically uses flat retained cells. |
 | Frozen left/right columns | Supported | Geometry and clipping are computed centrally. |
 | Selection, current cell, fill geometry | Supported | Virtual geometry is used when no cell control exists. |

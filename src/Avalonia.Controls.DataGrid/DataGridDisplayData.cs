@@ -31,6 +31,7 @@ namespace Avalonia.Controls
         private DataGridRecycleReuseOrder _deferredReuseOrder;
         private int _deferredRecycleScopeDepth;
         private int _headScrollingElements;
+        private int _virtualScrollingElementCount;
 
         public DataGridDisplayData(DataGrid owner)
         {
@@ -55,13 +56,18 @@ namespace Avalonia.Controls
 
         public int LastTotallyDisplayedScrollingCol { get; set; }
 
-        public int NumDisplayedScrollingElements => _scrollingElements.Count;
+        public int NumDisplayedScrollingElements =>
+            _virtualScrollingElementCount != 0
+                ? _virtualScrollingElementCount
+                : _scrollingElements.Count;
 
         public int NumTotallyDisplayedScrollingElements { get; set; }
 
         internal double PendingVerticalScrollHeight { get; set; }
 
         internal long RetargetedRowCount { get; private set; }
+
+        internal bool HasVirtualScrollingElements => _virtualScrollingElementCount != 0;
 
         #endregion
 
@@ -228,6 +234,7 @@ namespace Avalonia.Controls
         internal void ClearElements(bool recycle)
         {
             ResetSlotIndexes();
+            _virtualScrollingElementCount = 0;
             
             if (recycle)
             {
@@ -243,6 +250,18 @@ namespace Avalonia.Controls
             
             _scrollingElements.Clear();
             Array.Clear(_retargetEntries);
+        }
+
+        internal void SetVirtualScrollingSlots(int firstSlot, int lastSlot, int count)
+        {
+            Debug.Assert(_scrollingElements.Count == 0);
+            Debug.Assert(count > 0);
+            Debug.Assert(firstSlot >= 0);
+            Debug.Assert(lastSlot >= firstSlot);
+
+            FirstScrollingSlot = firstSlot;
+            LastScrollingSlot = lastSlot;
+            _virtualScrollingElementCount = count;
         }
 
         private void RecycleAllScrollingElements()
@@ -315,6 +334,10 @@ namespace Avalonia.Controls
         {
             Debug.Assert(slot >= FirstScrollingSlot);
             Debug.Assert(slot <= LastScrollingSlot);
+            if (_virtualScrollingElementCount != 0)
+            {
+                return null;
+            }
             return _scrollingElements[GetCircularListIndex(slot, wrap: true)];
         }
 

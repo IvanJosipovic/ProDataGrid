@@ -117,6 +117,7 @@ internal
 
             return slot >= DisplayData.FirstScrollingSlot &&
                    slot <= DisplayData.LastScrollingSlot &&
+                   !DisplayData.HasVirtualScrollingElements &&
                    DisplayData.GetDisplayedElement(slot) is DataGridRow { IsPlaceholder: true };
         }
 
@@ -289,6 +290,8 @@ internal
                 // Current cell is already in edit mode
                 return true;
             }
+
+            RequireRetainedVirtualRowsForEditing();
 
             // Get or generate the editing row if it doesn't exist
             DataGridRow dataGridRow = EditingRow;
@@ -1145,6 +1148,7 @@ internal
             {
                 ReleaseVirtualCompatibilityRow();
             }
+            ReleaseRetainedVirtualRowsForEditing();
             _editingRowValidationSnapshot = null;
             _editingCellValidationSnapshot = null;
             _editingCellHadNotifyDataErrorInfoValidation = false;

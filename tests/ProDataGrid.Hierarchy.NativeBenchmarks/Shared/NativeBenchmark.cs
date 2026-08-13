@@ -1391,13 +1391,24 @@ internal static class NativeGridAdapter
         var realizedRows = handle.Grid.GetVisualDescendants().OfType<TreeDataGridRow>().Count();
         var realizedCells = handle.Grid.GetVisualDescendants().OfType<TreeDataGridCell>().Count();
 #endif
+#if PRO && PRODATAGRID_PR335
+        var expectsLightweightRows =
+            NativeBenchmarkOptions.ProMode.StartsWith("virtual", StringComparison.Ordinal) &&
+            !NativeBenchmarkOptions.AllowVirtualFallback;
+        if (expectsLightweightRows)
+        {
+            if (realizedRows != 0)
+                throw new InvalidOperationException($"Virtual cell surface realized {realizedRows} retained rows.");
+            if (realizedCells != 0)
+                throw new InvalidOperationException($"Virtual cell surface realized {realizedCells} retained cells.");
+        }
+        else if (realizedRows <= 0 || realizedRows >= 200)
+        {
+            throw new InvalidOperationException($"Virtualization validation failed: {realizedRows} realized rows.");
+        }
+#else
         if (realizedRows <= 0 || realizedRows >= 200)
             throw new InvalidOperationException($"Virtualization validation failed: {realizedRows} realized rows.");
-#if PRO && PRODATAGRID_PR335
-        if (NativeBenchmarkOptions.ProMode.StartsWith("virtual", StringComparison.Ordinal) &&
-            !NativeBenchmarkOptions.AllowVirtualFallback &&
-            realizedCells != 0)
-            throw new InvalidOperationException($"Virtual cell surface realized {realizedCells} retained cells.");
 #endif
 
         var viewer = GetScrollViewer(handle);

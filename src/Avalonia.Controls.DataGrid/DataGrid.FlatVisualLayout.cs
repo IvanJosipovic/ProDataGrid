@@ -16,6 +16,9 @@ internal
 partial class DataGrid
 {
     private DataGridRow? _virtualCompatibilityRow;
+    private bool _virtualAutomationRequiresRows;
+    private bool _virtualEditingRequiresRows;
+    private bool _virtualItemsRequireRows;
 
     internal bool UsesFlatVisualLayout => VisualLayoutMode != DataGridVisualLayoutMode.Nested;
 
@@ -29,6 +32,94 @@ partial class DataGrid
         UsesVirtualCellSurface &&
         UsesDefaultRealizationFactory &&
         GetType() == typeof(DataGrid);
+
+    internal bool UsesLightweightVirtualRows =>
+        UsesDefaultVirtualRowPipeline &&
+        !_virtualAutomationRequiresRows &&
+        !_virtualEditingRequiresRows &&
+        !_virtualItemsRequireRows &&
+        !AreRowHeadersVisible &&
+        !ShowRowNumbers &&
+        RowDetailsTemplate is null &&
+        !HasLoadingRowHandlers() &&
+        !HasUnloadingRowHandlers() &&
+        RowGroupHeadersTable.RangeCount == 0 &&
+        RowGroupFootersTable.RangeCount == 0 &&
+        _collapsedSlotsTable.IsEmpty;
+
+    internal bool TryGetLightweightVirtualRowHeight(out double rowHeight)
+    {
+        rowHeight = double.NaN;
+        if (!UsesLightweightVirtualRows || !double.IsFinite(RowHeight))
+        {
+            return false;
+        }
+
+        rowHeight = DataGridRow.GetFlatDesiredHeight(this, RowHeight);
+        return double.IsFinite(rowHeight) && MathUtilities.GreaterThan(rowHeight, 0);
+    }
+
+    private void RequireRetainedVirtualRowsForEditing()
+    {
+        if (!UsesLightweightVirtualRows || !DisplayData.HasVirtualScrollingElements)
+        {
+            return;
+        }
+
+        _virtualEditingRequiresRows = true;
+        MaterializeRetainedVirtualRows();
+    }
+
+    private void ReleaseRetainedVirtualRowsForEditing()
+    {
+        if (!_virtualEditingRequiresRows)
+        {
+            return;
+        }
+
+        int firstSlot = DisplayData.FirstScrollingSlot;
+        _virtualEditingRequiresRows = false;
+        if (firstSlot >= 0 && TryGetLightweightVirtualRowHeight(out _))
+        {
+            ResetDisplayedRows();
+            RemoveRecycledChildrenFromVisualTree();
+            UpdateDisplayedRows(firstSlot, CellsEstimatedHeight);
+        }
+
+        _rowsPresenter?.InvalidateMeasure();
+    }
+
+    internal void RequireRetainedVirtualRowsForAutomation()
+    {
+        if (_virtualAutomationRequiresRows)
+        {
+            return;
+        }
+
+        _virtualAutomationRequiresRows = true;
+        if (DisplayData.HasVirtualScrollingElements)
+        {
+            MaterializeRetainedVirtualRows();
+        }
+    }
+
+    internal void RequireRetainedVirtualRowsForItems()
+    {
+        _virtualItemsRequireRows = true;
+    }
+
+    private void MaterializeRetainedVirtualRows()
+    {
+        int firstSlot = DisplayData.FirstScrollingSlot;
+        if (firstSlot < 0)
+        {
+            return;
+        }
+
+        ResetDisplayedRows();
+        UpdateDisplayedRows(firstSlot, CellsEstimatedHeight);
+        _rowsPresenter?.InvalidateMeasure();
+    }
 
     private bool CanRetargetDefaultVirtualRowsNow()
     {

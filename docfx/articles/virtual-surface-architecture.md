@@ -1,10 +1,11 @@
 # Virtual cell-surface architecture
 
 `DataGridVisualLayoutMode.Virtualized` is ProDataGrid's control-free display-cell
-architecture. It preserves the DataGrid data, selection, row realization, editing,
-and column models, but replaces the matrix of retained display-cell controls with
-one presenter-owned drawing surface. Retained controls are materialized only when a
-feature requires their semantics, most notably editing.
+architecture. Its default fixed-height path preserves the DataGrid data, selection,
+editing, and column models while replacing both the realized display-cell matrix and
+the scrolling `DataGridRow` window with presenter-owned lightweight row records and
+one drawing surface. Retained controls are materialized only when a feature requires
+their semantics, most notably editing and automation.
 
 This article describes the implementation contract. For setup and mode selection,
 see [Flat row and cell layout](flat-row-cell-layout.md). For measurement rules, see
@@ -15,7 +16,9 @@ see [Flat row and cell layout](flat-row-cell-layout.md). For measurement rules, 
 The architecture is designed for large, fixed-height, read-mostly grids whose
 visible columns can read values through typed accessors. Its goals are to:
 
-- keep row virtualization and the public DataGrid model unchanged;
+- keep the public DataGrid, slot, selection, and editing models unchanged;
+- make fixed-height scrolling direct slot arithmetic instead of a row-container
+  recycle/generate operation;
 - remove per-cell controls, presenters, bindings, and layout calls from display;
 - compute visible column geometry once per presenter pass;
 - share bounded text-shaping state across rows and recycling cycles;
@@ -44,14 +47,22 @@ DataGridRowsPresenter
 Virtualized
 DataGridRowsPresenter
 ├─ DataGridVirtualCellSurface × 1
-├─ DataGridRow × realized rows
-└─ DataGridCell × 1 only while an editor/compatibility cell is active
+└─ DataGridVirtualRowInfo × visible rows (non-visual value records)
 ```
 
-Rows remain retained controls. They own row selection state, row headers,
-hierarchy automation, drag/lifecycle state, and the vertical geometry consumed by
-the surface. Removing rows would require a separate row semantics and automation
-model; the current architecture deliberately does not create one.
+The steady-state eligible path has zero `DataGridRow` and zero `DataGridCell`
+controls. `DataGridRowsPresenter` owns reusable `DataGridVirtualRowInfo` records
+containing slot, row index, item, top, and fixed height. Selection, current-cell,
+pointer, hierarchy-expander, value-notification, render, measure, and arrange logic
+consume those records directly.
+
+Compatibility is deliberate rather than partial. Editing materializes the retained
+visible row window and the existing editor cell pipeline for the duration of the
+edit. Creating the grid automation peer permanently selects retained rows for that
+grid instance so existing row peers and automation contracts remain valid. Row
+headers, row numbers, row details, loading/unloading handlers, grouped or collapsed
+slot tables, custom grids/factories, and item-owned `DataGridRow` containers also use
+the retained-row path.
 
 ## Backend selection and retained fallback
 
@@ -110,31 +121,32 @@ Flat and hierarchical sources both enter the existing DataGrid slot model.
 `HierarchicalModel` owns expansion and exposes a flattened sequence of
 `HierarchicalNode` objects. The visual backend does not traverse the domain tree.
 
-Vertical scrolling continues through `ScrollSlotsByHeight`. Small movements reuse
-adjacent realized rows. Large movements use the row-height estimator or the indexed
-height path, reset or trim the displayed range, and then call
-`UpdateDisplayedRows`. The virtual surface therefore shares the same scrolling
-correctness, anchoring, collapsed-slot, and variable-height estimator machinery as
-the retained modes.
+Vertical scrolling still enters through `ScrollSlotsByHeight`. When the lightweight
+fixed-height guards pass, it clamps the offset, derives the first slot and fractional
+offset arithmetically, updates the displayed virtual range, and rewrites the existing
+presenter-owned row-record list. It does not unload, pool, retarget, generate, attach,
+measure, or arrange `DataGridRow` controls. Unsupported cases continue through the
+existing retained scrolling, anchoring, collapsed-slot, and variable-height paths.
 
 For the supported fixed-height surface workload, total extent can be calculated
 without visiting every slot. This keeps extent calculation independent of the
 expanded row count.
 
-### 2. Row realization and recycling
+### 2. Lightweight row projection and compatibility realization
 
-`DataGridDisplayData` owns the displayed range and recycle pools. A normal surface
-row has an empty `Cells` collection. `CompleteCellsCollection` exits after removing
-stale cells unless the row is the active compatibility row.
+`DataGridDisplayData` can represent a virtual scrolling range without owning a
+matching circular list of controls. `DataGridRowsPresenter` keeps one bounded list
+of `DataGridVirtualRowInfo` structs, reuses its storage across jumps, and projects
+the target items directly from the slot model. The list is the sole visible-row
+input for virtual rendering, hit testing, notification tracking, measure, and
+arrange.
 
-The exact built-in `DataGrid`/`DataGridRow` path also avoids a redundant
-item → `null` → item `DataContext` transition during recycle. It preserves valid
-fixed-height measure state until the row is rebound. Custom grids, custom
-realization factories, derived row types, placeholder transitions, and retained
-fallbacks keep the complete cleanup and regeneration lifecycle.
-
-This distinction is intentional: the optimized path depends on the built-in row
-having no retained display-cell bindings or custom cleanup contract.
+The projection is enabled only for the exact built-in grid and realization factory
+with a finite fixed row height and no row-level compatibility feature. Discovering
+an item-owned `DataGridRow` aborts the projection before publishing the range and
+selects the normal retained lifecycle. That keeps custom cleanup, derived types,
+headers, details, grouping, automation, and editing on the established container
+contracts.
 
 ### 3. Presenter measure and arrange
 
@@ -145,17 +157,14 @@ During measure it:
 1. updates the realized row range;
 2. attaches or detaches the virtual surface;
 3. computes visible column layouts once;
-4. measures retained row controls;
-5. measures only the active compatibility cell, if any;
-6. updates row-height observations and logical-scroll extent; and
-7. measures the surface to the viewport.
+4. computes the fixed row-record range and logical-scroll extent; and
+5. measures the surface to the viewport.
 
 During arrange it:
 
-1. places retained rows vertically from `-NegVerticalOffset`;
-2. arranges only the active compatibility cell;
-3. arranges the surface across the presenter; and
-4. synchronizes visible value-change subscriptions.
+1. assigns row-record tops from `-NegVerticalOffset` and fixed row height;
+2. arranges the surface across the presenter; and
+3. synchronizes visible value-change subscriptions.
 
 Column layout records contain the resolved column, its presenter-relative left
 edge, and horizontal visibility. Frozen-left, scrolling, and frozen-right regions
@@ -163,68 +172,16 @@ are resolved once rather than once per row.
 
 ### Discontinuous fixed-height scrolling
 
-Large logical jumps normally unload the old displayed window, clean and pool every
-row, then generate and attach a new window. The default virtual surface can avoid
-that round trip because its retained `DataGridRow` instances are semantic containers
-with zero display cells and fixed item-independent height.
+Large logical jumps in retained modes unload or retarget the displayed container
+window. The lightweight path has no window of controls to preserve. It updates the
+first/last virtual slots, rebinds a bounded list of value records, invalidates the
+surface, and requests pointer-over refresh. Fixed row height makes top and extent
+calculation arithmetic; selection remains in the grid model and is read during
+drawing rather than copied into row properties.
 
-`ScrollSlotsByHeight` therefore defers the discontinuous-window reset until
-`UpdateDisplayedRows`. The presenter retargets the existing row controls in place
-when all of these guards hold:
-
-- the grid and row containers are the exact built-in types with the default
-  realization factory;
-- the virtual surface is active, row headers and row numbers are absent, and no
-  row-details template is configured;
-- the target range contains ordinary rows only and exactly matches the realized
-  window size;
-- no row is editing, focused, or otherwise non-recyclable; and
-- the actual routed `LoadingRow` and `UnloadingRow` event routes have no handlers.
-
-Each eligible row receives its new index, slot, item, placeholder and validation
-state without detach, hide, recycle-pool mutation, generation, or visual-tree
-reattachment. Selection state is resolved once and applied without writing it back
-through the selection model. After the complete batch, the presenter raises one
-logical child-index reset instead of one notification per row. Selector-driven
-style invalidation therefore still occurs before layout reuse is considered.
-
-Retarget validation is transactional. It first captures the row, resolved target
-slot, row index, and target item in one reusable typed-entry buffer; no row is
-mutated until the entire target window passes validation. When group-header,
-group-footer, and collapsed-slot tables are empty, target slots are contiguous and
-are advanced by index instead of repeatedly traversing the visible-slot map.
-Non-contiguous ranges retain the complete visible-slot traversal. Binding consumes
-the captured target slot directly instead of resolving it a second time. The same
-captured row references are then reused for binding and post-bind layout-validity
-checks, avoiding repeated circular-list resolution without weakening the
-validate-before-mutate contract.
-
-The bind also treats default row state sparsely. Placeholder and validation direct
-properties are assigned only when their current backing state differs from the
-required value. Equal-value `SetAndRaise` notifications were already suppressed,
-so this removes setter work without changing observers. Placeholder transitions,
-invalid rows, and `INotifyDataErrorInfo` items still execute the complete state
-transition and validation restoration. DataContext and row index are always
-updated because they identify the semantic row and remain publicly observable.
-
-The presenter may reuse fixed-height row geometry when all retargeted rows remain
-measure-valid after that logical-index reset and its width constraint is unchanged.
-It may also reuse arrangement only when the presenter size and fractional vertical
-offset match the preceding arrangement. A changed fractional offset uses normal
-row arrangement so bounds move by the required partial-row amount. Surface content
-is invalidated independently and is redrawn for the new items even when container
-geometry is reused.
-
-After a successful transactional bind, diagnostics add the complete row count once
-to each retargeted, prepared, and realized lifecycle counter. This preserves the
-same additive values while avoiding three counter calls per row and rebuilding the
-realized-source tag for every row. Normal generation and fallback paths retain
-single-row recording. Geometry reuse is reported separately as
-`prodatagrid.rows.retarget.measure.reused.count` and
-`prodatagrid.rows.retarget.arrange.reused.count`. Any failed guard falls back to
-the complete lifecycle or ordinary per-row layout pipeline, preserving derived-grid,
-custom-factory, own-container, row-details, validation, selector, and routed-event
-behavior.
+The retained-row retarget path remains available to compatibility states and is
+still protected by its transactional validation, lifecycle, and layout-validity
+guards. It is no longer paid by the normal rowless virtual scroll workload.
 
 The focused evidence for the typed retarget-entry buffer is recorded in the
 [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
@@ -232,16 +189,18 @@ The follow-up evidence for batched lifecycle counters is recorded in the
 [virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md).
 The retarget-apply ownership and sparse-state evidence is recorded in the
 [virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md).
+The rowless follow-up is recorded in the
+[lightweight virtual-row report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LIGHTWEIGHT-ROWS-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 
 `DataGridVirtualCellSurface` is deliberately stateless. Its `Render` method calls
 back into the presenter, which owns all geometry and caches. Rendering iterates the
-realized scrolling rows and visible column-layout records.
+lightweight visible-row records and visible column-layout records.
 
 For each cell the presenter:
 
-1. derives its rectangle from row bounds, row-header width, and column layout;
+1. derives its rectangle from record top/height, row-header width, and column layout;
 2. intersects it with the cells viewport and frozen regions;
 3. draws selection background when selected;
 4. reads the value through the column's typed provider/accessor;
@@ -284,26 +243,28 @@ tracking on supported text and hierarchy columns to remove these subscriptions.
 ## Hit testing, selection, hierarchy, and editing
 
 The surface implements custom hit testing. Pointer coordinates are resolved against
-realized row bounds and visible column geometry. A hierarchy-expander hit toggles
+lightweight row geometry and visible column geometry. A hierarchy-expander hit toggles
 the node directly; other hits route through the DataGrid's existing selection,
 currency, and edit-trigger logic.
 
 Editing does not introduce a second editor model:
 
-1. the grid designates the realized row as its virtual compatibility row;
-2. `CompleteCellsCollection` materializes normal cells for that row;
+1. the grid temporarily requires retained virtual rows and materializes the visible window;
+2. `CompleteCellsCollection` materializes normal cells for the editing row;
 3. the selected cell becomes a flat presenter child above the surface;
 4. the existing column creates its normal retained editor and binding;
 5. commit, validation, or cancel uses the existing editing pipeline; and
-6. leaving edit mode releases the row's cells and returns to zero display cells.
+6. leaving edit mode releases the requirement so a following layout can return to
+   zero rows and zero display cells.
 
 Programmatic `GetCellContent` can also request this compatibility materialization.
 Applications should not call it repeatedly while profiling the zero-cell display
 path.
 
-Row-level selection and hierarchy automation remain provided by retained row peers.
-The surface does not currently expose one automation peer per drawn display cell;
-features requiring retained cell peers should use `Flat` or `Nested`.
+Creating a `DataGridAutomationPeer` switches that grid instance to retained rows,
+so row-level selection, hierarchy, and existing unrealized-row automation contracts
+remain provided by the established peers. The surface does not expose one peer per
+drawn display cell.
 
 ## Invalidation and mode transitions
 
@@ -317,49 +278,23 @@ The implementation avoids calling `UpdateLayout` from production paths. Layout i
 driven by Avalonia invalidation; explicit `UpdateLayout` is confined to tests and
 benchmark phase boundaries.
 
-## Discontinuous row-window retargeting
+## Retained-row compatibility path
 
-Large fixed-height jumps normally discard the displayed window and run the complete
-row recycle/generate lifecycle. The default virtual surface instead keeps the same
-zero-cell row controls and retargets them to the new slots when all compatibility
-guards pass. The guard requires exact built-in `DataGrid`/`DataGridRow` types, the
-default realization factory, ordinary fixed-height slots, no row headers, row
-numbers, details, lifecycle handlers, focused row, or active editor. Any mismatch
-uses the normal lifecycle path.
-
-Retargeting has separate validation and mutation passes. Validation captures each
-target row index and item into reusable display-window arrays, rejecting item-owned
-`DataGridRow` containers before any row is changed. The mutation pass consumes those
-captured targets, so hierarchical item lookup and slot-to-row mapping occur once per
-row rather than once during validation and again during binding.
-
-The mutation pass restores only state that can differ between the old and new slot:
-
-- item, index, slot, placeholder, validation, selection, and current-row identity;
-- pointer-over state only when the row actually owns pointer state; and
-- drag/drop pseudo-classes only when a tracked drag or drop indicator is active.
-
-This sparse state application is safe only inside the guarded default-surface path.
-The generic recycle/generate path remains responsible for arbitrary row types,
-templates, handlers, headers, details, and custom factories.
-
-Retarget completion is a batch boundary. It emits one logical child-index reset,
-then inspects the rows' resulting measure and arrange validity. Fixed-height measure
-geometry is reused only when the reset did not invalidate a row and the presenter
-width is unchanged. Arrangement is reused only when measure reuse succeeded and the
-presenter size and `NegVerticalOffset` are unchanged from the previous arrangement.
-This makes integer discontinuous jumps arithmetic-only for row geometry while a
-new fractional offset, selector-dependent size, or any other invalidation keeps the
-normal measure/arrange behavior.
+When a row-level feature requires control semantics, the presenter returns to the
+existing recycle/generate or guarded retarget pipeline. This preserves arbitrary
+row types, lifecycle handlers, templates, automation peers, editing, validation,
+headers, details, and custom factories. The rowless path never attempts to simulate
+those contracts.
 
 ## Structural and behavioral invariants
 
 A valid surface state must satisfy all of these conditions:
 
 - exactly one `DataGridVirtualCellSurface` is attached;
-- realized row count remains bounded by the viewport and prefetch policy;
+- retained realized row count is zero in the eligible steady-state path;
+- lightweight row-record count remains bounded by the viewport and prefetch policy;
 - no display `DataGridCell` exists outside an active compatibility operation;
-- every realized row has zero cells outside compatibility materialization;
+- editing or automation materializes retained rows before using row semantics;
 - surface bounds and logical-scroll extent match the presenter viewport and data;
 - frozen clipping, selection geometry, and hit testing use the same column layout;
 - leaving the mode unsubscribes value notifiers and disposes cached layouts; and

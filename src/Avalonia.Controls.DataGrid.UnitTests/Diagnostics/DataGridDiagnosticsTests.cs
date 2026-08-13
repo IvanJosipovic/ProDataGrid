@@ -4,8 +4,10 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
+using Avalonia.Automation.Peers;
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
@@ -296,6 +298,9 @@ public class DataGridDiagnosticsTests
             root.Show();
             grid.UpdateLayout();
             Assert.True(grid.UsesVirtualCellSurface);
+            Assert.IsType<DataGridAutomationPeer>(
+                ControlAutomationPeer.CreatePeerForElement(grid));
+            grid.UpdateLayout();
 
             DataGridRowsPresenter presenter = grid
                 .GetVisualDescendants()

@@ -5,7 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
@@ -75,11 +77,12 @@ public class DataGridFlatVisualLayoutTests
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
             DataGridRow[] rows = presenter.Children.OfType<DataGridRow>().ToArray();
 
-            Assert.NotEmpty(rows);
+            Assert.Empty(rows);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.NotEmpty(presenter.LightweightVirtualRows);
             Assert.Equal(1, presenter.VirtualSurfaceCount);
             Assert.Equal(0, presenter.FlatRealizedCellCount);
             Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
-            Assert.All(rows, row => Assert.Equal(0, row.Cells.Count));
             Assert.Equal(
                 100 * DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight),
                 presenter.Extent.Height,
@@ -92,7 +95,35 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
-    public void Virtualized_Layout_Materializes_Only_The_Active_Editor_Overlay()
+    public void Virtualized_Layout_Materializes_Retained_Rows_For_Automation()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+
+            Assert.IsType<DataGridAutomationPeer>(
+                ControlAutomationPeer.CreatePeerForElement(grid));
+            PumpLayout(grid);
+
+            Assert.NotEmpty(presenter.Children.OfType<DataGridRow>());
+            Assert.Empty(presenter.LightweightVirtualRows);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Layout_Materializes_Retained_Rows_And_Only_The_Active_Editor_Cell()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
         grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
@@ -115,6 +146,8 @@ public class DataGridFlatVisualLayoutTests
             Assert.True(grid.BeginEdit());
             PumpLayout(grid);
 
+            Assert.NotEmpty(presenter.Children.OfType<DataGridRow>());
+            Assert.Empty(presenter.LightweightVirtualRows);
             DataGridCell editorCell = Assert.Single(
                 presenter.GetVisualChildren().OfType<DataGridCell>());
             Assert.Equal(column.Index, editorCell.OwningColumn.Index);
@@ -123,6 +156,8 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             Assert.Empty(presenter.GetVisualChildren().OfType<DataGridCell>());
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.NotEmpty(presenter.LightweightVirtualRows);
             Assert.Equal(1, presenter.VirtualSurfaceCount);
         }
         finally
@@ -149,7 +184,8 @@ public class DataGridFlatVisualLayoutTests
             grid.ScrollIntoView(grid.ItemsSource!.Cast<Item>().ElementAt(450), grid.ColumnsInternal[0]);
             PumpLayout(grid);
 
-            Assert.Contains(presenter.Children.OfType<DataGridRow>(), row => row.Index >= 450);
+            Assert.Contains(presenter.LightweightVirtualRows, row => row.RowIndex >= 450);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
             Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
             Assert.Equal(1, presenter.VirtualSurfaceCount);
         }
@@ -160,7 +196,7 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
-    public void Virtualized_Layout_Recycles_Default_Rows_Without_Null_DataContext_Transition()
+    public void Virtualized_Layout_Scrolls_Without_Creating_Row_Containers()
     {
         (Window window, DataGrid grid) = CreateGrid(
             DataGridTheme.SimpleFlat,
@@ -174,30 +210,17 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
-            DataGridRow[] rows = presenter.Children.OfType<DataGridRow>().ToArray();
+            IReadOnlyList<DataGridVirtualRowInfo> rows = presenter.LightweightVirtualRows;
             Assert.NotEmpty(rows);
-            int nullDataContextTransitions = 0;
-            foreach (DataGridRow row in rows)
-            {
-                row.PropertyChanged += (_, change) =>
-                {
-                    if (change.Property == StyledElement.DataContextProperty &&
-                        change.GetNewValue<object?>() is null)
-                    {
-                        nullDataContextTransitions++;
-                    }
-                };
-            }
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
 
             double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
             presenter.Offset = new Vector(0, 400 * rowHeight);
             PumpLayout(grid);
 
-            DataGridRow[] jumpedRows = presenter.Children.OfType<DataGridRow>().ToArray();
-            Assert.Equal(rows.Length, jumpedRows.Length);
-            Assert.True(rows.SequenceEqual(jumpedRows));
-            Assert.Equal(0, nullDataContextTransitions);
-            Assert.Contains(jumpedRows, row => row.Index >= 400);
+            Assert.Same(rows, presenter.LightweightVirtualRows);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.Contains(presenter.LightweightVirtualRows, row => row.RowIndex >= 400);
         }
         finally
         {
@@ -206,7 +229,7 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
-    public void Virtualized_Layout_Retargets_Handler_Free_Default_Rows_In_Place()
+    public void Virtualized_Layout_Rebinds_Lightweight_Rows_In_Place()
     {
         (Window window, DataGrid grid) = CreateGrid(
             DataGridTheme.SimpleFlat,
@@ -220,25 +243,9 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
-            var childIndexProvider = (IChildIndexProvider)presenter;
-            int childIndexesReset = 0;
-            int individualChildIndexesChanged = 0;
-            childIndexProvider.ChildIndexChanged += (_, args) =>
-            {
-                if (args.Action == ChildIndexChangedAction.ChildIndexesReset)
-                {
-                    childIndexesReset++;
-                }
-                else if (args.Action == ChildIndexChangedAction.ChildIndexChanged)
-                {
-                    individualChildIndexesChanged++;
-                }
-            };
-            DataGridRow firstRow = presenter.Children.OfType<DataGridRow>().First();
-            Item initialSelectedItem = Assert.IsType<Item>(firstRow.DataContext);
-            firstRow.ValidationSeverity = DataGridValidationSeverity.Error;
-            firstRow.ApplyState();
-            Assert.True(((IPseudoClasses)firstRow.Classes).Contains(":invalid"));
+            IReadOnlyList<DataGridVirtualRowInfo> rows = presenter.LightweightVirtualRows;
+            DataGridVirtualRowInfo firstRow = rows[0];
+            Item initialSelectedItem = Assert.IsType<Item>(firstRow.Item);
 
             Assert.True(grid.UpdateSelectionAndCurrency(
                 grid.ColumnsInternal[0].Index,
@@ -249,27 +256,14 @@ public class DataGridFlatVisualLayoutTests
             grid.SelectedItems.Add(targetItem);
             Assert.Equal(2, grid.SelectedItems.Count);
 
-            long retargetedBeforeJump = grid.DisplayData.RetargetedRowCount;
             double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
             presenter.Offset = new Vector(0, 400 * rowHeight);
             PumpLayout(grid);
 
-            Assert.True(grid.DisplayData.RetargetedRowCount > retargetedBeforeJump);
-            Assert.Equal(1, childIndexesReset);
-            Assert.Equal(0, individualChildIndexesChanged);
-            Assert.True(presenter.RetargetedRowsMeasureFastPathCount > 0);
-            Assert.True(presenter.RetargetedRowsArrangeFastPathCount > 0);
-            Assert.Contains(presenter.Children.OfType<DataGridRow>(), row => row.Index >= 400);
-            Assert.All(presenter.Children.OfType<DataGridRow>(), row => Assert.Equal(0, row.Cells.Count));
-            Assert.Equal(DataGridValidationSeverity.None, firstRow.ValidationSeverity);
-            Assert.False(((IPseudoClasses)firstRow.Classes).Contains(":invalid"));
-            Assert.False(((IPseudoClasses)firstRow.Classes).Contains(":current"));
-
-            DataGridRow selectedRow = Assert.Single(
-                presenter.Children.OfType<DataGridRow>(),
-                row => ReferenceEquals(row.DataContext, targetItem));
-            Assert.True(selectedRow.IsSelected);
-            Assert.True(((IPseudoClasses)selectedRow.Classes).Contains(":selected"));
+            Assert.Same(rows, presenter.LightweightVirtualRows);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.Contains(presenter.LightweightVirtualRows, row => row.RowIndex >= 400);
+            Assert.Contains(presenter.LightweightVirtualRows, row => ReferenceEquals(row.Item, targetItem));
             Assert.Equal(2, grid.SelectedItems.Count);
             Assert.True(grid.SelectedItems.Contains(initialSelectedItem));
             Assert.True(grid.SelectedItems.Contains(targetItem));
@@ -296,28 +290,22 @@ public class DataGridFlatVisualLayoutTests
 
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
             double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
-            long initialMeasureFastPaths = presenter.RetargetedRowsMeasureFastPathCount;
-            long initialArrangeFastPaths = presenter.RetargetedRowsArrangeFastPathCount;
-            long initialUniformScrollTargets = grid.UniformScrollTargetCount;
+            long initialLightweightScrolls = grid.LightweightVirtualScrollCount;
 
             presenter.Offset = new Vector(0, 400.5 * rowHeight);
             PumpLayout(grid);
 
-            Assert.True(grid.UniformScrollTargetCount > initialUniformScrollTargets);
-            Assert.True(presenter.RetargetedRowsMeasureFastPathCount > initialMeasureFastPaths);
-            Assert.Equal(initialArrangeFastPaths, presenter.RetargetedRowsArrangeFastPathCount);
+            Assert.True(grid.LightweightVirtualScrollCount > initialLightweightScrolls);
             Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
-            Assert.Equal(-rowHeight * 0.5, presenter.Children.OfType<DataGridRow>().First().Bounds.Y, precision: 3);
+            Assert.Equal(-rowHeight * 0.5, presenter.LightweightVirtualRows[0].Top, precision: 3);
 
-            long arrangeFastPathsAfterFractionChanged = presenter.RetargetedRowsArrangeFastPathCount;
-            long uniformScrollTargetsAfterFractionChanged = grid.UniformScrollTargetCount;
+            long lightweightScrollsAfterFractionChanged = grid.LightweightVirtualScrollCount;
             presenter.Offset = new Vector(0, 450.5 * rowHeight);
             PumpLayout(grid);
 
-            Assert.True(grid.UniformScrollTargetCount > uniformScrollTargetsAfterFractionChanged);
-            Assert.True(presenter.RetargetedRowsArrangeFastPathCount > arrangeFastPathsAfterFractionChanged);
+            Assert.True(grid.LightweightVirtualScrollCount > lightweightScrollsAfterFractionChanged);
             Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
-            Assert.Equal(-rowHeight * 0.5, presenter.Children.OfType<DataGridRow>().First().Bounds.Y, precision: 3);
+            Assert.Equal(-rowHeight * 0.5, presenter.LightweightVirtualRows[0].Top, precision: 3);
         }
         finally
         {
@@ -943,8 +931,8 @@ public class DataGridFlatVisualLayoutTests
             DataGridRowsPresenter presenter = GetRowsPresenter(grid);
             DataGridVirtualCellSurface surface = Assert.Single(
                 presenter.GetVisualChildren().OfType<DataGridVirtualCellSurface>());
-            DataGridRow row = presenter.Children.OfType<DataGridRow>().First();
-            Assert.True(presenter.TryGetVirtualCellBounds(row, grid.ColumnsInternal[0], out Rect bounds));
+            DataGridVirtualRowInfo row = presenter.LightweightVirtualRows[0];
+            Assert.True(presenter.TryGetVirtualCellBounds(row.Slot, grid.ColumnsInternal[0], out Rect bounds));
 
             var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
             var properties = new PointerPointProperties(
@@ -962,7 +950,7 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
 
             Assert.True(grid.CurrentCell.IsValid);
-            Assert.Same(row.DataContext, grid.CurrentCell.Item);
+            Assert.Same(row.Item, grid.CurrentCell.Item);
             Assert.Same(grid.ColumnsInternal[0], grid.CurrentCell.Column);
         }
         finally
