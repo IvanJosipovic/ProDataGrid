@@ -242,6 +242,12 @@ The prepared per-column renderer/accessor/style evidence is recorded in the
 [virtual column render-plan report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-COLUMN-RENDER-PLAN-RESULTS-2026-08-13.md).
 The overlapping-row value reuse and formatter-plan evidence is recorded in the
 [virtual row-value cache report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-VALUE-CACHE-RESULTS-2026-08-13.md).
+The same-commit legacy-retained versus current-virtual comparison is recorded in
+the
+[current virtual endpoint report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ENDPOINT-RESULTS-2026-08-13.md).
+It measures median paired Active-work reductions of 81.1% for discontinuous,
+51.3% for line, and 58.9% for fractional scrolling while preserving the same
+4,094-row extent and viewport.
 
 ### 4. Surface rendering
 

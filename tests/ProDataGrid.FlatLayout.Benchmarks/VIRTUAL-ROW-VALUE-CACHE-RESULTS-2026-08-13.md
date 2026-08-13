@@ -125,6 +125,12 @@ recording, compositor work, or refresh pacing. The conservative paired result is
 about 16% lower surface/Active work for line scrolling and a repeatable 8–11%
 allocation reduction for overlapping patterns.
 
+That statement applies to this incremental cache relative to commit `0495c8f5`.
+The matched current endpoint comparison against the legacy retained architecture
+does meet the complete target: −81.1% discontinuous, −51.3% line, and −58.9%
+fractional Active work. See the
+[current endpoint report](VIRTUAL-ENDPOINT-RESULTS-2026-08-13.md).
+
 The requested row recycling/generation target is structurally exhausted in this
 lane: both counters are zero. `ScrollSlotsByHeight` is already direct arithmetic
 plus bounded projection and is a small component. A materially larger next step

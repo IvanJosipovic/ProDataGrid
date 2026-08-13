@@ -294,6 +294,11 @@ The
 documents overlapping formatted-value reuse, invalidation, allocation, and the
 latest paired Active-work results.
 The
+[current virtual endpoint report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ENDPOINT-RESULTS-2026-08-13.md)
+compares the current legacy retained and rowless virtual architectures directly
+from one commit and records the final 50%-target decision across all three scroll
+patterns.
+The
 [flat retained-row report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
 separately covers guarded row-window rotation for `flat-direct-cell`, including
 same-slot fractional overscan and the drawn/discontinuous fallback checks.
