@@ -62,6 +62,161 @@ public class DataGridFlatVisualLayoutTests
         }
     }
 
+    [AvaloniaFact]
+    public void Flat_Layout_Line_Scroll_Retargets_Only_The_Entering_Row()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 50 * rowHeight);
+            PumpLayout(grid);
+            DataGridRow[] before = grid.DisplayData.GetScrollingRows().OfType<DataGridRow>().ToArray();
+            long retargetedBefore = grid.DisplayData.RetargetedRowCount;
+            long fastScrollsBefore = grid.FlatRowRetargetScrollCount;
+
+            presenter.Offset = new Vector(0, 51 * rowHeight);
+            PumpLayout(grid);
+
+            DataGridRow[] after = grid.DisplayData.GetScrollingRows().OfType<DataGridRow>().ToArray();
+            Assert.Equal(before.Length, after.Length);
+            Assert.Equal(retargetedBefore + 1, grid.DisplayData.RetargetedRowCount);
+            Assert.True(grid.FlatRowRetargetScrollCount > fastScrollsBefore);
+            Assert.Equal(before.Skip(1), after.Take(after.Length - 1));
+            Assert.Same(before[0], after[^1]);
+            Assert.All(after, row =>
+            {
+                Item item = Assert.IsType<Item>(row.DataContext);
+                Assert.Equal(row.Index, item.Id);
+                foreach (DataGridCell cell in row.Cells)
+                {
+                    Assert.Same(item, cell.DataContext);
+                }
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Flat_Layout_Fractional_Scroll_Keeps_The_Overscan_Row_Attached()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 50.625 * rowHeight);
+            PumpLayout(grid);
+            DataGridRow[] before = grid.DisplayData.GetScrollingRows().OfType<DataGridRow>().ToArray();
+            long retargetedBefore = grid.DisplayData.RetargetedRowCount;
+            long fastScrollsBefore = grid.FlatRowRetargetScrollCount;
+
+            presenter.Offset = new Vector(0, 50.375 * rowHeight);
+            PumpLayout(grid);
+
+            DataGridRow[] after = grid.DisplayData.GetScrollingRows().OfType<DataGridRow>().ToArray();
+            Assert.Equal(before, after);
+            Assert.Equal(retargetedBefore, grid.DisplayData.RetargetedRowCount);
+            Assert.True(grid.FlatRowRetargetScrollCount > fastScrollsBefore);
+            Assert.Equal(rowHeight * 0.375, grid.NegVerticalOffset, precision: 3);
+            Assert.All(after, row =>
+            {
+                foreach (DataGridCell cell in row.Cells)
+                {
+                    Assert.Same(row.DataContext, cell.DataContext);
+                }
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Flat_Layout_Drawn_Cells_Keep_The_Recycle_Path()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500,
+            useDrawnText: true);
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 50 * rowHeight);
+            PumpLayout(grid);
+            long fastScrollsBefore = grid.FlatRowRetargetScrollCount;
+            long retargetedBefore = grid.DisplayData.RetargetedRowCount;
+
+            presenter.Offset = new Vector(0, 51 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.Equal(fastScrollsBefore, grid.FlatRowRetargetScrollCount);
+            Assert.Equal(retargetedBefore, grid.DisplayData.RetargetedRowCount);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Flat_Layout_LoadingRow_Handler_Keeps_The_Recycle_Path()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.LoadingRow += static (_, _) => { };
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 50 * rowHeight);
+            PumpLayout(grid);
+            long fastScrollsBefore = grid.FlatRowRetargetScrollCount;
+            long retargetedBefore = grid.DisplayData.RetargetedRowCount;
+
+            presenter.Offset = new Vector(0, 51 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.Equal(fastScrollsBefore, grid.FlatRowRetargetScrollCount);
+            Assert.Equal(retargetedBefore, grid.DisplayData.RetargetedRowCount);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(DataGridTheme.SimpleFlat)]
     [InlineData(DataGridTheme.FluentFlat)]

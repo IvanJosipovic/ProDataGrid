@@ -193,6 +193,14 @@ The retained-row retarget path remains available to compatibility states and is
 still protected by its transactional validation, lifecycle, and layout-validity
 guards. It is no longer paid by the normal rowless virtual scroll workload.
 
+Separately, the exact built-in retained `Flat` path can rotate an overlapping
+fixed-height row window without detaching and reacquiring its controls. It rebinds
+only entering rows; a same-slot fractional move keeps the extra realized row as
+overscan without row lifecycle work. Drawn cells, discontinuous jumps, and
+feature-rich compatibility states continue through the normal guarded fallback.
+The component and clean-process results are recorded in the
+[flat retained-row report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md).
+
 The focused evidence for the typed retarget-entry buffer is recorded in the
 [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
 The follow-up evidence for batched lifecycle counters is recorded in the

@@ -23,6 +23,8 @@ namespace Avalonia.Controls
 
         internal long LightweightVirtualScrollCount { get; private set; }
 
+        internal long FlatRowRetargetScrollCount { get; private set; }
+
         private bool CanUseEstimatedScrollFastPath()
         {
             return RowDetailsVisibilityMode != DataGridRowDetailsVisibilityMode.VisibleWhenSelected || RowDetailsTemplate == null;
@@ -205,6 +207,11 @@ namespace Avalonia.Controls
             }
 
             if (TryScrollLightweightVirtualRows(height))
+            {
+                return;
+            }
+
+            if (TryScrollDefaultFlatRows(height))
             {
                 return;
             }
@@ -684,6 +691,70 @@ namespace Avalonia.Controls
             SetVerticalOffset(_verticalOffset);
             SyncLogicalScrollableOffset();
             LightweightVirtualScrollCount++;
+            return true;
+        }
+
+        private bool TryScrollDefaultFlatRows(double height)
+        {
+            if (!CanRetargetDefaultFlatRowsNow(out double rowHeight) ||
+                DisplayData.HasVirtualScrollingElements ||
+                DisplayData.NumDisplayedScrollingElements <= 0 ||
+                _rowsPresenter is null)
+            {
+                return false;
+            }
+
+            double viewportHeight = Math.Max(0, CellsEstimatedHeight);
+            double maximumOffset = Math.Max(0, (SlotCount * rowHeight) - viewportHeight);
+            double newVerticalOffset = Math.Clamp(_verticalOffset + height, 0, maximumOffset);
+            int firstSlot = Math.Min(
+                SlotCount - 1,
+                (int)Math.Floor(newVerticalOffset / rowHeight));
+            double negVerticalOffset = newVerticalOffset - (firstSlot * rowHeight);
+            if (MathUtilities.GreaterThanOrClose(negVerticalOffset, rowHeight))
+            {
+                firstSlot = Math.Min(SlotCount - 1, firstSlot + 1);
+                negVerticalOffset = 0;
+            }
+
+            int rowCount = DisplayData.NumDisplayedScrollingElements;
+            if (Math.Abs(firstSlot - DisplayData.FirstScrollingSlot) >= rowCount)
+            {
+                return false;
+            }
+
+            int requiredRows = Math.Max(
+                1,
+                (int)Math.Ceiling((viewportHeight + negVerticalOffset) / rowHeight));
+            if (rowCount < requiredRows || firstSlot + rowCount > SlotCount)
+            {
+                return false;
+            }
+
+            int lastSlot = firstSlot + rowCount - 1;
+            if (firstSlot != DisplayData.FirstScrollingSlot &&
+                !DisplayData.TryRetargetDefaultFlatRows(firstSlot, lastSlot, rowHeight))
+            {
+                return false;
+            }
+
+            NegVerticalOffset = Math.Max(0, negVerticalOffset);
+            _verticalOffset = newVerticalOffset;
+            double realizedHeight = (rowCount * rowHeight) - NegVerticalOffset;
+            bool clipsLastRow =
+                MathUtilities.GreaterThan(realizedHeight, viewportHeight) ||
+                (MathUtilities.AreClose(realizedHeight, viewportHeight) &&
+                 MathUtilities.GreaterThan(NegVerticalOffset, 0));
+            DisplayData.NumTotallyDisplayedScrollingElements =
+                clipsLastRow ? Math.Max(0, rowCount - 1) : rowCount;
+            AvailableSlotElementRoom = viewportHeight - realizedHeight;
+
+            _rowsPresenter.InvalidateChildIndexes();
+            _rowsPresenter.InvalidateArrange();
+            RequestPointerOverRefresh();
+            SetVerticalOffset(_verticalOffset);
+            SyncLogicalScrollableOffset();
+            FlatRowRetargetScrollCount++;
             return true;
         }
 

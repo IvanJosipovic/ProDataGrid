@@ -3,6 +3,8 @@
 
 #nullable enable
 
+using System.ComponentModel;
+
 using Avalonia.Collections;
 using Avalonia.Utilities;
 
@@ -163,6 +165,101 @@ partial class DataGrid
         }
 
         return true;
+    }
+
+    private bool CanRetargetDefaultFlatRowsNow(out double rowHeight)
+    {
+        rowHeight = double.NaN;
+        if (VisualLayoutMode != DataGridVisualLayoutMode.Flat ||
+            !UsesDefaultRealizationFactory ||
+            GetType() != typeof(DataGrid) ||
+            !double.IsFinite(RowHeight) ||
+            AreRowHeadersVisible ||
+            ShowRowNumbers ||
+            RowDetailsTemplate is not null ||
+            RowGroupHeadersTable.RangeCount != 0 ||
+            RowGroupFootersTable.RangeCount != 0 ||
+            !_collapsedSlotsTable.IsEmpty ||
+            (_conditionalFormattingModel?.Descriptors.Count ?? 0) > 0 ||
+            (_searchModel?.Descriptors.Count ?? 0) > 0 ||
+            HasLoadingRowHandlers() ||
+            HasUnloadingRowHandlers() ||
+            HasCellPreparedHandlers ||
+            HasCellClearingHandlers)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < ColumnsItemsInternal.Count; index++)
+        {
+            DataGridColumn column = ColumnsItemsInternal[index];
+            if (!column.CanReuseCellContentOnDataContextChange ||
+                column.UsesDrawnDisplay ||
+                column.Width.IsAuto ||
+                column.Width.IsSizeToCells)
+            {
+                return false;
+            }
+        }
+
+        rowHeight = DataGridRow.GetFlatDesiredHeight(this, RowHeight);
+        return double.IsFinite(rowHeight) && MathUtilities.GreaterThan(rowHeight, 0);
+    }
+
+    internal bool CanRetargetDefaultFlatRow(DataGridRow row, double rowHeight)
+    {
+        if (row.GetType() != typeof(DataGridRow) ||
+            !IsRowRecyclable(row) ||
+            row.IsKeyboardFocusWithin ||
+            row.Slot == CurrentSlot ||
+            row.Cells.Count != ColumnsItemsInternal.Count ||
+            !MathUtilities.AreClose(row.DesiredSize.Height, rowHeight))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < row.Cells.Count; index++)
+        {
+            if (!ReferenceEquals(row.Cells[index].OwningColumn, ColumnsItemsInternal[index]))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    internal void RetargetDefaultFlatRow(
+        DataGridRow row,
+        int slot,
+        int rowIndex,
+        object item)
+    {
+        row.ClearDragDropState();
+        row.Index = rowIndex;
+        row.Slot = slot;
+        row.DataContext = item;
+        row.IsPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
+        if (!row.IsValid)
+        {
+            row.IsValid = true;
+        }
+        if (row.ValidationSeverity != DataGridValidationSeverity.None)
+        {
+            row.ValidationSeverity = DataGridValidationSeverity.None;
+        }
+        if (item is INotifyDataErrorInfo)
+        {
+            RestoreRowValidationState(row, item);
+        }
+        row.UpdateFlatCellDataContexts();
+        if (CurrentColumnIndex >= 0 &&
+            CurrentColumnIndex < row.Cells.Count &&
+            CurrentSlot == slot)
+        {
+            row.Cells[CurrentColumnIndex].UpdatePseudoClasses();
+        }
+        row.ApplyState();
     }
 
     internal void RetargetDefaultVirtualRow(

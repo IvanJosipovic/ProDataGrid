@@ -82,7 +82,7 @@ The implementation preserves these invariants:
 | Concern | Invariant |
 |---|---|
 | Semantic ownership | `DataGridCell.OwningRow` and `OwningColumn` remain authoritative; each cell remains a logical child of its row. |
-| Container lifecycle | The existing display-data and realization-factory paths create, recycle, and unload rows and cells. |
+| Container lifecycle | The existing display-data and realization-factory paths create, recycle, and unload rows and cells. Eligible overlapping fixed-height `Flat` scrolls keep retained rows attached, rotate their logical order, and rebind only entering rows. |
 | Visual ownership | Every realized scrolling cell has `DataGridRowsPresenter` as its direct visual parent. |
 | Data context | A promoted cell mirrors its logical owning row's data context through a guarded local value; recycling updates it only when the item changes. |
 | Virtualization | Cells outside the realization window remain hidden in the bounded recycled pool; horizontally hidden cells are not measured or arranged. |
@@ -168,6 +168,21 @@ The keyed theme sets:
 - `UseLightweightFiller="True"`.
 
 Including `Flat.xaml` alone never changes the default theme of another grid.
+
+## Smooth retained-row scrolling
+
+The exact built-in `Flat` row path has a narrow optimization for fixed-height
+overlapping scroll windows. A one-row line scroll preserves every overlapping row
+identity, rotates the leaving row to the entering edge, and rebinds only that row.
+When a fractional move does not cross a slot boundary, the already-realized extra
+row remains attached as overscan and no row is rebound, generated, or recycled.
+
+The optimization is disabled for drawn cells, discontinuous jumps, current or
+focused leaving rows, derived grids or rows, custom factories, lifecycle handlers,
+row details or headers, grouping, search and conditional formatting, auto-sized
+columns, and non-reusable content. Those cases retain the established
+recycle/generate behavior. The paired component and clean-process evidence is in
+the [flat retained-row report](../../tests/ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md).
 
 ## Flat data and hierarchical data
 

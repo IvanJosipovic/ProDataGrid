@@ -289,3 +289,7 @@ fast path, and [the text-command batch report](../ProDataGrid.FlatLayout.Benchma
 for immutable glyph ownership and the paired UI/compositor result. The
 [virtual layout projection report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md)
 documents the direct `ScrollSlotsByHeight` projection and overlapping-item reuse.
+The
+[flat retained-row report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
+separately covers guarded row-window rotation for `flat-direct-cell`, including
+same-slot fractional overscan and the drawn/discontinuous fallback checks.

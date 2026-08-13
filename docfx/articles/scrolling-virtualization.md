@@ -76,6 +76,22 @@ Typical usage:
 
 A sample toggle UI is available on the "Resize recycling diagnostics" page in the sample app.
 
+## Fixed-height Flat Row Retargeting
+
+For an eligible retained `Flat` grid with fixed row height and reusable direct
+cells, an overlapping scroll window stays attached. Line scrolling rotates the
+existing rows and rebinds only the entering row instead of detaching, pooling,
+acquiring, preparing, and reinserting it. Fractional movement that remains within
+the same slot range keeps the extra realized row as overscan and performs no row
+bind, generation, or recycle work.
+
+This is a guarded optimization. Drawn cells, discontinuous jumps, active lifecycle
+handlers, row headers/details, grouping, search or conditional formatting,
+auto-sized columns, custom factories, and derived row/grid types continue through
+the established recycling path. See the
+[flat retained-row benchmark report](../../tests/ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
+for the exact guards and paired results.
+
 ## Row Height Estimators
 
 Scrolling with variable row heights is driven by pluggable estimators via `RowHeightEstimator`:

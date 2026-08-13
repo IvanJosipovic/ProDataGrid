@@ -27,6 +27,7 @@ namespace Avalonia.Controls
         private readonly List<Control> _scrollingElements;
         private readonly DataGrid _owner;
         private RetargetEntry[] _retargetEntries = Array.Empty<RetargetEntry>();
+        private Control[] _retargetElementOrder = Array.Empty<Control>();
         private bool _deferRecycledElementHiding;
         private DataGridRecycleReuseOrder _deferredReuseOrder;
         private int _deferredRecycleScopeDepth;
@@ -476,6 +477,114 @@ namespace Avalonia.Controls
             return true;
         }
 
+        internal bool TryRetargetDefaultFlatRows(
+            int firstSlot,
+            int lastSlot,
+            double rowHeight)
+        {
+            int rowCount = lastSlot - firstSlot + 1;
+            if (rowCount <= 0 || rowCount != _scrollingElements.Count)
+            {
+                return false;
+            }
+
+            int oldFirstSlot = FirstScrollingSlot;
+            if (_retargetElementOrder.Length < rowCount)
+            {
+                Array.Resize(ref _retargetElementOrder, rowCount);
+            }
+            int retargetCount = 0;
+
+            try
+            {
+                using (DataGridDiagnostics.BeginRowsRetargetValidation())
+                {
+                    for (int index = 0; index < rowCount; index++)
+                    {
+                        if (GetLogicalScrollingElement(index) is not DataGridRow orderedRow ||
+                            orderedRow.Slot != oldFirstSlot + index)
+                        {
+                            return false;
+                        }
+                    }
+
+                    int shift = firstSlot - oldFirstSlot;
+                    for (int index = 0; index < rowCount; index++)
+                    {
+                        int oldLogicalIndex = PositiveModulo(index + shift, rowCount);
+                        DataGridRow row = (DataGridRow)GetLogicalScrollingElement(oldLogicalIndex);
+                        _retargetElementOrder[index] = row;
+
+                        int targetSlot = firstSlot + index;
+                        if (row.Slot == targetSlot)
+                        {
+                            continue;
+                        }
+
+                        if (!_owner.CanRetargetDefaultFlatRow(row, rowHeight))
+                        {
+                            return false;
+                        }
+
+                        int rowIndex = _owner.RowIndexFromSlot(targetSlot);
+                        object item = _owner.DataConnection.GetDataItem(rowIndex);
+                        if (item is DataGridRow)
+                        {
+                            return false;
+                        }
+
+                        if (_retargetEntries.Length <= retargetCount)
+                        {
+                            Array.Resize(ref _retargetEntries, Math.Max(rowCount, retargetCount + 1));
+                        }
+                        _retargetEntries[retargetCount++] = new RetargetEntry(
+                            row,
+                            targetSlot,
+                            rowIndex,
+                            item);
+                    }
+                }
+
+                using (DataGridDiagnostics.BeginRowsRetargetBind())
+                {
+                    _scrollingElements.Clear();
+                    for (int index = 0; index < rowCount; index++)
+                    {
+                        _scrollingElements.Add(_retargetElementOrder[index]);
+                    }
+                    _headScrollingElements = 0;
+                    FirstScrollingSlot = firstSlot;
+                    LastScrollingSlot = lastSlot;
+                    for (int index = 0; index < retargetCount; index++)
+                    {
+                        ref RetargetEntry entry = ref _retargetEntries[index];
+                        entry.Row.ClearPointerOverState();
+                        _owner.RetargetDefaultFlatRow(
+                            entry.Row,
+                            entry.Slot,
+                            entry.RowIndex,
+                            entry.Item);
+                    }
+
+                    if (retargetCount > 0)
+                    {
+                        DataGridDiagnostics.RecordRowsRetargeted(retargetCount);
+                        DataGridDiagnostics.RecordRowsPrepared(retargetCount);
+                        DataGridDiagnostics.RecordRowsRealized(
+                            DataGridDiagnostics.Sources.Retargeted,
+                            retargetCount);
+                        RetargetedRowCount += retargetCount;
+                    }
+                }
+
+                return true;
+            }
+            finally
+            {
+                Array.Clear(_retargetElementOrder, 0, rowCount);
+            }
+        }
+
         private readonly record struct RetargetEntry(
             DataGridRow Row,
             int Slot,
@@ -716,6 +825,12 @@ namespace Avalonia.Controls
             int index = slot - FirstScrollingSlot - _headScrollingElements - 
                         _owner.GetCollapsedSlotCount(FirstScrollingSlot, slot);
             return wrap ? index % _scrollingElements.Count : index;
+        }
+
+        private static int PositiveModulo(int value, int divisor)
+        {
+            int remainder = value % divisor;
+            return remainder < 0 ? remainder + divisor : remainder;
         }
 
         private void ResetSlotIndexes()
