@@ -60,17 +60,25 @@ jobs:
             }
 
             foreach ($mode in $modes) {
+              $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+              Write-Host "Starting native benchmark process=$process mode=$mode"
               if ($mode -eq "tree") {
                 dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
-                  --warmup 2 --iterations 10 --output "$results/tree-$process.json"
+                  --warmup 2 --iterations 10 --output "$results/tree-$process.json" |
+                  Out-Null
                 if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid process $process failed." }
+                $stopwatch.Stop()
+                Write-Host "Completed native benchmark process=$process mode=$mode elapsed=$($stopwatch.Elapsed)"
                 continue
               }
 
               $env:GRID_BENCH_PRO_MODE = $mode
               dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
-                --warmup 2 --iterations 10 --output "$results/pro-$mode-$process.json"
+                --warmup 2 --iterations 10 --output "$results/pro-$mode-$process.json" |
+                Out-Null
               if ($LASTEXITCODE -ne 0) { throw "ProDataGrid $mode process $process failed." }
+              $stopwatch.Stop()
+              Write-Host "Completed native benchmark process=$process mode=$mode elapsed=$($stopwatch.Elapsed)"
             }
           }
           Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
