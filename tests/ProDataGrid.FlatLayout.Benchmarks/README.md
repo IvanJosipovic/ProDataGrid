@@ -85,3 +85,6 @@ the precomputed cell-clip evidence are documented in
 The retained Flat-mode overlapping-row and fractional-overscan optimization is
 documented in
 [FLAT-ROW-RETARGET-RESULTS-2026-08-13.md](FLAT-ROW-RETARGET-RESULTS-2026-08-13.md).
+The disjoint-window follow-up that removes full-viewport recycling and generation
+is documented in
+[FLAT-DISCONTINUOUS-RETARGET-RESULTS-2026-08-13.md](FLAT-DISCONTINUOUS-RETARGET-RESULTS-2026-08-13.md).

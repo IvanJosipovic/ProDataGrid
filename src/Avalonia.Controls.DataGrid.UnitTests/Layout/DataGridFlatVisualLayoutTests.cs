@@ -109,6 +109,51 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Flat_Layout_Discontinuous_Scroll_Retargets_The_Existing_Row_Window()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, 50 * rowHeight);
+            PumpLayout(grid);
+            DataGridRow[] before = grid.DisplayData.GetScrollingRows().OfType<DataGridRow>().ToArray();
+            long retargetedBefore = grid.DisplayData.RetargetedRowCount;
+            long fastScrollsBefore = grid.FlatRowRetargetScrollCount;
+
+            presenter.Offset = new Vector(0, 250 * rowHeight);
+            PumpLayout(grid);
+
+            DataGridRow[] after = grid.DisplayData.GetScrollingRows().OfType<DataGridRow>().ToArray();
+            Assert.Equal(before.Length, after.Length);
+            Assert.Equal(retargetedBefore + after.Length, grid.DisplayData.RetargetedRowCount);
+            Assert.True(grid.FlatRowRetargetScrollCount > fastScrollsBefore);
+            Assert.All(before, row => Assert.Contains(row, after));
+            Assert.All(after, row =>
+            {
+                Item item = Assert.IsType<Item>(row.DataContext);
+                Assert.Equal(row.Index, item.Id);
+                foreach (DataGridCell cell in row.Cells)
+                {
+                    Assert.Same(item, cell.DataContext);
+                }
+            });
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Flat_Layout_Fractional_Scroll_Keeps_The_Overscan_Row_Attached()
     {
         (Window window, DataGrid grid) = CreateGrid(

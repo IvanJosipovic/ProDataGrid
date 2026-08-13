@@ -293,3 +293,7 @@ The
 [flat retained-row report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
 separately covers guarded row-window rotation for `flat-direct-cell`, including
 same-slot fractional overscan and the drawn/discontinuous fallback checks.
+The
+[flat discontinuous-retarget report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-DISCONTINUOUS-RETARGET-RESULTS-2026-08-13.md)
+covers disjoint fixed-height row-window reuse, pointer-state lifecycle ordering,
+and the paired active-work and meter-free results.

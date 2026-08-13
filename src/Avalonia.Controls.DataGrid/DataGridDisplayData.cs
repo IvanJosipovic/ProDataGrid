@@ -508,10 +508,12 @@ namespace Avalonia.Controls
                         }
                     }
 
-                    int shift = firstSlot - oldFirstSlot;
+                    int shift = PositiveModulo(firstSlot - oldFirstSlot, rowCount);
                     for (int index = 0; index < rowCount; index++)
                     {
-                        int oldLogicalIndex = PositiveModulo(index + shift, rowCount);
+                        int oldLogicalIndex = index >= rowCount - shift
+                            ? index - (rowCount - shift)
+                            : index + shift;
                         DataGridRow row = (DataGridRow)GetLogicalScrollingElement(oldLogicalIndex);
                         _retargetElementOrder[index] = row;
 
@@ -521,6 +523,10 @@ namespace Avalonia.Controls
                             continue;
                         }
 
+                        // A row that leaves the displayed range cannot remain pointer-over.
+                        // Match the ordinary recycle path by clearing transient pointer state
+                        // before checking whether the retained row can be reused in place.
+                        row.ClearPointerOverState();
                         if (!_owner.CanRetargetDefaultFlatRow(row, rowHeight))
                         {
                             return false;

@@ -718,11 +718,6 @@ namespace Avalonia.Controls
             }
 
             int rowCount = DisplayData.NumDisplayedScrollingElements;
-            if (Math.Abs(firstSlot - DisplayData.FirstScrollingSlot) >= rowCount)
-            {
-                return false;
-            }
-
             int requiredRows = Math.Max(
                 1,
                 (int)Math.Ceiling((viewportHeight + negVerticalOffset) / rowHeight));
