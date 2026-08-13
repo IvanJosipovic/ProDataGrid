@@ -1074,6 +1074,50 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Surface_Uses_Precomputed_Frozen_Column_Clips_For_Bounds_And_Hit_Testing()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        grid.Width = 320;
+        grid.FrozenColumnCount = 1;
+        grid.FrozenColumnCountRight = 1;
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+            grid.UpdateHorizontalOffset(50);
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            DataGridVirtualCellSurface surface = Assert.Single(
+                presenter.GetVisualChildren().OfType<DataGridVirtualCellSurface>());
+            DataGridVirtualRowInfo row = presenter.LightweightVirtualRows[0];
+            DataGridColumn leftColumn = grid.ColumnsInternal[0];
+            DataGridColumn scrollingColumn = grid.ColumnsInternal[1];
+            DataGridColumn rightColumn = grid.ColumnsInternal[2];
+
+            Assert.True(presenter.TryGetVirtualCellBounds(row.Slot, leftColumn, out Rect leftBounds));
+            Assert.True(presenter.TryGetVirtualCellBounds(row.Slot, scrollingColumn, out Rect scrollingBounds));
+            Assert.True(presenter.TryGetVirtualCellBounds(row.Slot, rightColumn, out Rect rightBounds));
+
+            double frozenLeftWidth = grid.GetVisibleFrozenColumnsWidthLeft();
+            double rightFrozenStart = grid.CellsWidth - grid.GetVisibleFrozenColumnsWidthRight();
+            Assert.Equal(0, leftBounds.Left, precision: 3);
+            Assert.Equal(frozenLeftWidth, leftBounds.Right, precision: 3);
+            Assert.Equal(frozenLeftWidth, scrollingBounds.Left, precision: 3);
+            Assert.Equal(rightFrozenStart, scrollingBounds.Right, precision: 3);
+            Assert.Equal(rightFrozenStart, rightBounds.Left, precision: 3);
+            Assert.Equal(grid.CellsWidth, rightBounds.Right, precision: 3);
+            Assert.True(((Avalonia.Rendering.ICustomHitTest)surface).HitTest(scrollingBounds.Center));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Surface_Tracks_Visible_Item_Value_Changes()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);

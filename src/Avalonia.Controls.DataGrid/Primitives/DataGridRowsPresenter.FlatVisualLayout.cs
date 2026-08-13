@@ -313,7 +313,21 @@ sealed partial class DataGridRowsPresenter
                 rightFrozenEdge,
                 rightFrozenStart);
             column.ComputeLayoutRoundedWidth(layoutLeftEdge);
-            _flatColumnLayouts.Add(new FlatColumnLayout(column, cellLeftEdge, shouldDisplay));
+            double visibleLeftEdge = Math.Max(0, cellLeftEdge);
+            double visibleRightEdge = Math.Min(
+                grid.CellsWidth,
+                cellLeftEdge + column.LayoutRoundedWidth);
+            if (!column.IsFrozen)
+            {
+                visibleLeftEdge = Math.Max(visibleLeftEdge, frozenLeftEdge);
+                visibleRightEdge = Math.Min(visibleRightEdge, rightFrozenStart);
+            }
+            _flatColumnLayouts.Add(new FlatColumnLayout(
+                column,
+                cellLeftEdge,
+                shouldDisplay,
+                visibleLeftEdge,
+                Math.Max(0, visibleRightEdge - visibleLeftEdge)));
 
             if (column.IsFrozenLeft)
             {
@@ -419,5 +433,7 @@ sealed partial class DataGridRowsPresenter
     private readonly record struct FlatColumnLayout(
         DataGridColumn Column,
         double Left,
-        bool ShouldDisplay);
+        bool ShouldDisplay,
+        double VisibleLeft,
+        double VisibleWidth);
 }

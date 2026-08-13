@@ -78,3 +78,7 @@ documented in
 [VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md](VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md)
 and
 [VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md](VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md).
+
+The discontinuous, line, and fractional virtual-scroll workload definitions plus
+the precomputed cell-clip evidence are documented in
+[VIRTUAL-SMOOTH-SCROLL-RESULTS-2026-08-13.md](VIRTUAL-SMOOTH-SCROLL-RESULTS-2026-08-13.md).

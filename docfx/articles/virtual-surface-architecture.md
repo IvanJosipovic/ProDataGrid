@@ -175,8 +175,10 @@ During arrange it:
 3. synchronizes visible value-change subscriptions.
 
 Column layout records contain the resolved column, its presenter-relative left
-edge, and horizontal visibility. Frozen-left, scrolling, and frozen-right regions
-are resolved once rather than once per row.
+edge, horizontal visibility, and the final visible left edge and width after cells-
+viewport and frozen-region clipping. Frozen-left, scrolling, and frozen-right
+regions are resolved once per column-layout pass rather than once per visible cell
+during rendering, hit testing, and bounds lookup.
 
 ### Discontinuous fixed-height scrolling
 
@@ -205,6 +207,9 @@ Surface render attribution and the empty-selection fast path are recorded in the
 [virtual surface render report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md).
 The follow-up text command ownership and measurement are recorded in the
 [virtual surface text-batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md).
+Smooth-scroll workload coverage and the precomputed cell-clip evidence are recorded
+in the
+[virtual smooth-scroll report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SMOOTH-SCROLL-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 
@@ -214,8 +219,8 @@ lightweight visible-row records and visible column-layout records.
 
 For each cell the presenter:
 
-1. derives its rectangle from record top/height, row-header width, and column layout;
-2. intersects it with the cells viewport and frozen regions;
+1. derives its rectangle from record top/height and the precomputed column layout;
+2. reads the column layout's precomputed cells-viewport and frozen-region clip;
 3. draws selection background when selected;
 4. reads the value through the column's typed provider/accessor;
 5. draws text, checkbox, date/time text, image, progress, or hierarchy content;

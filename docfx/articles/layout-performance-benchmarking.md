@@ -31,8 +31,16 @@ The native hierarchy scroll workload uses:
 - fixed 24-pixel rows;
 - five matched explicit-width columns;
 - an expanded 4,094-row binary hierarchy;
-- 32 deterministic equal-distance offsets per iteration; and
+- 32 deterministic scroll operations per iteration using one declared pattern; and
 - a fully rendered and aligned state before each measured sample.
+
+The native harness exposes three scroll patterns. `discontinuous` is the default
+worst-case projection workload and jumps to deterministic distant rows. `line`
+prepositions outside measurement and then advances exactly one fixed-height row per
+operation, so 19 of 20 visible item references normally overlap. `fractional`
+alternates fractional offsets inside one row, so the visible slot range is unchanged
+and all visible item references overlap. Reports must name the pattern; results from
+different patterns answer different ownership questions and are not pooled.
 
 The larger collapse workload expands 149,792 nodes before setup and collapses to 32
 roots. BenchmarkDotNet and sample-specific suites document their own viewport and
@@ -210,7 +218,8 @@ DOTNET_TieredCompilation=0 \
 GRID_BENCH_PRO_MODE=virtual \
 dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
-  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --scroll-only --scroll-pattern line --scroll-jumps 32 \
+  --warmup 2 --iterations 10 \
   --output artifacts/performance/virtual-scroll.json
 ```
 
@@ -251,6 +260,10 @@ For fixed-height virtual-scroll work, compare
 complete active-work score. A faster target lookup is accepted only when the
 application-level active components also improve; full frame wait remains a
 separate refresh-pacing diagnostic.
+Use discontinuous, line, and fractional processes to separate complete projection
+replacement, adjacent overlap, and same-range geometry updates. The eligible
+rowless lane must continue to validate zero realized rows and zero realized cells in
+all three cases.
 Use `virtual-checkbox` to exercise the mixed text/hierarchy/checkbox surface lane.
 Use `virtual-autocomplete` to compare retained autocomplete display text with its
 typed zero-cell surface path; suggestion/filter behavior remains outside the

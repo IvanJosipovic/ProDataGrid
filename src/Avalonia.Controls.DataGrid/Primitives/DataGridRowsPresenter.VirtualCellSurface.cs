@@ -437,8 +437,8 @@ sealed partial class DataGridRowsPresenter
                 continue;
             }
 
-            Rect cellBounds = GetVirtualCellBounds(grid, row, layout);
-            Rect visibleBounds = GetVisibleVirtualCellBounds(grid, column, cellBounds);
+            Rect cellBounds = GetVirtualCellBounds(row, layout);
+            Rect visibleBounds = GetVisibleVirtualCellBounds(row, layout);
             if (visibleBounds.Width <= 0d || visibleBounds.Height <= 0d)
             {
                 continue;
@@ -915,7 +915,7 @@ sealed partial class DataGridRowsPresenter
         if (column is DataGridHierarchicalColumn && row.Item is HierarchicalNode node && !node.IsLeaf)
         {
             FlatColumnLayout layout = FindFlatColumnLayout(column);
-            double expanderLeft = GetVirtualCellBounds(grid, row, layout).Left +
+            double expanderLeft = GetVirtualCellBounds(row, layout).Left +
                 (Math.Max(0, node.Level) * ((DataGridHierarchicalColumn)column).Indent);
             if (point.X >= expanderLeft && point.X <= expanderLeft + VirtualExpanderSize)
             {
@@ -947,7 +947,7 @@ sealed partial class DataGridRowsPresenter
         {
             for (int index = 0; index < _lightweightVirtualRows.Count; index++)
             {
-                if (TryHitVirtualRow(point, grid, _lightweightVirtualRows[index], out column))
+                if (TryHitVirtualRow(point, _lightweightVirtualRows[index], out column))
                 {
                     row = _lightweightVirtualRows[index];
                     return true;
@@ -965,7 +965,7 @@ sealed partial class DataGridRowsPresenter
                 candidate.DataContext!,
                 candidate.Bounds.Top,
                 candidate.GetFlatCellsHeight());
-            if (TryHitVirtualRow(point, grid, candidateInfo, out column))
+            if (TryHitVirtualRow(point, candidateInfo, out column))
             {
                 row = candidateInfo;
                 return true;
@@ -977,7 +977,6 @@ sealed partial class DataGridRowsPresenter
 
     private bool TryHitVirtualRow(
         Point point,
-        DataGrid grid,
         DataGridVirtualRowInfo candidate,
         out DataGridColumn? column)
     {
@@ -995,8 +994,7 @@ sealed partial class DataGridRowsPresenter
                 continue;
             }
 
-            Rect cellBounds = GetVirtualCellBounds(grid, candidate, layout);
-            if (GetVisibleVirtualCellBounds(grid, layout.Column, cellBounds).Contains(point))
+            if (GetVisibleVirtualCellBounds(candidate, layout).Contains(point))
             {
                 column = layout.Column;
                 return true;
@@ -1020,38 +1018,26 @@ sealed partial class DataGridRowsPresenter
         return default;
     }
 
-    private static Rect GetVirtualCellBounds(
-        DataGrid grid,
+    private Rect GetVirtualCellBounds(
         DataGridVirtualRowInfo row,
         FlatColumnLayout layout)
     {
-        double headerWidth = grid.AreRowHeadersVisible ? grid.RowHeadersDesiredWidth : 0d;
         return new Rect(
-            headerWidth + layout.Left,
+            _flatHeaderWidth + layout.Left,
             row.Top,
             layout.Column.LayoutRoundedWidth,
             row.Height);
     }
 
-    private static Rect GetVisibleVirtualCellBounds(
-        DataGrid grid,
-        DataGridColumn column,
-        Rect bounds)
+    private Rect GetVisibleVirtualCellBounds(
+        DataGridVirtualRowInfo row,
+        FlatColumnLayout layout)
     {
-        double headerWidth = grid.AreRowHeadersVisible ? grid.RowHeadersDesiredWidth : 0d;
-        double left = Math.Max(bounds.Left, headerWidth);
-        double right = Math.Min(bounds.Right, headerWidth + grid.CellsWidth);
-        if (!column.IsFrozen)
-        {
-            left = Math.Max(left, headerWidth + grid.GetVisibleFrozenColumnsWidthLeft());
-            double frozenRight = grid.GetVisibleFrozenColumnsWidthRight();
-            if (frozenRight > 0d)
-            {
-                right = Math.Min(right, headerWidth + Math.Max(0d, grid.CellsWidth - frozenRight));
-            }
-        }
-
-        return new Rect(left, bounds.Top, Math.Max(0d, right - left), bounds.Height);
+        return new Rect(
+            _flatHeaderWidth + layout.VisibleLeft,
+            row.Top,
+            layout.VisibleWidth,
+            row.Height);
     }
 
     internal bool TryGetVirtualCellBounds(DataGridRow row, DataGridColumn column, out Rect bounds)
@@ -1070,18 +1056,14 @@ sealed partial class DataGridRowsPresenter
         }
 
         bounds = GetVisibleVirtualCellBounds(
-            grid,
-            column,
-            GetVirtualCellBounds(
-                grid,
-                new DataGridVirtualRowInfo(
-                    row,
-                    row.Slot,
-                    row.Index,
-                    row.DataContext!,
-                    row.Bounds.Top,
-                    row.GetFlatCellsHeight()),
-                layout));
+            new DataGridVirtualRowInfo(
+                row,
+                row.Slot,
+                row.Index,
+                row.DataContext!,
+                row.Bounds.Top,
+                row.GetFlatCellsHeight()),
+            layout);
         return bounds.Width > 0d && bounds.Height > 0d;
     }
 
@@ -1108,10 +1090,7 @@ sealed partial class DataGridRowsPresenter
                 continue;
             }
 
-            bounds = GetVisibleVirtualCellBounds(
-                grid,
-                column,
-                GetVirtualCellBounds(grid, row, layout));
+            bounds = GetVisibleVirtualCellBounds(row, layout);
             return bounds.Width > 0d && bounds.Height > 0d;
         }
 
