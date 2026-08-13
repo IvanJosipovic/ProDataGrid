@@ -15,6 +15,7 @@ using Avalonia.Data;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -465,6 +466,52 @@ public class DataGridFlatVisualLayoutTests
             Assert.Empty(presenter.Children.OfType<DataGridRow>());
             Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
             Assert.Equal(1, presenter.VirtualSurfaceCount);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Surface_Reuses_Values_For_Overlapping_Lightweight_Rows()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 500);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+            Render(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            int visibleRows = presenter.LightweightVirtualRowCount;
+            Assert.True(visibleRows > 1);
+            Assert.Equal(visibleRows, presenter.VirtualRowValueCacheCount);
+            Assert.True(presenter.VirtualCellValueCacheMissCount >= visibleRows * 3L);
+
+            long hitsBefore = presenter.VirtualCellValueCacheHitCount;
+            long missesBefore = presenter.VirtualCellValueCacheMissCount;
+            double rowHeight = DataGridRow.GetFlatDesiredHeight(grid, grid.RowHeight);
+            presenter.Offset = new Vector(0, rowHeight);
+            PumpLayout(grid);
+            Render(grid);
+
+            Assert.True(
+                presenter.VirtualCellValueCacheHitCount - hitsBefore >= (visibleRows - 1) * 3L);
+            Assert.True(presenter.VirtualCellValueCacheMissCount - missesBefore >= 3L);
+
+            missesBefore = presenter.VirtualCellValueCacheMissCount;
+            ((DataGridTextColumn)grid.ColumnsInternal[0]).FontSize = 18d;
+            Render(grid);
+
+            Assert.True(
+                presenter.VirtualCellValueCacheMissCount - missesBefore >= visibleRows * 3L);
+            Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
         }
         finally
         {
@@ -1334,10 +1381,14 @@ public class DataGridFlatVisualLayoutTests
             int changeCount = presenter.VirtualValueChangeCount;
 
             Item item = grid.ItemsSource!.Cast<Item>().First();
+            long missesBefore = presenter.VirtualCellValueCacheMissCount;
             item.Name = "Updated";
             Dispatcher.UIThread.RunJobs();
 
             Assert.Equal(changeCount + 1, presenter.VirtualValueChangeCount);
+            PumpLayout(grid);
+            Render(grid);
+            Assert.True(presenter.VirtualCellValueCacheMissCount > missesBefore);
         }
         finally
         {
@@ -1467,6 +1518,7 @@ public class DataGridFlatVisualLayoutTests
             PumpLayout(grid);
             Assert.True(grid.UsesVirtualCellSurfaceFallback);
             Assert.Equal(0, presenter.VirtualColumnRenderPlanCount);
+            Assert.Equal(0, presenter.VirtualRowValueCacheCount);
             Assert.NotEmpty(presenter.GetVisualDescendants().OfType<DataGridCell>());
 
             grid.ColumnsInternal[0].Width = new DataGridLength(80);
@@ -1770,6 +1822,14 @@ public class DataGridFlatVisualLayoutTests
         control.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
         control.UpdateLayout();
+    }
+
+    private static void Render(Control control)
+    {
+        int width = Math.Max(1, (int)Math.Ceiling(control.Bounds.Width));
+        int height = Math.Max(1, (int)Math.Ceiling(control.Bounds.Height));
+        using var bitmap = new RenderTargetBitmap(new PixelSize(width, height), new Vector(96, 96));
+        bitmap.Render(control);
     }
 
     private sealed class Item : INotifyPropertyChanged

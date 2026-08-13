@@ -182,12 +182,23 @@ during rendering, hit testing, and bounds lookup.
 
 Immediately before recording the surface, the presenter derives a compact render
 plan for each visible column. A plan snapshots the column layout, renderer kind,
-typed value provider/accessor, text style and alignment, culture identifier, and
-brush cache-key identity for that render pass. The row loop traverses the plans as
-a contiguous read-only span and consumes each value by reference. Column type
-selection and attached-property metadata lookup therefore happen once per column,
-not once per row/cell. The plan is transient prepared state: the DataGrid column
-remains the source of truth and property changes are observed on the next render.
+typed value provider/accessor, text converter/parameter/format/culture, text style
+and alignment, and brush cache-key identity for that render pass. The row loop
+traverses the plans as a contiguous read-only span and consumes each value by
+reference. Column type selection, attached-property metadata lookup, and binding
+formatter lookup therefore happen once per column, not once per row/cell. The plan
+is transient prepared state: the DataGrid column remains the source of truth and
+property changes are observed on the next render.
+
+The presenter also owns a value cache aligned to the bounded lightweight row
+window. A cache entry contains only the projected item reference and one value per
+visible render plan; it does not contain a row, cell, binding, or visual. Slot and
+item identity preserve entries across overlapping scroll projections. Entering
+rows reuse storage released by leaving rows. A render-plan version invalidates the
+window when visible column state changes, while the tracked value-change version
+invalidates it when a subscribed item reports a display-value change. Detaching
+the surface, entering retained fallback, or clearing lightweight rows clears both
+item and value references.
 
 ### Discontinuous fixed-height scrolling
 
@@ -229,6 +240,8 @@ in the
 [virtual smooth-scroll report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SMOOTH-SCROLL-RESULTS-2026-08-13.md).
 The prepared per-column renderer/accessor/style evidence is recorded in the
 [virtual column render-plan report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-COLUMN-RENDER-PLAN-RESULTS-2026-08-13.md).
+The overlapping-row value reuse and formatter-plan evidence is recorded in the
+[virtual row-value cache report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-VALUE-CACHE-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 
@@ -241,7 +254,8 @@ For each cell the presenter:
 1. derives its rectangle from record top/height and the precomputed column layout;
 2. reads the plan's precomputed cells-viewport and frozen-region clip;
 3. draws selection background when selected;
-4. reads the value through the plan's cached typed provider/accessor;
+4. reads the value from the row-aligned cache, resolving it through the plan's
+   typed provider/accessor only on a cache miss;
 5. draws text, checkbox, date/time text, image, progress, or hierarchy content;
 6. draws current-cell chrome; and
 7. draws a vertical grid line when enabled.

@@ -64,6 +64,10 @@ A separate diagnostic process enables Avalonia meters and records:
 - compositor update duration; and
 - compositor render duration.
 
+The rowless surface additionally records visible-value cache hits and misses.
+These counters prove whether an overlap optimization executed; they are not timing
+phases and are never added to Active work.
+
 The diagnostic process is not used as a clean timing gate because meter collection
 adds overhead.
 

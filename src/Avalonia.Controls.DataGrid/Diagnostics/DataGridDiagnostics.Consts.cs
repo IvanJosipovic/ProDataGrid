@@ -114,6 +114,12 @@ internal static partial class DataGridDiagnostics
         public const string VirtualSurfaceExpanderDrawOperationCountName = "prodatagrid.virtual.surface.expander.draw-operation.count";
         public const string VirtualSurfaceExpanderDrawOperationCountDescription = "Number of expander drawing operations recorded by the virtual cell surface.";
 
+        public const string VirtualSurfaceValueCacheHitCountName = "prodatagrid.virtual.surface.value-cache.hit.count";
+        public const string VirtualSurfaceValueCacheHitCountDescription = "Number of visible cell values reused from overlapping lightweight virtual rows.";
+
+        public const string VirtualSurfaceValueCacheMissCountName = "prodatagrid.virtual.surface.value-cache.miss.count";
+        public const string VirtualSurfaceValueCacheMissCountDescription = "Number of visible cell values resolved or formatted for new or invalidated lightweight virtual rows.";
+
         public const string RowGenerateTimeName = "prodatagrid.rows.generate.time";
         public const string RowGenerateTimeDescription = "Duration of row generation and preparation.";
 

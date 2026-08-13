@@ -13,6 +13,9 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Documents;
+using Avalonia.Controls.Utils;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.TextFormatting;
@@ -49,6 +52,8 @@ sealed partial class DataGridRowsPresenter
         public int TextDrawOperations;
         public int TextGlyphRuns;
         public int ExpanderDrawOperations;
+        public int ValueCacheHits;
+        public int ValueCacheMisses;
     }
 
     private readonly record struct DataGridVirtualCellOverlay(
@@ -63,7 +68,15 @@ sealed partial class DataGridRowsPresenter
         new(VirtualTextLayoutCacheCapacity);
     private readonly List<DataGridVirtualTextDrawCommand> _virtualTextDrawCommands = new();
     private readonly List<DataGridVirtualCellOverlay> _virtualCellOverlays = new();
-    private readonly List<DataGridVirtualColumnRenderPlan> _virtualColumnRenderPlans = new();
+    private List<DataGridVirtualColumnRenderPlan> _virtualColumnRenderPlans = new();
+    private List<DataGridVirtualColumnRenderPlan> _nextVirtualColumnRenderPlans = new();
+    private int _virtualColumnRenderPlanVersion;
+    private DataGridVirtualRowValueCacheEntry?[] _virtualRowValueCache =
+        Array.Empty<DataGridVirtualRowValueCacheEntry?>();
+    private DataGridVirtualRowValueCacheEntry?[] _nextVirtualRowValueCache =
+        Array.Empty<DataGridVirtualRowValueCacheEntry?>();
+    private int _virtualRowValueCacheCount;
+    private int _virtualRowValueCacheFirstSlot = -1;
     private HashSet<INotifyPropertyChanged> _virtualValueNotifiers =
         new(ReferenceEqualityComparer.Instance);
     private HashSet<INotifyPropertyChanged> _nextVirtualValueNotifiers =
@@ -78,9 +91,15 @@ sealed partial class DataGridRowsPresenter
 
     internal int VirtualColumnRenderPlanCount => _virtualColumnRenderPlans.Count;
 
+    internal int VirtualRowValueCacheCount => _virtualRowValueCacheCount;
+
     internal int VirtualTrackedValueNotifierCount => _virtualValueNotifiers.Count;
 
     internal int VirtualValueChangeCount => Volatile.Read(ref _virtualValueChangeCount);
+
+    internal long VirtualCellValueCacheHitCount { get; private set; }
+
+    internal long VirtualCellValueCacheMissCount { get; private set; }
 
     internal int LightweightVirtualRowCount => _lightweightVirtualRows.Count;
 
@@ -216,6 +235,7 @@ sealed partial class DataGridRowsPresenter
         _lightweightVirtualRows.Clear();
         Array.Clear(_lightweightVirtualRowBuffer, 0, _lightweightVirtualRowBufferCount);
         _lightweightVirtualRowBufferCount = 0;
+        ClearVirtualRowValueCache();
         ClearVirtualValueNotifiers();
     }
 
@@ -264,6 +284,8 @@ sealed partial class DataGridRowsPresenter
     private void DetachVirtualCellSurface()
     {
         _virtualColumnRenderPlans.Clear();
+        _nextVirtualColumnRenderPlans.Clear();
+        ClearVirtualRowValueCache();
 
         if (_virtualCellSurface is null)
         {
@@ -320,6 +342,10 @@ sealed partial class DataGridRowsPresenter
 
         ResolveVirtualTextStyle(out FontFamily fontFamily, out double fontSize, out IBrush foreground);
         PrepareVirtualColumnRenderPlans(fontFamily, fontSize, foreground);
+        if (grid.DisplayData.HasVirtualScrollingElements)
+        {
+            PrepareVirtualRowValueCache(ref counters);
+        }
         IBrush? selectedBackground = FindVirtualResource<IBrush>(
             grid.IsKeyboardFocusWithin
                 ? "DataGridCellSelectedBackgroundBrush"
@@ -335,7 +361,8 @@ sealed partial class DataGridRowsPresenter
         {
             for (int index = 0; index < _lightweightVirtualRows.Count; index++)
             {
-                DrawVirtualRow(context, grid, _lightweightVirtualRows[index], expanderPen,
+                DrawVirtualRow(context, grid, _lightweightVirtualRows[index],
+                    _virtualRowValueCache[index], expanderPen,
                     selectedBackground, currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, ref counters);
             }
@@ -351,7 +378,7 @@ sealed partial class DataGridRowsPresenter
                     row.DataContext!,
                     row.Bounds.Top,
                     row.GetFlatCellsHeight());
-                DrawVirtualRow(context, grid, rowInfo, expanderPen, selectedBackground,
+                DrawVirtualRow(context, grid, rowInfo, null, expanderPen, selectedBackground,
                     currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, ref counters);
             }
@@ -403,13 +430,16 @@ sealed partial class DataGridRowsPresenter
             counters.TextLayoutCacheMisses,
             counters.TextDrawOperations,
             counters.TextGlyphRuns,
-            counters.ExpanderDrawOperations);
+            counters.ExpanderDrawOperations,
+            counters.ValueCacheHits,
+            counters.ValueCacheMisses);
     }
 
     private void DrawVirtualRow(
         DrawingContext context,
         DataGrid grid,
         DataGridVirtualRowInfo row,
+        DataGridVirtualRowValueCacheEntry? valueCache,
         Pen expanderPen,
         IBrush? selectedBackground,
         Pen? currentPen,
@@ -447,10 +477,13 @@ sealed partial class DataGridRowsPresenter
             }
 
             counters.Cells++;
+            object? value = valueCache is null
+                ? GetVirtualCellValue(plan, row.Item)
+                : valueCache.Values[planIndex];
 
             if (AreClose(cellBounds, visibleBounds))
             {
-                DrawVirtualCell(context, grid, row, plan, cellBounds, expanderPen,
+                DrawVirtualCell(context, grid, row, plan, value, cellBounds, expanderPen,
                     selectedBackground, currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, currentColumnIndex, null, ref counters);
                 continue;
@@ -459,7 +492,7 @@ sealed partial class DataGridRowsPresenter
             counters.Clips++;
             using (context.PushClip(visibleBounds))
             {
-                DrawVirtualCell(context, grid, row, plan, cellBounds, expanderPen,
+                DrawVirtualCell(context, grid, row, plan, value, cellBounds, expanderPen,
                     selectedBackground, currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, currentColumnIndex, visibleBounds, ref counters);
             }
@@ -471,6 +504,7 @@ sealed partial class DataGridRowsPresenter
         DataGrid grid,
         DataGridVirtualRowInfo row,
         in DataGridVirtualColumnRenderPlan plan,
+        object? value,
         Rect cellBounds,
         Pen expanderPen,
         IBrush? selectedBackground,
@@ -495,6 +529,7 @@ sealed partial class DataGridRowsPresenter
             grid,
             row,
             plan,
+            value,
             cellBounds,
             expanderPen,
             textClip,
@@ -540,6 +575,7 @@ sealed partial class DataGridRowsPresenter
         DataGrid grid,
         DataGridVirtualRowInfo row,
         in DataGridVirtualColumnRenderPlan plan,
+        object? value,
         Rect bounds,
         Pen expanderPen,
         Rect? textClip,
@@ -547,7 +583,6 @@ sealed partial class DataGridRowsPresenter
     {
         DataGridColumn column = plan.Layout.Column;
         object? item = row.Item;
-        object? value = GetVirtualCellValue(plan, item);
 
         if (plan.Kind == DataGridVirtualCellKind.Progress)
         {
@@ -620,18 +655,20 @@ sealed partial class DataGridRowsPresenter
     private object? GetVirtualCellValue(in DataGridVirtualColumnRenderPlan plan, object? item)
     {
         DataGridColumn column = plan.Layout.Column;
-        if (plan.Kind == DataGridVirtualCellKind.Hierarchical)
+        if (item is not null &&
+            plan.ValueAccessor is IDataGridColumnTextAccessor textAccessor &&
+            (plan.Kind == DataGridVirtualCellKind.Hierarchical || column is DataGridTextColumn))
         {
-            var hierarchicalColumn = (DataGridHierarchicalColumn)column;
-            return plan.ValueAccessor is IDataGridColumnTextAccessor textAccessor
-                ? hierarchicalColumn.GetDirectText(item, textAccessor)
-                : hierarchicalColumn.GetDirectText(item);
-        }
-
-        if (column is DataGridTextColumn textColumn &&
-            plan.ValueAccessor is IDataGridColumnTextAccessor directTextAccessor)
-        {
-            return textColumn.GetDirectCellText(item, directTextAccessor);
+            return textAccessor.TryGetText(
+                item,
+                plan.TextConverter,
+                plan.TextConverterParameter,
+                plan.TextStringFormat,
+                plan.TextCulture,
+                plan.TextCulture,
+                out string? text)
+                ? text
+                : null;
         }
 
         if (item is not null && plan.ValueProvider is { } provider)
@@ -648,12 +685,141 @@ sealed partial class DataGridRowsPresenter
         return null;
     }
 
+    private void PrepareVirtualRowValueCache(ref DataGridVirtualSurfaceRenderCounters counters)
+    {
+        int rowCount = _lightweightVirtualRows.Count;
+        int columnCount = _virtualColumnRenderPlans.Count;
+        if (rowCount == 0 || columnCount == 0)
+        {
+            ClearVirtualRowValueCache();
+            return;
+        }
+
+        EnsureVirtualRowValueCacheCapacity(rowCount);
+
+        int previousCount = _virtualRowValueCacheCount;
+        int previousFirstSlot = _virtualRowValueCacheFirstSlot;
+        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        {
+            DataGridVirtualRowInfo row = _lightweightVirtualRows[rowIndex];
+            int previousIndex = row.Slot - previousFirstSlot;
+            if ((uint)previousIndex >= (uint)previousCount)
+            {
+                continue;
+            }
+
+            DataGridVirtualRowValueCacheEntry? entry = _virtualRowValueCache[previousIndex];
+            if (entry is null || !ReferenceEquals(entry.Item, row.Item))
+            {
+                continue;
+            }
+
+            _nextVirtualRowValueCache[rowIndex] = entry;
+            _virtualRowValueCache[previousIndex] = null;
+        }
+
+        int reusableIndex = 0;
+        int valueChangeVersion = VirtualValueChangeCount;
+        for (int rowIndex = 0; rowIndex < rowCount; rowIndex++)
+        {
+            DataGridVirtualRowInfo row = _lightweightVirtualRows[rowIndex];
+            DataGridVirtualRowValueCacheEntry? entry = _nextVirtualRowValueCache[rowIndex];
+            if (entry is null)
+            {
+                while (reusableIndex < previousCount && _virtualRowValueCache[reusableIndex] is null)
+                {
+                    reusableIndex++;
+                }
+
+                if (reusableIndex < previousCount)
+                {
+                    entry = _virtualRowValueCache[reusableIndex];
+                    _virtualRowValueCache[reusableIndex] = null;
+                    reusableIndex++;
+                }
+                else
+                {
+                    entry = new DataGridVirtualRowValueCacheEntry();
+                }
+
+                _nextVirtualRowValueCache[rowIndex] = entry;
+            }
+
+            if (entry.IsValid(
+                    row.Item,
+                    _virtualColumnRenderPlanVersion,
+                    valueChangeVersion,
+                    columnCount))
+            {
+                counters.ValueCacheHits += columnCount;
+                continue;
+            }
+
+            entry.Prepare(
+                row.Item,
+                _virtualColumnRenderPlanVersion,
+                valueChangeVersion,
+                columnCount);
+            for (int planIndex = 0; planIndex < columnCount; planIndex++)
+            {
+                entry.Values[planIndex] = GetVirtualCellValue(
+                    _virtualColumnRenderPlans[planIndex],
+                    row.Item);
+            }
+
+            counters.ValueCacheMisses += columnCount;
+        }
+
+        Array.Clear(_virtualRowValueCache, 0, previousCount);
+        (_virtualRowValueCache, _nextVirtualRowValueCache) =
+            (_nextVirtualRowValueCache, _virtualRowValueCache);
+        _virtualRowValueCacheCount = rowCount;
+        _virtualRowValueCacheFirstSlot = _lightweightVirtualRows[0].Slot;
+        VirtualCellValueCacheHitCount += counters.ValueCacheHits;
+        VirtualCellValueCacheMissCount += counters.ValueCacheMisses;
+    }
+
+    private void EnsureVirtualRowValueCacheCapacity(int count)
+    {
+        if (_virtualRowValueCache.Length < count)
+        {
+            Array.Resize(ref _virtualRowValueCache, count);
+        }
+
+        if (_nextVirtualRowValueCache.Length < count)
+        {
+            Array.Resize(ref _nextVirtualRowValueCache, count);
+        }
+        else
+        {
+            Array.Clear(_nextVirtualRowValueCache, 0, count);
+        }
+    }
+
+    private void ClearVirtualRowValueCache()
+    {
+        for (int index = 0; index < _virtualRowValueCache.Length; index++)
+        {
+            _virtualRowValueCache[index]?.Clear();
+            _virtualRowValueCache[index] = null;
+        }
+
+        for (int index = 0; index < _nextVirtualRowValueCache.Length; index++)
+        {
+            _nextVirtualRowValueCache[index]?.Clear();
+            _nextVirtualRowValueCache[index] = null;
+        }
+
+        _virtualRowValueCacheCount = 0;
+        _virtualRowValueCacheFirstSlot = -1;
+    }
+
     private void PrepareVirtualColumnRenderPlans(
         FontFamily defaultFontFamily,
         double defaultFontSize,
         IBrush defaultForeground)
     {
-        _virtualColumnRenderPlans.Clear();
+        _nextVirtualColumnRenderPlans.Clear();
         for (int layoutIndex = 0; layoutIndex < _flatColumnLayouts.Count; layoutIndex++)
         {
             FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
@@ -687,7 +853,13 @@ sealed partial class DataGridRowsPresenter
                 out Color foregroundColor,
                 out double foregroundOpacity,
                 out int foregroundIdentity);
-            _virtualColumnRenderPlans.Add(new DataGridVirtualColumnRenderPlan(
+            ResolveVirtualTextValueFormat(
+                column,
+                out IValueConverter? textConverter,
+                out object? textConverterParameter,
+                out string? textStringFormat,
+                out CultureInfo textCulture);
+            _nextVirtualColumnRenderPlans.Add(new DataGridVirtualColumnRenderPlan(
                 layout,
                 GetVirtualCellKind(column),
                 column as IDataGridDrawnCellValueProvider,
@@ -704,8 +876,57 @@ sealed partial class DataGridRowsPresenter
                 foregroundOpacity,
                 foregroundIdentity,
                 CultureInfo.CurrentCulture.LCID,
-                GetVirtualTextAlignment(column)));
+                GetVirtualTextAlignment(column),
+                textConverter,
+                textConverterParameter,
+                textStringFormat,
+                textCulture));
         }
+
+        if (!HasSameVirtualColumnRenderPlans())
+        {
+            _virtualColumnRenderPlanVersion++;
+        }
+
+        (_virtualColumnRenderPlans, _nextVirtualColumnRenderPlans) =
+            (_nextVirtualColumnRenderPlans, _virtualColumnRenderPlans);
+    }
+
+    private bool HasSameVirtualColumnRenderPlans()
+    {
+        if (_virtualColumnRenderPlans.Count != _nextVirtualColumnRenderPlans.Count)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < _virtualColumnRenderPlans.Count; index++)
+        {
+            if (_virtualColumnRenderPlans[index] != _nextVirtualColumnRenderPlans[index])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static void ResolveVirtualTextValueFormat(
+        DataGridColumn column,
+        out IValueConverter? converter,
+        out object? converterParameter,
+        out string? stringFormat,
+        out CultureInfo culture)
+    {
+        BindingBase? binding = column switch
+        {
+            DataGridTextColumn textColumn => textColumn.Binding,
+            DataGridHierarchicalColumn hierarchicalColumn => hierarchicalColumn.Binding,
+            _ => null,
+        };
+        converter = BindingCloneHelper.GetConverter(binding);
+        converterParameter = BindingCloneHelper.GetConverterParameter(binding);
+        stringFormat = BindingCloneHelper.GetStringFormat(binding);
+        culture = BindingCloneHelper.GetConverterCulture(binding) ?? CultureInfo.CurrentCulture;
     }
 
     private static DataGridVirtualCellKind GetVirtualCellKind(DataGridColumn column) => column switch
@@ -754,7 +975,62 @@ sealed partial class DataGridRowsPresenter
         double ForegroundOpacity,
         int ForegroundIdentity,
         int CultureLcid,
-        TextAlignment TextAlignment);
+        TextAlignment TextAlignment,
+        IValueConverter? TextConverter,
+        object? TextConverterParameter,
+        string? TextStringFormat,
+        CultureInfo TextCulture);
+
+    private sealed class DataGridVirtualRowValueCacheEntry
+    {
+        public object? Item { get; private set; }
+
+        public int PlanVersion { get; private set; }
+
+        public int ValueChangeVersion { get; private set; }
+
+        public object?[] Values { get; private set; } = Array.Empty<object?>();
+
+        public bool IsValid(
+            object item,
+            int planVersion,
+            int valueChangeVersion,
+            int valueCount)
+        {
+            return ReferenceEquals(Item, item) &&
+                   PlanVersion == planVersion &&
+                   ValueChangeVersion == valueChangeVersion &&
+                   Values.Length == valueCount;
+        }
+
+        public void Prepare(
+            object item,
+            int planVersion,
+            int valueChangeVersion,
+            int valueCount)
+        {
+            if (Values.Length != valueCount)
+            {
+                Values = new object?[valueCount];
+            }
+            else
+            {
+                Array.Clear(Values);
+            }
+
+            Item = item;
+            PlanVersion = planVersion;
+            ValueChangeVersion = valueChangeVersion;
+        }
+
+        public void Clear()
+        {
+            Array.Clear(Values);
+            Item = null;
+            PlanVersion = 0;
+            ValueChangeVersion = 0;
+        }
+    }
 
     private DataGridVirtualTextLayout GetVirtualTextLayout(
         string text,

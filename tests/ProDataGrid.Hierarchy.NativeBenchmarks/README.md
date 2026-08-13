@@ -253,9 +253,9 @@ internal meters do not exist there.
 
 For the rowless virtual surface, the same option records surface render duration,
 rendered rows and cells, partial clips, vertical grid lines, hierarchy-expander draw
-operations, text-layout cache hits/misses, text scene operations, and immutable
-glyph runs. These counters distinguish command recording from layout and prove
-whether a proposed render optimization is active.
+operations, text-layout cache hits/misses, text scene operations, immutable glyph
+runs, and row-aligned value-cache hits/misses. These counters distinguish command
+recording from layout and prove whether a proposed render optimization is active.
 
 `virtual-checkbox` replaces the payload text column with a typed
 `DataGridCheckBoxColumn`. It validates that the checkbox remains on the single
@@ -289,6 +289,10 @@ fast path, and [the text-command batch report](../ProDataGrid.FlatLayout.Benchma
 for immutable glyph ownership and the paired UI/compositor result. The
 [virtual layout projection report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md)
 documents the direct `ScrollSlotsByHeight` projection and overlapping-item reuse.
+The
+[virtual row-value cache report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-VALUE-CACHE-RESULTS-2026-08-13.md)
+documents overlapping formatted-value reuse, invalidation, allocation, and the
+latest paired Active-work results.
 The
 [flat retained-row report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
 separately covers guarded row-window rotation for `flat-direct-cell`, including

@@ -82,6 +82,8 @@ internal static partial class DataGridDiagnostics
     private static Counter<long>? s_virtualSurfaceTextDrawOperations;
     private static Counter<long>? s_virtualSurfaceTextGlyphRuns;
     private static Counter<long>? s_virtualSurfaceExpanderDrawOperations;
+    private static Counter<long>? s_virtualSurfaceValueCacheHits;
+    private static Counter<long>? s_virtualSurfaceValueCacheMisses;
 
     public static void InitMetrics()
     {
@@ -388,6 +390,14 @@ internal static partial class DataGridDiagnostics
             Meters.VirtualSurfaceExpanderDrawOperationCountName,
             Meters.OperationsUnit,
             Meters.VirtualSurfaceExpanderDrawOperationCountDescription);
+        s_virtualSurfaceValueCacheHits = meter.CreateCounter<long>(
+            Meters.VirtualSurfaceValueCacheHitCountName,
+            Meters.CellsUnit,
+            Meters.VirtualSurfaceValueCacheHitCountDescription);
+        s_virtualSurfaceValueCacheMisses = meter.CreateCounter<long>(
+            Meters.VirtualSurfaceValueCacheMissCountName,
+            Meters.CellsUnit,
+            Meters.VirtualSurfaceValueCacheMissCountDescription);
     }
 
     public static HistogramReportDisposable BeginDataGridRefresh() => Begin(s_dataGridRefresh);
@@ -541,7 +551,9 @@ internal static partial class DataGridDiagnostics
         int textLayoutCacheMisses,
         int textDrawOperations,
         int textGlyphRuns,
-        int expanderDrawOperations)
+        int expanderDrawOperations,
+        int valueCacheHits,
+        int valueCacheMisses)
     {
         Record(s_virtualSurfaceRenderedRows, rows);
         Record(s_virtualSurfaceRenderedCells, cells);
@@ -552,6 +564,8 @@ internal static partial class DataGridDiagnostics
         Record(s_virtualSurfaceTextDrawOperations, textDrawOperations);
         Record(s_virtualSurfaceTextGlyphRuns, textGlyphRuns);
         Record(s_virtualSurfaceExpanderDrawOperations, expanderDrawOperations);
+        Record(s_virtualSurfaceValueCacheHits, valueCacheHits);
+        Record(s_virtualSurfaceValueCacheMisses, valueCacheMisses);
     }
 
     private static HistogramReportDisposable Begin(Histogram<double>? histogram)

@@ -366,7 +366,9 @@ public class DataGridDiagnosticsTests
             textLayoutCacheMisses: 4,
             textDrawOperations: 1,
             textGlyphRuns: 100,
-            expanderDrawOperations: 20);
+            expanderDrawOperations: 20,
+            valueCacheHits: 95,
+            valueCacheMisses: 5);
 
         AssertValidDoubleMeasurements(
             listener,
@@ -395,6 +397,12 @@ public class DataGridDiagnosticsTests
         Assert.Equal(20, GetLongMeasurementTotal(
             listener,
             DataGridDiagnostics.Meters.VirtualSurfaceExpanderDrawOperationCountName));
+        Assert.Equal(95, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceValueCacheHitCountName));
+        Assert.Equal(5, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceValueCacheMissCountName));
     }
 
     [AvaloniaFact]
