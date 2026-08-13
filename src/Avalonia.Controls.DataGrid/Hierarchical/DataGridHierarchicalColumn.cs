@@ -388,6 +388,11 @@ internal
         internal string? GetDirectText(object? item)
         {
             var accessor = DataGridColumnMetadata.GetValueAccessor(this) as IDataGridColumnTextAccessor;
+            return GetDirectText(item, accessor);
+        }
+
+        internal string? GetDirectText(object? item, IDataGridColumnTextAccessor? accessor)
+        {
             if (accessor == null || item == null)
             {
                 return null;

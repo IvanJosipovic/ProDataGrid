@@ -82,6 +82,9 @@ and
 The discontinuous, line, and fractional virtual-scroll workload definitions plus
 the precomputed cell-clip evidence are documented in
 [VIRTUAL-SMOOTH-SCROLL-RESULTS-2026-08-13.md](VIRTUAL-SMOOTH-SCROLL-RESULTS-2026-08-13.md).
+The follow-up that prepares renderer, accessor, text-style, culture, and brush-key
+state once per visible column is documented in
+[VIRTUAL-COLUMN-RENDER-PLAN-RESULTS-2026-08-13.md](VIRTUAL-COLUMN-RENDER-PLAN-RESULTS-2026-08-13.md).
 The retained Flat-mode overlapping-row and fractional-overscan optimization is
 documented in
 [FLAT-ROW-RETARGET-RESULTS-2026-08-13.md](FLAT-ROW-RETARGET-RESULTS-2026-08-13.md).

@@ -9,6 +9,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Documents;
@@ -62,6 +63,7 @@ sealed partial class DataGridRowsPresenter
         new(VirtualTextLayoutCacheCapacity);
     private readonly List<DataGridVirtualTextDrawCommand> _virtualTextDrawCommands = new();
     private readonly List<DataGridVirtualCellOverlay> _virtualCellOverlays = new();
+    private readonly List<DataGridVirtualColumnRenderPlan> _virtualColumnRenderPlans = new();
     private HashSet<INotifyPropertyChanged> _virtualValueNotifiers =
         new(ReferenceEqualityComparer.Instance);
     private HashSet<INotifyPropertyChanged> _nextVirtualValueNotifiers =
@@ -73,6 +75,8 @@ sealed partial class DataGridRowsPresenter
     private int _lightweightVirtualRowBufferCount;
 
     internal int VirtualSurfaceCount => _virtualCellSurface?.GetVisualParent() == this ? 1 : 0;
+
+    internal int VirtualColumnRenderPlanCount => _virtualColumnRenderPlans.Count;
 
     internal int VirtualTrackedValueNotifierCount => _virtualValueNotifiers.Count;
 
@@ -259,6 +263,8 @@ sealed partial class DataGridRowsPresenter
 
     private void DetachVirtualCellSurface()
     {
+        _virtualColumnRenderPlans.Clear();
+
         if (_virtualCellSurface is null)
         {
             return;
@@ -313,6 +319,7 @@ sealed partial class DataGridRowsPresenter
         _virtualCellOverlays.Clear();
 
         ResolveVirtualTextStyle(out FontFamily fontFamily, out double fontSize, out IBrush foreground);
+        PrepareVirtualColumnRenderPlans(fontFamily, fontSize, foreground);
         IBrush? selectedBackground = FindVirtualResource<IBrush>(
             grid.IsKeyboardFocusWithin
                 ? "DataGridCellSelectedBackgroundBrush"
@@ -328,8 +335,8 @@ sealed partial class DataGridRowsPresenter
         {
             for (int index = 0; index < _lightweightVirtualRows.Count; index++)
             {
-                DrawVirtualRow(context, grid, _lightweightVirtualRows[index], fontFamily, fontSize,
-                    foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
+                DrawVirtualRow(context, grid, _lightweightVirtualRows[index], expanderPen,
+                    selectedBackground, currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, ref counters);
             }
         }
@@ -344,8 +351,8 @@ sealed partial class DataGridRowsPresenter
                     row.DataContext!,
                     row.Bounds.Top,
                     row.GetFlatCellsHeight());
-                DrawVirtualRow(context, grid, rowInfo, fontFamily, fontSize, foreground,
-                    expanderPen, selectedBackground, currentPen, verticalGridPen,
+                DrawVirtualRow(context, grid, rowInfo, expanderPen, selectedBackground,
+                    currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, ref counters);
             }
         }
@@ -403,9 +410,6 @@ sealed partial class DataGridRowsPresenter
         DrawingContext context,
         DataGrid grid,
         DataGridVirtualRowInfo row,
-        FontFamily fontFamily,
-        double fontSize,
-        IBrush foreground,
         Pen expanderPen,
         IBrush? selectedBackground,
         Pen? currentPen,
@@ -423,14 +427,12 @@ sealed partial class DataGridRowsPresenter
         counters.Rows++;
         int currentColumnIndex = grid.CurrentSlot == row.Slot ? grid.CurrentColumnIndex : -1;
 
-        for (int layoutIndex = 0; layoutIndex < _flatColumnLayouts.Count; layoutIndex++)
+        ReadOnlySpan<DataGridVirtualColumnRenderPlan> renderPlans =
+            CollectionsMarshal.AsSpan(_virtualColumnRenderPlans);
+        for (int planIndex = 0; planIndex < renderPlans.Length; planIndex++)
         {
-            FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
-            if (!layout.ShouldDisplay)
-            {
-                continue;
-            }
-
+            ref readonly DataGridVirtualColumnRenderPlan plan = ref renderPlans[planIndex];
+            FlatColumnLayout layout = plan.Layout;
             DataGridColumn column = layout.Column;
             if (row.Container is not null && grid.IsVirtualCompatibilityCell(row.Container, column))
             {
@@ -448,8 +450,8 @@ sealed partial class DataGridRowsPresenter
 
             if (AreClose(cellBounds, visibleBounds))
             {
-                DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
-                    foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
+                DrawVirtualCell(context, grid, row, plan, cellBounds, expanderPen,
+                    selectedBackground, currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, currentColumnIndex, null, ref counters);
                 continue;
             }
@@ -457,8 +459,8 @@ sealed partial class DataGridRowsPresenter
             counters.Clips++;
             using (context.PushClip(visibleBounds))
             {
-                DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
-                    foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
+                DrawVirtualCell(context, grid, row, plan, cellBounds, expanderPen,
+                    selectedBackground, currentPen, verticalGridPen,
                     drawVerticalGridLines, hasSelectedCells, currentColumnIndex, visibleBounds, ref counters);
             }
         }
@@ -468,11 +470,8 @@ sealed partial class DataGridRowsPresenter
         DrawingContext context,
         DataGrid grid,
         DataGridVirtualRowInfo row,
-        DataGridColumn column,
+        in DataGridVirtualColumnRenderPlan plan,
         Rect cellBounds,
-        FontFamily fontFamily,
-        double fontSize,
-        IBrush foreground,
         Pen expanderPen,
         IBrush? selectedBackground,
         Pen? currentPen,
@@ -483,6 +482,7 @@ sealed partial class DataGridRowsPresenter
         Rect? textClip,
         ref DataGridVirtualSurfaceRenderCounters counters)
     {
+        DataGridColumn column = plan.Layout.Column;
         bool selected = hasSelectedCells && grid.IsCellSelected(row.RowIndex, column.Index);
         bool current = currentColumnIndex == column.Index;
         if (selected && selectedBackground is not null)
@@ -494,11 +494,8 @@ sealed partial class DataGridRowsPresenter
             context,
             grid,
             row,
-            column,
+            plan,
             cellBounds,
-            fontFamily,
-            fontSize,
-            foreground,
             expanderPen,
             textClip,
             ref counters);
@@ -542,31 +539,29 @@ sealed partial class DataGridRowsPresenter
         DrawingContext context,
         DataGrid grid,
         DataGridVirtualRowInfo row,
-        DataGridColumn column,
+        in DataGridVirtualColumnRenderPlan plan,
         Rect bounds,
-        FontFamily fontFamily,
-        double fontSize,
-        IBrush foreground,
         Pen expanderPen,
         Rect? textClip,
         ref DataGridVirtualSurfaceRenderCounters counters)
     {
+        DataGridColumn column = plan.Layout.Column;
         object? item = row.Item;
-        object? value = GetVirtualCellValue(column, item);
+        object? value = GetVirtualCellValue(plan, item);
 
-        if (column is DataGridProgressBarColumn progressColumn)
+        if (plan.Kind == DataGridVirtualCellKind.Progress)
         {
-            DrawVirtualProgress(context, progressColumn, value, bounds, foreground);
+            DrawVirtualProgress(context, (DataGridProgressBarColumn)column, value, bounds, plan.Foreground);
             return;
         }
 
-        if (column is DataGridCheckBoxColumn checkBoxColumn)
+        if (plan.Kind == DataGridVirtualCellKind.CheckBox)
         {
-            DrawVirtualCheckBox(context, checkBoxColumn, value, bounds, expanderPen);
+            DrawVirtualCheckBox(context, (DataGridCheckBoxColumn)column, value, bounds, expanderPen);
             return;
         }
 
-        if (column is DataGridImageColumn && value is IImage image)
+        if (plan.Kind == DataGridVirtualCellKind.Image && value is IImage image)
         {
             DrawVirtualImage(context, (DataGridImageColumn)column, image, bounds);
             return;
@@ -575,8 +570,9 @@ sealed partial class DataGridRowsPresenter
         string text = value?.ToString() ?? string.Empty;
         double left = bounds.Left + VirtualCellHorizontalPadding;
         double right = bounds.Right - VirtualCellHorizontalPadding;
-        if (column is DataGridHierarchicalColumn hierarchicalColumn && item is HierarchicalNode node)
+        if (plan.Kind == DataGridVirtualCellKind.Hierarchical && item is HierarchicalNode node)
         {
+            var hierarchicalColumn = (DataGridHierarchicalColumn)column;
             double indent = Math.Max(0, node.Level) * hierarchicalColumn.Indent;
             counters.ExpanderDrawOperations += DrawVirtualExpander(
                 context,
@@ -587,33 +583,10 @@ sealed partial class DataGridRowsPresenter
                 expanderPen);
             left += indent + VirtualExpanderSize;
         }
-        else if (column is DataGridComboBoxColumn)
+        else if (plan.Kind == DataGridVirtualCellKind.ComboBox)
         {
             DrawVirtualComboBoxChevron(context, bounds, expanderPen);
             right -= VirtualComboBoxGlyphWidth;
-        }
-
-        FontStyle fontStyle = FontStyle.Normal;
-        FontWeight fontWeight = FontWeight.Normal;
-        FontStretch fontStretch = FontStretch.Normal;
-        TextAlignment textAlignment = column switch
-        {
-            DataGridNumericColumn => TextAlignment.Right,
-            DataGridDatePickerColumn dateColumn => dateColumn.GetTextAlignment(),
-            DataGridSliderColumn { ShowValueText: true } => TextAlignment.Center,
-            DataGridComboBoxColumn comboBoxColumn => comboBoxColumn.GetTextAlignment(),
-            _ => TextAlignment.Left,
-        };
-        if (column is DataGridTextColumn textColumn)
-        {
-            fontFamily = textColumn.FontFamily ?? fontFamily;
-            fontSize = double.IsFinite(textColumn.FontSize) && textColumn.FontSize > 0d
-                ? textColumn.FontSize
-                : fontSize;
-            fontStyle = textColumn.FontStyle;
-            fontWeight = textColumn.FontWeight;
-            fontStretch = textColumn.FontStretch;
-            foreground = textColumn.Foreground ?? foreground;
         }
 
         double maxWidth = Math.Max(0d, right - left);
@@ -624,13 +597,7 @@ sealed partial class DataGridRowsPresenter
 
         DataGridVirtualTextLayout textLayout = GetVirtualTextLayout(
             text,
-            fontFamily,
-            fontStyle,
-            fontWeight,
-            fontStretch,
-            fontSize,
-            foreground,
-            textAlignment,
+            plan,
             maxWidth,
             bounds.Height,
             ref counters);
@@ -650,19 +617,29 @@ sealed partial class DataGridRowsPresenter
         }
     }
 
-    private object? GetVirtualCellValue(DataGridColumn column, object? item)
+    private object? GetVirtualCellValue(in DataGridVirtualColumnRenderPlan plan, object? item)
     {
-        if (column is DataGridHierarchicalColumn hierarchicalColumn)
+        DataGridColumn column = plan.Layout.Column;
+        if (plan.Kind == DataGridVirtualCellKind.Hierarchical)
         {
-            return hierarchicalColumn.GetDirectText(item);
+            var hierarchicalColumn = (DataGridHierarchicalColumn)column;
+            return plan.ValueAccessor is IDataGridColumnTextAccessor textAccessor
+                ? hierarchicalColumn.GetDirectText(item, textAccessor)
+                : hierarchicalColumn.GetDirectText(item);
         }
 
-        if (item is not null && column is IDataGridDrawnCellValueProvider provider)
+        if (column is DataGridTextColumn textColumn &&
+            plan.ValueAccessor is IDataGridColumnTextAccessor directTextAccessor)
+        {
+            return textColumn.GetDirectCellText(item, directTextAccessor);
+        }
+
+        if (item is not null && plan.ValueProvider is { } provider)
         {
             return provider.GetDrawnCellValue(item);
         }
 
-        IDataGridColumnValueAccessor? accessor = DataGridColumnMetadata.GetValueAccessor(column);
+        IDataGridColumnValueAccessor? accessor = plan.ValueAccessor;
         if (item is not null && accessor is not null && accessor.ItemType.IsInstanceOfType(item))
         {
             return accessor.GetValue(item);
@@ -671,37 +648,138 @@ sealed partial class DataGridRowsPresenter
         return null;
     }
 
+    private void PrepareVirtualColumnRenderPlans(
+        FontFamily defaultFontFamily,
+        double defaultFontSize,
+        IBrush defaultForeground)
+    {
+        _virtualColumnRenderPlans.Clear();
+        for (int layoutIndex = 0; layoutIndex < _flatColumnLayouts.Count; layoutIndex++)
+        {
+            FlatColumnLayout layout = _flatColumnLayouts[layoutIndex];
+            if (!layout.ShouldDisplay)
+            {
+                continue;
+            }
+
+            DataGridColumn column = layout.Column;
+            FontFamily fontFamily = defaultFontFamily;
+            double fontSize = defaultFontSize;
+            FontStyle fontStyle = FontStyle.Normal;
+            FontWeight fontWeight = FontWeight.Normal;
+            FontStretch fontStretch = FontStretch.Normal;
+            IBrush foreground = defaultForeground;
+            if (column is DataGridTextColumn textColumn)
+            {
+                fontFamily = textColumn.FontFamily ?? fontFamily;
+                fontSize = double.IsFinite(textColumn.FontSize) && textColumn.FontSize > 0d
+                    ? textColumn.FontSize
+                    : fontSize;
+                fontStyle = textColumn.FontStyle;
+                fontWeight = textColumn.FontWeight;
+                fontStretch = textColumn.FontStretch;
+                foreground = textColumn.Foreground ?? foreground;
+            }
+
+            GetBrushIdentity(
+                foreground,
+                out byte foregroundKind,
+                out Color foregroundColor,
+                out double foregroundOpacity,
+                out int foregroundIdentity);
+            _virtualColumnRenderPlans.Add(new DataGridVirtualColumnRenderPlan(
+                layout,
+                GetVirtualCellKind(column),
+                column as IDataGridDrawnCellValueProvider,
+                DataGridColumnMetadata.GetValueAccessor(column),
+                fontFamily,
+                fontFamily.Name,
+                fontSize,
+                fontStyle,
+                fontWeight,
+                fontStretch,
+                foreground,
+                foregroundKind,
+                foregroundColor,
+                foregroundOpacity,
+                foregroundIdentity,
+                CultureInfo.CurrentCulture.LCID,
+                GetVirtualTextAlignment(column)));
+        }
+    }
+
+    private static DataGridVirtualCellKind GetVirtualCellKind(DataGridColumn column) => column switch
+    {
+        DataGridProgressBarColumn => DataGridVirtualCellKind.Progress,
+        DataGridCheckBoxColumn => DataGridVirtualCellKind.CheckBox,
+        DataGridImageColumn => DataGridVirtualCellKind.Image,
+        DataGridHierarchicalColumn => DataGridVirtualCellKind.Hierarchical,
+        DataGridComboBoxColumn => DataGridVirtualCellKind.ComboBox,
+        _ => DataGridVirtualCellKind.Text,
+    };
+
+    private static TextAlignment GetVirtualTextAlignment(DataGridColumn column) => column switch
+    {
+        DataGridNumericColumn => TextAlignment.Right,
+        DataGridDatePickerColumn dateColumn => dateColumn.GetTextAlignment(),
+        DataGridSliderColumn { ShowValueText: true } => TextAlignment.Center,
+        DataGridComboBoxColumn comboBoxColumn => comboBoxColumn.GetTextAlignment(),
+        _ => TextAlignment.Left,
+    };
+
+    private enum DataGridVirtualCellKind : byte
+    {
+        Text,
+        Hierarchical,
+        Progress,
+        CheckBox,
+        Image,
+        ComboBox,
+    }
+
+    private readonly record struct DataGridVirtualColumnRenderPlan(
+        FlatColumnLayout Layout,
+        DataGridVirtualCellKind Kind,
+        IDataGridDrawnCellValueProvider? ValueProvider,
+        IDataGridColumnValueAccessor? ValueAccessor,
+        FontFamily FontFamily,
+        string FontFamilyName,
+        double FontSize,
+        FontStyle FontStyle,
+        FontWeight FontWeight,
+        FontStretch FontStretch,
+        IBrush Foreground,
+        byte ForegroundKind,
+        Color ForegroundColor,
+        double ForegroundOpacity,
+        int ForegroundIdentity,
+        int CultureLcid,
+        TextAlignment TextAlignment);
+
     private DataGridVirtualTextLayout GetVirtualTextLayout(
         string text,
-        FontFamily fontFamily,
-        FontStyle fontStyle,
-        FontWeight fontWeight,
-        FontStretch fontStretch,
-        double fontSize,
-        IBrush foreground,
-        TextAlignment textAlignment,
+        in DataGridVirtualColumnRenderPlan plan,
         double maxWidth,
         double maxHeight,
         ref DataGridVirtualSurfaceRenderCounters counters)
     {
-        GetBrushIdentity(foreground, out byte foregroundKind, out Color foregroundColor, out double foregroundOpacity, out int foregroundIdentity);
         var key = new DataGridCustomDrawingTextLayoutCache.CacheKey(
             text,
-            fontFamily.Name,
-            fontStyle,
-            fontWeight,
-            fontStretch,
-            fontSize,
-            textAlignment,
+            plan.FontFamilyName,
+            plan.FontStyle,
+            plan.FontWeight,
+            plan.FontStretch,
+            plan.FontSize,
+            plan.TextAlignment,
             TextTrimming.CharacterEllipsis,
             FlowDirection.LeftToRight,
-            CultureInfo.CurrentCulture.LCID,
+            plan.CultureLcid,
             maxWidth,
             maxHeight,
-            foregroundKind,
-            foregroundColor,
-            foregroundOpacity,
-            foregroundIdentity);
+            plan.ForegroundKind,
+            plan.ForegroundColor,
+            plan.ForegroundOpacity,
+            plan.ForegroundIdentity);
 
         if (_virtualTextLayoutCache.TryGet(key, out DataGridVirtualTextLayout? textLayout))
         {
@@ -713,10 +791,10 @@ sealed partial class DataGridRowsPresenter
 
         var layout = new TextLayout(
             text,
-            new Typeface(fontFamily, fontStyle, fontWeight, fontStretch),
-            fontSize,
-            foreground,
-            textAlignment,
+            new Typeface(plan.FontFamily, plan.FontStyle, plan.FontWeight, plan.FontStretch),
+            plan.FontSize,
+            plan.Foreground,
+            plan.TextAlignment,
             TextWrapping.NoWrap,
             TextTrimming.CharacterEllipsis,
             flowDirection: FlowDirection.LeftToRight,

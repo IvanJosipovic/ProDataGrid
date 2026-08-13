@@ -528,6 +528,11 @@ internal
         internal string GetDirectCellText(object item)
         {
             var accessor = DataGridColumnMetadata.GetValueAccessor(this) as IDataGridColumnTextAccessor;
+            return GetDirectCellText(item, accessor);
+        }
+
+        internal string GetDirectCellText(object item, IDataGridColumnTextAccessor accessor)
+        {
             if (accessor == null || item == null)
             {
                 return null;

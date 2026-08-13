@@ -247,6 +247,11 @@ Use those counters to prove which drawing path ran. In particular, a workload wi
 zero vertical-grid-line operations cannot validate a grid-line batching hypothesis,
 and a warm-cache workload must not attribute render time to text shaping without
 cache-miss evidence.
+When optimizing the virtual surface inner loop, prepare immutable-per-pass column
+state outside the row loop and compare discontinuous, line, and fractional patterns
+separately. Report the directly nested surface timer and the non-overlapping Active
+sum. A surface-stage improvement is not automatically a whole-frame claim when
+compositor render varies in the opposite direction.
 Text batching must be evaluated with both UI render recording and compositor
 render. A UI-stage reduction is accepted only when the render-stage aggregate does
 not show an equivalent transfer of work to the compositor. Scene-operation and

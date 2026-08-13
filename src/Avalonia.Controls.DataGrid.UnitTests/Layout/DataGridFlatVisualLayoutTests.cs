@@ -282,6 +282,7 @@ public class DataGridFlatVisualLayoutTests
             Assert.True(grid.DisplayData.HasVirtualScrollingElements);
             Assert.NotEmpty(presenter.LightweightVirtualRows);
             Assert.Equal(1, presenter.VirtualSurfaceCount);
+            Assert.Equal(3, presenter.VirtualColumnRenderPlanCount);
             Assert.Equal(0, presenter.FlatRealizedCellCount);
             Assert.Empty(presenter.GetVisualDescendants().OfType<DataGridCell>());
             Assert.Equal(
@@ -1465,6 +1466,7 @@ public class DataGridFlatVisualLayoutTests
             grid.ColumnsInternal[0].Width = DataGridLength.SizeToCells;
             PumpLayout(grid);
             Assert.True(grid.UsesVirtualCellSurfaceFallback);
+            Assert.Equal(0, presenter.VirtualColumnRenderPlanCount);
             Assert.NotEmpty(presenter.GetVisualDescendants().OfType<DataGridCell>());
 
             grid.ColumnsInternal[0].Width = new DataGridLength(80);
