@@ -91,3 +91,5 @@ documented in
 The disjoint-window follow-up that removes full-viewport recycling and generation
 is documented in
 [FLAT-DISCONTINUOUS-RETARGET-RESULTS-2026-08-13.md](FLAT-DISCONTINUOUS-RETARGET-RESULTS-2026-08-13.md).
+The fresh full-matrix and native TreeDataGrid comparison is documented in
+[TDG-VIRTUAL-COMPARISON-RESULTS-2026-08-13.md](TDG-VIRTUAL-COMPARISON-RESULTS-2026-08-13.md).

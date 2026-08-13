@@ -299,6 +299,11 @@ compares the current legacy retained and rowless virtual architectures directly
 from one commit and records the final 50%-target decision across all three scroll
 patterns.
 The
+[current TreeDataGrid-to-virtual report](../ProDataGrid.FlatLayout.Benchmarks/TDG-VIRTUAL-COMPARISON-RESULTS-2026-08-13.md)
+records the fresh four-pair full lifecycle suite plus separate paired diagnostic
+and meter-free discontinuous, line, and fractional scroll campaigns against the
+CI-pinned open-source TreeDataGrid revision.
+The
 [flat retained-row report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
 separately covers guarded row-window rotation for `flat-direct-cell`, including
 same-slot fractional overscan and the drawn/discontinuous fallback checks.

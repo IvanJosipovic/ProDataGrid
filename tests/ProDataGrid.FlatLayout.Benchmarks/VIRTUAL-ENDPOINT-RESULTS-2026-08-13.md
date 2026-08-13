@@ -16,6 +16,12 @@ These are endpoint comparisons, not compounded percentages from separate commits
 Both modes were built from commit `64152499` and executed from the same native
 assembly in independent alternating processes.
 
+This report uses ProDataGrid's legacy retained architecture as the baseline. The
+separate [TreeDataGrid-to-virtual comparison](TDG-VIRTUAL-COMPARISON-RESULTS-2026-08-13.md)
+uses the CI-pinned open-source TreeDataGrid source baseline; its fresh line-scroll
+Active reduction is −46.4%, while discontinuous and fractional are −77.9% and
+−57.3%, respectively.
+
 The stopping decision is therefore to finalize the architecture rather than add a
 row-scene cache. That cache would introduce another invalidation and render-thread
 lifetime boundary after the requested product target has already been reached.
