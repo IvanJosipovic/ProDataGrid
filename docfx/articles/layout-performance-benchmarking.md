@@ -249,4 +249,5 @@ results and point to the raw artifact location.
 
 See the [native source benchmark README](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.Hierarchy.NativeBenchmarks/README.md)
 and the [focused scroll report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
+and the [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md)
 for current commands and results.

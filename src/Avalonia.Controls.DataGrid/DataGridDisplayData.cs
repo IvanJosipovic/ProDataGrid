@@ -26,8 +26,7 @@ namespace Avalonia.Controls
         private HashSet<Control>? _deferredHideElements;
         private readonly List<Control> _scrollingElements;
         private readonly DataGrid _owner;
-        private object[] _retargetItems = Array.Empty<object>();
-        private int[] _retargetRowIndexes = Array.Empty<int>();
+        private RetargetEntry[] _retargetEntries = Array.Empty<RetargetEntry>();
         private bool _deferRecycledElementHiding;
         private DataGridRecycleReuseOrder _deferredReuseOrder;
         private int _deferredRecycleScopeDepth;
@@ -243,7 +242,7 @@ namespace Avalonia.Controls
             }
             
             _scrollingElements.Clear();
-            Array.Clear(_retargetItems);
+            Array.Clear(_retargetEntries);
         }
 
         private void RecycleAllScrollingElements()
@@ -345,17 +344,17 @@ namespace Avalonia.Controls
             int firstSlot,
             int lastSlot,
             int rowCount,
-            double rowHeight)
+            double rowHeight,
+            bool slotsAreContiguous)
         {
             if (rowCount <= 0 || rowCount != _scrollingElements.Count)
             {
                 return false;
             }
 
-            if (_retargetItems.Length < rowCount)
+            if (_retargetEntries.Length < rowCount)
             {
-                Array.Resize(ref _retargetItems, rowCount);
-                Array.Resize(ref _retargetRowIndexes, rowCount);
+                Array.Resize(ref _retargetEntries, rowCount);
             }
 
             int slot = firstSlot;
@@ -376,17 +375,20 @@ namespace Avalonia.Controls
                         return false;
                     }
 
-                    int rowIndex = _owner.RowIndexFromSlot(slot);
+                    int targetSlot = slotsAreContiguous ? firstSlot + index : slot;
+                    int rowIndex = _owner.RowIndexFromSlot(targetSlot);
                     object item = _owner.DataConnection.GetDataItem(rowIndex);
                     if (item is DataGridRow)
                     {
                         return false;
                     }
 
-                    _retargetItems[index] = item;
-                    _retargetRowIndexes[index] = rowIndex;
+                    _retargetEntries[index] = new RetargetEntry(row, rowIndex, item);
 
-                    slot = _owner.GetNextVisibleSlot(slot);
+                    if (!slotsAreContiguous)
+                    {
+                        slot = _owner.GetNextVisibleSlot(slot);
+                    }
                 }
             }
 
@@ -395,13 +397,17 @@ namespace Avalonia.Controls
             {
                 for (int index = 0; index < rowCount; index++)
                 {
-                    var row = (DataGridRow)GetLogicalScrollingElement(index);
+                    ref RetargetEntry entry = ref _retargetEntries[index];
+                    int targetSlot = slotsAreContiguous ? firstSlot + index : slot;
                     _owner.RetargetDefaultVirtualRow(
-                        row,
-                        slot,
-                        _retargetRowIndexes[index],
-                        _retargetItems[index]);
-                    slot = _owner.GetNextVisibleSlot(slot);
+                        entry.Row,
+                        targetSlot,
+                        entry.RowIndex,
+                        entry.Item);
+                    if (!slotsAreContiguous)
+                    {
+                        slot = _owner.GetNextVisibleSlot(slot);
+                    }
                 }
 
                 _owner.InvalidateDefaultVirtualRowsChildIndexes();
@@ -410,7 +416,7 @@ namespace Avalonia.Controls
                 bool rowsRemainArrangeValid = true;
                 for (int index = 0; index < rowCount; index++)
                 {
-                    Control element = GetLogicalScrollingElement(index);
+                    DataGridRow element = _retargetEntries[index].Row;
                     if (!element.IsMeasureValid)
                     {
                         rowsRemainMeasureValid = false;
@@ -437,6 +443,11 @@ namespace Avalonia.Controls
             RetargetedRowCount += rowCount;
             return true;
         }
+
+        private readonly record struct RetargetEntry(
+            DataGridRow Row,
+            int RowIndex,
+            object Item);
 
         #endregion
 

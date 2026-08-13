@@ -188,6 +188,15 @@ through the selection model. After the complete batch, the presenter raises one
 logical child-index reset instead of one notification per row. Selector-driven
 style invalidation therefore still occurs before layout reuse is considered.
 
+Retarget validation is transactional. It first captures the row, resolved row
+index, and target item in one reusable typed-entry buffer; no row is mutated until
+the entire target window passes validation. When group-header, group-footer, and
+collapsed-slot tables are empty, target slots are contiguous and are advanced by
+index instead of repeatedly traversing the visible-slot map. Non-contiguous ranges
+retain the complete visible-slot traversal. The same captured row references are
+then reused for binding and post-bind layout-validity checks, avoiding repeated
+circular-list resolution without weakening the validate-before-mutate contract.
+
 The presenter may reuse fixed-height row geometry when all retargeted rows remain
 measure-valid after that logical-index reset and its width constraint is unchanged.
 It may also reuse arrangement only when the presenter size and fractional vertical
@@ -202,6 +211,9 @@ geometry reuse separately as `prodatagrid.rows.retarget.measure.reused.count` an
 the complete lifecycle or ordinary per-row layout pipeline, preserving derived-grid,
 custom-factory, own-container, row-details, validation, selector, and routed-event
 behavior.
+
+The focused evidence for the typed retarget-entry buffer is recorded in the
+[virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 

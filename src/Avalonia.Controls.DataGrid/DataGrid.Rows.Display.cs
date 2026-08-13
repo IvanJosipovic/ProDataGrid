@@ -185,7 +185,10 @@ namespace Avalonia.Controls
                 firstSlot,
                 lastSlot,
                 rowCount,
-                rowHeight);
+                rowHeight,
+                RowGroupHeadersTable.RangeCount == 0 &&
+                RowGroupFootersTable.RangeCount == 0 &&
+                _collapsedSlotsTable.IsEmpty);
         }
 
         private int NormalizeDisplayedFirstSlot(int slot)

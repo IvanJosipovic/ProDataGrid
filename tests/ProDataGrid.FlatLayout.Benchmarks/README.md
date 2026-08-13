@@ -65,3 +65,5 @@ The checked-in report for the current implementation is
 [VIRTUAL-SURFACE-RESULTS-2026-08-12.md](VIRTUAL-SURFACE-RESULTS-2026-08-12.md).
 The latest scroll, cache, recycling, and typed-checkbox comparisons are in
 [SCROLL-RESULTS-2026-08-12.md](SCROLL-RESULTS-2026-08-12.md).
+The focused fixed-height row-window retarget optimization is documented in
+[VIRTUAL-RETARGET-RESULTS-2026-08-13.md](VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
