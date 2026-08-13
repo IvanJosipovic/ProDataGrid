@@ -301,15 +301,33 @@ public class DataGridDiagnosticsTests
                 .GetVisualDescendants()
                 .OfType<DataGridRowsPresenter>()
                 .Single();
+            long retargetedBefore = GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsRetargetedCountName);
+            long preparedBefore = GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsPreparedCountName);
+            long realizedBefore = GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsRealizedCountName);
             presenter.Offset = new Vector(0, 400 * grid.RowHeight);
             grid.UpdateLayout();
 
             AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetEligibilityTimeName);
             AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetValidationTimeName);
             AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetBindTimeName);
-            Assert.True(GetLongMeasurementTotal(
+            long retargeted = GetLongMeasurementTotal(
                 listener,
-                DataGridDiagnostics.Meters.RowsRetargetedCountName) > 0);
+                DataGridDiagnostics.Meters.RowsRetargetedCountName) - retargetedBefore;
+            long prepared = GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsPreparedCountName) - preparedBefore;
+            long realized = GetLongMeasurementTotal(
+                listener,
+                DataGridDiagnostics.Meters.RowsRealizedCountName) - realizedBefore;
+            Assert.True(retargeted > 0);
+            Assert.Equal(retargeted, prepared);
+            Assert.Equal(retargeted, realized);
             Assert.True(GetLongMeasurementTotal(
                 listener,
                 DataGridDiagnostics.Meters.RowsRetargetMeasureReusedCountName) > 0);

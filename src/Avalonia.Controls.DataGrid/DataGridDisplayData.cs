@@ -410,6 +410,12 @@ namespace Avalonia.Controls
                     }
                 }
 
+                DataGridDiagnostics.RecordRowsRetargeted(rowCount);
+                DataGridDiagnostics.RecordRowsPrepared(rowCount);
+                DataGridDiagnostics.RecordRowsRealized(
+                    DataGridDiagnostics.Sources.Retargeted,
+                    rowCount);
+
                 _owner.InvalidateDefaultVirtualRowsChildIndexes();
 
                 bool rowsRemainMeasureValid = true;

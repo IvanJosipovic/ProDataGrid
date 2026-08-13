@@ -364,28 +364,34 @@ internal static partial class DataGridDiagnostics
     public static HistogramReportDisposable BeginCollectionGroupTemporary() => Begin(s_collectionGroupTemporary);
     public static HistogramReportDisposable BeginCollectionGroupPage() => Begin(s_collectionGroupPage);
 
-    public static void RecordRowRealized(string source)
+    public static void RecordRowRealized(string source) => RecordRowsRealized(source, 1);
+
+    public static void RecordRowsRealized(string source, int count)
     {
         var counter = s_rowsRealized;
-        if (counter is null)
+        if (counter is null || count <= 0)
         {
             return;
         }
 
         TagList tags = default;
         tags.Add(Tags.Source, source);
-        counter.Add(1, tags);
+        counter.Add(count, tags);
     }
 
     public static void RecordRowRecycled() => s_rowsRecycled?.Add(1);
 
     public static void RecordRowRetargeted() => s_rowsRetargeted?.Add(1);
 
+    public static void RecordRowsRetargeted(int count) => Record(s_rowsRetargeted, count);
+
     public static void RecordRowsRetargetMeasureReused(int count) => Record(s_rowsRetargetMeasureReused, count);
 
     public static void RecordRowsRetargetArrangeReused(int count) => Record(s_rowsRetargetArrangeReused, count);
 
     public static void RecordRowPrepared() => s_rowsPrepared?.Add(1);
+
+    public static void RecordRowsPrepared(int count) => Record(s_rowsPrepared, count);
 
     public static void RecordRowsMeasured(int count) => Record(s_rowsMeasured, count);
 

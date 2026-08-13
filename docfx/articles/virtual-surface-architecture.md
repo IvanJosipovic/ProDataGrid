@@ -205,8 +205,12 @@ row arrangement so bounds move by the required partial-row amount. Surface conte
 is invalidated independently and is redrawn for the new items even when container
 geometry is reused.
 
-Diagnostics report the batch as `prodatagrid.rows.retargeted.count` and report
-geometry reuse separately as `prodatagrid.rows.retarget.measure.reused.count` and
+After a successful transactional bind, diagnostics add the complete row count once
+to each retargeted, prepared, and realized lifecycle counter. This preserves the
+same additive values while avoiding three counter calls per row and rebuilding the
+realized-source tag for every row. Normal generation and fallback paths retain
+single-row recording. Geometry reuse is reported separately as
+`prodatagrid.rows.retarget.measure.reused.count` and
 `prodatagrid.rows.retarget.arrange.reused.count`. Any failed guard falls back to
 the complete lifecycle or ordinary per-row layout pipeline, preserving derived-grid,
 custom-factory, own-container, row-details, validation, selector, and routed-event
@@ -214,6 +218,8 @@ behavior.
 
 The focused evidence for the typed retarget-entry buffer is recorded in the
 [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
+The follow-up evidence for batched lifecycle counters is recorded in the
+[virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 

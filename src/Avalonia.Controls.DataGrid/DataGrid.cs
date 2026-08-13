@@ -228,9 +228,15 @@ internal
             PrepareContainerForItemOverride(row, item);
         }
 
-        private void PrepareDefaultVirtualSurfaceRow(DataGridRow row, object item)
+        private void PrepareDefaultVirtualSurfaceRow(
+            DataGridRow row,
+            object item,
+            bool recordDiagnostics = true)
         {
-            DataGridDiagnostics.RecordRowPrepared();
+            if (recordDiagnostics)
+            {
+                DataGridDiagnostics.RecordRowPrepared();
+            }
 
             // Default surface rows have no cell containers. Recycling retains their previous
             // item until this bind, so only reset row-level validation here; selection and other

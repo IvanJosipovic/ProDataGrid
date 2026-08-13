@@ -84,13 +84,12 @@ partial class DataGrid
         bool wasCurrent = previousSlot == CurrentSlot;
         DataGridValidationSeverity previousValidationSeverity = row.ValidationSeverity;
 
-        DataGridDiagnostics.RecordRowRetargeted();
         row.ClearDragDropState();
         row.Index = rowIndex;
         row.Slot = slot;
         row.DataContext = item;
         row.IsPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
-        PrepareDefaultVirtualSurfaceRow(row, item);
+        PrepareDefaultVirtualSurfaceRow(row, item, recordDiagnostics: false);
         bool isSelected = GetRowSelection(slot);
         bool isFullySelected = IsRowFullySelected(slot, isSelected);
         row.ApplyRetargetedVirtualSurfaceState(
@@ -98,7 +97,6 @@ partial class DataGrid
             previousValidationSeverity,
             isSelected,
             isFullySelected);
-        DataGridDiagnostics.RecordRowRealized(DataGridDiagnostics.Sources.Retargeted);
     }
 
     internal void InvalidateDefaultVirtualRowsChildIndexes()

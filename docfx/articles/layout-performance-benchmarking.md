@@ -224,6 +224,10 @@ realization/recycling/retargeting counts. Retarget probes also expose
 `prodatagrid.rows.retarget.arrange.reused.count`; compare them with the realized
 row count to prove whether the guarded geometry-reuse path actually ran. Both
 diagnostic switches add measurement overhead and remain outside the clean A/B gate.
+When a transactional path reports additive counters for every row, batch the
+counter additions only after the transaction succeeds and prove that the aggregate
+values are unchanged. This reduces diagnostic observer cost without moving phase
+boundaries or weakening lifecycle accounting.
 For fixed-height virtual-scroll work, compare
 `prodatagrid.rows.scroll.slots.by.height.time` with mutation plus layout and the
 complete active-work score. A faster target lookup is accepted only when the
@@ -250,4 +254,5 @@ results and point to the raw artifact location.
 See the [native source benchmark README](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.Hierarchy.NativeBenchmarks/README.md)
 and the [focused scroll report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
 and the [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md)
+and the [virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md)
 for current commands and results.
