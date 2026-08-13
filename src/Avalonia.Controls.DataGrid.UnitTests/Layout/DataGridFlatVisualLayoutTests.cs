@@ -401,6 +401,44 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
+    public void Virtualized_Layout_Rebuilds_Lightweight_Rows_After_ItemsSource_Replacement()
+    {
+        (Window window, DataGrid grid) = CreateGrid(
+            DataGridTheme.SimpleFlat,
+            useFlatTheme: true,
+            itemCount: 100);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+
+            Item[] replacement = Enumerable.Range(0, 250)
+                .Select(index => new Item(index, $"Replacement {index}", index * 2.5))
+                .ToArray();
+            grid.ItemsSource = replacement;
+            PumpLayout(grid);
+
+            Assert.Equal(250, grid.SlotCount);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.NotEmpty(presenter.LightweightVirtualRows);
+            Assert.All(
+                presenter.LightweightVirtualRows,
+                row => Assert.Contains(replacement, item => ReferenceEquals(item, row.Item)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void Virtualized_Layout_Materializes_Retained_Rows_And_Only_The_Active_Editor_Cell()
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);

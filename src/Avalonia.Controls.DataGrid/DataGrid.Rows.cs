@@ -557,7 +557,7 @@ internal
                     isRow: isRow,
                     deferLayout: deferLayout);
             }
-            else if (SlotIsDisplayed(slot))
+            else if (SlotIsDisplayed(slot) && !UsesLightweightVirtualRows)
             {
                 // Row at that index needs to be displayed
                 if (isRow)

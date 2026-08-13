@@ -350,7 +350,6 @@ internal
         internal override bool SupportsVirtualCellSurface =>
             GetType() == typeof(DataGridSliderColumn) &&
             ShowValueText &&
-            Binding is Binding &&
             BindingCloneHelper.SupportsDirectTextDataContextRead(Binding) &&
             DataGridColumnMetadata.GetValueAccessor(this) is IDataGridColumnTextAccessor;
 

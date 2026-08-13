@@ -129,6 +129,11 @@ public class DataGridSliderColumnHeadlessTests
             new DataGridColumnValueAccessor<SliderItem, double>(item => item.Rating));
         Assert.True(column.SupportsVirtualCellSurface);
 
+        column.Binding = DataGridBindingDefinition
+            .Create<SliderItem, double>(item => item.Rating)
+            .CreateBinding();
+        Assert.True(column.SupportsVirtualCellSurface);
+
         column.Binding = new Binding(nameof(SliderItem.Rating))
         {
             Source = new SliderItem(),

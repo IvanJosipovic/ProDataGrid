@@ -333,7 +333,10 @@ internal
                 _totalSummaryRow.EnsureCells();
             }
 
-            if (columnsGrew && _autoGeneratingColumnOperationCount == 0 && ColumnsItemsInternal.Count == 1)
+            if (columnsGrew &&
+                _autoGeneratingColumnOperationCount == 0 &&
+                ColumnsItemsInternal.Count == 1 &&
+                !UsesVirtualCellSurface)
             {
                 RefreshRows(false /*recycleRows*/, true /*clearRows*/);
             }
