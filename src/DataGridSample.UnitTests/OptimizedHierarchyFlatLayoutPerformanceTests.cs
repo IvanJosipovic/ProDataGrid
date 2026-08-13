@@ -31,7 +31,7 @@ public sealed class OptimizedHierarchyFlatLayoutPerformanceTests
 
     [AvaloniaFact]
     [Trait("Category", "Performance")]
-    public async Task RepresentativeOptimizedHierarchy_ComparesNestedAndFlatVisualLayouts()
+    public async Task RepresentativeOptimizedHierarchy_ComparesNestedFlatAndVirtualVisualLayouts()
     {
         var results = new List<LayoutResult>();
         results.Add(await MeasureLayoutAsync(
@@ -42,6 +42,11 @@ public sealed class OptimizedHierarchyFlatLayoutPerformanceTests
             "flat",
             new FlatSurfaceHierarchyPage(),
             DataGridVisualLayoutMode.Flat));
+        results.Add(await MeasureLayoutAsync(
+            "virtual",
+            new VirtualSurfaceHierarchyPage(),
+            DataGridVisualLayoutMode.Virtualized,
+            measureVirtualSurface: true));
 
         var report = new LayoutComparisonReport(
             DateTimeOffset.UtcNow,
@@ -72,16 +77,21 @@ public sealed class OptimizedHierarchyFlatLayoutPerformanceTests
 
         LayoutSample nested = results.Single(result => result.Layout == "nested").CellPaths[0].Samples[0];
         LayoutSample flat = results.Single(result => result.Layout == "flat").CellPaths[0].Samples[0];
+        LayoutSample virtualSurface = results.Single(result => result.Layout == "virtual").CellPaths[0].Samples[0];
         Assert.True(nested.CellsPresenterCount > 0);
         Assert.Equal(0, flat.CellsPresenterCount);
+        Assert.Equal(0, virtualSurface.CellsPresenterCount);
+        Assert.Equal(0, virtualSurface.RealizedRows);
         Assert.True(flat.VisualCount < nested.VisualCount);
         Assert.True(flat.MaximumVisualDepth < nested.MaximumVisualDepth);
+        Assert.True(virtualSurface.VisualCount < flat.VisualCount);
     }
 
     private static async Task<LayoutResult> MeasureLayoutAsync(
         string layoutName,
         Control page,
-        DataGridVisualLayoutMode expectedMode)
+        DataGridVisualLayoutMode expectedMode,
+        bool measureVirtualSurface = false)
     {
         var window = new Window
         {
@@ -103,10 +113,27 @@ public sealed class OptimizedHierarchyFlatLayoutPerformanceTests
             PumpLayout(window);
             Assert.Equal(288, viewModel.Model.Flattened.Count);
 
-            var pathResults = new List<CellPathResult>(viewModel.Paths.Count);
-            foreach (OptimizedCellPathOption path in viewModel.Paths)
+            int modeCount = measureVirtualSurface ? 1 : viewModel.Paths.Count;
+            var pathResults = new List<CellPathResult>(modeCount);
+            for (int modeIndex = 0; modeIndex < modeCount; modeIndex++)
             {
-                viewModel.SelectedPath = path;
+                string modeKey;
+                string modeName;
+                if (measureVirtualSurface)
+                {
+                    VirtualSurfaceModeOption mode = viewModel.VirtualModes[0];
+                    viewModel.SelectedVirtualMode = mode;
+                    modeKey = mode.Key;
+                    modeName = mode.Name;
+                }
+                else
+                {
+                    OptimizedCellPathOption mode = viewModel.Paths[modeIndex];
+                    viewModel.SelectedPath = mode;
+                    modeKey = mode.Key;
+                    modeName = mode.Name;
+                }
+
                 PumpLayout(window);
 
                 viewModel.Model.ExpandAll();
@@ -152,7 +179,7 @@ public sealed class OptimizedHierarchyFlatLayoutPerformanceTests
                         visuals.OfType<DataGridRow>().Count(row => row.IsVisible && row.Index >= 0)));
                 }
 
-                pathResults.Add(new CellPathResult(path.Key, path.Name, samples));
+                pathResults.Add(new CellPathResult(modeKey, modeName, samples));
             }
 
             return new LayoutResult(
