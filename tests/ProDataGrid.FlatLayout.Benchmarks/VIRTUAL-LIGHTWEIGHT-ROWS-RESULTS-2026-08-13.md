@@ -80,3 +80,6 @@ item-owned row containers.
 The result meets the specific target: `ScrollSlotsByHeight` is reduced by more than
 50%, clean synchronous mutation+layout work falls by 32.0%, and instrumented Active
 work falls by 24.6%. The deliberately awaited frame cadence remains unchanged.
+
+The remaining lightweight projection overhead is reduced in the follow-up
+[virtual layout projection report](VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md).

@@ -671,7 +671,16 @@ namespace Avalonia.Controls
 
             NegVerticalOffset = Math.Max(0, negVerticalOffset);
             _verticalOffset = newVerticalOffset;
-            UpdateDisplayedRows(firstSlot, viewportHeight);
+            if (!TryUpdateLightweightVirtualRowsForScroll(
+                    firstSlot,
+                    viewportHeight,
+                    rowHeight))
+            {
+                // An item-owned row can invalidate lightweight eligibility while
+                // entering the viewport. Complete the same scroll through the
+                // retained compatibility pipeline in that uncommon case.
+                UpdateDisplayedRows(firstSlot, viewportHeight);
+            }
             SetVerticalOffset(_verticalOffset);
             SyncLogicalScrollableOffset();
             LightweightVirtualScrollCount++;

@@ -272,4 +272,6 @@ for the paired renderer optimization and flat-versus-nested source results, and
 [the 2026-08-13 virtual surface render report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md)
 for render-stage attribution, rejected experiments, and the selected-cell lookup
 fast path, and [the text-command batch report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md)
-for immutable glyph ownership and the paired UI/compositor result.
+for immutable glyph ownership and the paired UI/compositor result. The
+[virtual layout projection report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md)
+documents the direct `ScrollSlotsByHeight` projection and overlapping-item reuse.

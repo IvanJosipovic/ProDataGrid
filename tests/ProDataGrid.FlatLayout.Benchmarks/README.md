@@ -73,3 +73,8 @@ The retarget-apply decomposition and sparse-state follow-up is documented in
 [VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md](VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md).
 The rowless virtual-layout and direct `ScrollSlotsByHeight` result is documented in
 [VIRTUAL-LIGHTWEIGHT-ROWS-RESULTS-2026-08-13.md](VIRTUAL-LIGHTWEIGHT-ROWS-RESULTS-2026-08-13.md).
+The subsequent text-command batching and lightweight projection results are
+documented in
+[VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md](VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md)
+and
+[VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md](VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md).

@@ -382,6 +382,44 @@ public class DataGridFlatVisualLayoutTests
             Assert.True(grid.LightweightVirtualScrollCount > lightweightScrollsAfterFractionChanged);
             Assert.Equal(rowHeight * 0.5, grid.NegVerticalOffset, precision: 3);
             Assert.Equal(-rowHeight * 0.5, presenter.LightweightVirtualRows[0].Top, precision: 3);
+
+            int visibleRowCount = presenter.LightweightVirtualRows.Count;
+            object[] overlappingItems = presenter.LightweightVirtualRows
+                .Skip(1)
+                .Select(static row => row.Item)
+                .ToArray();
+            long resolvedBeforeAdjacentScroll = presenter.LightweightVirtualItemResolveCount;
+            long reusedBeforeAdjacentScroll = presenter.LightweightVirtualItemReuseCount;
+
+            presenter.Offset = new Vector(0, 451.5 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.Equal(
+                resolvedBeforeAdjacentScroll + 1,
+                presenter.LightweightVirtualItemResolveCount);
+            Assert.Equal(
+                reusedBeforeAdjacentScroll + visibleRowCount - 1,
+                presenter.LightweightVirtualItemReuseCount);
+            Assert.Equal(
+                overlappingItems,
+                presenter.LightweightVirtualRows
+                    .Take(overlappingItems.Length)
+                    .Select(static row => row.Item));
+
+            long resolvedBeforeFractionOnlyScroll = presenter.LightweightVirtualItemResolveCount;
+            long reusedBeforeFractionOnlyScroll = presenter.LightweightVirtualItemReuseCount;
+
+            presenter.Offset = new Vector(0, 451.75 * rowHeight);
+            PumpLayout(grid);
+
+            Assert.Equal(
+                resolvedBeforeFractionOnlyScroll,
+                presenter.LightweightVirtualItemResolveCount);
+            Assert.Equal(
+                reusedBeforeFractionOnlyScroll + visibleRowCount,
+                presenter.LightweightVirtualItemReuseCount);
+            Assert.Equal(rowHeight * 0.75, grid.NegVerticalOffset, precision: 3);
+            Assert.Equal(-rowHeight * 0.75, presenter.LightweightVirtualRows[0].Top, precision: 3);
         }
         finally
         {

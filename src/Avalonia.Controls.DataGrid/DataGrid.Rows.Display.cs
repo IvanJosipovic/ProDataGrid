@@ -163,6 +163,42 @@ namespace Avalonia.Controls
                 return false;
             }
 
+            return UpdateLightweightVirtualRows(
+                firstSlot,
+                displayHeight,
+                rowHeight,
+                activity,
+                reuseExistingItems: false);
+        }
+
+        private bool TryUpdateLightweightVirtualRowsForScroll(
+            int firstSlot,
+            double displayHeight,
+            double rowHeight)
+        {
+            using var activity = DataGridDiagnostics.UpdateDisplayedRows();
+            using var _ = DataGridDiagnostics.BeginRowsDisplayUpdate();
+            activity?.SetTag(DataGridDiagnostics.Tags.DisplayHeight, displayHeight);
+            activity?.SetTag(DataGridDiagnostics.Tags.SlotCount, SlotCount);
+            activity?.SetTag(DataGridDiagnostics.Tags.Columns, ColumnsItemsInternal.Count);
+
+            return UpdateLightweightVirtualRows(
+                firstSlot,
+                displayHeight,
+                rowHeight,
+                activity,
+                reuseExistingItems: true);
+        }
+
+        private bool UpdateLightweightVirtualRows(
+            int firstSlot,
+            double displayHeight,
+            double rowHeight,
+            Activity? activity,
+            bool reuseExistingItems)
+        {
+            Debug.Assert(_rowsPresenter is not null);
+
             if (!DisplayData.HasVirtualScrollingElements &&
                 DisplayData.NumDisplayedScrollingElements != 0)
             {
@@ -187,11 +223,18 @@ namespace Avalonia.Controls
                 (MathUtilities.AreClose(realizedHeight, displayHeight) &&
                  MathUtilities.GreaterThan(NegVerticalOffset, 0));
 
-            if (!_rowsPresenter.TryUpdateLightweightVirtualRows(
+            bool updated = reuseExistingItems
+                ? _rowsPresenter.TryScrollLightweightVirtualRows(
                     firstSlot,
                     lastSlot,
                     count,
-                    rowHeight))
+                    rowHeight)
+                : _rowsPresenter.TryUpdateLightweightVirtualRows(
+                    firstSlot,
+                    lastSlot,
+                    count,
+                    rowHeight);
+            if (!updated)
             {
                 if (DisplayData.HasVirtualScrollingElements)
                 {

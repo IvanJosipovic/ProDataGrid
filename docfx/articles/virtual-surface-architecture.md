@@ -141,6 +141,14 @@ the target items directly from the slot model. The list is the sole visible-row
 input for virtual rendering, hit testing, notification tracking, measure, and
 arrange.
 
+The steady-state scroll entry calls the lightweight projector directly instead of
+re-entering the general displayed-row dispatcher. Because eligibility already
+proves that the range is ungrouped and uncollapsed, slot and row indexes are equal
+and the range is contiguous. A reusable staging buffer preserves list identity and
+transactional publication. Overlapping slots reuse their existing item references;
+only entering slots query the data connection. General refreshes request a full
+projection so source changes cannot reuse stale items.
+
 The projection is enabled only for the exact built-in grid and realization factory
 with a finite fixed row height and no row-level compatibility feature. Discovering
 an item-owned `DataGridRow` aborts the projection before publishing the range and
@@ -191,6 +199,8 @@ The retarget-apply ownership and sparse-state evidence is recorded in the
 [virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md).
 The rowless follow-up is recorded in the
 [lightweight virtual-row report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LIGHTWEIGHT-ROWS-RESULTS-2026-08-13.md).
+The direct scroll projection and overlapping-item reuse follow-up is recorded in the
+[virtual layout projection report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md).
 Surface render attribution and the empty-selection fast path are recorded in the
 [virtual surface render report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md).
 The follow-up text command ownership and measurement are recorded in the

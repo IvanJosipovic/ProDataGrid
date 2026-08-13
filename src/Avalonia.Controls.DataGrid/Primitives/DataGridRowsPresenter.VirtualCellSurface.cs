@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Threading;
@@ -67,6 +68,9 @@ sealed partial class DataGridRowsPresenter
         new(ReferenceEqualityComparer.Instance);
     private int _virtualValueChangeCount;
     private readonly List<DataGridVirtualRowInfo> _lightweightVirtualRows = new();
+    private DataGridVirtualRowInfo[] _lightweightVirtualRowBuffer =
+        Array.Empty<DataGridVirtualRowInfo>();
+    private int _lightweightVirtualRowBufferCount;
 
     internal int VirtualSurfaceCount => _virtualCellSurface?.GetVisualParent() == this ? 1 : 0;
 
@@ -78,6 +82,10 @@ sealed partial class DataGridRowsPresenter
 
     internal IReadOnlyList<DataGridVirtualRowInfo> LightweightVirtualRows => _lightweightVirtualRows;
 
+    internal long LightweightVirtualItemResolveCount { get; private set; }
+
+    internal long LightweightVirtualItemReuseCount { get; private set; }
+
     internal void InvalidateVirtualCellSurface() => _virtualCellSurface?.InvalidateVisual();
 
     internal bool TryUpdateLightweightVirtualRows(
@@ -86,11 +94,93 @@ sealed partial class DataGridRowsPresenter
         int count,
         double rowHeight)
     {
+        return TryBuildLightweightVirtualRows(
+            firstSlot,
+            lastSlot,
+            count,
+            rowHeight,
+            reuseExistingItems: false);
+    }
+
+    internal bool TryScrollLightweightVirtualRows(
+        int firstSlot,
+        int lastSlot,
+        int count,
+        double rowHeight)
+    {
+        return TryBuildLightweightVirtualRows(
+            firstSlot,
+            lastSlot,
+            count,
+            rowHeight,
+            reuseExistingItems: true);
+    }
+
+    private bool TryBuildLightweightVirtualRows(
+        int firstSlot,
+        int lastSlot,
+        int count,
+        double rowHeight,
+        bool reuseExistingItems)
+    {
         DataGrid? grid = OwningGrid;
-        _lightweightVirtualRows.Clear();
         if (grid is null || count <= 0)
         {
             return false;
+        }
+
+        if (_lightweightVirtualRowBuffer.Length < count)
+        {
+            _lightweightVirtualRowBuffer = new DataGridVirtualRowInfo[count];
+        }
+
+        int previousFirstSlot = _lightweightVirtualRows.Count > 0
+            ? _lightweightVirtualRows[0].Slot
+            : -1;
+        double top = -grid.NegVerticalOffset;
+        int resolvedItems = 0;
+        int reusedItems = 0;
+        for (int index = 0; index < count; index++)
+        {
+            int slot = firstSlot + index;
+            Debug.Assert(slot <= lastSlot);
+
+            object item;
+            int previousIndex = slot - previousFirstSlot;
+            if (reuseExistingItems &&
+                (uint)previousIndex < (uint)_lightweightVirtualRows.Count &&
+                _lightweightVirtualRows[previousIndex].Slot == slot)
+            {
+                item = _lightweightVirtualRows[previousIndex].Item;
+                reusedItems++;
+            }
+            else
+            {
+                // Lightweight eligibility guarantees an ungrouped, uncollapsed slot
+                // range, so the slot is also the row index and the range is contiguous.
+                item = grid.DataConnection.GetDataItem(slot);
+                resolvedItems++;
+                if (item is DataGridRow)
+                {
+                    Array.Clear(
+                        _lightweightVirtualRowBuffer,
+                        0,
+                        Math.Max(_lightweightVirtualRowBufferCount, index + 1));
+                    _lightweightVirtualRowBufferCount = 0;
+                    _lightweightVirtualRows.Clear();
+                    grid.RequireRetainedVirtualRowsForItems();
+                    return false;
+                }
+            }
+
+            _lightweightVirtualRowBuffer[index] = new DataGridVirtualRowInfo(
+                null,
+                slot,
+                slot,
+                item,
+                top,
+                rowHeight);
+            top += rowHeight;
         }
 
         if (_lightweightVirtualRows.Capacity < count)
@@ -98,36 +188,30 @@ sealed partial class DataGridRowsPresenter
             _lightweightVirtualRows.Capacity = count;
         }
 
-        double top = -grid.NegVerticalOffset;
-        int slot = firstSlot;
-        for (int index = 0; index < count && slot <= lastSlot; index++)
+        _lightweightVirtualRows.Clear();
+        for (int index = 0; index < count; index++)
         {
-            int rowIndex = grid.RowIndexFromSlot(slot);
-            object item = grid.DataConnection.GetDataItem(rowIndex);
-            if (item is DataGridRow)
-            {
-                _lightweightVirtualRows.Clear();
-                grid.RequireRetainedVirtualRowsForItems();
-                return false;
-            }
-
-            _lightweightVirtualRows.Add(new DataGridVirtualRowInfo(
-                null,
-                slot,
-                rowIndex,
-                item,
-                top,
-                rowHeight));
-            top += rowHeight;
-            slot = grid.GetNextVisibleSlot(slot);
+            _lightweightVirtualRows.Add(_lightweightVirtualRowBuffer[index]);
         }
 
+        if (_lightweightVirtualRowBufferCount > count)
+        {
+            Array.Clear(
+                _lightweightVirtualRowBuffer,
+                count,
+                _lightweightVirtualRowBufferCount - count);
+        }
+        _lightweightVirtualRowBufferCount = count;
+        LightweightVirtualItemResolveCount += resolvedItems;
+        LightweightVirtualItemReuseCount += reusedItems;
         return true;
     }
 
     internal void ClearLightweightVirtualRows()
     {
         _lightweightVirtualRows.Clear();
+        Array.Clear(_lightweightVirtualRowBuffer, 0, _lightweightVirtualRowBufferCount);
+        _lightweightVirtualRowBufferCount = 0;
         ClearVirtualValueNotifiers();
     }
 
