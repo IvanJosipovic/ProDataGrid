@@ -19,7 +19,7 @@ internal sealed class DataGridVirtualTextLayoutCache
         _capacity = capacity > 0 ? capacity : 1;
     }
 
-    public bool TryGet(in DataGridCustomDrawingTextLayoutCache.CacheKey key, out TextLayout? layout)
+    public bool TryGet(in DataGridCustomDrawingTextLayoutCache.CacheKey key, out DataGridVirtualTextLayout? layout)
     {
         if (_entries.TryGetValue(key, out LinkedListNode<CacheEntry>? node))
         {
@@ -33,13 +33,14 @@ internal sealed class DataGridVirtualTextLayoutCache
         return false;
     }
 
-    public TextLayout Add(in DataGridCustomDrawingTextLayoutCache.CacheKey key, TextLayout layout)
+    public DataGridVirtualTextLayout Add(in DataGridCustomDrawingTextLayoutCache.CacheKey key, TextLayout layout)
     {
-        var node = new LinkedListNode<CacheEntry>(new CacheEntry(key, layout));
+        var cachedLayout = new DataGridVirtualTextLayout(layout);
+        var node = new LinkedListNode<CacheEntry>(new CacheEntry(key, cachedLayout));
         _lru.AddFirst(node);
         _entries.Add(key, node);
         TrimToCapacity();
-        return layout;
+        return cachedLayout;
     }
 
     public void Clear()
@@ -65,5 +66,5 @@ internal sealed class DataGridVirtualTextLayoutCache
 
     private readonly record struct CacheEntry(
         DataGridCustomDrawingTextLayoutCache.CacheKey Key,
-        TextLayout Layout);
+        DataGridVirtualTextLayout Layout);
 }

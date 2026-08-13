@@ -239,8 +239,9 @@ internal meters do not exist there.
 
 For the rowless virtual surface, the same option records surface render duration,
 rendered rows and cells, partial clips, vertical grid lines, hierarchy-expander draw
-operations, and text-layout cache hits/misses. These counters distinguish command
-recording from layout and prove whether a proposed render optimization is active.
+operations, text-layout cache hits/misses, text scene operations, and immutable
+glyph runs. These counters distinguish command recording from layout and prove
+whether a proposed render optimization is active.
 
 `virtual-checkbox` replaces the payload text column with a typed
 `DataGridCheckBoxColumn`. It validates that the checkbox remains on the single
@@ -270,4 +271,5 @@ See [the 2026-08-12 focused scroll report](../ProDataGrid.FlatLayout.Benchmarks/
 for the paired renderer optimization and flat-versus-nested source results, and
 [the 2026-08-13 virtual surface render report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md)
 for render-stage attribution, rejected experiments, and the selected-cell lookup
-fast path.
+fast path, and [the text-command batch report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md)
+for immutable glyph ownership and the paired UI/compositor result.

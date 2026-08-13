@@ -364,6 +364,8 @@ public class DataGridDiagnosticsTests
             verticalGridLines: 0,
             textLayoutCacheHits: 96,
             textLayoutCacheMisses: 4,
+            textDrawOperations: 1,
+            textGlyphRuns: 100,
             expanderDrawOperations: 20);
 
         AssertValidDoubleMeasurements(
@@ -384,6 +386,12 @@ public class DataGridDiagnosticsTests
         Assert.Equal(4, GetLongMeasurementTotal(
             listener,
             DataGridDiagnostics.Meters.VirtualSurfaceTextLayoutCacheMissCountName));
+        Assert.Equal(1, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceTextDrawOperationCountName));
+        Assert.Equal(100, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceTextGlyphRunCountName));
         Assert.Equal(20, GetLongMeasurementTotal(
             listener,
             DataGridDiagnostics.Meters.VirtualSurfaceExpanderDrawOperationCountName));

@@ -232,11 +232,16 @@ row count to prove whether the guarded geometry-reuse path actually ran. Both
 diagnostic switches add measurement overhead and remain outside the clean A/B gate.
 For the rowless surface, the same switch records
 `prodatagrid.virtual.surface.render.time` plus aggregate rendered-row, rendered-cell,
-clip, vertical-grid-line, hierarchy-expander, and text-layout cache hit/miss counts.
+clip, vertical-grid-line, hierarchy-expander, text-layout cache hit/miss, text scene
+operation, and immutable glyph-run counts.
 Use those counters to prove which drawing path ran. In particular, a workload with
 zero vertical-grid-line operations cannot validate a grid-line batching hypothesis,
 and a warm-cache workload must not attribute render time to text shaping without
 cache-miss evidence.
+Text batching must be evaluated with both UI render recording and compositor
+render. A UI-stage reduction is accepted only when the render-stage aggregate does
+not show an equivalent transfer of work to the compositor. Scene-operation and
+glyph-run counters prove that the candidate path was active.
 When a transactional path reports additive counters for every row, batch the
 counter additions only after the transaction succeeds and prove that the aggregate
 values are unchanged. This reduces diagnostic observer cost without moving phase

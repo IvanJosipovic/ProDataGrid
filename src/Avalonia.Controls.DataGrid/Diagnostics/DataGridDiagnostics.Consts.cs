@@ -105,6 +105,12 @@ internal static partial class DataGridDiagnostics
         public const string VirtualSurfaceTextLayoutCacheMissCountName = "prodatagrid.virtual.surface.text-layout.cache-miss.count";
         public const string VirtualSurfaceTextLayoutCacheMissCountDescription = "Number of virtual cell text layouts created after a cache miss.";
 
+        public const string VirtualSurfaceTextDrawOperationCountName = "prodatagrid.virtual.surface.text.draw-operation.count";
+        public const string VirtualSurfaceTextDrawOperationCountDescription = "Number of text scene operations recorded by the virtual cell surface.";
+
+        public const string VirtualSurfaceTextGlyphRunCountName = "prodatagrid.virtual.surface.text.glyph-run.count";
+        public const string VirtualSurfaceTextGlyphRunCountDescription = "Number of immutable text glyph runs referenced by the virtual cell surface.";
+
         public const string VirtualSurfaceExpanderDrawOperationCountName = "prodatagrid.virtual.surface.expander.draw-operation.count";
         public const string VirtualSurfaceExpanderDrawOperationCountDescription = "Number of expander drawing operations recorded by the virtual cell surface.";
 

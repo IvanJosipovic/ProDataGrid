@@ -193,6 +193,8 @@ The rowless follow-up is recorded in the
 [lightweight virtual-row report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LIGHTWEIGHT-ROWS-RESULTS-2026-08-13.md).
 Surface render attribution and the empty-selection fast path are recorded in the
 [virtual surface render report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md).
+The follow-up text command ownership and measurement are recorded in the
+[virtual surface text-batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 
@@ -222,7 +224,9 @@ the only representation while editing.
 ## Text shaping and cache ownership
 
 Text is the dominant allocation source for many read-only grids. The surface owns a
-bounded disposable LRU of `TextLayout` instances. Its key includes:
+bounded disposable LRU of text-layout entries. Each entry keeps the `TextLayout`
+and, when all runs and brushes support it, immutable glyph-run render data. Its key
+includes:
 
 - text and culture;
 - font family, size, style, weight, and stretch;
@@ -231,9 +235,16 @@ bounded disposable LRU of `TextLayout` instances. Its key includes:
 - brush kind, color, opacity, or reference identity.
 
 The virtual cache holds 4,096 entries, enough for several benchmark viewports and
-discontinuous jumps. Eviction disposes the layout. Detaching the surface clears the
-cache. The larger bound is surface-specific; retained drawn-cell cache defaults are
-not changed.
+discontinuous jumps. Supported glyph runs are collected into one custom scene
+operation per surface pass; partial-cell clips are replayed per command and cell
+chrome is recorded afterward so draw order is unchanged. Unsupported text or brush
+features use `TextLayout.Draw` directly.
+
+Eviction disposes the layout and releases the cache's immutable render-data
+reference. A queued scene operation owns a separate reference until Avalonia
+disposes it, so clearing the cache cannot invalidate render-thread work already in
+flight. Detaching the surface clears the cache. The larger bound is
+surface-specific; retained drawn-cell cache defaults are not changed.
 
 ## Value invalidation
 

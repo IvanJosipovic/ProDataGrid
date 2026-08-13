@@ -44,12 +44,23 @@ sealed partial class DataGridRowsPresenter
         public int VerticalGridLines;
         public int TextLayoutCacheHits;
         public int TextLayoutCacheMisses;
+        public int TextDrawOperations;
+        public int TextGlyphRuns;
         public int ExpanderDrawOperations;
     }
+
+    private readonly record struct DataGridVirtualCellOverlay(
+        Pen Pen,
+        Rect? Rectangle,
+        Point LineStart,
+        Point LineEnd,
+        Rect? Clip);
 
     private DataGridVirtualCellSurface? _virtualCellSurface;
     private readonly DataGridVirtualTextLayoutCache _virtualTextLayoutCache =
         new(VirtualTextLayoutCacheCapacity);
+    private readonly List<DataGridVirtualTextDrawCommand> _virtualTextDrawCommands = new();
+    private readonly List<DataGridVirtualCellOverlay> _virtualCellOverlays = new();
     private HashSet<INotifyPropertyChanged> _virtualValueNotifiers =
         new(ReferenceEqualityComparer.Instance);
     private HashSet<INotifyPropertyChanged> _nextVirtualValueNotifiers =
@@ -214,6 +225,8 @@ sealed partial class DataGridRowsPresenter
 
         using var renderScope = DataGridDiagnostics.BeginVirtualSurfaceRender();
         DataGridVirtualSurfaceRenderCounters counters = default;
+        _virtualTextDrawCommands.Clear();
+        _virtualCellOverlays.Clear();
 
         ResolveVirtualTextStyle(out FontFamily fontFamily, out double fontSize, out IBrush foreground);
         IBrush? selectedBackground = FindVirtualResource<IBrush>(
@@ -253,6 +266,43 @@ sealed partial class DataGridRowsPresenter
             }
         }
 
+        if (_virtualTextDrawCommands.Count > 0)
+        {
+            var textOperation = new DataGridVirtualTextDrawOperation(new Rect(Bounds.Size), _virtualTextDrawCommands);
+            try
+            {
+                context.Custom(textOperation);
+                counters.TextDrawOperations++;
+            }
+            catch
+            {
+                textOperation.Dispose();
+                throw;
+            }
+            finally
+            {
+                _virtualTextDrawCommands.Clear();
+            }
+        }
+
+        for (int index = 0; index < _virtualCellOverlays.Count; index++)
+        {
+            DataGridVirtualCellOverlay overlay = _virtualCellOverlays[index];
+            if (overlay.Clip is { } clip)
+            {
+                using (context.PushClip(clip))
+                {
+                    DrawVirtualCellOverlay(context, overlay);
+                }
+            }
+            else
+            {
+                DrawVirtualCellOverlay(context, overlay);
+            }
+        }
+
+        _virtualCellOverlays.Clear();
+
         DataGridDiagnostics.RecordVirtualSurfaceRender(
             counters.Rows,
             counters.Cells,
@@ -260,6 +310,8 @@ sealed partial class DataGridRowsPresenter
             counters.VerticalGridLines,
             counters.TextLayoutCacheHits,
             counters.TextLayoutCacheMisses,
+            counters.TextDrawOperations,
+            counters.TextGlyphRuns,
             counters.ExpanderDrawOperations);
     }
 
@@ -314,7 +366,7 @@ sealed partial class DataGridRowsPresenter
             {
                 DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
                     foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, ref counters);
+                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, null, ref counters);
                 continue;
             }
 
@@ -323,7 +375,7 @@ sealed partial class DataGridRowsPresenter
             {
                 DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
                     foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, ref counters);
+                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, visibleBounds, ref counters);
             }
         }
     }
@@ -344,6 +396,7 @@ sealed partial class DataGridRowsPresenter
         bool drawVerticalGridLines,
         bool hasSelectedCells,
         int currentColumnIndex,
+        Rect? textClip,
         ref DataGridVirtualSurfaceRenderCounters counters)
     {
         bool selected = hasSelectedCells && grid.IsCellSelected(row.RowIndex, column.Index);
@@ -363,18 +416,41 @@ sealed partial class DataGridRowsPresenter
             fontSize,
             foreground,
             expanderPen,
+            textClip,
             ref counters);
         if (current && currentPen is not null)
         {
-            context.DrawRectangle(null, currentPen, cellBounds.Deflate(0.5d));
+            _virtualCellOverlays.Add(new DataGridVirtualCellOverlay(
+                currentPen,
+                cellBounds.Deflate(0.5d),
+                default,
+                default,
+                textClip));
         }
 
         if (drawVerticalGridLines && verticalGridPen is not null &&
             (!ReferenceEquals(column, grid.ColumnsInternal.LastVisibleColumn) || grid.ColumnsInternal.FillerColumn.IsActive))
         {
             double x = Math.Max(cellBounds.Left, cellBounds.Right - 0.5d);
-            context.DrawLine(verticalGridPen, new Point(x, cellBounds.Top), new Point(x, cellBounds.Bottom));
+            _virtualCellOverlays.Add(new DataGridVirtualCellOverlay(
+                verticalGridPen,
+                null,
+                new Point(x, cellBounds.Top),
+                new Point(x, cellBounds.Bottom),
+                textClip));
             counters.VerticalGridLines++;
+        }
+    }
+
+    private static void DrawVirtualCellOverlay(DrawingContext context, DataGridVirtualCellOverlay overlay)
+    {
+        if (overlay.Rectangle is { } rectangle)
+        {
+            context.DrawRectangle(null, overlay.Pen, rectangle);
+        }
+        else
+        {
+            context.DrawLine(overlay.Pen, overlay.LineStart, overlay.LineEnd);
         }
     }
 
@@ -388,6 +464,7 @@ sealed partial class DataGridRowsPresenter
         double fontSize,
         IBrush foreground,
         Pen expanderPen,
+        Rect? textClip,
         ref DataGridVirtualSurfaceRenderCounters counters)
     {
         object? item = row.Item;
@@ -461,7 +538,7 @@ sealed partial class DataGridRowsPresenter
             return;
         }
 
-        TextLayout textLayout = GetVirtualTextLayout(
+        DataGridVirtualTextLayout textLayout = GetVirtualTextLayout(
             text,
             fontFamily,
             fontStyle,
@@ -473,8 +550,20 @@ sealed partial class DataGridRowsPresenter
             maxWidth,
             bounds.Height,
             ref counters);
-        double top = bounds.Top + Math.Max(0d, (bounds.Height - textLayout.Height) * 0.5d);
-        textLayout.Draw(context, new Point(left, top));
+        double top = bounds.Top + Math.Max(0d, (bounds.Height - textLayout.Layout.Height) * 0.5d);
+        if (textLayout.RenderData is { } renderData)
+        {
+            _virtualTextDrawCommands.Add(new DataGridVirtualTextDrawCommand(
+                renderData,
+                new Point(left, top),
+                textClip));
+            counters.TextGlyphRuns += renderData.GlyphRunCount;
+        }
+        else
+        {
+            textLayout.Layout.Draw(context, new Point(left, top));
+            counters.TextDrawOperations++;
+        }
     }
 
     private object? GetVirtualCellValue(DataGridColumn column, object? item)
@@ -498,7 +587,7 @@ sealed partial class DataGridRowsPresenter
         return null;
     }
 
-    private TextLayout GetVirtualTextLayout(
+    private DataGridVirtualTextLayout GetVirtualTextLayout(
         string text,
         FontFamily fontFamily,
         FontStyle fontStyle,
@@ -530,7 +619,7 @@ sealed partial class DataGridRowsPresenter
             foregroundOpacity,
             foregroundIdentity);
 
-        if (_virtualTextLayoutCache.TryGet(key, out TextLayout? textLayout))
+        if (_virtualTextLayoutCache.TryGet(key, out DataGridVirtualTextLayout? textLayout))
         {
             counters.TextLayoutCacheHits++;
             return textLayout;
@@ -538,7 +627,7 @@ sealed partial class DataGridRowsPresenter
 
         counters.TextLayoutCacheMisses++;
 
-        textLayout = new TextLayout(
+        var layout = new TextLayout(
             text,
             new Typeface(fontFamily, fontStyle, fontWeight, fontStretch),
             fontSize,
@@ -550,7 +639,7 @@ sealed partial class DataGridRowsPresenter
             maxWidth: maxWidth,
             maxHeight: maxHeight,
             maxLines: 1);
-        return _virtualTextLayoutCache.Add(key, textLayout);
+        return _virtualTextLayoutCache.Add(key, layout);
     }
 
     private static void DrawVirtualProgress(

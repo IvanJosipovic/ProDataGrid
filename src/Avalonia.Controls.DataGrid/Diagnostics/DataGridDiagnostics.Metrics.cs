@@ -79,6 +79,8 @@ internal static partial class DataGridDiagnostics
     private static Counter<long>? s_virtualSurfaceVerticalGridLines;
     private static Counter<long>? s_virtualSurfaceTextLayoutCacheHits;
     private static Counter<long>? s_virtualSurfaceTextLayoutCacheMisses;
+    private static Counter<long>? s_virtualSurfaceTextDrawOperations;
+    private static Counter<long>? s_virtualSurfaceTextGlyphRuns;
     private static Counter<long>? s_virtualSurfaceExpanderDrawOperations;
 
     public static void InitMetrics()
@@ -374,6 +376,14 @@ internal static partial class DataGridDiagnostics
             Meters.VirtualSurfaceTextLayoutCacheMissCountName,
             Meters.LayoutsUnit,
             Meters.VirtualSurfaceTextLayoutCacheMissCountDescription);
+        s_virtualSurfaceTextDrawOperations = meter.CreateCounter<long>(
+            Meters.VirtualSurfaceTextDrawOperationCountName,
+            Meters.OperationsUnit,
+            Meters.VirtualSurfaceTextDrawOperationCountDescription);
+        s_virtualSurfaceTextGlyphRuns = meter.CreateCounter<long>(
+            Meters.VirtualSurfaceTextGlyphRunCountName,
+            Meters.OperationsUnit,
+            Meters.VirtualSurfaceTextGlyphRunCountDescription);
         s_virtualSurfaceExpanderDrawOperations = meter.CreateCounter<long>(
             Meters.VirtualSurfaceExpanderDrawOperationCountName,
             Meters.OperationsUnit,
@@ -529,6 +539,8 @@ internal static partial class DataGridDiagnostics
         int verticalGridLines,
         int textLayoutCacheHits,
         int textLayoutCacheMisses,
+        int textDrawOperations,
+        int textGlyphRuns,
         int expanderDrawOperations)
     {
         Record(s_virtualSurfaceRenderedRows, rows);
@@ -537,6 +549,8 @@ internal static partial class DataGridDiagnostics
         Record(s_virtualSurfaceVerticalGridLines, verticalGridLines);
         Record(s_virtualSurfaceTextLayoutCacheHits, textLayoutCacheHits);
         Record(s_virtualSurfaceTextLayoutCacheMisses, textLayoutCacheMisses);
+        Record(s_virtualSurfaceTextDrawOperations, textDrawOperations);
+        Record(s_virtualSurfaceTextGlyphRuns, textGlyphRuns);
         Record(s_virtualSurfaceExpanderDrawOperations, expanderDrawOperations);
     }
 

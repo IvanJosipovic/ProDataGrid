@@ -93,11 +93,9 @@ Several plausible micro-optimizations were measured and discarded:
 These results reinforce the acceptance rule: fewer commands or allocations are not
 accepted when the directly measured active stage regresses.
 
-## Remaining owner
+## Follow-up
 
-The warm workload still draws 100 cached text layouts per jump. The next material
-render experiment should target per-cell text command recording/serialization,
-potentially through a carefully bounded immediate/custom draw operation. It must
-preserve clipping, selection, current-cell chrome, text fallback, disposal, and
-render-thread ownership, and it requires paired UI/compositor evidence before it is
-adopted.
+The proposed text command experiment is implemented and measured in the
+[virtual surface text-batch report](VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md).
+It preserves clipping, selection/current-cell draw order, fallback, disposal, and
+render-thread ownership while reducing the directly owned surface stage by 24.1%.
