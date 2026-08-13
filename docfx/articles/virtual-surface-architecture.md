@@ -113,6 +113,23 @@ buttons, toggle controls with custom content or commands, arbitrary converters
 requiring the binding engine, and custom draw operations currently use retained
 fallback.
 
+## Sample pages
+
+The sample gallery has dedicated rowless pages rather than relying on the keyed flat
+theme's `Flat` default:
+
+- [`VirtualSurfaceFlatDataPage`](../../src/DataGridSample/Pages/VirtualSurfaceFlatDataPage.axaml)
+  loads up to one million flat rows;
+- [`VirtualSurfaceHierarchyPage`](../../src/DataGridSample/Pages/VirtualSurfaceHierarchyPage.axaml)
+  uses the same 149,792-node representative hierarchy as the retained comparison
+  pages.
+
+Both pages set `Theme="{StaticResource DataGridFlatTheme}"` and override it with
+`VisualLayoutMode="Virtualized"`, a finite `RowHeight`, column-only headers, typed
+column-definition accessors, and finite pixel/star widths. Their default text mode is the fastest
+benchmark endpoint. The selector also exposes checkbox, date, time, masked,
+autocomplete, slider-text, ComboBox-text, and an all-supported mixed mode.
+
 ## End-to-end pipeline
 
 ### 1. Model projection and slot geometry

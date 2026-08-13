@@ -208,19 +208,23 @@ without reconstructing the flat relationships.
 
 ## Comparison samples
 
-The sample application contains four standalone pages so the visual layout and
+The sample application contains six standalone pages so the visual layout and
 the data shape can be varied independently:
 
-| Data shape | Nested baseline | Flat sibling surface |
-|---|---|---|
-| Flat rows | `NestedSurfaceFlatDataPage` | `FlatSurfaceFlatDataPage` |
-| Hierarchical rows | `NestedSurfaceHierarchyPage` | `FlatSurfaceHierarchyPage` |
+| Data shape | Nested baseline | Flat retained siblings | Rowless virtual cell surface |
+|---|---|---|---|
+| Flat rows | `NestedSurfaceFlatDataPage` | `FlatSurfaceFlatDataPage` | `VirtualSurfaceFlatDataPage` |
+| Hierarchical rows | `NestedSurfaceHierarchyPage` | `FlatSurfaceHierarchyPage` | `VirtualSurfaceHierarchyPage` |
 
-The paired pages use the same ViewModels, columns, 520-pixel grid viewport, and
-cell-path selector. The flat-data pair can load up to one million items. The
-hierarchy pair's representative workload expands to 149,792 nodes and exposes
-the existing standard retained, optimized retained, optimized hierarchy
-presenter, direct hierarchy, built-in drawn, and custom Skia paths.
+The matched pages use the same ViewModels, data generators, 520-pixel grid viewport,
+and navigation controls. The flat-data pages can load up to one million items. The
+hierarchy pages' representative workload expands to 149,792 nodes.
+
+The two virtual pages select `VisualLayoutMode="Virtualized"` explicitly and default
+to the fastest typed-text benchmark endpoint. Their mode selector covers the complete
+native benchmark matrix: text, checkbox, date, time, masked text, autocomplete text,
+slider value text, and editable ComboBox text. An "all supported renderers" choice
+combines them in one horizontally scrollable grid.
 
 ## Compatibility matrix
 
