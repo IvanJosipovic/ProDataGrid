@@ -383,7 +383,7 @@ namespace Avalonia.Controls
                         return false;
                     }
 
-                    _retargetEntries[index] = new RetargetEntry(row, rowIndex, item);
+                    _retargetEntries[index] = new RetargetEntry(row, targetSlot, rowIndex, item);
 
                     if (!slotsAreContiguous)
                     {
@@ -392,21 +392,18 @@ namespace Avalonia.Controls
                 }
             }
 
-            slot = firstSlot;
             using (DataGridDiagnostics.BeginRowsRetargetBind())
             {
-                for (int index = 0; index < rowCount; index++)
+                using (DataGridDiagnostics.BeginRowsRetargetApply())
                 {
-                    ref RetargetEntry entry = ref _retargetEntries[index];
-                    int targetSlot = slotsAreContiguous ? firstSlot + index : slot;
-                    _owner.RetargetDefaultVirtualRow(
-                        entry.Row,
-                        targetSlot,
-                        entry.RowIndex,
-                        entry.Item);
-                    if (!slotsAreContiguous)
+                    for (int index = 0; index < rowCount; index++)
                     {
-                        slot = _owner.GetNextVisibleSlot(slot);
+                        ref RetargetEntry entry = ref _retargetEntries[index];
+                        _owner.RetargetDefaultVirtualRow(
+                            entry.Row,
+                            entry.Slot,
+                            entry.RowIndex,
+                            entry.Item);
                     }
                 }
 
@@ -416,24 +413,30 @@ namespace Avalonia.Controls
                     DataGridDiagnostics.Sources.Retargeted,
                     rowCount);
 
-                _owner.InvalidateDefaultVirtualRowsChildIndexes();
+                using (DataGridDiagnostics.BeginRowsRetargetChildIndex())
+                {
+                    _owner.InvalidateDefaultVirtualRowsChildIndexes();
+                }
 
                 bool rowsRemainMeasureValid = true;
                 bool rowsRemainArrangeValid = true;
-                for (int index = 0; index < rowCount; index++)
+                using (DataGridDiagnostics.BeginRowsRetargetLayoutValidity())
                 {
-                    DataGridRow element = _retargetEntries[index].Row;
-                    if (!element.IsMeasureValid)
+                    for (int index = 0; index < rowCount; index++)
                     {
-                        rowsRemainMeasureValid = false;
-                    }
-                    if (!element.IsArrangeValid)
-                    {
-                        rowsRemainArrangeValid = false;
-                    }
-                    if (!rowsRemainMeasureValid && !rowsRemainArrangeValid)
-                    {
-                        break;
+                        DataGridRow element = _retargetEntries[index].Row;
+                        if (!element.IsMeasureValid)
+                        {
+                            rowsRemainMeasureValid = false;
+                        }
+                        if (!element.IsArrangeValid)
+                        {
+                            rowsRemainArrangeValid = false;
+                        }
+                        if (!rowsRemainMeasureValid && !rowsRemainArrangeValid)
+                        {
+                            break;
+                        }
                     }
                 }
 
@@ -452,6 +455,7 @@ namespace Avalonia.Controls
 
         private readonly record struct RetargetEntry(
             DataGridRow Row,
+            int Slot,
             int RowIndex,
             object Item);
 

@@ -188,14 +188,24 @@ through the selection model. After the complete batch, the presenter raises one
 logical child-index reset instead of one notification per row. Selector-driven
 style invalidation therefore still occurs before layout reuse is considered.
 
-Retarget validation is transactional. It first captures the row, resolved row
-index, and target item in one reusable typed-entry buffer; no row is mutated until
-the entire target window passes validation. When group-header, group-footer, and
-collapsed-slot tables are empty, target slots are contiguous and are advanced by
-index instead of repeatedly traversing the visible-slot map. Non-contiguous ranges
-retain the complete visible-slot traversal. The same captured row references are
-then reused for binding and post-bind layout-validity checks, avoiding repeated
-circular-list resolution without weakening the validate-before-mutate contract.
+Retarget validation is transactional. It first captures the row, resolved target
+slot, row index, and target item in one reusable typed-entry buffer; no row is
+mutated until the entire target window passes validation. When group-header,
+group-footer, and collapsed-slot tables are empty, target slots are contiguous and
+are advanced by index instead of repeatedly traversing the visible-slot map.
+Non-contiguous ranges retain the complete visible-slot traversal. Binding consumes
+the captured target slot directly instead of resolving it a second time. The same
+captured row references are then reused for binding and post-bind layout-validity
+checks, avoiding repeated circular-list resolution without weakening the
+validate-before-mutate contract.
+
+The bind also treats default row state sparsely. Placeholder and validation direct
+properties are assigned only when their current backing state differs from the
+required value. Equal-value `SetAndRaise` notifications were already suppressed,
+so this removes setter work without changing observers. Placeholder transitions,
+invalid rows, and `INotifyDataErrorInfo` items still execute the complete state
+transition and validation restoration. DataContext and row index are always
+updated because they identify the semantic row and remain publicly observable.
 
 The presenter may reuse fixed-height row geometry when all retargeted rows remain
 measure-valid after that logical-index reset and its width constraint is unchanged.
@@ -220,6 +230,8 @@ The focused evidence for the typed retarget-entry buffer is recorded in the
 [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
 The follow-up evidence for batched lifecycle counters is recorded in the
 [virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md).
+The retarget-apply ownership and sparse-state evidence is recorded in the
+[virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 

@@ -220,6 +220,12 @@ virtual layout pipeline needs finer ownership: the JSON records per-jump means a
 raw samples for scrolling, displayed-row update, generation phases, recycling
 phases, retarget eligibility/validation/bind phases, element insertion, and row
 realization/recycling/retargeting counts. Retarget probes also expose
+`prodatagrid.rows.retarget.apply.time`,
+`prodatagrid.rows.retarget.child-index.time`, and
+`prodatagrid.rows.retarget.layout-validity.time` inside the enclosing bind phase.
+Use these nested phases to distinguish observable row identity/state work from
+logical-tree bookkeeping and the layout-reuse guard; do not add nested phase
+values to their enclosing bind time. Retarget probes also expose
 `prodatagrid.rows.retarget.measure.reused.count` and
 `prodatagrid.rows.retarget.arrange.reused.count`; compare them with the realized
 row count to prove whether the guarded geometry-reuse path actually ran. Both
@@ -255,4 +261,5 @@ See the [native source benchmark README](https://github.com/wieslawsoltes/ProDat
 and the [focused scroll report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
 and the [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md)
 and the [virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md)
+and the [virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md)
 for current commands and results.

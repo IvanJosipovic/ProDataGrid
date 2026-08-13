@@ -88,7 +88,11 @@ partial class DataGrid
         row.Index = rowIndex;
         row.Slot = slot;
         row.DataContext = item;
-        row.IsPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
+        bool isPlaceholder = ReferenceEquals(item, DataGridCollectionView.NewItemPlaceholder);
+        if (row.IsPlaceholder != isPlaceholder)
+        {
+            row.IsPlaceholder = isPlaceholder;
+        }
         PrepareDefaultVirtualSurfaceRow(row, item, recordDiagnostics: false);
         bool isSelected = GetRowSelection(slot);
         bool isFullySelected = IsRowFullySelected(slot, isSelected);

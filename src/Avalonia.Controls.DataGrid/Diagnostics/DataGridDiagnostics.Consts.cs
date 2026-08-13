@@ -31,6 +31,15 @@ internal static partial class DataGridDiagnostics
         public const string RowsRetargetBindTimeName = "prodatagrid.rows.retarget.bind.time";
         public const string RowsRetargetBindTimeDescription = "Duration of rebinding and applying state to an in-place virtual-row retarget batch.";
 
+        public const string RowsRetargetApplyTimeName = "prodatagrid.rows.retarget.apply.time";
+        public const string RowsRetargetApplyTimeDescription = "Duration of applying item, index, slot, validation, and selection state to a validated virtual-row retarget batch.";
+
+        public const string RowsRetargetChildIndexTimeName = "prodatagrid.rows.retarget.child-index.time";
+        public const string RowsRetargetChildIndexTimeDescription = "Duration of invalidating logical child indexes after a virtual-row retarget batch.";
+
+        public const string RowsRetargetLayoutValidityTimeName = "prodatagrid.rows.retarget.layout-validity.time";
+        public const string RowsRetargetLayoutValidityTimeDescription = "Duration of validating measure and arrange state after a virtual-row retarget batch.";
+
         public const string RowsRetargetMeasureReusedCountName = "prodatagrid.rows.retarget.measure.reused.count";
         public const string RowsRetargetMeasureReusedCountDescription = "Number of retargeted rows whose validated fixed-height measure geometry was reused.";
 

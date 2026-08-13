@@ -316,6 +316,9 @@ public class DataGridDiagnosticsTests
             AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetEligibilityTimeName);
             AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetValidationTimeName);
             AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetBindTimeName);
+            AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetApplyTimeName);
+            AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetChildIndexTimeName);
+            AssertValidDoubleMeasurements(listener, DataGridDiagnostics.Meters.RowsRetargetLayoutValidityTimeName);
             long retargeted = GetLongMeasurementTotal(
                 listener,
                 DataGridDiagnostics.Meters.RowsRetargetedCountName) - retargetedBefore;

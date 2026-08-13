@@ -241,8 +241,14 @@ internal
             // Default surface rows have no cell containers. Recycling retains their previous
             // item until this bind, so only reset row-level validation here; selection and other
             // visual state are overwritten by LoadRowVisualsForDisplay before the row is shown.
-            row.IsValid = true;
-            row.ValidationSeverity = DataGridValidationSeverity.None;
+            if (!row.IsValid)
+            {
+                row.IsValid = true;
+            }
+            if (row.ValidationSeverity != DataGridValidationSeverity.None)
+            {
+                row.ValidationSeverity = DataGridValidationSeverity.None;
+            }
             if (item is INotifyDataErrorInfo)
             {
                 RestoreRowValidationState(row, item);

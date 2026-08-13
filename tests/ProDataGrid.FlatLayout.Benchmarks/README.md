@@ -69,3 +69,5 @@ The focused fixed-height row-window retarget optimization is documented in
 [VIRTUAL-RETARGET-RESULTS-2026-08-13.md](VIRTUAL-RETARGET-RESULTS-2026-08-13.md).
 The follow-up lifecycle-counter batching result is documented in
 [VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md](VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md).
+The retarget-apply decomposition and sparse-state follow-up is documented in
+[VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md](VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md).
