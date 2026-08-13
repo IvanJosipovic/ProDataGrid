@@ -2297,6 +2297,8 @@ internal
             }
         }
 
+        internal bool HasSelectedCells => _selectedCells.Count != 0;
+
         internal bool IsCellSelected(int rowIndex, int columnIndex)
         {
             return _selectedCells.TryGetValue(rowIndex, out var columns) && columns.Contains(columnIndex);

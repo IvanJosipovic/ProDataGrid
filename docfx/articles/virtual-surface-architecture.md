@@ -191,6 +191,8 @@ The retarget-apply ownership and sparse-state evidence is recorded in the
 [virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md).
 The rowless follow-up is recorded in the
 [lightweight virtual-row report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LIGHTWEIGHT-ROWS-RESULTS-2026-08-13.md).
+Surface render attribution and the empty-selection fast path are recorded in the
+[virtual surface render report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md).
 
 ### 4. Surface rendering
 
@@ -207,6 +209,11 @@ For each cell the presenter:
 5. draws text, checkbox, date/time text, image, progress, or hierarchy content;
 6. draws current-cell chrome; and
 7. draws a vertical grid line when enabled.
+
+The presenter snapshots whether any selected cells exist once per surface pass. An
+empty selection therefore skips all per-cell selection-dictionary lookups. It also
+resolves the current column once per visible row; only that row can draw current-cell
+chrome. These are lookup fast paths, not alternate selection or currency models.
 
 A clip scope is created only when the visible rectangle differs from the complete
 cell rectangle. The surface skips the active editor cell so the retained overlay is

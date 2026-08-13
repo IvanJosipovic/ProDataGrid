@@ -230,6 +230,13 @@ values to their enclosing bind time. Retarget probes also expose
 `prodatagrid.rows.retarget.arrange.reused.count`; compare them with the realized
 row count to prove whether the guarded geometry-reuse path actually ran. Both
 diagnostic switches add measurement overhead and remain outside the clean A/B gate.
+For the rowless surface, the same switch records
+`prodatagrid.virtual.surface.render.time` plus aggregate rendered-row, rendered-cell,
+clip, vertical-grid-line, hierarchy-expander, and text-layout cache hit/miss counts.
+Use those counters to prove which drawing path ran. In particular, a workload with
+zero vertical-grid-line operations cannot validate a grid-line batching hypothesis,
+and a warm-cache workload must not attribute render time to text shaping without
+cache-miss evidence.
 When a transactional path reports additive counters for every row, batch the
 counter additions only after the transaction succeeds and prove that the aggregate
 values are unchanged. This reduces diagnostic observer cost without moving phase
@@ -262,4 +269,5 @@ and the [focused scroll report](https://github.com/wieslawsoltes/ProDataGrid/blo
 and the [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md)
 and the [virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md)
 and the [virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md)
+and the [virtual surface render report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md)
 for current commands and results.

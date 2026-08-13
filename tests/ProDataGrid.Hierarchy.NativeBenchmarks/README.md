@@ -237,6 +237,11 @@ option enables instrumentation and must not be used for the clean performance
 gate. It is intentionally rejected by the TreeDataGrid executable because those
 internal meters do not exist there.
 
+For the rowless virtual surface, the same option records surface render duration,
+rendered rows and cells, partial clips, vertical grid lines, hierarchy-expander draw
+operations, and text-layout cache hits/misses. These counters distinguish command
+recording from layout and prove whether a proposed render optimization is active.
+
 `virtual-checkbox` replaces the payload text column with a typed
 `DataGridCheckBoxColumn`. It validates that the checkbox remains on the single
 surface and that no retained display cells are realized. The diagnostic-only
@@ -262,4 +267,7 @@ The complete experiment design and interpretation rules are in
 [Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).
 
 See [the 2026-08-12 focused scroll report](../ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
-for the paired renderer optimization and flat-versus-nested source results.
+for the paired renderer optimization and flat-versus-nested source results, and
+[the 2026-08-13 virtual surface render report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md)
+for render-stage attribution, rejected experiments, and the selected-cell lookup
+fast path.

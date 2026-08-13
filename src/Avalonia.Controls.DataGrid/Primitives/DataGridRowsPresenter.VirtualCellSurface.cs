@@ -36,6 +36,17 @@ sealed partial class DataGridRowsPresenter
     // evict the entire working set between render passes.
     private const int VirtualTextLayoutCacheCapacity = 4096;
 
+    private struct DataGridVirtualSurfaceRenderCounters
+    {
+        public int Rows;
+        public int Cells;
+        public int Clips;
+        public int VerticalGridLines;
+        public int TextLayoutCacheHits;
+        public int TextLayoutCacheMisses;
+        public int ExpanderDrawOperations;
+    }
+
     private DataGridVirtualCellSurface? _virtualCellSurface;
     private readonly DataGridVirtualTextLayoutCache _virtualTextLayoutCache =
         new(VirtualTextLayoutCacheCapacity);
@@ -201,6 +212,9 @@ sealed partial class DataGridRowsPresenter
             return;
         }
 
+        using var renderScope = DataGridDiagnostics.BeginVirtualSurfaceRender();
+        DataGridVirtualSurfaceRenderCounters counters = default;
+
         ResolveVirtualTextStyle(out FontFamily fontFamily, out double fontSize, out IBrush foreground);
         IBrush? selectedBackground = FindVirtualResource<IBrush>(
             grid.IsKeyboardFocusWithin
@@ -211,6 +225,7 @@ sealed partial class DataGridRowsPresenter
         Pen? verticalGridPen = grid.VerticalGridLinesBrush is null ? null : new Pen(grid.VerticalGridLinesBrush, 1d);
         Pen expanderPen = new(foreground, 1.5d, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
         bool drawVerticalGridLines = grid.GridLinesVisibility is DataGridGridLinesVisibility.Vertical or DataGridGridLinesVisibility.All;
+        bool hasSelectedCells = grid.HasSelectedCells;
 
         if (grid.DisplayData.HasVirtualScrollingElements)
         {
@@ -218,24 +233,34 @@ sealed partial class DataGridRowsPresenter
             {
                 DrawVirtualRow(context, grid, _lightweightVirtualRows[index], fontFamily, fontSize,
                     foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines);
+                    drawVerticalGridLines, hasSelectedCells, ref counters);
             }
-            return;
+        }
+        else
+        {
+            foreach (DataGridRow row in grid.DisplayData.GetScrollingRows())
+            {
+                var rowInfo = new DataGridVirtualRowInfo(
+                    row,
+                    row.Slot,
+                    row.Index,
+                    row.DataContext!,
+                    row.Bounds.Top,
+                    row.GetFlatCellsHeight());
+                DrawVirtualRow(context, grid, rowInfo, fontFamily, fontSize, foreground,
+                    expanderPen, selectedBackground, currentPen, verticalGridPen,
+                    drawVerticalGridLines, hasSelectedCells, ref counters);
+            }
         }
 
-        foreach (DataGridRow row in grid.DisplayData.GetScrollingRows())
-        {
-            var rowInfo = new DataGridVirtualRowInfo(
-                row,
-                row.Slot,
-                row.Index,
-                row.DataContext!,
-                row.Bounds.Top,
-                row.GetFlatCellsHeight());
-            DrawVirtualRow(context, grid, rowInfo, fontFamily, fontSize, foreground,
-                expanderPen, selectedBackground, currentPen, verticalGridPen,
-                drawVerticalGridLines);
-        }
+        DataGridDiagnostics.RecordVirtualSurfaceRender(
+            counters.Rows,
+            counters.Cells,
+            counters.Clips,
+            counters.VerticalGridLines,
+            counters.TextLayoutCacheHits,
+            counters.TextLayoutCacheMisses,
+            counters.ExpanderDrawOperations);
     }
 
     private void DrawVirtualRow(
@@ -249,13 +274,18 @@ sealed partial class DataGridRowsPresenter
         IBrush? selectedBackground,
         Pen? currentPen,
         Pen? verticalGridPen,
-        bool drawVerticalGridLines)
+        bool drawVerticalGridLines,
+        bool hasSelectedCells,
+        ref DataGridVirtualSurfaceRenderCounters counters)
     {
         double rowHeight = row.Height;
         if (rowHeight <= 0d || row.Top + rowHeight < 0d || row.Top > Bounds.Height)
         {
             return;
         }
+
+        counters.Rows++;
+        int currentColumnIndex = grid.CurrentSlot == row.Slot ? grid.CurrentColumnIndex : -1;
 
         for (int layoutIndex = 0; layoutIndex < _flatColumnLayouts.Count; layoutIndex++)
         {
@@ -270,6 +300,7 @@ sealed partial class DataGridRowsPresenter
             {
                 continue;
             }
+
             Rect cellBounds = GetVirtualCellBounds(grid, row, layout);
             Rect visibleBounds = GetVisibleVirtualCellBounds(grid, column, cellBounds);
             if (visibleBounds.Width <= 0d || visibleBounds.Height <= 0d)
@@ -277,19 +308,22 @@ sealed partial class DataGridRowsPresenter
                 continue;
             }
 
+            counters.Cells++;
+
             if (AreClose(cellBounds, visibleBounds))
             {
                 DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
                     foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines);
+                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, ref counters);
                 continue;
             }
 
+            counters.Clips++;
             using (context.PushClip(visibleBounds))
             {
                 DrawVirtualCell(context, grid, row, column, cellBounds, fontFamily, fontSize,
                     foreground, expanderPen, selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines);
+                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, ref counters);
             }
         }
     }
@@ -307,10 +341,13 @@ sealed partial class DataGridRowsPresenter
         IBrush? selectedBackground,
         Pen? currentPen,
         Pen? verticalGridPen,
-        bool drawVerticalGridLines)
+        bool drawVerticalGridLines,
+        bool hasSelectedCells,
+        int currentColumnIndex,
+        ref DataGridVirtualSurfaceRenderCounters counters)
     {
-        bool selected = grid.IsCellSelected(row.RowIndex, column.Index);
-        bool current = grid.CurrentSlot == row.Slot && grid.CurrentColumnIndex == column.Index;
+        bool selected = hasSelectedCells && grid.IsCellSelected(row.RowIndex, column.Index);
+        bool current = currentColumnIndex == column.Index;
         if (selected && selectedBackground is not null)
         {
             context.DrawRectangle(selectedBackground, null, cellBounds);
@@ -325,7 +362,8 @@ sealed partial class DataGridRowsPresenter
             fontFamily,
             fontSize,
             foreground,
-            expanderPen);
+            expanderPen,
+            ref counters);
         if (current && currentPen is not null)
         {
             context.DrawRectangle(null, currentPen, cellBounds.Deflate(0.5d));
@@ -336,6 +374,7 @@ sealed partial class DataGridRowsPresenter
         {
             double x = Math.Max(cellBounds.Left, cellBounds.Right - 0.5d);
             context.DrawLine(verticalGridPen, new Point(x, cellBounds.Top), new Point(x, cellBounds.Bottom));
+            counters.VerticalGridLines++;
         }
     }
 
@@ -348,7 +387,8 @@ sealed partial class DataGridRowsPresenter
         FontFamily fontFamily,
         double fontSize,
         IBrush foreground,
-        Pen expanderPen)
+        Pen expanderPen,
+        ref DataGridVirtualSurfaceRenderCounters counters)
     {
         object? item = row.Item;
         object? value = GetVirtualCellValue(column, item);
@@ -377,7 +417,13 @@ sealed partial class DataGridRowsPresenter
         if (column is DataGridHierarchicalColumn hierarchicalColumn && item is HierarchicalNode node)
         {
             double indent = Math.Max(0, node.Level) * hierarchicalColumn.Indent;
-            DrawVirtualExpander(context, node, bounds.Left + indent, bounds.Top, bounds.Height, expanderPen);
+            counters.ExpanderDrawOperations += DrawVirtualExpander(
+                context,
+                node,
+                bounds.Left + indent,
+                bounds.Top,
+                bounds.Height,
+                expanderPen);
             left += indent + VirtualExpanderSize;
         }
         else if (column is DataGridComboBoxColumn)
@@ -425,7 +471,8 @@ sealed partial class DataGridRowsPresenter
             foreground,
             textAlignment,
             maxWidth,
-            bounds.Height);
+            bounds.Height,
+            ref counters);
         double top = bounds.Top + Math.Max(0d, (bounds.Height - textLayout.Height) * 0.5d);
         textLayout.Draw(context, new Point(left, top));
     }
@@ -461,7 +508,8 @@ sealed partial class DataGridRowsPresenter
         IBrush foreground,
         TextAlignment textAlignment,
         double maxWidth,
-        double maxHeight)
+        double maxHeight,
+        ref DataGridVirtualSurfaceRenderCounters counters)
     {
         GetBrushIdentity(foreground, out byte foregroundKind, out Color foregroundColor, out double foregroundOpacity, out int foregroundIdentity);
         var key = new DataGridCustomDrawingTextLayoutCache.CacheKey(
@@ -484,8 +532,11 @@ sealed partial class DataGridRowsPresenter
 
         if (_virtualTextLayoutCache.TryGet(key, out TextLayout? textLayout))
         {
+            counters.TextLayoutCacheHits++;
             return textLayout;
         }
+
+        counters.TextLayoutCacheMisses++;
 
         textLayout = new TextLayout(
             text,
@@ -646,7 +697,7 @@ sealed partial class DataGridRowsPresenter
         _ => scale,
     };
 
-    private static void DrawVirtualExpander(
+    private static int DrawVirtualExpander(
         DrawingContext context,
         HierarchicalNode node,
         double left,
@@ -656,7 +707,7 @@ sealed partial class DataGridRowsPresenter
     {
         if (node.IsLeaf)
         {
-            return;
+            return 0;
         }
 
         double centerX = left + (VirtualExpanderSize * 0.5d);
@@ -671,6 +722,8 @@ sealed partial class DataGridRowsPresenter
             context.DrawLine(pen, new Point(centerX - 2d, centerY - 4d), new Point(centerX + 2d, centerY));
             context.DrawLine(pen, new Point(centerX + 2d, centerY), new Point(centerX - 2d, centerY + 4d));
         }
+
+        return 2;
     }
 
     internal bool IsVirtualCellPoint(Point point) => TryHitVirtualCell(point, out _, out _);

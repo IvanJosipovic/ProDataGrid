@@ -349,6 +349,46 @@ public class DataGridDiagnosticsTests
         }
     }
 
+    [Fact]
+    public void Virtual_Surface_Metrics_Report_Render_Work()
+    {
+        using var listener = new DiagnosticsListener();
+
+        using (DataGridDiagnostics.BeginVirtualSurfaceRender())
+        {
+        }
+        DataGridDiagnostics.RecordVirtualSurfaceRender(
+            rows: 20,
+            cells: 100,
+            clips: 2,
+            verticalGridLines: 0,
+            textLayoutCacheHits: 96,
+            textLayoutCacheMisses: 4,
+            expanderDrawOperations: 20);
+
+        AssertValidDoubleMeasurements(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceRenderTimeName);
+        Assert.Equal(20, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceRenderedRowsCountName));
+        Assert.Equal(100, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceRenderedCellsCountName));
+        Assert.Equal(2, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceClipCountName));
+        Assert.Equal(96, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceTextLayoutCacheHitCountName));
+        Assert.Equal(4, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceTextLayoutCacheMissCountName));
+        Assert.Equal(20, GetLongMeasurementTotal(
+            listener,
+            DataGridDiagnostics.Meters.VirtualSurfaceExpanderDrawOperationCountName));
+    }
+
     [AvaloniaFact]
     public void DataGrid_Metrics_Report_Valid_Counters()
     {

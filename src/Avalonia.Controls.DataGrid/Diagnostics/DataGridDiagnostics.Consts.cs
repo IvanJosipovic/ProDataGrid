@@ -11,6 +11,11 @@ internal static partial class DataGridDiagnostics
         public const string MillisecondsUnit = "ms";
         public const string RowsUnit = "{row}";
         public const string ColumnsUnit = "{column}";
+        public const string CellsUnit = "{cell}";
+        public const string ClipsUnit = "{clip}";
+        public const string LinesUnit = "{line}";
+        public const string LayoutsUnit = "{layout}";
+        public const string OperationsUnit = "{operation}";
         public const string SelectionUnit = "{selection}";
 
         public const string DataGridRefreshTimeName = "prodatagrid.refresh.time";
@@ -78,6 +83,30 @@ internal static partial class DataGridDiagnostics
 
         public const string RowArrangeTimeName = "prodatagrid.row.arrange.time";
         public const string RowArrangeTimeDescription = "Duration of arranging a DataGrid row.";
+
+        public const string VirtualSurfaceRenderTimeName = "prodatagrid.virtual.surface.render.time";
+        public const string VirtualSurfaceRenderTimeDescription = "Duration of recording one virtual cell surface render pass.";
+
+        public const string VirtualSurfaceRenderedRowsCountName = "prodatagrid.virtual.surface.rendered.rows.count";
+        public const string VirtualSurfaceRenderedRowsCountDescription = "Number of visible rows recorded by the virtual cell surface.";
+
+        public const string VirtualSurfaceRenderedCellsCountName = "prodatagrid.virtual.surface.rendered.cells.count";
+        public const string VirtualSurfaceRenderedCellsCountDescription = "Number of visible cells recorded by the virtual cell surface.";
+
+        public const string VirtualSurfaceClipCountName = "prodatagrid.virtual.surface.clip.count";
+        public const string VirtualSurfaceClipCountDescription = "Number of partial-cell clip scopes recorded by the virtual cell surface.";
+
+        public const string VirtualSurfaceVerticalGridLineCountName = "prodatagrid.virtual.surface.vertical-grid-line.count";
+        public const string VirtualSurfaceVerticalGridLineCountDescription = "Number of vertical grid-line draw operations recorded by the virtual cell surface.";
+
+        public const string VirtualSurfaceTextLayoutCacheHitCountName = "prodatagrid.virtual.surface.text-layout.cache-hit.count";
+        public const string VirtualSurfaceTextLayoutCacheHitCountDescription = "Number of virtual cell text layouts reused from the cache.";
+
+        public const string VirtualSurfaceTextLayoutCacheMissCountName = "prodatagrid.virtual.surface.text-layout.cache-miss.count";
+        public const string VirtualSurfaceTextLayoutCacheMissCountDescription = "Number of virtual cell text layouts created after a cache miss.";
+
+        public const string VirtualSurfaceExpanderDrawOperationCountName = "prodatagrid.virtual.surface.expander.draw-operation.count";
+        public const string VirtualSurfaceExpanderDrawOperationCountDescription = "Number of expander drawing operations recorded by the virtual cell surface.";
 
         public const string RowGenerateTimeName = "prodatagrid.rows.generate.time";
         public const string RowGenerateTimeDescription = "Duration of row generation and preparation.";
