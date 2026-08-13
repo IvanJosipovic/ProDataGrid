@@ -135,7 +135,6 @@ internal
         internal void RequestRetainedRowsCleanupForLightweightLayout()
         {
             _cleanupRetainedRowsForLightweightLayout = true;
-            InvalidateMeasure();
         }
 
         private void CleanupRetainedRowsForLightweightLayout()
