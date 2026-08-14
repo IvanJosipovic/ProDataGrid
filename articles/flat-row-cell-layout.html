@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+      <title>Visual layout modes | ProDataGrid for Avalonia </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="title" content="Visual layout modes | ProDataGrid for Avalonia ">
+      
+      
+      <link rel="icon" href="../favicon.ico">
+      <link rel="stylesheet" href="../public/docfx.min.css">
+      <link rel="stylesheet" href="../public/main.css">
+      <meta name="docfx:navrel" content="../toc.html">
+      <meta name="docfx:tocrel" content="toc.html">
+      
+      
+      
+      
+      <meta name="docfx:docurl" content="https://github.com/IvanJosipovic/ProDataGrid/blob/master/docfx/articles/flat-row-cell-layout.md/#L1">
+      <meta name="loc:inThisArticle" content="In this article">
+      <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
+      <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
+      <meta name="loc:tocFilter" content="Filter by title">
+      <meta name="loc:nextArticle" content="Next">
+      <meta name="loc:prevArticle" content="Previous">
+      <meta name="loc:themeLight" content="Light">
+      <meta name="loc:themeDark" content="Dark">
+      <meta name="loc:themeAuto" content="Auto">
+      <meta name="loc:changeTheme" content="Change theme">
+      <meta name="loc:copy" content="Copy">
+      <meta name="loc:downloadPdf" content="Download PDF">
+
+      <script type="module" src="./../public/docfx.min.js"></script>
+
+      <script>
+        const theme = localStorage.getItem('theme') || 'auto'
+        document.documentElement.setAttribute('data-bs-theme', theme === 'auto' ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : theme)
+      </script>
+
+  </head>
+
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
+    <header class="bg-body border-bottom">
+      <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
+        <div class="container-xxl flex-nowrap">
+          <a class="navbar-brand" href="../index.html">
+            <img id="logo" class="svg" src="../images/logo.svg" alt="">
+            
+          </a>
+          <button class="btn btn-lg d-md-none border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navpanel" aria-controls="navpanel" aria-expanded="false" aria-label="Toggle navigation">
+            <i class="bi bi-three-dots"></i>
+          </button>
+          <div class="collapse navbar-collapse" id="navpanel">
+            <div id="navbar">
+            </div>
+          </div>
+        </div>
+      </nav>
+    </header>
+
+    <main class="container-xxl">
+      <div class="toc-offcanvas">
+        <div class="offcanvas-md offcanvas-start" tabindex="-1" id="tocOffcanvas" aria-labelledby="tocOffcanvasLabel">
+          <div class="offcanvas-header">
+            <h5 class="offcanvas-title" id="tocOffcanvasLabel">Table of Contents</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#tocOffcanvas" aria-label="Close"></button>
+          </div>
+          <div class="offcanvas-body">
+            <nav class="toc" id="toc"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="content">
+        <div class="actionbar">
+          <button class="btn btn-lg border-0 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#tocOffcanvas" aria-controls="tocOffcanvas" aria-expanded="false" aria-label="Show table of contents">
+            <i class="bi bi-list"></i>
+          </button>
+
+          <nav id="breadcrumb"></nav>
+        </div>
+
+        <article data-uid="">
+<h1 id="visual-layout-modes">Visual layout modes</h1>
+
+<p>ProDataGrid provides three visual layout modes. The mode is selected per grid, so
+an application can use the compatibility layout for feature-rich grids and a
+lighter layout for large, fixed-height grids.</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Display representation</th>
+<th>Recommended use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Nested</code></td>
+<td>Each realized row owns a cells presenter and retained cell controls.</td>
+<td>Default choice for arbitrary templates, variable row heights, row details, group rows, and custom row features.</td>
+</tr>
+<tr>
+<td><code>Flat</code></td>
+<td>Realized rows and cells are retained controls arranged by one rows presenter.</td>
+<td>Fixed-height grids that need retained cell controls with a smaller visual tree.</td>
+</tr>
+<tr>
+<td><code>Virtualized</code></td>
+<td>Compatible display cells are drawn by one virtual surface. Editors and compatibility controls are created when required.</td>
+<td>Large, read-mostly grids with fixed row heights, explicit column widths, and typed value accessors.</td>
+</tr>
+</tbody>
+</table>
+<p><code>Nested</code> remains the default. Existing grids are unchanged until they opt into a
+different mode.</p>
+<h2 id="load-the-flat-layout-resources">Load the flat-layout resources</h2>
+<p>Load one Avalonia theme, the matching ProDataGrid v2 theme, and the flat resource
+dictionary:</p>
+<pre><code class="lang-xml">&lt;Application.Styles&gt;
+  &lt;FluentTheme /&gt;
+  &lt;StyleInclude Source=&quot;avares://Avalonia.Controls.DataGrid/Themes/Fluent.v2.xaml&quot; /&gt;
+  &lt;StyleInclude Source=&quot;avares://Avalonia.Controls.DataGrid/Themes/Flat.xaml&quot; /&gt;
+&lt;/Application.Styles&gt;
+</code></pre>
+<p>For the Simple theme, replace <code>FluentTheme</code> and <code>Fluent.v2.xaml</code> with
+<code>SimpleTheme</code> and <code>Simple.v2.xaml</code>.</p>
+<p><code>Flat.xaml</code> is additive. Loading it does not change existing grids. It provides
+the keyed <code>DataGridFlatTheme</code>, which supplies the flat row template and selects
+<code>Flat</code> by default.</p>
+<h2 id="use-flat-mode">Use Flat mode</h2>
+<p>Apply <code>DataGridFlatTheme</code> to a grid with a finite row height and explicit pixel or
+star column widths:</p>
+<pre><code class="lang-xml">&lt;DataGrid Theme=&quot;{StaticResource DataGridFlatTheme}&quot;
+          VisualLayoutMode=&quot;Flat&quot;
+          ItemsSource=&quot;{CompiledBinding Rows}&quot;
+          AutoGenerateColumns=&quot;False&quot;
+          HeadersVisibility=&quot;Column&quot;
+          RowHeight=&quot;32&quot;&gt;
+  &lt;DataGrid.Columns&gt;
+    &lt;DataGridTextColumn Header=&quot;Id&quot;
+                        Width=&quot;80&quot;
+                        x:DataType=&quot;models:Person&quot;
+                        Binding=&quot;{CompiledBinding Id}&quot; /&gt;
+    &lt;DataGridTextColumn Header=&quot;Name&quot;
+                        Width=&quot;*&quot;
+                        x:DataType=&quot;models:Person&quot;
+                        Binding=&quot;{CompiledBinding Name}&quot; /&gt;
+  &lt;/DataGrid.Columns&gt;
+&lt;/DataGrid&gt;
+</code></pre>
+<p>The example assumes that the view declares the <code>models</code> XML namespace.</p>
+<p>Flat mode keeps normal row and cell controls. Selection, editing, validation,
+keyboard input, and automation continue to use the retained control model. The
+main restriction is the flat row template: it is intended for column-only headers
+and does not host row headers or row details.</p>
+<h2 id="use-virtualized-mode">Use Virtualized mode</h2>
+<p>Use the same theme and set <code>VisualLayoutMode=&quot;Virtualized&quot;</code>:</p>
+<pre><code class="lang-xml">&lt;DataGrid Theme=&quot;{StaticResource DataGridFlatTheme}&quot;
+          VisualLayoutMode=&quot;Virtualized&quot;
+          ItemsSource=&quot;{CompiledBinding Rows}&quot;
+          ColumnDefinitionsSource=&quot;{CompiledBinding Columns}&quot;
+          AutoGenerateColumns=&quot;False&quot;
+          HeadersVisibility=&quot;Column&quot;
+          RowHeight=&quot;32&quot; /&gt;
+</code></pre>
+<p>Virtualized mode also requires compatible typed value accessors. Column
+definitions created with <code>DataGridBindingDefinition</code> provide both the compiled
+binding and the accessor metadata needed by the surface. See
+<a href="virtual-surface-architecture.html">Virtualized cell surface</a> for supported columns,
+configuration, and fallback behavior.</p>
+<h2 id="choose-a-mode">Choose a mode</h2>
+<p>Start with <code>Nested</code> when compatibility is the priority. Choose <code>Flat</code> when all of
+the following are true:</p>
+<ul>
+<li>rows have a fixed, finite height;</li>
+<li>visible columns use pixel or star widths;</li>
+<li>row headers and row details are not required; and</li>
+<li>retained controls or templates are still needed for display.</li>
+</ul>
+<p>Choose <code>Virtualized</code> when the Flat requirements are met and the visible columns
+can use the supported surface renderers and typed accessors.</p>
+<table>
+<thead>
+<tr>
+<th>Requirement or feature</th>
+<th style="text-align: right;"><code>Nested</code></th>
+<th style="text-align: right;"><code>Flat</code></th>
+<th style="text-align: right;"><code>Virtualized</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fixed-height rows</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Required</td>
+<td style="text-align: right;">Required for the optimized rowless path</td>
+</tr>
+<tr>
+<td>Pixel and star column widths</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+</tr>
+<tr>
+<td>Auto or size-to-cells widths</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Use with care</td>
+<td style="text-align: right;">Retained fallback</td>
+</tr>
+<tr>
+<td>Row headers and row details</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Use <code>Nested</code></td>
+<td style="text-align: right;">Retained compatibility path; prefer <code>Nested</code></td>
+</tr>
+<tr>
+<td>Collection-view group rows</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Use <code>Nested</code></td>
+<td style="text-align: right;">Retained compatibility path; prefer <code>Nested</code></td>
+</tr>
+<tr>
+<td>Arbitrary cell templates and themes</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Retained fallback</td>
+</tr>
+<tr>
+<td>Selection and current cell</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+</tr>
+<tr>
+<td>Editing and validation</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported through retained editors</td>
+</tr>
+<tr>
+<td>UI Automation</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported through retained compatibility rows</td>
+</tr>
+<tr>
+<td>Hierarchical rows</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported</td>
+<td style="text-align: right;">Supported for compatible columns</td>
+</tr>
+</tbody>
+</table>
+<p>Fallback is intentional. If a visible column or grid feature cannot be represented
+faithfully by the virtual surface, ProDataGrid keeps the requested mode but uses
+retained flat cells for display.</p>
+<h2 id="hierarchical-data">Hierarchical data</h2>
+<p>Visual layout does not replace the hierarchy model. Configure
+<code>HierarchicalModel</code>, <code>HierarchicalRowsEnabled</code>, and a
+<code>DataGridHierarchicalColumn</code> as usual, then choose the visual mode independently.
+Expansion, collapse, and selection remain owned by the hierarchy and selection
+models.</p>
+<p>For the Virtualized path, the hierarchy column must use a compatible typed text
+accessor and the grid must otherwise satisfy the surface requirements. A custom
+hierarchy cell template uses retained fallback.</p>
+<h2 id="sample-pages">Sample pages</h2>
+<p>The sample gallery provides matched pages for both flat and hierarchical data:</p>
+<table>
+<thead>
+<tr>
+<th>Data shape</th>
+<th><code>Nested</code></th>
+<th><code>Flat</code></th>
+<th><code>Virtualized</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flat rows</td>
+<td><code>NestedSurfaceFlatDataPage</code></td>
+<td><code>FlatSurfaceFlatDataPage</code></td>
+<td><code>VirtualSurfaceFlatDataPage</code></td>
+</tr>
+<tr>
+<td>Hierarchical rows</td>
+<td><code>NestedSurfaceHierarchyPage</code></td>
+<td><code>FlatSurfaceHierarchyPage</code></td>
+<td><code>VirtualSurfaceHierarchyPage</code></td>
+</tr>
+</tbody>
+</table>
+<p>The Virtualized pages include a mode selector for supported display columns. Use
+these pages to verify appearance and interaction before adapting the configuration
+to an application.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p>If Virtualized mode appears to use retained cells, check that:</p>
+<ol>
+<li><code>DataGridFlatTheme</code> is applied;</li>
+<li><code>RowHeight</code> is finite and greater than zero;</li>
+<li>every visible column uses a pixel or star width;</li>
+<li>every visible column is supported by the surface;</li>
+<li>every surface-rendered column has a compatible typed value accessor; and</li>
+<li>the grid does not use a custom cell theme, row details, group rows, cell
+lifecycle handlers, conditional formatting, or search highlighting.</li>
+</ol>
+<p>Use <code>Nested</code> for a grid whose required behavior is outside the flat-layout
+contract. Layout mode is a per-grid choice, not an application-wide setting.</p>
+<h2 id="related-articles">Related articles</h2>
+<ul>
+<li><a href="virtual-surface-architecture.html">Virtualized cell surface</a></li>
+<li><a href="scrolling-virtualization.html">Scrolling and virtualization</a></li>
+<li><a href="optimized-cell-paths.html">Optimized retained and drawn cells</a></li>
+<li><a href="column-definitions-aot.html">Column definitions: AOT-friendly bindings</a></li>
+<li><a href="layout-performance-benchmarking.html">Benchmarking layout performance</a></li>
+</ul>
+
+</article>
+
+        <div class="contribution d-print-none">
+          <a href="https://github.com/IvanJosipovic/ProDataGrid/blob/master/docfx/articles/flat-row-cell-layout.md/#L1" class="edit-link">Edit this page</a>
+        </div>
+
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
+
+      </div>
+
+      <div class="affix">
+        <nav id="affix"></nav>
+      </div>
+    </main>
+
+
+    <footer class="border-top text-secondary">
+      <div class="container-xxl">
+        <div class="flex-fill">
+          <span>Made with <a href="https://dotnet.github.io/docfx">docfx</a></span>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
