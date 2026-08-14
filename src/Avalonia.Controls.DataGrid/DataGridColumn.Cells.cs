@@ -43,6 +43,8 @@ namespace Avalonia.Controls
             return CellTheme ?? grid?.CellTheme;
         }
 
+        internal virtual bool SupportsVirtualCellSurface => false;
+
         /// <summary>
         /// Gets the value of a cell according to the specified binding.
         /// </summary>
@@ -73,6 +75,7 @@ namespace Avalonia.Controls
             }
             if (dataGridRow.OwningGrid == OwningGrid)
             {
+                OwningGrid.EnsureVirtualCompatibilityRow(dataGridRow);
                 DataGridCell dataGridCell = dataGridRow.Cells[Index];
                 if (dataGridCell != null)
                 {

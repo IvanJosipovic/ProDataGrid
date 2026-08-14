@@ -117,6 +117,7 @@ internal
 
             return slot >= DisplayData.FirstScrollingSlot &&
                    slot <= DisplayData.LastScrollingSlot &&
+                   !DisplayData.HasVirtualScrollingElements &&
                    DisplayData.GetDisplayedElement(slot) is DataGridRow { IsPlaceholder: true };
         }
 
@@ -290,6 +291,8 @@ internal
                 return true;
             }
 
+            RequireRetainedVirtualRowsForEditing();
+
             // Get or generate the editing row if it doesn't exist
             DataGridRow dataGridRow = EditingRow;
             if (dataGridRow == null)
@@ -305,6 +308,8 @@ internal
                 }
             }
             Debug.Assert(dataGridRow != null);
+
+            EnsureVirtualCompatibilityRow(dataGridRow);
 
             // Cache these to see if they change later
             int currentRowIndex = CurrentSlot;
@@ -1129,6 +1134,7 @@ internal
 
         private void ResetEditingRow()
         {
+            DataGridRow previousEditingRow = EditingRow;
             if (EditingRow != null
                 && EditingRow != _focusedRow
                 && !IsSlotVisible(EditingRow.Slot))
@@ -1138,6 +1144,11 @@ internal
                 UnloadRow(EditingRow);
             }
             EditingRow = null;
+            if (UsesVirtualCellSurface && ReferenceEquals(_virtualCompatibilityRow, previousEditingRow))
+            {
+                ReleaseVirtualCompatibilityRow();
+            }
+            ReleaseRetainedVirtualRowsForEditing();
             _editingRowValidationSnapshot = null;
             _editingCellValidationSnapshot = null;
             _editingCellHadNotifyDataErrorInfoValidation = false;

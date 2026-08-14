@@ -132,6 +132,11 @@ internal
                    accessor.ItemType.IsInstanceOfType(item);
         }
 
+        internal override bool SupportsVirtualCellSurface =>
+            CellTemplate is null &&
+            BindingCloneHelper.SupportsDirectTextDataContextRead(Binding) &&
+            DataGridColumnMetadata.GetValueAccessor(this) is IDataGridColumnTextAccessor;
+
         /// <summary>
         /// Identifies the <see cref="Indent"/> property.
         /// </summary>
@@ -383,6 +388,11 @@ internal
         internal string? GetDirectText(object? item)
         {
             var accessor = DataGridColumnMetadata.GetValueAccessor(this) as IDataGridColumnTextAccessor;
+            return GetDirectText(item, accessor);
+        }
+
+        internal string? GetDirectText(object? item, IDataGridColumnTextAccessor? accessor)
+        {
             if (accessor == null || item == null)
             {
                 return null;

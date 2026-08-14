@@ -20,9 +20,17 @@ schedule.
 - `CollapseAllAndRender` starts with the sample's 149,792-node workload fully
   expanded, retains materialized children for equivalent post-collapse semantics,
   collapses to 32 roots, updates layout, and waits for rendered completion.
+- `ScrollAndRender` moves through 32 deterministic offsets in the expanded
+  hierarchy and records mutation, explicit layout, frame wait, and managed
+  allocation for every movement. `--scroll-pattern discontinuous` is the default
+  worst-case projection replacement workload. `--scroll-pattern line` advances
+  exactly one fixed-height row per operation, while `--scroll-pattern fractional`
+  alternates two offsets inside one row slot to isolate offset-only work.
+  `--scroll-only` skips the other scenarios so the process can be used for focused
+  scroll profiling and paired comparisons.
 - Managed allocation is `GC.GetTotalAllocatedBytes` traffic during the timed
   operation. It is not retained heap, native allocation, RSS, or GPU memory.
-- Collapse results also split the same end-to-end sample into synchronous model/UI
+- Collapse and scroll results also split the same end-to-end sample into synchronous model/UI
   mutation, `UpdateLayout`, and rendered-frame wait durations. These diagnostic
   phase means sum to the reported collapse mean; the end-to-end mean remains the
   primary reported comparison. The collapse optimization gate uses mutation plus
@@ -71,9 +79,14 @@ into:
 - **frame wait**: dispatcher/render scheduling until the second callback;
 - **total**: mutation + layout + frame wait.
 
-The JSON also records the delay from layout completion to callback 1, the interval
-from callback 1 to callback 2, the animation-clock interval, raw per-iteration phase
-samples, and the number of `LayoutUpdated` notifications. The CI diagnostic process
+The JSON records these callback phases for both collapse and every individual
+scroll jump: the delay from layout completion to callback 1, the interval from
+callback 1 to callback 2, the animation-clock interval, raw per-operation phase
+samples, and the number of collapse `LayoutUpdated` notifications. The CI summary
+reports frame pickup and the callback interval as separate scroll columns. If the
+callback interval tracks the animation-clock interval, that portion is refresh
+pacing rather than DataGrid execution and cannot be reduced by changing row or cell
+layout. The CI diagnostic process
 enables Avalonia's built-in meters and records the maximum UI render-recording,
 compositor-update, and compositor-render pass observed for each sample. That
 instrumented process is separate from the clean performance gate because meter
@@ -147,11 +160,154 @@ GRID_BENCH_PRO_MODE=direct-cell dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
   --warmup 2 --iterations 10 --output /tmp/pro-direct-cell.json
 
+GRID_BENCH_PRO_MODE=virtual dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual.json
+
+GRID_BENCH_PRO_MODE=virtual dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-pattern line --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-line.json
+
+GRID_BENCH_PRO_MODE=virtual dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-pattern fractional --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-fractional.json
+
+GRID_BENCH_PRO_MODE=virtual-checkbox dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-checkbox.json
+
+GRID_BENCH_PRO_MODE=virtual-date dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-date.json
+
+GRID_BENCH_PRO_MODE=virtual-time dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-time.json
+
+GRID_BENCH_PRO_MODE=virtual-masked dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-masked.json
+
+GRID_BENCH_PRO_MODE=virtual-autocomplete dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-autocomplete.json
+
+GRID_BENCH_PRO_MODE=virtual-slider-text dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-slider-text.json
+
+GRID_BENCH_PRO_MODE=virtual-combobox-text dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-virtual-combobox-text.json
+
+GRID_BENCH_PRO_MODE=flat-direct-cell dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-flat-direct-cell.json
+
+GRID_BENCH_PRO_MODE=flat-drawn dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/pro-flat-drawn.json
+
 dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Tree/bin/Release/net8.0/Native.Tree.dll \
-  --warmup 2 --iterations 10 --output /tmp/tree.json
+  --scroll-only --scroll-jumps 32 --warmup 2 --iterations 10 \
+  --output /tmp/tree.json
 ```
 
 On a machine without .NET 8, `DOTNET_ROLL_FORWARD=Major` can run the net8.0
 applications on a newer installed runtime, but the report must record that change.
 Use the same runtime and machine for both implementations.
+
+The `virtual` mode uses `DataGridVisualLayoutMode.Virtualized` with the flat row
+theme and typed column accessors. Harness validation requires zero realized
+`DataGridCell` controls for every measured display state; a retained fallback is
+reported as a validation failure rather than being mislabeled as a virtual run.
+`flat-direct-cell` and `flat-drawn` use the centralized flat row/cell layout with
+the corresponding retained or drawn cell content. Add `--avalonia-diagnostics`
+only to a separate diagnostic run; it records Avalonia UI-render and compositor
+meter durations but intentionally adds measurement overhead.
+
+For a ProDataGrid-only component trace, add `--prodatagrid-diagnostics`. The
+result includes per-jump raw samples and means from `ProDataGrid.Diagnostic.Meter`,
+including `ScrollSlotsByHeight`, displayed-row update, row acquire/bind/prepare,
+retarget eligibility/validation/bind, element attach/measure/height recording,
+recycle cleanup/detach/pool, realized/recycled/retargeted row counts, and retargeted
+row measure/arrange reuse counts. The reuse counters should match the realized row
+count for eligible equal-fraction fixed-height jumps; a lower value identifies a
+guarded fallback rather than an incomplete measurement. This
+option enables instrumentation and must not be used for the clean performance
+gate. It is intentionally rejected by the TreeDataGrid executable because those
+internal meters do not exist there.
+
+For the rowless virtual surface, the same option records surface render duration,
+rendered rows and cells, partial clips, vertical grid lines, hierarchy-expander draw
+operations, text-layout cache hits/misses, text scene operations, immutable glyph
+runs, and row-aligned value-cache hits/misses. These counters distinguish command
+recording from layout and prove whether a proposed render optimization is active.
+
+`virtual-checkbox` replaces the payload text column with a typed
+`DataGridCheckBoxColumn`. It validates that the checkbox remains on the single
+surface and that no retained display cells are realized. The diagnostic-only
+`GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` override exists for matched historical
+baseline experiments; never set it when validating the candidate backend.
+
+`virtual-autocomplete` replaces the payload text column with a typed
+`DataGridAutoCompleteColumn`. Display remains text-only on the surface; the
+suggestion list and filtering controls are materialized only while editing.
+
+`virtual-slider-text` replaces the payload text column with a typed
+`DataGridSliderColumn` configured with `ShowValueText`. The centered formatted
+value stays on the surface; the interactive slider is materialized only while
+editing. Graphical slider display continues to use retained fallback.
+
+`virtual-combobox-text` replaces the payload text column with a typed, editable
+`DataGridComboBoxColumn.TextBinding`. The formatted text and dropdown glyph stay
+on the surface; the real ComboBox, item source/template, editability, selection,
+and dropdown interaction are materialized while editing. Selected-item and
+selected-value display modes continue to use retained fallback.
+
+The complete experiment design and interpretation rules are in
+[Layout performance benchmark methodology](../../docfx/articles/layout-performance-benchmarking.md).
+
+See [the 2026-08-12 focused scroll report](../ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
+for the paired renderer optimization and flat-versus-nested source results, and
+[the 2026-08-13 virtual surface render report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md)
+for render-stage attribution, rejected experiments, and the selected-cell lookup
+fast path, and [the text-command batch report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-TEXT-BATCH-RESULTS-2026-08-13.md)
+for immutable glyph ownership and the paired UI/compositor result. The
+[virtual layout projection report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-LAYOUT-PROJECTION-RESULTS-2026-08-13.md)
+documents the direct `ScrollSlotsByHeight` projection and overlapping-item reuse.
+The
+[virtual row-value cache report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-VALUE-CACHE-RESULTS-2026-08-13.md)
+documents overlapping formatted-value reuse, invalidation, allocation, and the
+latest paired Active-work results.
+The
+[current virtual endpoint report](../ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ENDPOINT-RESULTS-2026-08-13.md)
+compares the current legacy retained and rowless virtual architectures directly
+from one commit and records the final 50%-target decision across all three scroll
+patterns.
+The
+[current TreeDataGrid-to-virtual report](../ProDataGrid.FlatLayout.Benchmarks/TDG-VIRTUAL-COMPARISON-RESULTS-2026-08-13.md)
+records the fresh four-pair full lifecycle suite plus separate paired diagnostic
+and meter-free discontinuous, line, and fractional scroll campaigns against the
+CI-pinned open-source TreeDataGrid revision.
+The
+[flat retained-row report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-ROW-RETARGET-RESULTS-2026-08-13.md)
+separately covers guarded row-window rotation for `flat-direct-cell`, including
+same-slot fractional overscan and the drawn/discontinuous fallback checks.
+The
+[flat discontinuous-retarget report](../ProDataGrid.FlatLayout.Benchmarks/FLAT-DISCONTINUOUS-RETARGET-RESULTS-2026-08-13.md)
+covers disjoint fixed-height row-window reuse, pointer-state lifecycle ordering,
+and the paired active-work and meter-free results.

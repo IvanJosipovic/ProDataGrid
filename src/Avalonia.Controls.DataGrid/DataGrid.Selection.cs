@@ -463,6 +463,12 @@ internal
                 return;
             }
 
+            if (DisplayData.HasVirtualScrollingElements)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+                return;
+            }
+
             for (int slot = DisplayData.FirstScrollingSlot;
                 slot > -1 && slot <= DisplayData.LastScrollingSlot;
                 slot++)
@@ -2200,6 +2206,11 @@ internal
 
         private void UpdateSelectionVisuals(IReadOnlyList<DataGridCellInfo> cells)
         {
+            if (UsesVirtualCellSurface)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+            }
+
             if (cells.Count == 0 || DisplayData == null)
             {
                 return;
@@ -2292,6 +2303,8 @@ internal
             }
         }
 
+        internal bool HasSelectedCells => _selectedCells.Count != 0;
+
         internal bool IsCellSelected(int rowIndex, int columnIndex)
         {
             return _selectedCells.TryGetValue(rowIndex, out var columns) && columns.Contains(columnIndex);
@@ -2299,9 +2312,14 @@ internal
 
         internal bool IsRowFullySelected(int slot)
         {
+            return IsRowFullySelected(slot, GetRowSelection(slot));
+        }
+
+        internal bool IsRowFullySelected(int slot, bool isRowSelected)
+        {
             if (SelectionUnit == DataGridSelectionUnit.FullRow)
             {
-                return GetRowSelection(slot);
+                return isRowSelected;
             }
 
             if (slot < 0 || ColumnsItemsInternal == null || ColumnsItemsInternal.Count == 0)
@@ -2309,7 +2327,7 @@ internal
                 return false;
             }
 
-            if (!GetRowSelection(slot))
+            if (!isRowSelected)
             {
                 return false;
             }

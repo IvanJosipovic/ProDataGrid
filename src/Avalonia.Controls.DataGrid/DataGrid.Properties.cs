@@ -482,6 +482,29 @@ internal
         }
 
         /// <summary>
+        /// Identifies the <see cref="VisualLayoutMode"/> dependency property.
+        /// </summary>
+        public static readonly StyledProperty<DataGridVisualLayoutMode> VisualLayoutModeProperty =
+            AvaloniaProperty.Register<DataGrid, DataGridVisualLayoutMode>(
+                nameof(VisualLayoutMode),
+                defaultValue: DataGridVisualLayoutMode.Nested);
+
+        /// <summary>
+        /// Gets or sets how realized rows and cells are attached to the visual tree.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="DataGridVisualLayoutMode.Nested"/> is the compatibility default.
+        /// <see cref="DataGridVisualLayoutMode.Flat"/> and
+        /// <see cref="DataGridVisualLayoutMode.Virtualized"/> require a matching flat row
+        /// theme, a finite <see cref="RowHeight"/>, and non-auto column widths.
+        /// </remarks>
+        public DataGridVisualLayoutMode VisualLayoutMode
+        {
+            get { return GetValue(VisualLayoutModeProperty); }
+            set { SetValue(VisualLayoutModeProperty, value); }
+        }
+
+        /// <summary>
         /// Identifies the <see cref="RowTheme"/> dependency property.
         /// </summary>
         public static readonly StyledProperty<ControlTheme> RowThemeProperty =

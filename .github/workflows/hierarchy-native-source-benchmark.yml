@@ -54,23 +54,31 @@ jobs:
 
           foreach ($process in 1..4) {
             $modes = if (($process % 2) -eq 1) {
-              @("standard", "optimized", "direct", "direct-cell", "drawn", "tree")
+              @("standard", "optimized", "direct", "direct-cell", "drawn", "flat-direct-cell", "flat-drawn", "virtual", "tree")
             } else {
-              @("tree", "drawn", "direct-cell", "direct", "optimized", "standard")
+              @("tree", "virtual", "flat-drawn", "flat-direct-cell", "drawn", "direct-cell", "direct", "optimized", "standard")
             }
 
             foreach ($mode in $modes) {
+              $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+              Write-Host "Starting native benchmark process=$process mode=$mode"
               if ($mode -eq "tree") {
                 dotnet "$harness/Native.Tree/bin/Release/net8.0/Native.Tree.dll" `
-                  --warmup 2 --iterations 10 --output "$results/tree-$process.json"
+                  --warmup 2 --iterations 10 --output "$results/tree-$process.json" |
+                  Out-Null
                 if ($LASTEXITCODE -ne 0) { throw "TreeDataGrid process $process failed." }
+                $stopwatch.Stop()
+                Write-Host "Completed native benchmark process=$process mode=$mode elapsed=$($stopwatch.Elapsed)"
                 continue
               }
 
               $env:GRID_BENCH_PRO_MODE = $mode
               dotnet "$harness/Native.Pro/bin/Release/net8.0/Native.Pro.dll" `
-                --warmup 2 --iterations 10 --output "$results/pro-$mode-$process.json"
+                --warmup 2 --iterations 10 --output "$results/pro-$mode-$process.json" |
+                Out-Null
               if ($LASTEXITCODE -ne 0) { throw "ProDataGrid $mode process $process failed." }
+              $stopwatch.Stop()
+              Write-Host "Completed native benchmark process=$process mode=$mode elapsed=$($stopwatch.Elapsed)"
             }
           }
           Remove-Item Env:GRID_BENCH_PRO_MODE -ErrorAction SilentlyContinue
@@ -183,6 +191,15 @@ jobs:
               CollapseAllSecondFrameCallbackMs = [double]$result.CollapseAllAndRender.MeanSecondFrameCallbackMilliseconds
               CollapseAllAnimationTickIntervalMs = [double]$result.CollapseAllAndRender.MeanAnimationTickIntervalMilliseconds
               CollapseAllLayoutUpdatedCount = [double]$result.CollapseAllAndRender.MeanLayoutUpdatedCount
+              ScrollMeanMs = [double]$result.ScrollAndRender.MeanMilliseconds
+              ScrollP95Ms = [double]$result.ScrollAndRender.P95Milliseconds
+              ScrollAllocatedBytes = [double]$result.ScrollAndRender.MeanAllocatedBytes
+              ScrollMutationMs = [double]$result.ScrollAndRender.MeanMutationMilliseconds
+              ScrollLayoutMs = [double]$result.ScrollAndRender.MeanLayoutMilliseconds
+              ScrollFrameMs = [double]$result.ScrollAndRender.MeanFrameMilliseconds
+              ScrollFirstFrameCallbackMs = [double]$result.ScrollAndRender.MeanFirstFrameCallbackMilliseconds
+              ScrollSecondFrameCallbackMs = [double]$result.ScrollAndRender.MeanSecondFrameCallbackMilliseconds
+              ScrollAnimationTickIntervalMs = [double]$result.ScrollAndRender.MeanAnimationTickIntervalMilliseconds
               Runtime = $result.Runtime
               OS = $result.OS
             }
@@ -211,6 +228,15 @@ jobs:
                 CollapseAllAnimationTickIntervalMs = ($_.Group.CollapseAllAnimationTickIntervalMs | Measure-Object -Average).Average
                 CollapseAllLayoutUpdatedCount = ($_.Group.CollapseAllLayoutUpdatedCount | Measure-Object -Average).Average
                 CollapseAllPathMs = ($_.Group.CollapseAllMutationMs | Measure-Object -Average).Average + ($_.Group.CollapseAllLayoutMs | Measure-Object -Average).Average
+                ScrollMeanMs = ($_.Group.ScrollMeanMs | Measure-Object -Average).Average
+                ScrollP95Ms = ($_.Group.ScrollP95Ms | Measure-Object -Average).Average
+                ScrollAllocatedBytes = ($_.Group.ScrollAllocatedBytes | Measure-Object -Average).Average
+                ScrollMutationMs = ($_.Group.ScrollMutationMs | Measure-Object -Average).Average
+                ScrollLayoutMs = ($_.Group.ScrollLayoutMs | Measure-Object -Average).Average
+                ScrollFrameMs = ($_.Group.ScrollFrameMs | Measure-Object -Average).Average
+                ScrollFirstFrameCallbackMs = ($_.Group.ScrollFirstFrameCallbackMs | Measure-Object -Average).Average
+                ScrollSecondFrameCallbackMs = ($_.Group.ScrollSecondFrameCallbackMs | Measure-Object -Average).Average
+                ScrollAnimationTickIntervalMs = ($_.Group.ScrollAnimationTickIntervalMs | Measure-Object -Average).Average
               }
             } |
             Sort-Object ExpandAllMeanMs
@@ -242,6 +268,21 @@ jobs:
           $table += @(
             "",
             "The collapse optimization gate compares mutation + layout and managed allocation. The complete two-callback frame-wait total remains reported as a platform rendering/scheduling diagnostic."
+          )
+
+          $table += @(
+            "",
+            "## Native scroll + render phase split (source only)",
+            "",
+            "| Implementation | Mode | Mean (ms) | P95 (ms) | Mutation (ms) | Layout (ms) | Frame wait (ms) | Frame pickup (ms) | Callback interval (ms) | Animation tick (ms) | Allocated (bytes) |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+          )
+          foreach ($aggregate in ($aggregates | Sort-Object ScrollMeanMs)) {
+            $table += "| $($aggregate.Implementation) | $($aggregate.Mode) | $($aggregate.ScrollMeanMs.ToString('F2')) | $($aggregate.ScrollP95Ms.ToString('F2')) | $($aggregate.ScrollMutationMs.ToString('F2')) | $($aggregate.ScrollLayoutMs.ToString('F2')) | $($aggregate.ScrollFrameMs.ToString('F2')) | $($aggregate.ScrollFirstFrameCallbackMs.ToString('F2')) | $($aggregate.ScrollSecondFrameCallbackMs.ToString('F2')) | $($aggregate.ScrollAnimationTickIntervalMs.ToString('F2')) | $([Math]::Round($aggregate.ScrollAllocatedBytes).ToString('N0')) |"
+          }
+          $table += @(
+            "",
+            "Frame pickup is layout completion to callback 1. The callback interval is the conservative completion barrier and should track the platform animation tick; it is reported separately because it is refresh pacing rather than DataGrid execution."
           )
 
           $diagnosticRows = foreach ($file in Get-ChildItem (Join-Path $results "frame-diagnostics") -Filter *.json) {

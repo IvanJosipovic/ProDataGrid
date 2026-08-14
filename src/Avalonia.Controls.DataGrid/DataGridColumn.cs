@@ -315,6 +315,10 @@ internal
             {
                 OwningGrid?.OnColumnDisplayModeChanged(this);
             }
+            else if (change.Property == CellThemeProperty)
+            {
+                OwningGrid?.RefreshVirtualCellBackendIfEligibilityChanged();
+            }
             else if (change.Property == WidthProperty)
             {
                 if (!_settingWidthInternally)
