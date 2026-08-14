@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Controls.Selection;
 using DataGridSample.Behaviors;
 using DataGridSample.CustomDrawing;
 using DataGridSample.Helpers;
@@ -63,6 +64,7 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
         _selectedVirtualMode = VirtualModes[0];
         _activeVirtualColumns = new DataGridColumnDefinitionList(_virtualColumnsByMode[_selectedVirtualMode.Key]);
         _items = CreateRows(PreviewRowCount);
+        SelectionModel = new SelectionModel<OptimizedCellSampleRow> { SingleSelect = true };
         _summary = $"Preview: {_items.Count:n0} rows. Load the representative workload for manual profiling.";
         _managedMemorySummary = CreateManagedMemorySummary();
 
@@ -86,6 +88,8 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
     public IList<DataGridColumnDefinition> ActiveColumns => _activeColumns;
 
     public IList<DataGridColumnDefinition> ActiveVirtualColumns => _activeVirtualColumns;
+
+    public SelectionModel<OptimizedCellSampleRow> SelectionModel { get; }
 
     public OptimizedCellPathOption SelectedPath
     {
@@ -174,6 +178,7 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
         stopwatch.Stop();
 
         Items = rows;
+        SelectionModel.Clear();
         SelectedItem = null;
         Summary = $"Loaded {rows.Count:n0} rows in {stopwatch.Elapsed.TotalSeconds:n2}s. Scroll or use the equal-distance jumps.";
         RefreshManagedMemory();

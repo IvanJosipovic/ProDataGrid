@@ -14,7 +14,7 @@
     <StackPanel Spacing="3">
       <TextBlock Classes="h2" Text="Virtual Cell Surface — Hierarchical Model" />
       <TextBlock TextWrapping="Wrap"
-                 Text="The hierarchy model still owns expansion and flattened nodes, while fixed-height visible rows and compatible cells are drawn by one rowless surface. Default dimensions generate 149,792 nodes." />
+                 Text="The hierarchy model still owns expansion and flattened nodes, while fixed-height visible rows and compatible cells are drawn by one rowless surface. Selection is driven by a view-model-owned hierarchical SelectionModel. Default dimensions generate 149,792 nodes." />
     </StackPanel>
 
     <WrapPanel Grid.Row="1" Orientation="Horizontal">
@@ -81,6 +81,7 @@
                 HierarchicalRowsEnabled="True"
                 IsReadOnly="True"
                 RowHeight="32"
+                Selection="{CompiledBinding SelectionModel}"
                 SelectedItem="{CompiledBinding SelectedItem, Mode=TwoWay}"
                 SelectionMode="Single"
                 SelectionUnit="FullRow"

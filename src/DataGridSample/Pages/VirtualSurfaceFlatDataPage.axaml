@@ -14,7 +14,7 @@
     <StackPanel Spacing="3">
       <TextBlock Classes="h2" Text="Virtual Cell Surface — Flat Data" />
       <TextBlock TextWrapping="Wrap"
-                 Text="The fastest fixed-height architecture: visible items are projected into lightweight records and all compatible display cells are recorded by one surface. The text baseline matches the optimized benchmark endpoint." />
+                 Text="The fastest fixed-height architecture: visible items are projected into lightweight records and all compatible display cells are recorded by one surface. Selection is driven by a view-model-owned SelectionModel, and the text baseline matches the optimized benchmark endpoint." />
     </StackPanel>
 
     <WrapPanel Grid.Row="1" Orientation="Horizontal">
@@ -72,6 +72,7 @@
                 IsReadOnly="True"
                 ItemsSource="{CompiledBinding Items}"
                 RowHeight="32"
+                Selection="{CompiledBinding SelectionModel}"
                 SelectedItem="{CompiledBinding SelectedItem, Mode=TwoWay}"
                 SelectionMode="Single"
                 SelectionUnit="FullRow"

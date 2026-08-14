@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Controls.Selection;
 using DataGridSample.Behaviors;
 using DataGridSample.CustomDrawing;
 using DataGridSample.Helpers;
@@ -71,6 +72,7 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         (IReadOnlyList<OptimizedHierarchyCellSampleNode> previewRoots, int previewCount) =
             CreateTree(rootCount: 4, branchingFactor: 4, depth: 3);
         _model = CreateModel(previewRoots);
+        SelectionModel = new SelectionModel<HierarchicalNode> { SingleSelect = true };
         _totalNodeCount = previewCount;
         _summary = $"Preview: {_totalNodeCount:n0} total nodes, {_model.Flattened.Count:n0} visible. Load the representative workload for profiling.";
         _managedMemorySummary = CreateManagedMemorySummary();
@@ -101,6 +103,8 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
     public IList<DataGridColumnDefinition> ActiveColumns => _activeColumns;
 
     public IList<DataGridColumnDefinition> ActiveVirtualColumns => _activeVirtualColumns;
+
+    public SelectionModel<HierarchicalNode> SelectionModel { get; }
 
     public OptimizedCellPathOption SelectedPath
     {
@@ -254,6 +258,7 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         stopwatch.Stop();
 
         Model = model;
+        SelectionModel.Clear();
         _totalNodeCount = generatedCount;
         SelectedItem = null;
         this.RaisePropertyChanged(nameof(VisibleNodeSummary));

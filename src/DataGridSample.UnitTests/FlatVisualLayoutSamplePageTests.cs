@@ -1,5 +1,6 @@
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -40,6 +41,11 @@ public sealed class FlatVisualLayoutSamplePageTests
 
             var viewModel = Assert.IsType<OptimizedFlatCellPathsViewModel>(page.DataContext);
             DataGrid grid = Assert.Single(page.GetVisualDescendants().OfType<DataGrid>());
+            Assert.Same(viewModel.SelectionModel, grid.Selection);
+            viewModel.SelectionModel.Select(2);
+            PumpLayout(window);
+            Assert.Equal(2, viewModel.SelectionModel.SelectedIndex);
+            Assert.Single(grid.SelectedItems);
             foreach (VirtualSurfaceModeOption mode in viewModel.VirtualModes)
             {
                 viewModel.SelectedVirtualMode = mode;
@@ -70,8 +76,45 @@ public sealed class FlatVisualLayoutSamplePageTests
 
             var viewModel = Assert.IsType<OptimizedHierarchyCellPathsViewModel>(page.DataContext);
             DataGrid grid = Assert.Single(page.GetVisualDescendants().OfType<DataGrid>());
+            Assert.NotNull(grid.Selection);
+            Assert.NotSame(viewModel.SelectionModel, grid.Selection);
+            viewModel.SelectionModel.Select(0);
+            PumpLayout(window);
+            Assert.Equal(0, viewModel.SelectionModel.SelectedIndex);
+            Assert.Single(grid.SelectedItems);
+            Assert.Same(viewModel.Model.GetTypedNode(0).Item, grid.Selection.SelectedItem);
+
+            grid.Selection.SelectedIndex = 1;
+            PumpLayout(window);
+            Assert.Equal(1, viewModel.SelectionModel.SelectedIndex);
+            Assert.Same(viewModel.Model.GetTypedNode(1).Item, grid.Selection.SelectedItem);
+
+            grid.Selection.SelectedIndex = 0;
+            PumpLayout(window);
             viewModel.Model.ExpandAll();
             PumpLayout(window);
+
+            HierarchicalNode<OptimizedHierarchyCellSampleNode> root = viewModel.Model.GetTypedNode(0);
+            int expandedCount = viewModel.Model.Count;
+            viewModel.Model.Toggle(root);
+            PumpLayout(window);
+
+            Assert.True(viewModel.Model.Count < expandedCount);
+            AssertCellOwnership(
+                grid,
+                DataGridVisualLayoutMode.Virtualized,
+                expectsRowlessSurface: true,
+                context: "manual-collapse");
+
+            viewModel.Model.Toggle(root);
+            PumpLayout(window);
+
+            Assert.Equal(expandedCount, viewModel.Model.Count);
+            AssertCellOwnership(
+                grid,
+                DataGridVisualLayoutMode.Virtualized,
+                expectsRowlessSurface: true,
+                context: "manual-expand");
 
             foreach (VirtualSurfaceModeOption mode in viewModel.VirtualModes)
             {
