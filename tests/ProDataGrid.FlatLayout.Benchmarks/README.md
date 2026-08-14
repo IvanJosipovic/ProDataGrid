@@ -3,6 +3,12 @@
 This BenchmarkDotNet project compares the `Nested`, `Flat`, and `Virtualized`
 layout modes with the same hierarchical data, viewport, and cell configurations.
 
+`VirtualSurfaceSortingBenchmarks` measures accessor-backed sorting with the
+250,000-row flat virtual-surface showcase workload. It guards the key-extraction
+path used by header sorting independently of rendering and layout.
+`VirtualSurfaceSortInteractionBenchmarks` measures the corresponding header-model
+interaction in the real showcase, both with and without an active search.
+
 `HierarchyCollapseLayoutBenchmarks` measures the pending Avalonia layout pass
 after collapse. `HierarchyCollapseEndToEndBenchmarks` measures collapse plus layout
 completion. Iteration setup expands and lays out the hierarchy outside the measured
@@ -32,6 +38,25 @@ DOTNET_TieredCompilation=0 dotnet run \
   --unrollFactor 1 \
   --allStats
 ```
+
+Run the representative virtual-surface sorting workload:
+
+```bash
+dotnet run \
+  --project tests/ProDataGrid.FlatLayout.Benchmarks/ProDataGrid.FlatLayout.Benchmarks.csproj \
+  -c Release --no-build -- \
+  --filter '*VirtualSurfaceSortingBenchmarks*' \
+  --launchCount 3 \
+  --warmupCount 3 \
+  --iterationCount 10 \
+  --invocationCount 1 \
+  --unrollFactor 1 \
+  --allStats
+```
+
+Replace the filter with `*VirtualSurfaceSortInteractionBenchmarks*` to include
+collection-view refresh, virtual-grid reconciliation, layout, and active-search
+maintenance.
 
 Set `PRODATAGRID_BENCHMARK_CELL_PATH` to run one cell path:
 
