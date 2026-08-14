@@ -181,7 +181,7 @@ partial class DataGrid
             RowGroupFootersTable.RangeCount != 0 ||
             !_collapsedSlotsTable.IsEmpty ||
             (_conditionalFormattingModel?.Descriptors.Count ?? 0) > 0 ||
-            (_searchModel?.Descriptors.Count ?? 0) > 0 ||
+            HasActiveSearchPresentation() ||
             HasLoadingRowHandlers() ||
             HasUnloadingRowHandlers() ||
             HasCellPreparedHandlers ||
@@ -317,7 +317,7 @@ partial class DataGrid
         if (!double.IsFinite(RowHeight) ||
             CellTheme is not null ||
             (_conditionalFormattingModel?.Descriptors.Count ?? 0) > 0 ||
-            (_searchModel?.Descriptors.Count ?? 0) > 0 ||
+            HasActiveSearchPresentation() ||
             HasCellPreparedHandlers ||
             HasCellClearingHandlers)
         {
@@ -345,6 +345,10 @@ partial class DataGrid
 
         return foundVisibleColumn;
     }
+
+    private bool HasActiveSearchPresentation() =>
+        (_searchModel?.Descriptors.Count ?? 0) > 0 &&
+        _searchModel!.HighlightMode != DataGridSearching.SearchHighlightMode.None;
 
     private void RefreshVirtualCellBackendAfterColumnsChanged()
     {

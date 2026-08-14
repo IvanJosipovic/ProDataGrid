@@ -30,33 +30,36 @@ public sealed class OptimizedHierarchyCellSampleNode
         Phone = $"(555) {id % 1_000:D3}-{id % 10_000:D4}";
         Category = $"Category-{id % 997:D3}";
         SliderValue = (id % 1_000) / 10d;
+        IsActive = id % 2 == 0;
     }
 
     public int Id { get; }
 
-    public string Name { get; }
+    public string Name { get; set; }
 
-    public string Kind { get; }
+    public string Kind { get; set; }
 
-    public string Owner { get; }
+    public string Owner { get; set; }
 
-    public string Region { get; }
+    public string Region { get; set; }
 
-    public string State { get; }
+    public string State { get; set; }
 
-    public string Detail { get; }
+    public string Detail { get; set; }
 
     public bool HasChildren => Children.Count != 0;
 
-    public DateTime Date { get; }
+    public bool IsActive { get; set; }
 
-    public TimeSpan Time { get; }
+    public DateTime Date { get; set; }
 
-    public string Phone { get; }
+    public TimeSpan Time { get; set; }
 
-    public string Category { get; }
+    public string Phone { get; set; }
 
-    public double SliderValue { get; }
+    public string Category { get; set; }
+
+    public double SliderValue { get; set; }
 
     public IReadOnlyList<OptimizedHierarchyCellSampleNode> Children { get; }
 

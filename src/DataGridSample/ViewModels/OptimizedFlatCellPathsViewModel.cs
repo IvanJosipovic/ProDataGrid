@@ -65,6 +65,9 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
         _activeVirtualColumns = new DataGridColumnDefinitionList(_virtualColumnsByMode[_selectedVirtualMode.Key]);
         _items = CreateRows(PreviewRowCount);
         SelectionModel = new SelectionModel<OptimizedCellSampleRow> { SingleSelect = true };
+        Operations = new VirtualSurfaceDataOperationsViewModel(
+            nameof(OptimizedCellSampleRow.Owner),
+            nameof(OptimizedCellSampleRow.Owner));
         _summary = $"Preview: {_items.Count:n0} rows. Load the representative workload for manual profiling.";
         _managedMemorySummary = CreateManagedMemorySummary();
 
@@ -90,6 +93,8 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
     public IList<DataGridColumnDefinition> ActiveVirtualColumns => _activeVirtualColumns;
 
     public SelectionModel<OptimizedCellSampleRow> SelectionModel { get; }
+
+    public VirtualSurfaceDataOperationsViewModel Operations { get; }
 
     public OptimizedCellPathOption SelectedPath
     {
@@ -270,26 +275,35 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
     private static IList<DataGridColumnDefinition> CreateVirtualTextColumns() =>
         new DataGridColumnDefinition[]
         {
-            CreateVirtualTextColumn("ID", nameof(OptimizedCellSampleRow.Id), static row => row.Id, 90),
-            CreateVirtualTextColumn("Name", nameof(OptimizedCellSampleRow.Name), static row => row.Name, 240),
-            CreateVirtualTextColumn("Owner", nameof(OptimizedCellSampleRow.Owner), static row => row.Owner, 130),
-            CreateVirtualTextColumn("Detail", nameof(OptimizedCellSampleRow.Detail), static row => row.Detail, 300),
+            CreateVirtualTextColumn(
+                "ID", nameof(OptimizedCellSampleRow.Id), static row => row.Id, static (row, value) => row.Id = value, 90),
+            CreateVirtualTextColumn(
+                "Name", nameof(OptimizedCellSampleRow.Name), static row => row.Name, static (row, value) => row.Name = value, 240),
+            CreateVirtualTextColumn(
+                "Owner", nameof(OptimizedCellSampleRow.Owner), static row => row.Owner, static (row, value) => row.Owner = value, 130),
+            CreateVirtualTextColumn(
+                "Detail", nameof(OptimizedCellSampleRow.Detail), static row => row.Detail, static (row, value) => row.Detail = value, 300),
         };
 
     private static IList<DataGridColumnDefinition> CreateVirtualVariantColumns(DataGridColumnDefinition variant) =>
         new DataGridColumnDefinition[]
         {
-            CreateVirtualTextColumn("ID", nameof(OptimizedCellSampleRow.Id), static row => row.Id, 90),
-            CreateVirtualTextColumn("Name", nameof(OptimizedCellSampleRow.Name), static row => row.Name, 240),
-            CreateVirtualTextColumn("Owner", nameof(OptimizedCellSampleRow.Owner), static row => row.Owner, 130),
+            CreateVirtualTextColumn(
+                "ID", nameof(OptimizedCellSampleRow.Id), static row => row.Id, static (row, value) => row.Id = value, 90),
+            CreateVirtualTextColumn(
+                "Name", nameof(OptimizedCellSampleRow.Name), static row => row.Name, static (row, value) => row.Name = value, 240),
+            CreateVirtualTextColumn(
+                "Owner", nameof(OptimizedCellSampleRow.Owner), static row => row.Owner, static (row, value) => row.Owner = value, 130),
             variant,
         };
 
     private static IList<DataGridColumnDefinition> CreateAllVirtualColumns() =>
         new DataGridColumnDefinition[]
         {
-            CreateVirtualTextColumn("ID", nameof(OptimizedCellSampleRow.Id), static row => row.Id, 90),
-            CreateVirtualTextColumn("Name", nameof(OptimizedCellSampleRow.Name), static row => row.Name, 220),
+            CreateVirtualTextColumn(
+                "ID", nameof(OptimizedCellSampleRow.Id), static row => row.Id, static (row, value) => row.Id = value, 90),
+            CreateVirtualTextColumn(
+                "Name", nameof(OptimizedCellSampleRow.Name), static row => row.Name, static (row, value) => row.Name = value, 220),
             CreateVirtualCheckBoxColumn(),
             CreateVirtualDateColumn(),
             CreateVirtualTimeColumn(),
@@ -303,13 +317,16 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
         string header,
         string propertyName,
         Func<OptimizedCellSampleRow, string> getter,
+        Action<OptimizedCellSampleRow, string> setter,
         double width) =>
         new()
         {
             Header = header,
-            Binding = ColumnDefinitionBindingFactory.CreateBinding(propertyName, getter),
+            Binding = ColumnDefinitionBindingFactory.CreateBinding(propertyName, getter, setter),
+            ColumnKey = propertyName,
+            SortMemberPath = propertyName,
             Width = new DataGridLength(width),
-            IsReadOnly = true,
+            IsReadOnly = false,
             TrackDirectTextValueChanges = false,
         };
 
@@ -319,9 +336,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "Active",
             Binding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, bool>(
                 nameof(OptimizedCellSampleRow.IsActive),
-                static row => row.IsActive),
+                static row => row.IsActive,
+                static (row, value) => row.IsActive = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.IsActive),
+            SortMemberPath = nameof(OptimizedCellSampleRow.IsActive),
             Width = new DataGridLength(110),
-            IsReadOnly = true,
+            IsReadOnly = false,
         };
 
     private static DataGridDatePickerColumnDefinition CreateVirtualDateColumn() =>
@@ -330,9 +350,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "Date",
             Binding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, DateTime>(
                 nameof(OptimizedCellSampleRow.Date),
-                static row => row.Date),
+                static row => row.Date,
+                static (row, value) => row.Date = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.Date),
+            SortMemberPath = nameof(OptimizedCellSampleRow.Date),
             Width = new DataGridLength(150),
-            IsReadOnly = true,
+            IsReadOnly = false,
             SelectedDateFormat = CalendarDatePickerFormat.Custom,
             CustomDateFormatString = "yyyy-MM-dd",
         };
@@ -343,9 +366,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "Time",
             Binding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, TimeSpan>(
                 nameof(OptimizedCellSampleRow.Time),
-                static row => row.Time),
+                static row => row.Time,
+                static (row, value) => row.Time = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.Time),
+            SortMemberPath = nameof(OptimizedCellSampleRow.Time),
             Width = new DataGridLength(135),
-            IsReadOnly = true,
+            IsReadOnly = false,
             ClockIdentifier = "24HourClock",
             UseSeconds = true,
         };
@@ -356,9 +382,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "Phone",
             Binding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, string>(
                 nameof(OptimizedCellSampleRow.Phone),
-                static row => row.Phone),
+                static row => row.Phone,
+                static (row, value) => row.Phone = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.Phone),
+            SortMemberPath = nameof(OptimizedCellSampleRow.Phone),
             Width = new DataGridLength(170),
-            IsReadOnly = true,
+            IsReadOnly = false,
             Mask = "(000) 000-0000",
         };
 
@@ -368,9 +397,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "Autocomplete",
             Binding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, string>(
                 nameof(OptimizedCellSampleRow.Category),
-                static row => row.Category),
+                static row => row.Category,
+                static (row, value) => row.Category = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.Category),
+            SortMemberPath = nameof(OptimizedCellSampleRow.Category),
             Width = new DataGridLength(170),
-            IsReadOnly = true,
+            IsReadOnly = false,
             ItemsSource = s_categories,
         };
 
@@ -380,9 +412,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "Slider text",
             Binding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, double>(
                 nameof(OptimizedCellSampleRow.SliderValue),
-                static row => row.SliderValue),
+                static row => row.SliderValue,
+                static (row, value) => row.SliderValue = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.SliderValue),
+            SortMemberPath = nameof(OptimizedCellSampleRow.SliderValue),
             Width = new DataGridLength(145),
-            IsReadOnly = true,
+            IsReadOnly = false,
             Minimum = 0,
             Maximum = 100,
             ShowValueText = true,
@@ -395,9 +430,12 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
             Header = "ComboBox text",
             TextBinding = ColumnDefinitionBindingFactory.CreateBinding<OptimizedCellSampleRow, string>(
                 nameof(OptimizedCellSampleRow.Category),
-                static row => row.Category),
+                static row => row.Category,
+                static (row, value) => row.Category = value),
+            ColumnKey = nameof(OptimizedCellSampleRow.Category),
+            SortMemberPath = nameof(OptimizedCellSampleRow.Category),
             Width = new DataGridLength(180),
-            IsReadOnly = true,
+            IsReadOnly = false,
             IsEditable = true,
             ItemsSource = s_categories,
         };
@@ -477,11 +515,11 @@ public sealed class OptimizedFlatCellPathsViewModel : ReactiveObject
                 region,
                 state,
                 $"{category} workload shard {id % 4_096:D4} owned by {owner}",
-                IsActive: id % 2 == 0,
-                Date: new DateTime(2020, 1, 1).AddDays(id % 3_650),
-                Time: TimeSpan.FromSeconds(id % 86_400),
-                Phone: $"(555) {id % 1_000:D3}-{id % 10_000:D4}",
-                SliderValue: (id % 1_000) / 10d);
+                isActive: id % 2 == 0,
+                date: new DateTime(2020, 1, 1).AddDays(id % 3_650),
+                time: TimeSpan.FromSeconds(id % 86_400),
+                phone: $"(555) {id % 1_000:D3}-{id % 10_000:D4}",
+                sliderValue: (id % 1_000) / 10d);
         }
 
         return rows;

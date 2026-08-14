@@ -9,6 +9,7 @@ using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.DataGridHierarchical;
+using Avalonia.Controls.DataGridSearching;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
@@ -1712,6 +1713,51 @@ public class DataGridFlatVisualLayoutTests
 
             Assert.True(grid.UsesVirtualCellSurfaceFallback);
             Assert.NotEmpty(GetRowsPresenter(grid).GetVisualDescendants().OfType<DataGridCell>());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Search_Only_Uses_Retained_Fallback_When_Highlights_Are_Visible()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+        var searchModel = new SearchModel
+        {
+            HighlightMode = SearchHighlightMode.None,
+            HighlightCurrent = false,
+        };
+        grid.SearchModel = searchModel;
+        searchModel.HighlightMode = SearchHighlightMode.None;
+        searchModel.HighlightCurrent = false;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            searchModel.SetOrUpdate(new SearchDescriptor("Item 1", scope: SearchScope.VisibleColumns));
+            PumpLayout(grid);
+
+            Assert.NotEmpty(searchModel.Results);
+            Assert.Equal(SearchHighlightMode.None, searchModel.HighlightMode);
+            Assert.True(grid.UsesVirtualCellSurface);
+            Assert.Empty(GetRowsPresenter(grid).GetVisualDescendants().OfType<DataGridCell>());
+
+            searchModel.HighlightMode = SearchHighlightMode.TextAndCell;
+            PumpLayout(grid);
+
+            Assert.True(grid.UsesVirtualCellSurfaceFallback);
+            Assert.NotEmpty(GetRowsPresenter(grid).GetVisualDescendants().OfType<DataGridCell>());
+
+            searchModel.HighlightMode = SearchHighlightMode.None;
+            PumpLayout(grid);
+
+            Assert.True(grid.UsesVirtualCellSurface);
+            Assert.Empty(GetRowsPresenter(grid).GetVisualDescendants().OfType<DataGridCell>());
         }
         finally
         {

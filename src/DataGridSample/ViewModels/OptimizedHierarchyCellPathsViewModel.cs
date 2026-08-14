@@ -73,6 +73,9 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             CreateTree(rootCount: 4, branchingFactor: 4, depth: 3);
         _model = CreateModel(previewRoots);
         SelectionModel = new SelectionModel<HierarchicalNode> { SingleSelect = true };
+        Operations = new VirtualSurfaceDataOperationsViewModel(
+            nameof(OptimizedHierarchyCellSampleNode.Owner),
+            nameof(OptimizedHierarchyCellSampleNode.Owner));
         _totalNodeCount = previewCount;
         _summary = $"Preview: {_totalNodeCount:n0} total nodes, {_model.Flattened.Count:n0} visible. Load the representative workload for profiling.";
         _managedMemorySummary = CreateManagedMemorySummary();
@@ -105,6 +108,8 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
     public IList<DataGridColumnDefinition> ActiveVirtualColumns => _activeVirtualColumns;
 
     public SelectionModel<HierarchicalNode> SelectionModel { get; }
+
+    public VirtualSurfaceDataOperationsViewModel Operations { get; }
 
     public OptimizedCellPathOption SelectedPath
     {
@@ -352,27 +357,34 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
     private static IList<DataGridColumnDefinition> CreateVirtualTextColumns() =>
         new DataGridColumnDefinition[]
         {
-            CreateHierarchyColumn(HierarchyColumnPath.Standard),
-            CreateVirtualTextColumn("Kind", nameof(OptimizedHierarchyCellSampleNode.Kind), static item => item.Kind, 130),
-            CreateVirtualTextColumn("Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, 130),
-            CreateVirtualTextColumn("Region", nameof(OptimizedHierarchyCellSampleNode.Region), static item => item.Region, 140),
-            CreateVirtualTextColumn("Detail", nameof(OptimizedHierarchyCellSampleNode.Detail), static item => item.Detail, 280),
+            CreateVirtualHierarchyColumn(),
+            CreateVirtualTextColumn(
+                "Kind", nameof(OptimizedHierarchyCellSampleNode.Kind), static item => item.Kind, static (item, value) => item.Kind = value, 130),
+            CreateVirtualTextColumn(
+                "Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, static (item, value) => item.Owner = value, 130),
+            CreateVirtualTextColumn(
+                "Region", nameof(OptimizedHierarchyCellSampleNode.Region), static item => item.Region, static (item, value) => item.Region = value, 140),
+            CreateVirtualTextColumn(
+                "Detail", nameof(OptimizedHierarchyCellSampleNode.Detail), static item => item.Detail, static (item, value) => item.Detail = value, 280),
         };
 
     private static IList<DataGridColumnDefinition> CreateVirtualVariantColumns(DataGridColumnDefinition variant) =>
         new DataGridColumnDefinition[]
         {
-            CreateHierarchyColumn(HierarchyColumnPath.Standard),
-            CreateVirtualTextColumn("Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, 130),
-            CreateVirtualTextColumn("Region", nameof(OptimizedHierarchyCellSampleNode.Region), static item => item.Region, 140),
+            CreateVirtualHierarchyColumn(),
+            CreateVirtualTextColumn(
+                "Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, static (item, value) => item.Owner = value, 130),
+            CreateVirtualTextColumn(
+                "Region", nameof(OptimizedHierarchyCellSampleNode.Region), static item => item.Region, static (item, value) => item.Region = value, 140),
             variant,
         };
 
     private static IList<DataGridColumnDefinition> CreateAllVirtualColumns() =>
         new DataGridColumnDefinition[]
         {
-            CreateHierarchyColumn(HierarchyColumnPath.Standard),
-            CreateVirtualTextColumn("Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, 130),
+            CreateVirtualHierarchyColumn(),
+            CreateVirtualTextColumn(
+                "Owner", nameof(OptimizedHierarchyCellSampleNode.Owner), static item => item.Owner, static (item, value) => item.Owner = value, 130),
             CreateVirtualCheckBoxColumn(),
             CreateVirtualDateColumn(),
             CreateVirtualTimeColumn(),
@@ -386,25 +398,53 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
         string header,
         string propertyName,
         Func<OptimizedHierarchyCellSampleNode, string> getter,
+        Action<OptimizedHierarchyCellSampleNode, string> setter,
         double width) =>
         new()
         {
             Header = header,
-            Binding = CreateNodeBinding(propertyName, getter),
+            Binding = CreateNodeBinding(propertyName, getter, setter),
+            ColumnKey = propertyName,
+            SortMemberPath = propertyName,
+            Options = CreateDataOperationOptions(getter, setter),
             Width = new DataGridLength(width),
-            IsReadOnly = true,
+            IsReadOnly = false,
+            TrackDirectTextValueChanges = false,
+        };
+
+    private static DataGridHierarchicalColumnDefinition CreateVirtualHierarchyColumn() =>
+        new()
+        {
+            Header = "Name",
+            Binding = CreateNodeBinding(
+                nameof(OptimizedHierarchyCellSampleNode.Name),
+                static item => item.Name,
+                static (item, value) => item.Name = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.Name),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.Name),
+            Options = CreateDataOperationOptions(
+                static item => item.Name,
+                static (item, value) => item.Name = value),
+            Width = new DataGridLength(1.8, DataGridLengthUnitType.Star),
+            IsReadOnly = false,
             TrackDirectTextValueChanges = false,
         };
 
     private static DataGridCheckBoxColumnDefinition CreateVirtualCheckBoxColumn() =>
         new()
         {
-            Header = "Has children",
+            Header = "Active",
             Binding = CreateNodeBinding(
-                nameof(OptimizedHierarchyCellSampleNode.HasChildren),
-                static item => item.HasChildren),
+                nameof(OptimizedHierarchyCellSampleNode.IsActive),
+                static item => item.IsActive,
+                static (item, value) => item.IsActive = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.IsActive),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.IsActive),
+            Options = CreateDataOperationOptions(
+                static item => item.IsActive,
+                static (item, value) => item.IsActive = value),
             Width = new DataGridLength(125),
-            IsReadOnly = true,
+            IsReadOnly = false,
         };
 
     private static DataGridDatePickerColumnDefinition CreateVirtualDateColumn() =>
@@ -413,9 +453,15 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             Header = "Date",
             Binding = CreateNodeBinding(
                 nameof(OptimizedHierarchyCellSampleNode.Date),
-                static item => item.Date),
+                static item => item.Date,
+                static (item, value) => item.Date = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.Date),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.Date),
+            Options = CreateDataOperationOptions(
+                static item => item.Date,
+                static (item, value) => item.Date = value),
             Width = new DataGridLength(150),
-            IsReadOnly = true,
+            IsReadOnly = false,
             SelectedDateFormat = CalendarDatePickerFormat.Custom,
             CustomDateFormatString = "yyyy-MM-dd",
         };
@@ -426,9 +472,15 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             Header = "Time",
             Binding = CreateNodeBinding(
                 nameof(OptimizedHierarchyCellSampleNode.Time),
-                static item => item.Time),
+                static item => item.Time,
+                static (item, value) => item.Time = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.Time),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.Time),
+            Options = CreateDataOperationOptions(
+                static item => item.Time,
+                static (item, value) => item.Time = value),
             Width = new DataGridLength(135),
-            IsReadOnly = true,
+            IsReadOnly = false,
             ClockIdentifier = "24HourClock",
             UseSeconds = true,
         };
@@ -439,9 +491,15 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             Header = "Phone",
             Binding = CreateNodeBinding(
                 nameof(OptimizedHierarchyCellSampleNode.Phone),
-                static item => item.Phone),
+                static item => item.Phone,
+                static (item, value) => item.Phone = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.Phone),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.Phone),
+            Options = CreateDataOperationOptions(
+                static item => item.Phone,
+                static (item, value) => item.Phone = value),
             Width = new DataGridLength(170),
-            IsReadOnly = true,
+            IsReadOnly = false,
             Mask = "(000) 000-0000",
         };
 
@@ -451,9 +509,15 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             Header = "Autocomplete",
             Binding = CreateNodeBinding(
                 nameof(OptimizedHierarchyCellSampleNode.Category),
-                static item => item.Category),
+                static item => item.Category,
+                static (item, value) => item.Category = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.Category),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.Category),
+            Options = CreateDataOperationOptions(
+                static item => item.Category,
+                static (item, value) => item.Category = value),
             Width = new DataGridLength(175),
-            IsReadOnly = true,
+            IsReadOnly = false,
             ItemsSource = s_categories,
         };
 
@@ -463,9 +527,15 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             Header = "Slider text",
             Binding = CreateNodeBinding(
                 nameof(OptimizedHierarchyCellSampleNode.SliderValue),
-                static item => item.SliderValue),
+                static item => item.SliderValue,
+                static (item, value) => item.SliderValue = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.SliderValue),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.SliderValue),
+            Options = CreateDataOperationOptions(
+                static item => item.SliderValue,
+                static (item, value) => item.SliderValue = value),
             Width = new DataGridLength(145),
-            IsReadOnly = true,
+            IsReadOnly = false,
             Minimum = 0,
             Maximum = 100,
             ShowValueText = true,
@@ -478,9 +548,15 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
             Header = "ComboBox text",
             TextBinding = CreateNodeBinding(
                 nameof(OptimizedHierarchyCellSampleNode.Category),
-                static item => item.Category),
+                static item => item.Category,
+                static (item, value) => item.Category = value),
+            ColumnKey = nameof(OptimizedHierarchyCellSampleNode.Category),
+            SortMemberPath = nameof(OptimizedHierarchyCellSampleNode.Category),
+            Options = CreateDataOperationOptions(
+                static item => item.Category,
+                static (item, value) => item.Category = value),
             Width = new DataGridLength(185),
-            IsReadOnly = true,
+            IsReadOnly = false,
             IsEditable = true,
             ItemsSource = s_categories,
         };
@@ -565,10 +641,26 @@ public sealed class OptimizedHierarchyCellPathsViewModel : ReactiveObject
 
     private static DataGridBindingDefinition CreateNodeBinding<TValue>(
         string propertyName,
-        Func<OptimizedHierarchyCellSampleNode, TValue> getter) =>
+        Func<OptimizedHierarchyCellSampleNode, TValue> getter,
+        Action<OptimizedHierarchyCellSampleNode, TValue>? setter = null) =>
         ColumnDefinitionBindingFactory.CreateBinding<HierarchicalNode, TValue>(
             propertyName,
-            node => getter((OptimizedHierarchyCellSampleNode)node.Item));
+            node => getter((OptimizedHierarchyCellSampleNode)node.Item),
+            setter == null
+                ? null
+                : (node, value) => setter((OptimizedHierarchyCellSampleNode)node.Item, value));
+
+    private static DataGridColumnDefinitionOptions CreateDataOperationOptions<TValue>(
+        Func<OptimizedHierarchyCellSampleNode, TValue> getter,
+        Action<OptimizedHierarchyCellSampleNode, TValue>? setter)
+    {
+        var accessor = new DataGridColumnValueAccessor<OptimizedHierarchyCellSampleNode, TValue>(getter, setter);
+        return new DataGridColumnDefinitionOptions
+        {
+            FilterValueAccessor = accessor,
+            SortValueAccessor = accessor,
+        };
+    }
 
     private static HierarchicalModel<OptimizedHierarchyCellSampleNode> CreateModel(
         IReadOnlyList<OptimizedHierarchyCellSampleNode> roots)
