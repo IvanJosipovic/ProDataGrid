@@ -229,11 +229,11 @@
   items:
   - name: Scrolling and Virtualization
     href: scrolling-virtualization.md
-  - name: Flat Row and Cell Layout
+  - name: Visual Layout Modes
     href: flat-row-cell-layout.md
-  - name: Virtual Cell-Surface Architecture
+  - name: Virtualized Cell Surface
     href: virtual-surface-architecture.md
-  - name: Layout Performance Benchmarking
+  - name: Benchmarking Layout Performance
     href: layout-performance-benchmarking.md
   - name: Cell Template Reuse
     href: cell-template-reuse.md

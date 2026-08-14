@@ -1,213 +1,131 @@
-# Layout performance benchmark methodology
+# Benchmarking layout performance
 
-ProDataGrid's layout work spans model mutation, row realization, Avalonia layout,
-UI render recording, the compositor, and display-clock pacing. A single wall-clock
-number cannot identify which owner changed. This methodology defines the benchmark
-lanes, phase boundaries, structural checks, and acceptance rules used for the flat
-and virtual architectures.
+Use this guide to compare ProDataGrid visual layout modes or validate a layout
+optimization. Keep benchmark results, traces, and investigation notes in benchmark
+artifacts or reports; keep product documentation focused on repeatable methodology.
 
-## Questions the benchmark matrix answers
+## Choose the right benchmark
 
-The repository uses several complementary experiments:
+ProDataGrid uses complementary benchmark types because no single measurement can
+describe the complete UI pipeline.
 
-| Lane | Question | Primary evidence |
-|---|---|---|
-| Model BenchmarkDotNet | Did hierarchy mutation itself change? | CPU time and managed allocation |
-| Headless component/layout | Did presenter layout and realization change? | Pending layout time, allocation, structure |
-| Native application macrobenchmark | Did the complete interactive path improve? | Mutation, layout, render attribution, wall time, tails |
-| Source comparison | How do equivalent ProDataGrid and TreeDataGrid workloads compare? | Independent native processes and structural validation |
-| Matched A/B | Did one candidate change improve its intended owner? | Interleaved baseline/candidate process pairs |
-| Memory stress | Did caching/pooling change process footprint? | Managed heap plus RSS/private/peak observations |
-| Trace/capture | Which method, runtime, compositor, or scheduler owns a cost? | Managed/native stacks and Avalonia diagnostics |
+| Benchmark type | Use it to measure | Do not use it to claim |
+| --- | --- | --- |
+| Model microbenchmark | Hierarchy projection, sorting, filtering, or another model operation | Scrolling or frame-time improvement |
+| Headless component benchmark | Realization, layout, allocation, and visual-tree structure | Native compositor or display performance |
+| Native application benchmark | Complete interaction, layout, render scheduling, frame pacing, and tails | Exact method ownership without diagnostics |
+| Diagnostic trace | CPU, allocation, dispatcher, renderer, compositor, or scheduler ownership | Clean timing numbers |
+| Memory stress test | Managed retention, allocation traffic, process footprint, and cache behavior | A managed leak from RSS alone |
 
-No lane substitutes for another. A model benchmark cannot prove smooth scrolling,
-and an application benchmark alone may not identify the responsible code.
+Use a focused benchmark to identify the affected component and a native application
+benchmark to confirm the user-visible result.
 
-## Reference workload
+## Define an equivalent workload
 
-The native hierarchy scroll workload uses:
+Before comparing two modes or commits, fix and record:
 
-- an 800 × 500 native window at 2× render scale;
-- fixed 24-pixel rows;
-- five matched explicit-width columns;
-- an expanded 4,094-row binary hierarchy;
-- 32 deterministic scroll operations per iteration using one declared pattern; and
-- a fully rendered and aligned state before each measured sample.
+- source commit and dirty state;
+- `Release` configuration, target framework, SDK, and runtime;
+- operating system, architecture, hardware, and power mode;
+- window size, render scale, display refresh rate, and renderer;
+- data shape and item count;
+- column count, types, widths, and display modes;
+- row height, viewport size, and frozen-column configuration;
+- warm-up and measurement counts; and
+- the exact input sequence.
 
-The native harness exposes three scroll patterns. `discontinuous` is the default
-worst-case projection workload and jumps to deterministic distant rows. `line`
-prepositions outside measurement and then advances exactly one fixed-height row per
-operation, so 19 of 20 visible item references normally overlap. `fractional`
-alternates fractional offsets inside one row, so the visible slot range is unchanged
-and all visible item references overlap. Reports must name the pattern; results from
-different patterns answer different ownership questions and are not pooled.
+For scrolling, name the pattern explicitly:
 
-The larger collapse workload expands 149,792 nodes before setup and collapses to 32
-roots. BenchmarkDotNet and sample-specific suites document their own viewport and
-input differences in their READMEs and reports.
+- **discontinuous** jumps between distant ranges and exercises complete projection
+  replacement;
+- **line** advances one fixed-height row and exercises an overlapping viewport;
+- **fractional** changes the offset within the current row and exercises geometry
+  updates without changing the visible slot range.
 
-## Phase model
+Do not pool results from different patterns. They represent different workloads.
 
-Every native scroll sample records:
+## Validate behavior before timing
+
+A faster result is invalid if the candidate skipped required work. Validate at
+least:
+
+- item and row counts;
+- extent and viewport geometry;
+- realized row, cell, control, and visual counts;
+- selection, current cell, editing, and hierarchy behavior used by the scenario;
+- expected fallback or surface activation; and
+- cleanup after recycling, mode changes, and host closure.
+
+An eligible `Virtualized` surface run should have no retained display cells in its
+steady state. If retained fallback is expected, record that as a separate mode.
+
+## Interpret the native phases
+
+The native hierarchy harness records a timed operation as:
 
 ```text
 total wall time = mutation + explicit layout + frame wait
 ```
 
-- **mutation** changes the scroll offset and performs synchronous DataGrid work.
-- **explicit layout** is the measured `UpdateLayout()` boundary.
-- **frame wait** crosses the harness's two animation callbacks.
+- **mutation** includes the requested scroll, expand, or collapse and synchronous
+  grid work caused by it;
+- **explicit layout** is the measured `UpdateLayout()` boundary;
+- **frame wait** is the harness completion wait across animation callbacks.
 
-A separate diagnostic process enables Avalonia meters and records:
+Frame wait can include render recording, composition submission, render-thread
+work, scheduler delay, and display-clock pacing. It is not CPU time and it is not a
+GPU presentation fence. Report it as user-observable latency, but do not attribute
+it to DataGrid layout without supporting trace or meter evidence.
 
-- UI render-recording duration;
-- compositor update duration; and
-- compositor render duration.
-
-The rowless surface additionally records visible-value cache hits and misses.
-These counters prove whether an overlap optimization executed; they are not timing
-phases and are never added to Active work.
-
-The diagnostic process is not used as a clean timing gate because meter collection
-adds overhead.
-
-## Active-work attribution
-
-Optimization reports use this attribution score:
+When a separate diagnostic run records Avalonia render and compositor stages, an
+ownership-oriented comparison can use:
 
 ```text
-active work = mutation + explicit layout + UI render recording
-            + compositor update + compositor render
+active components = mutation + explicit layout + UI render recording
+                  + compositor update + compositor render
 ```
 
-This excludes the deliberately awaited idle animation interval. It is not literal
-single-thread CPU time: UI and render-thread work can overlap, and compositor values
-are maximum instrumented pass durations associated with a sample. It is useful for
-ownership comparisons, not for billing CPU milliseconds.
+This sum excludes the deliberate animation-clock wait. It is an attribution score,
+not literal single-thread CPU time, because UI and render-thread work can overlap.
+Always report its component values and keep the full wall time visible.
 
-Full wall time and full frame wait remain reported. They detect a frame-band or
-scheduling regression even when they are not attributed to DataGrid execution.
+## Run the headless component benchmark
 
-## Why frame wait is not treated as grid work
+The flat-layout BenchmarkDotNet project compares `Nested`, `Flat`, and
+`Virtualized` hierarchy collapse paths with matched data and viewport settings.
 
-`RequestAnimationFrame` schedules work on Avalonia's animation clock. The harness
-registers callback 1 before synchronous mutation. Mutation and layout occupy the UI
-thread, so callback 1 cannot run until they yield. Callback 1 schedules callback 2,
-which must run on a later pulse.
+Build it first:
 
-The interval can therefore include render recording, composition submission,
-render-thread processing, scheduler delay, and refresh pacing. It is not a GPU
-presentation fence. The JSON splits it into:
+```bash
+dotnet build \
+  tests/ProDataGrid.FlatLayout.Benchmarks/ProDataGrid.FlatLayout.Benchmarks.csproj \
+  -c Release --no-restore
+```
 
-- layout completion to callback 1 (pickup);
-- callback 1 to callback 2; and
-- measured animation-tick interval.
+Run the clean comparison:
 
-When callback 1→2 matches the animation interval and pickup is only microseconds,
-the dominant portion is clock pacing. Row recycling or layout optimization cannot
-halve that idle interval. Reports must say so instead of relabeling it as CPU work.
+```bash
+DOTNET_TieredCompilation=0 dotnet run \
+  --project tests/ProDataGrid.FlatLayout.Benchmarks/ProDataGrid.FlatLayout.Benchmarks.csproj \
+  -c Release --no-build -- \
+  --filter '*HierarchyCollapse*Benchmarks*' \
+  --launchCount 3 \
+  --warmupCount 3 \
+  --iterationCount 10 \
+  --invocationCount 1 \
+  --unrollFactor 1 \
+  --allStats
+```
 
-## Pre-sample alignment
+The suite's
+[README](https://github.com/wieslawsoltes/ProDataGrid/blob/master/tests/ProDataGrid.FlatLayout.Benchmarks/README.md)
+documents its modes, optional filters, and profiling entry points. Use the
+repository's pinned BenchmarkDotNet options; check the generated `--help` output
+before changing the command.
 
-Before each sample the harness:
+## Run the native application benchmark
 
-1. completes a full managed collection outside the timed operation;
-2. waits through a three-callback alignment barrier; and
-3. arms the timed two-callback barrier before mutation.
-
-Three alignment callbacks are required because the second alignment callback runs
-before the remainder of Avalonia's media pass. Starting after only two can leave an
-unrelated composition batch pending and move the next sample into another refresh
-band.
-
-## Structural validation
-
-Timing is accepted only after semantic and structural checks. The native harness
-verifies:
-
-- the expected row count;
-- a bounded realized-row count;
-- the realized cell, visual, and control counts;
-- extent and viewport geometry; and
-- zero retained display cells for a surface lane unless a baseline experiment
-  explicitly permits retained fallback.
-
-Feature-specific tests additionally verify editing, selection, hit testing, value
-invalidation, recycling identity, fallback transitions, and cleanup. A faster run
-that omitted required cells or failed to activate the requested backend is invalid.
-
-## Clean comparison protocol
-
-For a source-mode comparison, CI runs each mode in an independent process. It uses
-two warmups and ten measured iterations, reverses complete mode order in alternating
-processes, aggregates four process means, and reports a Student-t 95% confidence
-interval. Raw JSON and `aggregate.json` are uploaded as an artifact.
-
-For a focused candidate A/B:
-
-1. create clean baseline and candidate worktrees or published binaries;
-2. record both commit IDs and dirty state;
-3. build both in `Release` before timing;
-4. keep runtime, architecture, window, dataset, and environment identical;
-5. run at least three process pairs with alternating order (`B A`, `A B`, `B A`);
-6. warm both variants before measurement;
-7. retain every raw sample; and
-8. compare process-level means, tails, allocation, structure, and regressions.
-
-Do not choose the fastest process. Exclude a run only by a rule declared before
-examining the result.
-
-## Runtime and deployment controls
-
-The benchmark report records:
-
-- source commit and dirty state;
-- build configuration and target framework;
-- SDK and runtime versions;
-- OS, architecture, hardware, and logical CPU count;
-- Avalonia version, renderer, window dimensions, and render scale;
-- warmup, iteration, jump, and alignment counts; and
-- environment overrides such as `DOTNET_TieredCompilation=0` or runtime roll-forward.
-
-Short native comparisons disable tiered compilation so a process does not change
-generated-code tier midway through the small workload. If the shipping tiering/PGO
-behavior is the subject, run it as a separate deployment experiment.
-
-## Allocation and memory interpretation
-
-Native JSON allocation is `GC.GetTotalAllocatedBytes` traffic during the sample.
-BenchmarkDotNet's memory diagnoser also reports managed allocation traffic. Neither
-proves retained heap size or measures native, Skia, compositor, or GPU allocation.
-
-Cache and pooling changes require a separate stress run at equivalent lifecycle
-points. Compare at least:
-
-- managed live/committed heap;
-- total allocated bytes;
-- process RSS/working set and private or peak footprint where available;
-- cache count/capacity and eviction behavior; and
-- state after detach or window close.
-
-RSS alone is never labeled a managed leak.
-
-## Acceptance rules
-
-A performance change is accepted when:
-
-1. profiler or phase evidence identifies the intended owner;
-2. baseline and candidate preserve behavior and structure;
-3. multiple paired processes show a practically meaningful improvement;
-4. allocation, tails, startup, and memory lifetime have no unexplained regression;
-5. the application-level workload confirms the focused result; and
-6. raw artifacts, exact commands, limitations, and residual risks are preserved.
-
-Small sub-0.01 ms movements and shared-runner percentage changes are reported as
-noise unless repeated evidence proves otherwise. A whole-frame wall-time movement
-is not attributed to layout without pickup/callback evidence.
-
-## Commands and artifacts
-
-Build the native ProDataGrid application:
+Build the ProDataGrid native harness:
 
 ```bash
 dotnet build \
@@ -215,86 +133,364 @@ dotnet build \
   -c Release
 ```
 
-Run a focused virtual scroll process:
+Run one clean process for a virtual line-scroll workload:
 
 ```bash
 DOTNET_TieredCompilation=0 \
 GRID_BENCH_PRO_MODE=virtual \
 dotnet \
   tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
-  --scroll-only --scroll-pattern line --scroll-jumps 32 \
-  --warmup 2 --iterations 10 \
-  --output artifacts/performance/virtual-scroll.json
+  --scroll-only \
+  --scroll-pattern line \
+  --scroll-jumps 32 \
+  --warmup 2 \
+  --iterations 10 \
+  --output artifacts/performance/virtual-line.json
 ```
 
-Add `--avalonia-diagnostics` only for the separate active-work attribution run.
-Add `--prodatagrid-diagnostics` to a ProDataGrid-only attribution run when the
-virtual layout pipeline needs finer ownership: the JSON records per-jump means and
-raw samples for scrolling, displayed-row update, generation phases, recycling
-phases, retarget eligibility/validation/bind phases, element insertion, and row
-realization/recycling/retargeting counts. Retarget probes also expose
+Change `GRID_BENCH_PRO_MODE` and the scroll pattern to create matched comparison
+processes. The native harness
+[README](https://github.com/wieslawsoltes/ProDataGrid/blob/master/tests/ProDataGrid.Hierarchy.NativeBenchmarks/README.md)
+lists supported modes and TreeDataGrid source-comparison setup.
+
+Run diagnostic instrumentation separately from clean timing. The
+`--avalonia-diagnostics` option records Avalonia render/compositor stages, and
+`--prodatagrid-diagnostics` records ProDataGrid component counters. Both add
+measurement overhead.
+
+## Profiling and tracing
+
+This section is intended for contributors investigating ownership inside the
+layout and rendering pipeline. Keep the user-facing layout articles focused on
+configuration and behavior.
+
+### Keep clean timing and diagnostics separate
+
+Use at least two processes for an investigation:
+
+1. a clean process with no meters, trace providers, debugger, or profiler attached;
+2. an instrumented process with the same mode and workload for ownership evidence.
+
+Never use the instrumented process as the performance gate. Meter listeners,
+EventPipe providers, sampled stacks, allocation profilers, and graphics captures
+all add work. The diagnostic run explains the clean result; it does not replace it.
+
+Record the tool versions, exact command, commit, dirty state, runtime, architecture,
+and environment variables with every diagnostic artifact. Query installed help
+before reusing a command because diagnostic-tool syntax and built-in profiles can
+change between releases.
+
+### Frame alignment and the callback barrier
+
+The native harness controls animation-clock phase before every measured sample:
+
+1. it completes a full managed collection outside the timed operation;
+2. it waits through an unmeasured three-callback alignment barrier;
+3. it arms the timed two-callback barrier; and
+4. it performs mutation and `UpdateLayout()` while the UI thread is still inside
+   the timed operation.
+
+Three alignment callbacks are required. Avalonia invokes an animation callback
+before completing the remainder of that media pass. Starting after only two
+callbacks can leave an unrelated composition batch pending and move the next sample
+into a different refresh band. The diagnostic-only `--alignment-callbacks` option
+can test this assumption, but baseline and candidate timing must use the same
+alignment count.
+
+The timed barrier is armed before mutation. Callback 1 therefore cannot execute
+until synchronous mutation and layout yield the UI thread. Callback 1 schedules
+callback 2, which runs on a later animation pulse because Avalonia swaps the current
+and next callback queues before invoking them.
+
+This is a conservative UI-completion convention, not a presentation fence.
+Avalonia can release the second callback after a composition batch is marked
+`Processed`; that state is earlier than `Rendered` and does not prove GPU scanout.
+At a 60 Hz refresh rate, crossing a frame cutoff can move wall time by about
+16.7 ms even when synchronous work changes only slightly.
+
+The JSON separates:
+
+- layout completion to callback 1, called **frame pickup**;
+- callback 1 to callback 2; and
+- the animation-clock interval reported to those callbacks.
+
+When frame pickup is small and the callback interval follows the animation-clock
+interval, the dominant portion is refresh pacing. Keep it in full wall time, but do
+not relabel it as DataGrid CPU work. A row-realization or layout optimization cannot
+be expected to halve that idle interval.
+
+### Attribute Avalonia rendering stages
+
+Run a separate process with Avalonia diagnostics enabled:
+
+```bash
+DOTNET_TieredCompilation=0 \
+GRID_BENCH_PRO_MODE=virtual \
+dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only \
+  --scroll-pattern line \
+  --scroll-jumps 32 \
+  --warmup 2 \
+  --iterations 10 \
+  --avalonia-diagnostics \
+  --output artifacts/performance/virtual-line-avalonia-diagnostics.json
+```
+
+The harness listens to `Avalonia.Diagnostic.Meter` and records the maximum
+instrumented pass associated with each sample:
+
+- `avalonia.ui.render.time` for UI render recording;
+- `avalonia.comp.update.time` for compositor update; and
+- `avalonia.comp.render.time` for compositor rendering.
+
+The harness waits outside the timed interval so late compositor measurements can
+arrive before it snapshots the meters. These values support the active-components
+attribution described above. They are not added to frame wait, and their maxima are
+not literal additive CPU time because UI and render-thread stages may overlap.
+
+Always inspect UI render and compositor render together. A reduction in scene
+recording is not a complete win if equivalent work moved to the compositor. If CPU
+and compositor stages finish early but the callback interval remains long, inspect
+scheduler, compositor, vsync, or display pacing rather than continuing to optimize
+DataGrid layout.
+
+### Attribute ProDataGrid components
+
+Add `--prodatagrid-diagnostics` to a ProDataGrid-only diagnostic process. It enables
+`ProDataGrid.Diagnostic.Meter` and records raw per-jump samples plus aggregate values:
+
+```bash
+DOTNET_TieredCompilation=0 \
+GRID_BENCH_PRO_MODE=virtual \
+dotnet \
+  tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+  --scroll-only \
+  --scroll-pattern discontinuous \
+  --scroll-jumps 32 \
+  --warmup 2 \
+  --iterations 10 \
+  --avalonia-diagnostics \
+  --prodatagrid-diagnostics \
+  --output artifacts/performance/virtual-discontinuous-components.json
+```
+
+TreeDataGrid does not expose these ProDataGrid meters, so its executable rejects the
+switch. Compare clean application-level phases across controls; use component meters
+only to explain ownership inside ProDataGrid.
+
+The most useful meter groups are:
+
+| Area | Timers and counters |
+| --- | --- |
+| Scroll entry and projection | `prodatagrid.rows.scroll.slots.by.height.time`, `prodatagrid.rows.scroll.estimate.offset.time`, `prodatagrid.rows.display.update.time`, and rows-presenter viewport time |
+| Row generation | `prodatagrid.rows.generate.time` with acquire, bind, and prepare timers |
+| Row recycling | `prodatagrid.rows.recycle.time` with cleanup, detach, and pool timers |
+| Element insertion | display-element insert, attach, measure, height-record, and load timers |
+| Retargeting | eligibility, validation, bind, apply, child-index, and layout-validity timers; realized, recycled, retargeted, measure-reused, and arrange-reused counts |
+| Layout | DataGrid, rows-presenter, row, and cells-presenter measure and arrange timers and counts |
+| Virtual surface | `prodatagrid.virtual.surface.render.time`, rendered-row/cell counts, clips, grid lines, hierarchy expanders, text operations, glyph runs, and text/value-cache hits and misses |
+
+Several component timers are nested. In particular,
 `prodatagrid.rows.retarget.apply.time`,
 `prodatagrid.rows.retarget.child-index.time`, and
-`prodatagrid.rows.retarget.layout-validity.time` inside the enclosing bind phase.
-Use these nested phases to distinguish observable row identity/state work from
-logical-tree bookkeeping and the layout-reuse guard; do not add nested phase
-values to their enclosing bind time. Retarget probes also expose
-`prodatagrid.rows.retarget.measure.reused.count` and
-`prodatagrid.rows.retarget.arrange.reused.count`; compare them with the realized
-row count to prove whether the guarded geometry-reuse path actually ran. Both
-diagnostic switches add measurement overhead and remain outside the clean A/B gate.
-For the rowless surface, the same switch records
-`prodatagrid.virtual.surface.render.time` plus aggregate rendered-row, rendered-cell,
-clip, vertical-grid-line, hierarchy-expander, text-layout cache hit/miss, text scene
-operation, and immutable glyph-run counts.
-Use those counters to prove which drawing path ran. In particular, a workload with
-zero vertical-grid-line operations cannot validate a grid-line batching hypothesis,
-and a warm-cache workload must not attribute render time to text shaping without
-cache-miss evidence.
-When optimizing the virtual surface inner loop, prepare immutable-per-pass column
-state outside the row loop and compare discontinuous, line, and fractional patterns
-separately. Report the directly nested surface timer and the non-overlapping Active
-sum. A surface-stage improvement is not automatically a whole-frame claim when
-compositor render varies in the opposite direction.
-Text batching must be evaluated with both UI render recording and compositor
-render. A UI-stage reduction is accepted only when the render-stage aggregate does
-not show an equivalent transfer of work to the compositor. Scene-operation and
-glyph-run counters prove that the candidate path was active.
-When a transactional path reports additive counters for every row, batch the
-counter additions only after the transaction succeeds and prove that the aggregate
-values are unchanged. This reduces diagnostic observer cost without moving phase
-boundaries or weakening lifecycle accounting.
-For fixed-height virtual-scroll work, compare
+`prodatagrid.rows.retarget.layout-validity.time` are inside the enclosing retarget
+bind phase. Do not add them to bind time. Similarly, virtual-surface render time is
+inside the UI rendering pipeline and must not be added to the active-components
+score. Use component timers to decompose an owner, not to manufacture a larger
+total.
+
+Counters prove that the expected path executed:
+
+- compare realized, recycled, and retargeted counts with the requested scroll
+  pattern;
+- compare retarget measure/arrange reuse with the realized-row count before claiming
+  geometry reuse;
+- require zero realized rows and display cells for an eligible rowless surface run;
+- require cache misses when attributing cost to value resolution or text shaping;
+- require vertical-grid-line operations before evaluating grid-line batching; and
+- use text scene-operation and glyph-run counts to prove that text batching was
+  active.
+
+For fixed-height scrolling, compare
 `prodatagrid.rows.scroll.slots.by.height.time` with mutation plus layout and the
-complete active-work score. A faster target lookup is accepted only when the
-application-level active components also improve; full frame wait remains a
-separate refresh-pacing diagnostic.
-Use discontinuous, line, and fractional processes to separate complete projection
-replacement, adjacent overlap, and same-range geometry updates. The eligible
-rowless lane must continue to validate zero realized rows and zero realized cells in
-all three cases.
-Use `virtual-checkbox` to exercise the mixed text/hierarchy/checkbox surface lane.
-Use `virtual-autocomplete` to compare retained autocomplete display text with its
-typed zero-cell surface path; suggestion/filter behavior remains outside the
-read-only scrolling workload and is covered by editing tests.
-Use `virtual-slider-text` to compare retained centered slider value text with its
-typed zero-cell surface path; the graphical display mode is intentionally outside
-the contract and slider interaction is covered by editing tests.
-Use `virtual-combobox-text` to compare an editable retained ComboBox `TextBinding`
-display with its typed zero-cell text-and-glyph surface path. Selected-item/value
-display remains outside the contract; editing and dropdown interaction are covered
-by focused tests.
-`GRID_BENCH_ALLOW_VIRTUAL_FALLBACK=1` exists only for controlled baseline
-experiments and must not be set when validating the candidate surface.
+complete active-components score. A faster slot lookup is useful only when the
+application-level components improve. Keep full frame wait as a separate pacing
+diagnostic.
 
-Large generated traces, dumps, and benchmark output stay under the gitignored
-`artifacts/performance` tree or CI artifacts. Checked-in reports contain summarized
-results and point to the raw artifact location.
+For virtual-surface work, compare discontinuous, line, and fractional processes
+separately. Report `prodatagrid.virtual.surface.render.time`, UI render recording,
+compositor render, cache behavior, and structural counts together. A faster inner
+surface timer does not by itself prove a whole-frame improvement.
 
-See the [native source benchmark README](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.Hierarchy.NativeBenchmarks/README.md)
-and the [focused scroll report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/SCROLL-RESULTS-2026-08-12.md)
-and the [virtual retarget-buffer report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-RETARGET-RESULTS-2026-08-13.md)
-and the [virtual row lifecycle batch report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-BATCH-RESULTS-2026-08-13.md)
-and the [virtual row retarget-apply report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-ROW-APPLY-RESULTS-2026-08-13.md)
-and the [virtual surface render report](https://github.com/wieslawsoltes/ProDataGrid/blob/main/tests/ProDataGrid.FlatLayout.Benchmarks/VIRTUAL-SURFACE-RENDER-RESULTS-2026-08-13.md)
-for current commands and results.
+### Capture managed CPU traces
+
+Check the installed tool before collecting:
+
+```bash
+dotnet-trace --version
+dotnet-trace collect --help
+```
+
+Current standard `dotnet-trace collect` uses
+`dotnet-common,dotnet-sampled-thread-time` for runtime events and sampled managed
+stacks. The historical standard `cpu-sampling` profile was removed; it remains a
+different Linux `collect-linux` workflow and must not be copied into this command.
+
+Create the artifact directory, then launch the native harness through the collector:
+
+```bash
+mkdir -p artifacts/performance/traces
+
+GRID_BENCH_PRO_MODE=virtual \
+dotnet-trace collect \
+  --profile dotnet-common,dotnet-sampled-thread-time \
+  --output artifacts/performance/traces/virtual-collapse.nettrace \
+  --show-child-io \
+  -- dotnet \
+    tests/ProDataGrid.Hierarchy.NativeBenchmarks/Native.Pro/bin/Release/net8.0/Native.Pro.dll \
+    --collapse-only \
+    --warmup 6 \
+    --iterations 20 \
+    --output artifacts/performance/traces/virtual-collapse.json
+```
+
+The extra warmups and iterations make the intended workload dominate process
+startup in the trace; they do not turn the trace into clean timing evidence.
+Preserve the raw `.nettrace` because derived stack views do not retain every runtime
+event.
+
+Generate inclusive and exclusive summaries when a quick first pass is useful:
+
+```bash
+dotnet-trace report \
+  artifacts/performance/traces/virtual-collapse.nettrace \
+  topN -n 100 --inclusive \
+  > artifacts/performance/traces/virtual-collapse-inclusive.txt
+
+dotnet-trace report \
+  artifacts/performance/traces/virtual-collapse.nettrace \
+  topN -n 100 \
+  > artifacts/performance/traces/virtual-collapse-exclusive.txt
+```
+
+Analyze the deterministic workload interval, inclusive costs first, then callers,
+callees, exclusive costs, allocation/runtime activity, and thread ownership.
+Separate application code, Avalonia, CoreCLR/JIT/GC, P/Invoke, native graphics, and
+scheduler frames. Sampled stacks identify where CPU was observed; they do not give
+exact call counts or exact per-call duration.
+
+On Linux and macOS, an attaching diagnostic tool must share `TMPDIR` with the target
+process. Launch-through-collector avoids selecting the wrong short-lived `dotnet`
+child and captures startup; attach by PID when only a warmed interval is wanted.
+
+### Use focused profiler loops
+
+The BenchmarkDotNet executable exposes repetition loops with stable event markers
+for CPU or allocation profilers:
+
+```bash
+DOTNET_TieredCompilation=0 dotnet run \
+  --project tests/ProDataGrid.FlatLayout.Benchmarks/ProDataGrid.FlatLayout.Benchmarks.csproj \
+  -c Release --no-build -- \
+  --profile virtual 100 BuiltInDrawn inspect
+```
+
+Use `nested`, `flat`, or `virtual`. Replace `--profile` with
+`--profile-end-to-end` to repeat collapse plus layout. The `inspect` option prints
+realized visual and layout-validity statistics. These loops isolate a component for
+profiling and are never reported as BenchmarkDotNet timing results.
+
+### Cross managed, native, and graphics boundaries
+
+If sampled managed stacks do not explain the clean wall time, continue across the
+ownership boundary:
+
+- use a platform-native CPU and scheduler trace for native library, driver,
+  compositor, wakeup, and off-CPU ownership;
+- use a graphics timeline or capture when GPU execution, resource upload, queueing,
+  or presentation is plausible;
+- keep window size, render scale, display, refresh rate, renderer, adapter, power
+  mode, and capture configuration identical; and
+- correlate the native timeline with harness phases and managed trace timestamps.
+
+High render-thread CPU does not prove GPU saturation. GPU timestamps measure queue
+execution, not UI command generation, driver submission, compositor latency, or
+display scanout. If CPU and GPU finish early but presentation is late, investigate
+present mode, compositor/vsync pacing, drawable starvation, and scheduling.
+
+### Preserve diagnostic artifacts safely
+
+Store raw JSON, `.nettrace`, native trace bundles, stack reports, captures, tool
+versions, and exact commands under `artifacts/performance/<investigation>` or in CI
+artifacts. Keep generated artifacts and dated investigation journals out of the
+product documentation. Traces, dumps, and captures can contain source paths, user
+data, or process contents; handle them as sensitive artifacts.
+
+## Compare baseline and candidate
+
+For a focused change:
+
+1. build clean baseline and candidate worktrees or published binaries;
+2. keep the runtime, machine, workload, and configuration identical;
+3. warm both variants before measurement;
+4. alternate process order, for example `B A`, `A B`, `B A`;
+5. retain every raw sample;
+6. compare process-level medians or means with a spread or confidence interval;
+7. inspect p95/p99 or hitch counts for interaction workloads; and
+8. compare allocation and memory behavior as well as elapsed time.
+
+Do not select the fastest process. Exclude a run only by a rule declared before
+examining the result. Treat small changes on shared runners as noise unless repeated
+evidence shows practical significance.
+
+The repository's native source-comparison CI uses a stronger fixed protocol: every
+mode runs in an independent process, each process uses two warmups and ten measured
+iterations, complete mode order is reversed in alternating processes, and four
+process means are aggregated with a Student-t 95% confidence interval. Clean timing,
+Avalonia diagnostics, ProDataGrid component diagnostics, and sampled traces are
+separate runs. Raw JSON and `aggregate.json` remain CI artifacts. Preserve that
+separation when extending the workflow.
+
+## Allocation and memory
+
+`GC.GetTotalAllocatedBytes` and BenchmarkDotNet's memory diagnoser report managed
+allocation traffic during the measured operation. They do not measure retained
+heap, native allocations, Skia resources, compositor resources, GPU memory, or
+process footprint.
+
+For cache or pooling changes, add a separate stress run and compare equivalent
+lifecycle points:
+
+- managed live and committed heap;
+- total allocated bytes;
+- process working set or RSS and private memory;
+- cache count, capacity, and eviction behavior; and
+- state after detaching the grid or closing the host.
+
+Stable managed live bytes with higher RSS is not sufficient evidence of a managed
+leak.
+
+## Report results
+
+A useful report includes:
+
+1. the question and acceptance threshold;
+2. the exact workload and semantic checks;
+3. environment, commit IDs, and dirty state;
+4. exact commands and mode flags;
+5. warm-up, run order, sample count, and exclusions;
+6. component times, wall time, tails, and allocation;
+7. structure and fallback validation;
+8. diagnostic evidence used for ownership; and
+9. limitations and unresolved regressions.
+
+Keep raw JSON, BenchmarkDotNet output, traces, and dumps under
+`artifacts/performance` or upload them as CI artifacts. Avoid adding generated
+artifacts or dated investigation logs to the user documentation.
+
+## Related articles
+
+- [Visual layout modes](flat-row-cell-layout.md)
+- [Virtualized cell surface](virtual-surface-architecture.md)
+- [Scrolling and virtualization](scrolling-virtualization.md)
