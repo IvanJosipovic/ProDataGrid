@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Automation.Peers;
 using Avalonia.Controls.DataGridHierarchical;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Selection;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Headless.XUnit;
@@ -1344,6 +1345,11 @@ public class DataGridFlatVisualLayoutTests
     {
         (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
         grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+        grid.SelectionUnit = DataGridSelectionUnit.Cell;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.IsReadOnly = true;
+        var selection = new SelectionModel<Item> { SingleSelect = false };
+        grid.Selection = selection;
 
         try
         {
@@ -1355,25 +1361,198 @@ public class DataGridFlatVisualLayoutTests
                 presenter.GetVisualChildren().OfType<DataGridVirtualCellSurface>());
             DataGridVirtualRowInfo row = presenter.LightweightVirtualRows[0];
             Assert.True(presenter.TryGetVirtualCellBounds(row.Slot, grid.ColumnsInternal[0], out Rect bounds));
+            Assert.Equal(DataGridSelectionUnit.Cell, grid.SelectionUnit);
+            Assert.True(grid.UsesVirtualCellSurface);
+            Assert.True(presenter.IsVirtualCellPoint(bounds.Center));
 
             var pointer = new Pointer(Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
             var properties = new PointerPointProperties(
                 RawInputModifiers.LeftMouseButton,
                 PointerUpdateKind.LeftButtonPressed);
+            Point rootPoint = surface.TranslatePoint(bounds.Center, window)!.Value;
             var args = new PointerPressedEventArgs(
                 surface,
                 pointer,
-                surface,
-                bounds.Center,
+                window,
+                rootPoint,
                 0,
                 properties,
                 KeyModifiers.None);
+            args.RoutedEvent = InputElement.PointerPressedEvent;
+            args.Route = InputElement.PointerPressedEvent.RoutingStrategies;
+            Assert.True(args.GetCurrentPoint(surface).Properties.IsLeftButtonPressed);
+            Assert.Equal(bounds.Center, args.GetPosition(surface));
             surface.RaiseEvent(args);
+            Assert.True(args.Handled);
+            Assert.True(grid.IsSelectionDragActive);
+            Assert.Single(grid.SelectedCells);
             PumpLayout(grid);
 
             Assert.True(grid.CurrentCell.IsValid);
             Assert.Same(row.Item, grid.CurrentCell.Item);
             Assert.Same(grid.ColumnsInternal[0], grid.CurrentCell.Column);
+            DataGridCellInfo selectedCell = Assert.Single(grid.SelectedCells);
+            Assert.Same(row.Item, selectedCell.Item);
+            Assert.Same(grid.ColumnsInternal[0], selectedCell.Column);
+            Assert.Equal(row.RowIndex, selection.SelectedIndex);
+            Assert.True(presenter.IsVirtualCellSelected(row, grid.ColumnsInternal[0].Index, hasSelectedCells: true));
+
+            Border selectionOutline = grid.GetVisualDescendants()
+                .OfType<Border>()
+                .First(border => border.Name == "PART_SelectionOutline");
+            Assert.True(selectionOutline.IsVisible);
+            Assert.Equal(bounds.Width, selectionOutline.Width, precision: 3);
+            Assert.Equal(bounds.Height, selectionOutline.Height, precision: 3);
+            Assert.True(grid.IsSelectionDragActive);
+
+            DataGridVirtualRowInfo targetRow = presenter.LightweightVirtualRows[2];
+            Assert.True(presenter.TryGetVirtualCellBounds(
+                targetRow.Slot,
+                grid.ColumnsInternal[1],
+                out Rect targetBounds));
+            Point targetRootPoint = surface.TranslatePoint(targetBounds.Center, window)!.Value;
+            Point targetGridPoint = surface.TranslatePoint(targetBounds.Center, grid)!.Value;
+            Point targetPresenterPoint = grid.TranslatePoint(targetGridPoint, presenter)!.Value;
+            Assert.True(presenter.TryGetLightweightVirtualRowSlot(targetPresenterPoint.Y, out int targetSlot));
+            Assert.Equal(targetRow.Slot, targetSlot);
+            var moveProperties = new PointerPointProperties(
+                RawInputModifiers.LeftMouseButton,
+                PointerUpdateKind.Other);
+            var moveArgs = new PointerEventArgs(
+                InputElement.PointerMovedEvent,
+                grid,
+                pointer,
+                window,
+                targetRootPoint,
+                0,
+                moveProperties,
+                KeyModifiers.None);
+            Assert.Equal(targetGridPoint, moveArgs.GetCurrentPoint(grid).Position);
+            grid.RaiseEvent(moveArgs);
+            PumpLayout(grid);
+
+            Assert.True(moveArgs.Handled);
+            Assert.Equal(
+                new[] { (0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1) },
+                grid.SelectedCells
+                    .Select(cell => (cell.RowIndex, cell.ColumnIndex))
+                    .OrderBy(cell => cell.RowIndex)
+                    .ThenBy(cell => cell.ColumnIndex));
+            Assert.Equal(new[] { 0, 1, 2 }, selection.SelectedIndexes.OrderBy(index => index));
+            Assert.Equal(targetBounds.Right - bounds.Left, selectionOutline.Width, precision: 3);
+            Assert.Equal(targetBounds.Bottom - bounds.Top, selectionOutline.Height, precision: 3);
+
+            var releaseProperties = new PointerPointProperties(
+                RawInputModifiers.None,
+                PointerUpdateKind.LeftButtonReleased);
+            var releaseArgs = new PointerReleasedEventArgs(
+                grid,
+                pointer,
+                window,
+                targetRootPoint,
+                0,
+                releaseProperties,
+                KeyModifiers.None,
+                MouseButton.Left);
+            grid.RaiseEvent(releaseArgs);
+            Assert.False(grid.IsSelectionDragActive);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Surface_Uses_Idiomatic_SelectionModel_For_FullRow_Selection()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var selection = new SelectionModel<Item> { SingleSelect = false };
+        selection.Select(1);
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+        grid.SelectionUnit = DataGridSelectionUnit.FullRow;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.Selection = selection;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            DataGridRowsPresenter presenter = GetRowsPresenter(grid);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+
+            selection.Select(3);
+            PumpLayout(grid);
+
+            Assert.Equal(new[] { 1, 3 }, selection.SelectedIndexes.OrderBy(index => index));
+            Assert.Equal(new[] { 1, 3 }, grid.SelectedItems.Cast<Item>().Select(item => item.Id).OrderBy(id => id));
+
+            foreach (DataGridVirtualRowInfo row in presenter.LightweightVirtualRows)
+            {
+                bool expected = row.RowIndex is 1 or 3;
+                Assert.Equal(
+                    expected,
+                    presenter.IsVirtualCellSelected(row, grid.ColumnsInternal[0].Index, hasSelectedCells: false));
+                Assert.Equal(
+                    expected,
+                    presenter.IsVirtualCellSelected(row, grid.ColumnsInternal[1].Index, hasSelectedCells: false));
+            }
+
+            selection.Clear();
+            PumpLayout(grid);
+
+            Assert.Empty(grid.SelectedItems);
+            Assert.All(
+                presenter.LightweightVirtualRows,
+                row => Assert.False(
+                    presenter.IsVirtualCellSelected(row, grid.ColumnsInternal[0].Index, hasSelectedCells: false)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void Virtualized_Surface_Keyboard_Extends_Idiomatic_Row_Selection()
+    {
+        (Window window, DataGrid grid) = CreateGrid(DataGridTheme.SimpleFlat, useFlatTheme: true);
+        var selection = new SelectionModel<Item> { SingleSelect = false };
+        grid.VisualLayoutMode = DataGridVisualLayoutMode.Virtualized;
+        grid.SelectionUnit = DataGridSelectionUnit.FullRow;
+        grid.SelectionMode = DataGridSelectionMode.Extended;
+        grid.Selection = selection;
+
+        try
+        {
+            window.Show();
+            PumpLayout(grid);
+
+            int firstSlot = grid.SlotFromRowIndex(0);
+            Assert.True(grid.UpdateSelectionAndCurrency(
+                grid.ColumnsInternal[0].Index,
+                firstSlot,
+                DataGridSelectionAction.SelectCurrent,
+                scrollIntoView: false));
+
+            var keyArgs = new KeyEventArgs
+            {
+                RoutedEvent = InputElement.KeyDownEvent,
+                Route = InputElement.KeyDownEvent.RoutingStrategies,
+                Key = Key.Down,
+                KeyModifiers = KeyModifiers.Shift,
+                Source = grid,
+                KeyDeviceType = KeyDeviceType.Keyboard,
+            };
+            grid.RaiseEvent(keyArgs);
+            PumpLayout(grid);
+
+            Assert.True(keyArgs.Handled);
+            Assert.Equal(new[] { 0, 1 }, selection.SelectedIndexes.OrderBy(index => index));
+            Assert.Equal(1, grid.CurrentCell.Item is Item item ? item.Id : -1);
+            Assert.Empty(GetRowsPresenter(grid).Children.OfType<DataGridRow>());
         }
         finally
         {

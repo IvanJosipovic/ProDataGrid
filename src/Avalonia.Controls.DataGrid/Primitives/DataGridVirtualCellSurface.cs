@@ -31,7 +31,11 @@ internal sealed class DataGridVirtualCellSurface : Control, ICustomHitTest
         base.OnPointerPressed(e);
         if (Owner?.HandleVirtualCellPointerPressed(e) == true)
         {
-            e.Handled = true;
+            // Preserve the same touch/pen scroll gesture behavior as retained cells.
+            if (e.Pointer.Type is not PointerType.Touch and not PointerType.Pen)
+            {
+                e.Handled = true;
+            }
         }
     }
 }

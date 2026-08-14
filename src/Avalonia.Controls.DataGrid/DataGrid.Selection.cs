@@ -463,6 +463,12 @@ internal
                 return;
             }
 
+            if (DisplayData.HasVirtualScrollingElements)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+                return;
+            }
+
             for (int slot = DisplayData.FirstScrollingSlot;
                 slot > -1 && slot <= DisplayData.LastScrollingSlot;
                 slot++)

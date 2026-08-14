@@ -456,6 +456,9 @@ sealed partial class DataGridRowsPresenter
 
         counters.Rows++;
         int currentColumnIndex = grid.CurrentSlot == row.Slot ? grid.CurrentColumnIndex : -1;
+        bool rowSelected =
+            grid.SelectionUnit == DataGridSelectionUnit.FullRow &&
+            grid.GetRowSelection(row.Slot);
 
         ReadOnlySpan<DataGridVirtualColumnRenderPlan> renderPlans =
             CollectionsMarshal.AsSpan(_virtualColumnRenderPlans);
@@ -485,7 +488,7 @@ sealed partial class DataGridRowsPresenter
             {
                 DrawVirtualCell(context, grid, row, plan, value, cellBounds, expanderPen,
                     selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, null, ref counters);
+                    drawVerticalGridLines, hasSelectedCells, rowSelected, currentColumnIndex, null, ref counters);
                 continue;
             }
 
@@ -494,7 +497,7 @@ sealed partial class DataGridRowsPresenter
             {
                 DrawVirtualCell(context, grid, row, plan, value, cellBounds, expanderPen,
                     selectedBackground, currentPen, verticalGridPen,
-                    drawVerticalGridLines, hasSelectedCells, currentColumnIndex, visibleBounds, ref counters);
+                    drawVerticalGridLines, hasSelectedCells, rowSelected, currentColumnIndex, visibleBounds, ref counters);
             }
         }
     }
@@ -512,12 +515,15 @@ sealed partial class DataGridRowsPresenter
         Pen? verticalGridPen,
         bool drawVerticalGridLines,
         bool hasSelectedCells,
+        bool rowSelected,
         int currentColumnIndex,
         Rect? textClip,
         ref DataGridVirtualSurfaceRenderCounters counters)
     {
         DataGridColumn column = plan.Layout.Column;
-        bool selected = hasSelectedCells && grid.IsCellSelected(row.RowIndex, column.Index);
+        bool selected = grid.SelectionUnit == DataGridSelectionUnit.FullRow
+            ? rowSelected
+            : hasSelectedCells && grid.IsCellSelected(row.RowIndex, column.Index);
         bool current = currentColumnIndex == column.Index;
         if (selected && selectedBackground is not null)
         {
@@ -556,6 +562,22 @@ sealed partial class DataGridRowsPresenter
                 textClip));
             counters.VerticalGridLines++;
         }
+    }
+
+    internal bool IsVirtualCellSelected(
+        DataGridVirtualRowInfo row,
+        int columnIndex,
+        bool hasSelectedCells)
+    {
+        DataGrid? grid = OwningGrid;
+        if (grid is null)
+        {
+            return false;
+        }
+
+        return grid.SelectionUnit == DataGridSelectionUnit.FullRow
+            ? grid.GetRowSelection(row.Slot)
+            : hasSelectedCells && grid.IsCellSelected(row.RowIndex, columnIndex);
     }
 
     private static void DrawVirtualCellOverlay(DrawingContext context, DataGridVirtualCellOverlay overlay)
@@ -1255,30 +1277,79 @@ sealed partial class DataGridRowsPresenter
 
     internal bool IsVirtualCellPoint(Point point) => TryHitVirtualCell(point, out _, out _);
 
+    internal bool TryGetLightweightVirtualRowSlot(double y, out int slot)
+    {
+        slot = -1;
+        if (OwningGrid?.DisplayData.HasVirtualScrollingElements != true ||
+            _lightweightVirtualRows.Count == 0)
+        {
+            return false;
+        }
+
+        DataGridVirtualRowInfo firstRow = _lightweightVirtualRows[0];
+        if (firstRow.Height <= 0d)
+        {
+            return false;
+        }
+
+        double relativeIndex = (y - firstRow.Top) / firstRow.Height;
+        int index = relativeIndex <= 0d
+            ? 0
+            : relativeIndex >= _lightweightVirtualRows.Count
+                ? _lightweightVirtualRows.Count - 1
+                : (int)relativeIndex;
+        slot = _lightweightVirtualRows[index].Slot;
+        return true;
+    }
+
     internal bool HandleVirtualCellPointerPressed(PointerPressedEventArgs e)
     {
         DataGrid? grid = OwningGrid;
+        PointerPoint point = e.GetCurrentPoint(_virtualCellSurface);
+        bool isTouchLike = e.Pointer.Type is PointerType.Touch or PointerType.Pen;
+        bool isPrimaryPressed = point.Properties.IsLeftButtonPressed ||
+            (isTouchLike && grid?.AllowTouchDragSelection == true);
         if (grid?.UsesVirtualCellSurface != true ||
-            !e.GetCurrentPoint(_virtualCellSurface).Properties.IsLeftButtonPressed ||
+            (!isPrimaryPressed && !point.Properties.IsRightButtonPressed) ||
             !TryHitVirtualCell(e.GetPosition(_virtualCellSurface), out DataGridVirtualRowInfo row, out DataGridColumn? column))
         {
             return false;
         }
 
-        Point point = e.GetPosition(_virtualCellSurface);
-        if (column is DataGridHierarchicalColumn && row.Item is HierarchicalNode node && !node.IsLeaf)
+        Point position = e.GetPosition(_virtualCellSurface);
+        if (isPrimaryPressed &&
+            column is DataGridHierarchicalColumn &&
+            row.Item is HierarchicalNode node &&
+            !node.IsLeaf)
         {
             FlatColumnLayout layout = FindFlatColumnLayout(column);
             double expanderLeft = GetVirtualCellBounds(row, layout).Left +
                 (Math.Max(0, node.Level) * ((DataGridHierarchicalColumn)column).Indent);
-            if (point.X >= expanderLeft && point.X <= expanderLeft + VirtualExpanderSize)
+            if (position.X >= expanderLeft && position.X <= expanderLeft + VirtualExpanderSize)
             {
                 return grid.TryToggleHierarchicalAtSlot(row.Slot);
             }
         }
 
         bool allowEdit = !grid.IsReadOnly && !column.IsReadOnly;
-        return grid.UpdateStateOnMouseLeftButtonDown(e, column.Index, row.Slot, allowEdit);
+        bool handled = isPrimaryPressed
+            ? grid.UpdateStateOnMouseLeftButtonDown(e, column.Index, row.Slot, allowEdit)
+            : grid.UpdateStateOnMouseRightButtonDown(e, column.Index, row.Slot, allowEdit);
+        if (grid.SuccessfullyUpdatedSelection)
+        {
+            if (grid.IsTabStop)
+            {
+                grid.Focus();
+            }
+
+            if (isPrimaryPressed &&
+                !grid.ShouldSuppressSelectionDragFromRowDragHandle(column.Index))
+            {
+                grid.TryBeginSelectionDrag(e, column.Index, startDragging: true);
+            }
+        }
+
+        return handled;
     }
 
     private bool TryHitVirtualCell(Point point, out DataGridVirtualRowInfo row, out DataGridColumn? column)

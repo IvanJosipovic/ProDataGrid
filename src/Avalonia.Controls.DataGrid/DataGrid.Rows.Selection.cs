@@ -147,6 +147,11 @@ namespace Avalonia.Controls
                     NoSelectionChangeCount--;
                 }
             }
+
+            if (DisplayData.HasVirtualScrollingElements)
+            {
+                _rowsPresenter?.InvalidateVirtualCellSurface();
+            }
         }
 
         private bool ClearSelectionModelForRowSelection(int? slotException)
