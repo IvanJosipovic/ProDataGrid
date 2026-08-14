@@ -326,7 +326,7 @@ public class DataGridFlatVisualLayoutTests
     }
 
     [AvaloniaFact]
-    public void Virtualized_Layout_Rebuilds_Lightweight_Rows_After_Hierarchical_ExpandAll()
+    public void Virtualized_Layout_Rebuilds_Lightweight_Rows_After_Hierarchical_Toggles()
     {
         var rootItem = new HierarchyItem("Root");
         for (int index = 0; index < 40; index++)
@@ -386,6 +386,28 @@ public class DataGridFlatVisualLayoutTests
             Assert.Single(model.Flattened);
 
             model.ExpandAll();
+            PumpLayout(grid);
+
+            Assert.Equal(41, model.Count);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.NotEmpty(presenter.LightweightVirtualRows);
+            Assert.Contains(presenter.LightweightVirtualRows, row => row.RowIndex > 0);
+
+            HierarchicalNode<HierarchyItem> root = model.Root ??
+                throw new InvalidOperationException("Expected a hierarchy root.");
+            model.Toggle(root);
+            PumpLayout(grid);
+
+            Assert.Single(model.Flattened);
+            Assert.True(grid.DisplayData.HasVirtualScrollingElements);
+            Assert.Empty(presenter.Children.OfType<DataGridRow>());
+            Assert.Single(presenter.LightweightVirtualRows);
+            Assert.Same(
+                rootItem,
+                Assert.IsAssignableFrom<IHierarchicalNodeItem>(presenter.LightweightVirtualRows[0].Item).Item);
+
+            model.Toggle(root);
             PumpLayout(grid);
 
             Assert.Equal(41, model.Count);

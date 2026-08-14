@@ -3518,6 +3518,17 @@ internal
                 return;
             }
 
+            int lightweightFirstSlot = -1;
+            if (UsesLightweightVirtualRows && DisplayData.HasVirtualScrollingElements)
+            {
+                // Lightweight ranges intentionally have no Control for GetDisplayedElement.
+                // RemoveRowAt follows the retained-container lifecycle, so clear the projected
+                // visible range before applying incremental hierarchy mutations and rebuild it
+                // once from the updated flattened model.
+                lightweightFirstSlot = DisplayData.FirstScrollingSlot;
+                ResetDisplayedRows();
+            }
+
             foreach (var change in changes)
             {
                 for (var i = 0; i < change.OldCount; i++)
@@ -3529,6 +3540,15 @@ internal
                 {
                     InsertRowsAt(change.Index, change.NewCount);
                 }
+            }
+
+            if (lightweightFirstSlot >= 0 &&
+                SlotCount > 0 &&
+                ColumnsItemsInternal.Count > 0 &&
+                MathUtilities.GreaterThan(CellsEstimatedHeight, 0))
+            {
+                int firstSlot = Math.Min(lightweightFirstSlot, LastVisibleSlot);
+                UpdateDisplayedRows(firstSlot, CellsEstimatedHeight);
             }
         }
 
