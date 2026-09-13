@@ -1,4 +1,4 @@
-// This source is subject to the Microsoft Public License (Ms-PL).
+﻿// This source is subject to the Microsoft Public License (Ms-PL).
 // Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 // All other rights reserved.
 
@@ -156,7 +156,7 @@ internal
                         if (!SetCurrentCellCore(
                                 columnIndex, slot,
                                 commitEdit: true,
-                                endRowEdit: SlotFromRowIndex(SelectedIndex) != slot))
+                                endRowEdit: CurrentSlot != slot))
                         {
                             return;
                         }

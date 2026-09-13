@@ -947,6 +947,17 @@ internal
                 return;
             }
 
+            // A presenter that has been arranged already knows its rows area; the top-level size is only
+            // a fallback for a presenter without any arrange pass. Taking the window height for an
+            // embedded grid realizes rows for the whole window on every window resize (a 447 px grid in
+            // a 1043 px window realized 42 instead of 16 rows with 47 columns, 150-300 ms per step)
+            // before the pending layout pass corrects the viewport. The invalidation queued by the caller
+            // is enough to follow a real change of the rows area.
+            if (!double.IsNaN(_lastArrangeHeight) && !double.IsInfinity(_lastArrangeHeight) && _lastArrangeHeight > 0)
+            {
+                return;
+            }
+
             var headerHeight = GetColumnHeadersHeight();
             var viewportHeight = topLevel.Height;
             if (double.IsNaN(viewportHeight) || double.IsInfinity(viewportHeight) || viewportHeight <= 0)
