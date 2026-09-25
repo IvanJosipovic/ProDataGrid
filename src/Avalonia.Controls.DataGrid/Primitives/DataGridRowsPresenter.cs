@@ -49,6 +49,8 @@ internal
         private double _retargetedMeasureRowHeight;
         private double _lastArrangedNegVerticalOffset;
         private Size _lastArrangedSize;
+        private Size? _lastMeasureConstraint;
+        private Size? _arrangedMeasureSize;
         private bool _cleanupRetainedRowsForLightweightLayout;
         private readonly HashSet<Control> _displayedElementsScratch = new();
         private readonly Dictionary<Control, Size> _measureConstraints = new();
@@ -108,6 +110,8 @@ internal
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             UnhookTopLevel();
+            _lastMeasureConstraint = null;
+            _arrangedMeasureSize = null;
             ResetFlatVisualLayout();
             DetachVirtualCellSurface();
             _measureConstraints.Clear();
@@ -264,59 +268,44 @@ internal
             }
 
             var threshold = Math.Max(OwningGrid.RowHeightEstimate, 1);
-            var rootLevel = OwningGrid.VisualRoot as TopLevel;
-            var hasTopLevelMismatch = false;
-            if (rootLevel != null &&
-                !double.IsNaN(rootLevel.Height) &&
-                rootLevel.Height > 0)
+            // During a resize, the window and grid bounds can still describe the previous layout pass.
+            var viewport = _lastMeasureConstraint is { } constraint
+                ? new Size(Math.Min(finalSize.Width, constraint.Width), Math.Min(finalSize.Height, constraint.Height))
+                : finalSize;
+            if (this.GetVisualParent() is not ScrollContentPresenter &&
+                OwningGrid.IsArrangeValid && OwningGrid.Bounds.Height > 0)
             {
-                if (Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
-                    Math.Abs(OwningGrid.Bounds.Height - rootLevel.Bounds.Height) <= threshold)
-                {
-                    hasTopLevelMismatch = true;
-                }
+                var gridRowsHeight = Math.Max(0, OwningGrid.Bounds.Height - GetColumnHeadersHeight());
+                viewport = viewport.WithHeight(Math.Min(viewport.Height, gridRowsHeight));
             }
+            var effectiveRowsHeight = viewport.Height;
 
-            var effectiveRowsHeight = finalSize.Height;
-            var headerHeight = GetColumnHeadersHeight();
-
-            if (hasTopLevelMismatch && rootLevel != null)
+            if (_lastMeasureConstraint is { } originalConstraint)
             {
-                var topLevelRowsHeight = Math.Max(0, rootLevel.Height - headerHeight);
-                if (!double.IsNaN(topLevelRowsHeight) &&
-                    !double.IsInfinity(topLevelRowsHeight) &&
-                    Math.Abs(topLevelRowsHeight - effectiveRowsHeight) > threshold)
-                {
-                    effectiveRowsHeight = topLevelRowsHeight;
-                }
-            }
-            else if (OwningGrid.Bounds.Height > 0)
-            {
-                var gridRowsHeight = Math.Max(0, OwningGrid.Bounds.Height - headerHeight);
-                if (gridRowsHeight > 0 && gridRowsHeight + threshold < effectiveRowsHeight)
-                {
-                    effectiveRowsHeight = gridRowsHeight;
-                }
+                var arrangedConstraint = new Size(
+                    double.IsInfinity(originalConstraint.Width) ? originalConstraint.Width : viewport.Width,
+                    double.IsInfinity(originalConstraint.Height) && MatchesDesiredHeight(viewport.Height)
+                        ? originalConstraint.Height
+                        : viewport.Height);
+                _arrangedMeasureSize = AreClose(originalConstraint, arrangedConstraint) ? null : arrangedConstraint;
             }
 
             double measuredHeight = double.NaN;
             if (OwningGrid.RowsPresenterAvailableSize is { } measuredSize)
             {
                 measuredHeight = measuredSize.Height;
-                if (!double.IsInfinity(measuredHeight) && !double.IsNaN(measuredHeight) &&
-                    !double.IsInfinity(effectiveRowsHeight) && !double.IsNaN(effectiveRowsHeight) &&
-                    Math.Abs(measuredHeight - effectiveRowsHeight) > threshold)
+                var widthChanged = !double.IsInfinity(measuredSize.Width) &&
+                    !AreScrollInfoSizeClose(measuredSize.Width, viewport.Width);
+                var heightChanged = !double.IsInfinity(measuredHeight) &&
+                    !AreScrollInfoSizeClose(measuredHeight, effectiveRowsHeight);
+                if (widthChanged || heightChanged)
                 {
-                    OwningGrid.RowsPresenterAvailableSize = measuredSize.WithHeight(effectiveRowsHeight);
-                    if (measuredHeight - effectiveRowsHeight > threshold)
-                    {
-                        DataGridDiagnostics.RecordRowsArrangeMeasureInvalidated();
-                        InvalidateMeasure();
-                    }
+                    OwningGrid.RowsPresenterAvailableSize = viewport;
+                    DataGridDiagnostics.RecordRowsArrangeMeasureInvalidated();
+                    InvalidateMeasure();
                 }
             }
 
-            var viewport = new Size(finalSize.Width, effectiveRowsHeight);
             if (!AreClose(_viewport, viewport))
             {
                 UpdateScrollInfo(_extent, viewport);
@@ -522,6 +511,18 @@ internal
         /// </returns>
         protected override Size MeasureOverride(Size availableSize)
         {
+            var originalAvailableSize = availableSize;
+            if (_lastMeasureConstraint == originalAvailableSize && _arrangedMeasureSize is Size arrangedSize)
+            {
+                // An unchanged constraint must not oscillate between the measured and the arranged size.
+                availableSize = arrangedSize;
+            }
+            else
+            {
+                _arrangedMeasureSize = null;
+            }
+            _lastMeasureConstraint = originalAvailableSize;
+
             if (double.IsInfinity(availableSize.Height))
             {
                 var grid = OwningGrid;
@@ -638,24 +639,6 @@ internal
                 }
             }
 
-            if (OwningGrid != null &&
-                OwningGrid.VisualRoot is TopLevel rootLevel &&
-                !double.IsNaN(rootLevel.Height) &&
-                rootLevel.Height > 0 &&
-                !double.IsInfinity(availableSize.Height) &&
-                !double.IsNaN(availableSize.Height))
-            {
-                var threshold = Math.Max(OwningGrid.RowHeightEstimate, 1);
-                var headerHeight = GetColumnHeadersHeight();
-                var rootBoundsRowsHeight = Math.Max(0, rootLevel.Bounds.Height - headerHeight);
-                if (Math.Abs(availableSize.Height - rootBoundsRowsHeight) <= threshold &&
-                    Math.Abs(rootLevel.Height - rootLevel.Bounds.Height) > threshold &&
-                    Math.Abs(OwningGrid.Bounds.Height - rootLevel.Bounds.Height) <= threshold)
-                {
-                    availableSize = availableSize.WithHeight(Math.Max(0, rootLevel.Height - headerHeight));
-                }
-            }
-
             if (OwningGrid == null)
             {
                 return base.MeasureOverride(availableSize);
@@ -668,6 +651,10 @@ internal
             // The DataGrid uses the RowsPresenter available size in order to autogrow
             // and calculate the scrollbars
             OwningGrid.RowsPresenterAvailableSize = availableSize;
+            if (invalidateRows && OwningGrid.UseLogicalScrollable && OwningGrid.UsesStarSizing)
+            {
+                OwningGrid.ColumnHeaders?.InvalidateMeasure();
+            }
 
             _canUseRetargetedRowsMeasureFastPath = false;
             _canUseRetargetedRowsArrangeFastPath = false;
