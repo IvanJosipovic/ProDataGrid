@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.Metrics;
+using Avalonia.Layout;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls.Primitives;
@@ -96,6 +98,76 @@ public class DataGridResizeLayoutTests
         {
             window.Close();
             Logger.Sink = previousSink;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DataGridTheme.Simple)]
+    [InlineData(DataGridTheme.SimpleV2)]
+    [InlineData(DataGridTheme.Fluent)]
+    [InlineData(DataGridTheme.FluentV2)]
+    public void Width_Resize_With_Fixed_Columns_Measures_Each_Visible_Row_Once(DataGridTheme theme)
+    {
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ItemsSource = Enumerable.Range(0, 1000).Select(index => $"Row {index}").ToArray(),
+            Height = 160,
+            VerticalAlignment = VerticalAlignment.Top,
+            RowHeight = 28,
+            ColumnHeaderHeight = 26,
+        };
+        for (int column = 0; column < 47; column++)
+        {
+            grid.Columns.Add(new DataGridTemplateColumn
+            {
+                Width = new DataGridLength(90),
+                CellTemplate = new FuncDataTemplate<string>((value, _) => new TextBlock { Text = value }),
+            });
+        }
+        var window = new Window { Width = 700, Height = 1000, Content = grid };
+        window.SetThemeStyles(theme);
+        ScrollViewer.SetAllowAutoHide(grid, false);
+        void PumpLayout()
+        {
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+        }
+        try
+        {
+            window.Show();
+            Assert.True(grid.TryFindResource(typeof(DataGrid), out var resource));
+            grid.Theme = Assert.IsType<ControlTheme>(resource);
+            PumpLayout();
+            // Warm both widths so this checks recurring resize work, not initial realization.
+            window.Width = 900;
+            PumpLayout();
+            window.Width = 700;
+            PumpLayout();
+            int rowCount = grid.DisplayData.NumDisplayedScrollingElements;
+            Assert.InRange(rowCount, 1, 6);
+            long measuredRows = 0;
+            using var listener = new MeterListener();
+            listener.InstrumentPublished = (instrument, meterListener) =>
+            {
+                if (instrument.Meter.Name == DataGridDiagnostics.MeterName &&
+                    instrument.Name == DataGridDiagnostics.Meters.RowsMeasuredCountName)
+                    meterListener.EnableMeasurementEvents(instrument);
+            };
+            listener.SetMeasurementEventCallback<long>((_, count, _, _) => measuredRows += count);
+            listener.Start();
+
+            window.Width = 900;
+            PumpLayout();
+
+            Assert.True(grid.IsMeasureValid && grid.IsArrangeValid);
+            Assert.Equal(rowCount, grid.DisplayData.NumDisplayedScrollingElements);
+            Assert.Equal(rowCount, measuredRows);
+        }
+        finally
+        {
+            window.Close();
         }
     }
 

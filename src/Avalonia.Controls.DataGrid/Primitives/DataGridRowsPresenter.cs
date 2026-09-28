@@ -294,7 +294,10 @@ internal
             if (OwningGrid.RowsPresenterAvailableSize is { } measuredSize)
             {
                 measuredHeight = measuredSize.Height;
-                var widthChanged = !double.IsInfinity(measuredSize.Width) &&
+                // Only star-sized cells need another measure when arranging reveals a
+                // narrower ScrollViewer viewport. Fixed-width cells keep their widths.
+                var widthChanged = OwningGrid.UseLogicalScrollable && OwningGrid.UsesStarSizing &&
+                    !double.IsInfinity(measuredSize.Width) &&
                     !AreScrollInfoSizeClose(measuredSize.Width, viewport.Width);
                 var heightChanged = !double.IsInfinity(measuredHeight) &&
                     !AreScrollInfoSizeClose(measuredHeight, effectiveRowsHeight);
