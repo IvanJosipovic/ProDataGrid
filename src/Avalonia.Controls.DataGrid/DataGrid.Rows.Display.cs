@@ -689,9 +689,21 @@ namespace Avalonia.Controls
                         size = element.DesiredSize;
                     }
 
-                    // Move hidden elements off-screen immediately to avoid stale bounds being picked up
-                    // by layout-sensitive logic (e.g., tests that inspect all rows).
-                    element.Arrange(new Rect(recycledElementPosition, recycledElementPosition, size.Width, size.Height));
+                    // Hiding must not arrange children: auto-sized cells can recompute the viewport
+                    // and recycle this same container before its removal has completed.
+                    var recycledBounds = new Rect(recycledElementPosition, recycledElementPosition, size.Width, size.Height);
+                    switch (element)
+                    {
+                        case DataGridRow recycledRow:
+                            recycledRow.SetRecycledBounds(recycledBounds);
+                            break;
+                        case DataGridRowGroupHeader groupHeader:
+                            groupHeader.SetRecycledBounds(recycledBounds);
+                            break;
+                        case DataGridRowGroupFooter groupFooter:
+                            groupFooter.SetRecycledBounds(recycledBounds);
+                            break;
+                    }
                 }
             }
 
@@ -699,7 +711,6 @@ namespace Avalonia.Controls
             {
                 element.SetCurrentValue(Visual.IsVisibleProperty, false);
             }
-
         }
 
         internal bool RecycleOrphanedElement(Control element)
