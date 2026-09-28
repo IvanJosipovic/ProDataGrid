@@ -171,6 +171,43 @@ public class DataGridResizeLayoutTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(DataGridTheme.Simple)]
+    [InlineData(DataGridTheme.Fluent)]
+    public void Legacy_Presenter_Uses_Parent_Measure_Constraint_After_A_Smaller_Arrange(DataGridTheme theme)
+    {
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            ItemsSource = Enumerable.Range(0, 100).ToArray(),
+            RowHeight = 28,
+        };
+        grid.Columns.Add(new DataGridTextColumn { Width = new DataGridLength(100) });
+        var window = new Window { Width = 600, Height = 600, Content = grid };
+        window.SetThemeStyles(theme);
+        try
+        {
+            window.Show();
+            Assert.True(grid.TryFindResource(typeof(DataGrid), out var resource));
+            grid.Theme = Assert.IsType<ControlTheme>(resource);
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(grid.UseLogicalScrollable);
+            var presenter = grid.GetVisualDescendants().OfType<DataGridRowsPresenter>().Single();
+            var constraint = new Size(300, 300);
+            presenter.Measure(constraint);
+            presenter.Arrange(new Rect(0, 0, 300, 200));
+            presenter.InvalidateMeasure();
+            presenter.Measure(constraint);
+
+            Assert.Equal(constraint, grid.RowsPresenterAvailableSize);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     private sealed class LayoutLogSink : ILogSink
     {
         public List<string> Cycles { get; } = new();

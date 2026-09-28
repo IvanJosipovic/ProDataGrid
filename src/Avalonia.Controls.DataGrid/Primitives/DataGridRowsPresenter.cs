@@ -280,7 +280,9 @@ internal
             }
             var effectiveRowsHeight = viewport.Height;
 
-            if (_lastMeasureConstraint is { } originalConstraint)
+            // Only the ScrollViewer template needs to reconcile an oversized measure
+            // constraint with its viewport. Legacy templates supply the rows area directly.
+            if (OwningGrid.UseLogicalScrollable && _lastMeasureConstraint is { } originalConstraint)
             {
                 var arrangedConstraint = new Size(
                     double.IsInfinity(originalConstraint.Width) ? originalConstraint.Width : viewport.Width,
@@ -515,7 +517,8 @@ internal
         protected override Size MeasureOverride(Size availableSize)
         {
             var originalAvailableSize = availableSize;
-            if (_lastMeasureConstraint == originalAvailableSize && _arrangedMeasureSize is Size arrangedSize)
+            if (OwningGrid?.UseLogicalScrollable == true &&
+                _lastMeasureConstraint == originalAvailableSize && _arrangedMeasureSize is Size arrangedSize)
             {
                 // An unchanged constraint must not oscillate between the measured and the arranged size.
                 availableSize = arrangedSize;
