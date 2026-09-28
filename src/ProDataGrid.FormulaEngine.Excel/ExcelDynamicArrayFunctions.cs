@@ -590,7 +590,8 @@ namespace ProDataGrid.FormulaEngine.Excel
                     }
                 }
 
-                return 0;
+                // Preserve source order for equal sort keys.
+                return left.CompareTo(right);
             });
 
             if (hasError)
@@ -638,7 +639,8 @@ namespace ProDataGrid.FormulaEngine.Excel
                     }
                 }
 
-                return 0;
+                // Preserve source order for equal sort keys.
+                return left.CompareTo(right);
             });
 
             if (hasError)
@@ -682,6 +684,12 @@ namespace ProDataGrid.FormulaEngine.Excel
             out List<int> uniqueRows,
             out FormulaError error)
         {
+            if (ExcelUniqueIndexBuilder.TryBuild(settings, array, false, exactlyOnce, out uniqueRows))
+            {
+                error = uniqueRows.Count == 0 ? new FormulaError(FormulaErrorType.Calc) : default;
+                return uniqueRows.Count > 0;
+            }
+
             error = default;
             uniqueRows = new List<int>();
             var counts = new List<int>();
@@ -728,6 +736,12 @@ namespace ProDataGrid.FormulaEngine.Excel
                 uniqueRows = filtered;
             }
 
+            if (uniqueRows.Count == 0)
+            {
+                error = new FormulaError(FormulaErrorType.Calc);
+                return false;
+            }
+
             return true;
         }
 
@@ -738,6 +752,12 @@ namespace ProDataGrid.FormulaEngine.Excel
             out List<int> uniqueColumns,
             out FormulaError error)
         {
+            if (ExcelUniqueIndexBuilder.TryBuild(settings, array, true, exactlyOnce, out uniqueColumns))
+            {
+                error = uniqueColumns.Count == 0 ? new FormulaError(FormulaErrorType.Calc) : default;
+                return uniqueColumns.Count > 0;
+            }
+
             error = default;
             uniqueColumns = new List<int>();
             var counts = new List<int>();
@@ -782,6 +802,12 @@ namespace ProDataGrid.FormulaEngine.Excel
                 }
 
                 uniqueColumns = filtered;
+            }
+
+            if (uniqueColumns.Count == 0)
+            {
+                error = new FormulaError(FormulaErrorType.Calc);
+                return false;
             }
 
             return true;
