@@ -259,6 +259,56 @@ public class CurrentCellTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void TrySetCurrentCell_Reports_Cancelled_Move_Or_Clear(bool clear, bool updateSelection)
+    {
+        var items = new ObservableCollection<Item> { new() { Name = "A" }, new() { Name = "B" } };
+        var grid = CreateGrid(items);
+        var window = (Window)grid.GetVisualRoot()!;
+        try
+        {
+            grid.SelectedIndex = 0;
+            var originalCell = grid.CurrentCell;
+            var originalSelection = grid.SelectedItems.Cast<object>().ToArray();
+            var target = clear ? DataGridCellInfo.Unset : new DataGridCellInfo(items[1], grid.Columns[0], 1, 0);
+            grid.SelectionChanging += (_, args) => args.Cancel = true;
+
+            Assert.False(grid.TrySetCurrentCell(target, updateSelection));
+            Assert.Equal(originalCell, grid.CurrentCell);
+            Assert.Equal(originalSelection, grid.SelectedItems.Cast<object>().ToArray());
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void TrySetCurrentCell_Reports_Unresolvable_Item_And_Successful_Clear()
+    {
+        var items = new ObservableCollection<Item> { new() { Name = "A" } };
+        var grid = CreateGrid(items);
+        var window = (Window)grid.GetVisualRoot()!;
+        try
+        {
+            grid.SelectedIndex = 0;
+            var originalCell = grid.CurrentCell;
+            Assert.False(grid.TrySetCurrentCell(new DataGridCellInfo(new Item(), grid.Columns[0], 10, 0), false));
+            Assert.Equal(originalCell, grid.CurrentCell);
+            Assert.True(grid.TrySetCurrentCell(DataGridCellInfo.Unset, false));
+            Assert.False(grid.CurrentCell.IsValid);
+            Assert.Same(items[0], Assert.Single(grid.SelectedItems.Cast<object>()));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public void CurrentCell_Property_Changes_When_Selection_Moves()
     {

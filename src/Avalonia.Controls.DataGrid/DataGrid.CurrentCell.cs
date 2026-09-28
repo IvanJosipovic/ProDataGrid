@@ -318,6 +318,8 @@ internal
         /// <param name="cellInfo">The target cell, or <see cref="DataGridCellInfo.Unset"/> to clear the current cell.</param>
         /// <param name="updateSelection">Whether the target cell also becomes selected.</param>
         /// <returns>True if the current cell was accepted; otherwise, false.</returns>
+        /// <exception cref="ArgumentException">The target column belongs to another grid.</exception>
+        /// <exception cref="InvalidOperationException">The target column is hidden.</exception>
         public bool TrySetCurrentCell(DataGridCellInfo cellInfo, bool updateSelection = true)
         {
             if (_currentCell.Equals(cellInfo) &&
