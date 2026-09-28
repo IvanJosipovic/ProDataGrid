@@ -437,7 +437,14 @@ internal
                     OwningGrid.PrepareHierarchicalAnchor(row.Slot);
                 }
 
-                await OwningGrid.HierarchicalModel.ToggleAsync(node);
+                try
+                {
+                    await OwningGrid.HierarchicalModel.ToggleAsync(node);
+                }
+                catch (OperationCanceledException)
+                {
+                    // A later collapse or root replacement cancels pending child loading.
+                }
             }
         }
 
