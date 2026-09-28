@@ -8,6 +8,7 @@ on:
       - 'src/ProDataGrid.Charting/**'
       - 'src/Avalonia.Controls.DataGrid.UnitTests/Charting/**'
       - 'tests/ProCharts.Benchmarks/**'
+      - 'tests/ProDataGrid.Charting.Benchmarks/**'
       - '.github/workflows/charting.yml'
       - 'Directory.*.props'
       - 'global.json'
@@ -18,6 +19,7 @@ on:
       - 'src/ProDataGrid.Charting/**'
       - 'src/Avalonia.Controls.DataGrid.UnitTests/Charting/**'
       - 'tests/ProCharts.Benchmarks/**'
+      - 'tests/ProDataGrid.Charting.Benchmarks/**'
       - '.github/workflows/charting.yml'
       - 'Directory.*.props'
       - 'global.json'
@@ -54,6 +56,12 @@ jobs:
           set -o pipefail
           mkdir -p artifacts/charting
           dotnet run --project tests/ProCharts.Benchmarks/ProCharts.Benchmarks.csproj -c Release | tee artifacts/charting/performance.txt
+      - name: Measure bounded grid-chart windows
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/charting
+          dotnet run --project tests/ProDataGrid.Charting.Benchmarks/ProDataGrid.Charting.Benchmarks.csproj -c Release | tee artifacts/charting/grid-window-performance.txt
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
