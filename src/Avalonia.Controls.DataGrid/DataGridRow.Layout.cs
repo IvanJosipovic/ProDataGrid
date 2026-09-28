@@ -28,6 +28,11 @@ namespace Avalonia.Controls
         private bool _hasDeferredHeight;
         private double _deferredHeight;
 
+        internal void SetRecycledBounds(Rect bounds)
+        {
+            Bounds = bounds;
+        }
+
         internal bool HasDeferredHeight => _hasDeferredHeight;
 
         internal double DeferredHeight => _deferredHeight;
