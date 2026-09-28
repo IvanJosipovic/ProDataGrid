@@ -1,4 +1,4 @@
-// This source is subject to the Microsoft Public License (Ms-PL).
+﻿// This source is subject to the Microsoft Public License (Ms-PL).
 // Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 // All other rights reserved.
 
@@ -1291,7 +1291,7 @@ internal
         DataGridCellInfo CurrentCell
         {
             get => _currentCell;
-            set => SetCurrentCell(value);
+            set => TrySetCurrentCell(value);
         }
 
         /// <summary>

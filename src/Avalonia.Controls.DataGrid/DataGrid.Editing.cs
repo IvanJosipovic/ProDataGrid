@@ -1,4 +1,4 @@
-// This source is subject to the Microsoft Public License (Ms-PL).
+﻿// This source is subject to the Microsoft Public License (Ms-PL).
 // Please see http://go.microsoft.com/fwlink/?LinkID=131993 for details.
 // All other rights reserved.
 
@@ -122,14 +122,13 @@ internal
         }
 
         /// <summary>
-        /// Checks if the specified slot can be edited. Returns true if the row is selected
-        /// or if it's the placeholder row (for adding new items).
+        /// Checks whether the slot identifies a data row that can enter editing.
         /// </summary>
         /// <param name="slot">The slot to check.</param>
         /// <returns>True if the slot can be edited; otherwise, false.</returns>
         private bool CanEditSlot(int slot)
         {
-            return GetRowSelection(slot) || IsSlotPlaceholderRow(slot);
+            return slot >= 0 && slot < SlotCount && !IsGroupSlot(slot);
         }
 
         /// <summary>
