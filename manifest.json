@@ -9188,6 +9188,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.Avalonia.ChartHierarchyNavigation.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.Avalonia.ChartHierarchyNavigation.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.Avalonia.ChartHierarchyNavigation",
+      "Summary": "<p sourcefile=\"api/ProCharts.Avalonia.ChartHierarchyNavigation.yml\" sourcestartlinenumber=\"1\">Opt-in pointer and keyboard navigation for a ProChartView displaying a typed hierarchy.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProCharts.Avalonia.ProChartView.yml",
       "output": {
         ".html": {
@@ -9482,6 +9496,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.ChartHighLowClose.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.ChartHighLowClose.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.ChartHighLowClose",
+      "Summary": "<p sourcefile=\"api/ProCharts.ChartHighLowClose.yml\" sourcestartlinenumber=\"1\">Aligned high, low and close channels for one observation. Open is not required by ATR.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProCharts.ChartIndicators.yml",
       "output": {
         ".html": {
@@ -9594,6 +9622,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.ChartMacdValue.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.ChartMacdValue.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.ChartMacdValue",
+      "Summary": "<p sourcefile=\"api/ProCharts.ChartMacdValue.yml\" sourcestartlinenumber=\"1\">An aligned MACD observation. Individual channels remain null until their warmup completes.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProCharts.ChartMarkerShape.yml",
       "output": {
         ".html": {
@@ -9633,6 +9675,20 @@
       "IsMRef": true,
       "Title": "ProCharts.ChartPointerTool",
       "Summary": "<p sourcefile=\"api/ProCharts.ChartPointerTool.yml\" sourcestartlinenumber=\"1\">Selects the primary pointer workflow for interactive chart hosts.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.ChartRangeSeries.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.ChartRangeSeries.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.ChartRangeSeries",
+      "Summary": "<p sourcefile=\"api/ProCharts.ChartRangeSeries.yml\" sourcestartlinenumber=\"1\">Creates owned interval series and converts analytical bands to filled range areas.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -9832,6 +9888,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.IChartHierarchyNavigator.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.IChartHierarchyNavigator.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.IChartHierarchyNavigator",
+      "Summary": "<p sourcefile=\"api/ProCharts.IChartHierarchyNavigator.yml\" sourcestartlinenumber=\"1\">Renderer-independent navigation contract for sources that display typed hierarchy snapshots.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProCharts.IChartIncrementalDataSource.yml",
       "output": {
         ".html": {
@@ -9857,6 +9927,20 @@
       "IsMRef": true,
       "Title": "ProCharts.IChartWindowInfoProvider",
       "Summary": null
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.IStreamingChartIndicator-2.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.IStreamingChartIndicator-2.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.IStreamingChartIndicator<TInput, TOutput>",
+      "Summary": "<p sourcefile=\"api/ProCharts.IStreamingChartIndicator-2.yml\" sourcestartlinenumber=\"1\">A reusable, single-writer indicator that consumes observations without retaining their history.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -10098,6 +10182,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.StreamingAverageTrueRange.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.StreamingAverageTrueRange.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.StreamingAverageTrueRange",
+      "Summary": "<p sourcefile=\"api/ProCharts.StreamingAverageTrueRange.yml\" sourcestartlinenumber=\"1\">Constant-space Wilder ATR over aligned high/low/close observations.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProCharts.StreamingChartDataSource.yml",
       "output": {
         ".html": {
@@ -10109,6 +10207,48 @@
       "IsMRef": true,
       "Title": "ProCharts.StreamingChartDataSource",
       "Summary": "<p sourcefile=\"api/ProCharts.StreamingChartDataSource.yml\" sourcestartlinenumber=\"1\">A bounded, thread-safe, single-series data source for live numeric charts.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.StreamingExponentialMovingAverage.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.StreamingExponentialMovingAverage.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.StreamingExponentialMovingAverage",
+      "Summary": "<p sourcefile=\"api/ProCharts.StreamingExponentialMovingAverage.yml\" sourcestartlinenumber=\"1\">An allocation-free, constant-space EMA seeded with a complete-window arithmetic mean.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.StreamingMacd.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.StreamingMacd.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.StreamingMacd",
+      "Summary": "<p sourcefile=\"api/ProCharts.StreamingMacd.yml\" sourcestartlinenumber=\"1\">Constant-space MACD with SMA-seeded fast/slow EMAs, EMA signal and aligned histogram.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProCharts.StreamingRelativeStrengthIndex.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProCharts.StreamingRelativeStrengthIndex.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProCharts.StreamingRelativeStrengthIndex",
+      "Summary": "<p sourcefile=\"api/ProCharts.StreamingRelativeStrengthIndex.yml\" sourcestartlinenumber=\"1\">Constant-space Wilder RSI requiring period price changes (period+1 prices) for warmup.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -10728,6 +10868,48 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProDataGrid.FormulaEngine.FormulaInvocationExpression",
+      "Summary": "<p sourcefile=\"api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.yml\" sourcestartlinenumber=\"1\">A call whose target is a formula value, including a returned lambda.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProDataGrid.FormulaEngine.FormulaLambda.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProDataGrid.FormulaEngine.FormulaLambda.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProDataGrid.FormulaEngine.FormulaLambda",
+      "Summary": "<p sourcefile=\"api/ProDataGrid.FormulaEngine.FormulaLambda.yml\" sourcestartlinenumber=\"1\">An immutable lambda definition and its captured lexical bindings.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProDataGrid.FormulaEngine.FormulaLexicalBindingKind",
+      "Summary": "<p sourcefile=\"api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.yml\" sourcestartlinenumber=\"1\">Describes binding syntax to dependency and volatility analysis.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.yml",
       "output": {
         ".html": {
@@ -11036,6 +11218,20 @@
     },
     {
       "type": "ManagedReference",
+      "source_relative_path": "api/ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion",
+      "Summary": "<p sourcefile=\"api/ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.yml\" sourcestartlinenumber=\"1\">Controls character positions in the Excel text function family.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
       "source_relative_path": "api/ProDataGrid.FormulaEngine.FormulaToken.yml",
       "output": {
         ".html": {
@@ -11229,6 +11425,20 @@
       "IsMRef": true,
       "Title": "ProDataGrid.FormulaEngine.IFormulaFunctionRegistryVersion",
       "Summary": "<p sourcefile=\"api/ProDataGrid.FormulaEngine.IFormulaFunctionRegistryVersion.yml\" sourcestartlinenumber=\"1\">Optional revision contract for mutable function registries. Implement this alongside\n<xref href=\"ProDataGrid.FormulaEngine.IFormulaFunctionRegistry\" data-throw-if-not-resolved=\"false\"></xref> to invalidate cached eager/lazy compilation plans.</p>\n"
+    },
+    {
+      "type": "ManagedReference",
+      "source_relative_path": "api/ProDataGrid.FormulaEngine.IFormulaLexicalFunction.yml",
+      "output": {
+        ".html": {
+          "relative_path": "api/ProDataGrid.FormulaEngine.IFormulaLexicalFunction.html"
+        }
+      },
+      "version": "",
+      "Uid": null,
+      "IsMRef": true,
+      "Title": "ProDataGrid.FormulaEngine.IFormulaLexicalFunction",
+      "Summary": "<p sourcefile=\"api/ProDataGrid.FormulaEngine.IFormulaLexicalFunction.yml\" sourcestartlinenumber=\"1\">Optional metadata for functions whose argument syntax introduces lexical names.</p>\n"
     },
     {
       "type": "ManagedReference",
@@ -12881,6 +13091,26 @@
     },
     {
       "type": "Conceptual",
+      "source_relative_path": "articles/procharts-hierarchy-navigation.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/procharts-hierarchy-navigation.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "articles/procharts-incremental-indicators.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/procharts-incremental-indicators.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
       "source_relative_path": "articles/procharts-indicators.md",
       "output": {
         ".html": {
@@ -12915,6 +13145,16 @@
       "output": {
         ".html": {
           "relative_path": "articles/procharts-performance.html"
+        }
+      },
+      "version": ""
+    },
+    {
+      "type": "Conceptual",
+      "source_relative_path": "articles/procharts-range-area.md",
+      "output": {
+        ".html": {
+          "relative_path": "articles/procharts-range-area.html"
         }
       },
       "version": ""

@@ -70468,6 +70468,86 @@ references:
   isSpec: "True"
   fullName: ProCharts.Avalonia.ChartClipboardFormats.Svg
   nameWithType: ChartClipboardFormats.Svg
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation
+  name: ChartHierarchyNavigation
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html
+  commentId: T:ProCharts.Avalonia.ChartHierarchyNavigation
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation
+  nameWithType: ChartHierarchyNavigation
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.GetIsEnabled(ProCharts.Avalonia.ProChartView)
+  name: GetIsEnabled(ProChartView)
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_GetIsEnabled_ProCharts_Avalonia_ProChartView_
+  commentId: M:ProCharts.Avalonia.ChartHierarchyNavigation.GetIsEnabled(ProCharts.Avalonia.ProChartView)
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.GetIsEnabled(ProCharts.Avalonia.ProChartView)
+  nameWithType: ChartHierarchyNavigation.GetIsEnabled(ProChartView)
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.GetIsEnabled*
+  name: GetIsEnabled
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_GetIsEnabled_
+  commentId: Overload:ProCharts.Avalonia.ChartHierarchyNavigation.GetIsEnabled
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.GetIsEnabled
+  nameWithType: ChartHierarchyNavigation.GetIsEnabled
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.IsEnabledProperty
+  name: IsEnabledProperty
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_IsEnabledProperty
+  commentId: F:ProCharts.Avalonia.ChartHierarchyNavigation.IsEnabledProperty
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.IsEnabledProperty
+  nameWithType: ChartHierarchyNavigation.IsEnabledProperty
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.Reset(ProCharts.Avalonia.ProChartView)
+  name: Reset(ProChartView)
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_Reset_ProCharts_Avalonia_ProChartView_
+  commentId: M:ProCharts.Avalonia.ChartHierarchyNavigation.Reset(ProCharts.Avalonia.ProChartView)
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.Reset(ProCharts.Avalonia.ProChartView)
+  nameWithType: ChartHierarchyNavigation.Reset(ProChartView)
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.Reset*
+  name: Reset
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_Reset_
+  commentId: Overload:ProCharts.Avalonia.ChartHierarchyNavigation.Reset
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.Reset
+  nameWithType: ChartHierarchyNavigation.Reset
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled(ProCharts.Avalonia.ProChartView,System.Boolean)
+  name: SetIsEnabled(ProChartView, bool)
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_SetIsEnabled_ProCharts_Avalonia_ProChartView_System_Boolean_
+  commentId: M:ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled(ProCharts.Avalonia.ProChartView,System.Boolean)
+  name.vb: SetIsEnabled(ProChartView, Boolean)
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled(ProCharts.Avalonia.ProChartView, bool)
+  fullName.vb: ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled(ProCharts.Avalonia.ProChartView, Boolean)
+  nameWithType: ChartHierarchyNavigation.SetIsEnabled(ProChartView, bool)
+  nameWithType.vb: ChartHierarchyNavigation.SetIsEnabled(ProChartView, Boolean)
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled*
+  name: SetIsEnabled
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_SetIsEnabled_
+  commentId: Overload:ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.SetIsEnabled
+  nameWithType: ChartHierarchyNavigation.SetIsEnabled
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillDown(ProCharts.Avalonia.ProChartView,Avalonia.Point)
+  name: TryDrillDown(ProChartView, Point)
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_TryDrillDown_ProCharts_Avalonia_ProChartView_Avalonia_Point_
+  commentId: M:ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillDown(ProCharts.Avalonia.ProChartView,Avalonia.Point)
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillDown(ProCharts.Avalonia.ProChartView, Avalonia.Point)
+  nameWithType: ChartHierarchyNavigation.TryDrillDown(ProChartView, Point)
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillDown*
+  name: TryDrillDown
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_TryDrillDown_
+  commentId: Overload:ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillDown
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillDown
+  nameWithType: ChartHierarchyNavigation.TryDrillDown
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillUp(ProCharts.Avalonia.ProChartView)
+  name: TryDrillUp(ProChartView)
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_TryDrillUp_ProCharts_Avalonia_ProChartView_
+  commentId: M:ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillUp(ProCharts.Avalonia.ProChartView)
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillUp(ProCharts.Avalonia.ProChartView)
+  nameWithType: ChartHierarchyNavigation.TryDrillUp(ProChartView)
+- uid: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillUp*
+  name: TryDrillUp
+  href: api/ProCharts.Avalonia.ChartHierarchyNavigation.html#ProCharts_Avalonia_ChartHierarchyNavigation_TryDrillUp_
+  commentId: Overload:ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillUp
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ChartHierarchyNavigation.TryDrillUp
+  nameWithType: ChartHierarchyNavigation.TryDrillUp
 - uid: ProCharts.Avalonia.ProChartView
   name: ProChartView
   href: api/ProCharts.Avalonia.ProChartView.html
@@ -70627,6 +70707,19 @@ references:
   isSpec: "True"
   fullName: ProCharts.Avalonia.ProChartView.ExportSvg
   nameWithType: ProChartView.ExportSvg
+- uid: ProCharts.Avalonia.ProChartView.HitTest(Avalonia.Point)
+  name: HitTest(Point)
+  href: api/ProCharts.Avalonia.ProChartView.html#ProCharts_Avalonia_ProChartView_HitTest_Avalonia_Point_
+  commentId: M:ProCharts.Avalonia.ProChartView.HitTest(Avalonia.Point)
+  fullName: ProCharts.Avalonia.ProChartView.HitTest(Avalonia.Point)
+  nameWithType: ProChartView.HitTest(Point)
+- uid: ProCharts.Avalonia.ProChartView.HitTest*
+  name: HitTest
+  href: api/ProCharts.Avalonia.ProChartView.html#ProCharts_Avalonia_ProChartView_HitTest_
+  commentId: Overload:ProCharts.Avalonia.ProChartView.HitTest
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ProChartView.HitTest
+  nameWithType: ProChartView.HitTest
 - uid: ProCharts.Avalonia.ProChartView.MinWindowCount
   name: MinWindowCount
   href: api/ProCharts.Avalonia.ProChartView.html#ProCharts_Avalonia_ProChartView_MinWindowCount
@@ -70646,6 +70739,19 @@ references:
   commentId: F:ProCharts.Avalonia.ProChartView.MinWindowCountProperty
   fullName: ProCharts.Avalonia.ProChartView.MinWindowCountProperty
   nameWithType: ProChartView.MinWindowCountProperty
+- uid: ProCharts.Avalonia.ProChartView.OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs)
+  name: OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs)
+  href: api/ProCharts.Avalonia.ProChartView.html#ProCharts_Avalonia_ProChartView_OnDetachedFromVisualTree_Avalonia_VisualTreeAttachmentEventArgs_
+  commentId: M:ProCharts.Avalonia.ProChartView.OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs)
+  fullName: ProCharts.Avalonia.ProChartView.OnDetachedFromVisualTree(Avalonia.VisualTreeAttachmentEventArgs)
+  nameWithType: ProChartView.OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs)
+- uid: ProCharts.Avalonia.ProChartView.OnDetachedFromVisualTree*
+  name: OnDetachedFromVisualTree
+  href: api/ProCharts.Avalonia.ProChartView.html#ProCharts_Avalonia_ProChartView_OnDetachedFromVisualTree_
+  commentId: Overload:ProCharts.Avalonia.ProChartView.OnDetachedFromVisualTree
+  isSpec: "True"
+  fullName: ProCharts.Avalonia.ProChartView.OnDetachedFromVisualTree
+  nameWithType: ProChartView.OnDetachedFromVisualTree
 - uid: ProCharts.Avalonia.ProChartView.OnKeyDown(Avalonia.Input.KeyEventArgs)
   name: OnKeyDown(KeyEventArgs)
   href: api/ProCharts.Avalonia.ProChartView.html#ProCharts_Avalonia_ProChartView_OnKeyDown_Avalonia_Input_KeyEventArgs_
@@ -72383,6 +72489,70 @@ references:
   isSpec: "True"
   fullName: ProCharts.ChartHierarchySnapshot.TryGetNodeIndex
   nameWithType: ChartHierarchySnapshot.TryGetNodeIndex
+- uid: ProCharts.ChartHighLowClose
+  name: ChartHighLowClose
+  href: api/ProCharts.ChartHighLowClose.html
+  commentId: T:ProCharts.ChartHighLowClose
+  fullName: ProCharts.ChartHighLowClose
+  nameWithType: ChartHighLowClose
+- uid: ProCharts.ChartHighLowClose.#ctor(System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double})
+  name: ChartHighLowClose(double?, double?, double?)
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose__ctor_System_Nullable_System_Double__System_Nullable_System_Double__System_Nullable_System_Double__
+  commentId: M:ProCharts.ChartHighLowClose.#ctor(System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double})
+  name.vb: New(Double?, Double?, Double?)
+  fullName: ProCharts.ChartHighLowClose.ChartHighLowClose(double?, double?, double?)
+  fullName.vb: ProCharts.ChartHighLowClose.New(Double?, Double?, Double?)
+  nameWithType: ChartHighLowClose.ChartHighLowClose(double?, double?, double?)
+  nameWithType.vb: ChartHighLowClose.New(Double?, Double?, Double?)
+- uid: ProCharts.ChartHighLowClose.#ctor*
+  name: ChartHighLowClose
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose__ctor_
+  commentId: Overload:ProCharts.ChartHighLowClose.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProCharts.ChartHighLowClose.ChartHighLowClose
+  fullName.vb: ProCharts.ChartHighLowClose.New
+  nameWithType: ChartHighLowClose.ChartHighLowClose
+  nameWithType.vb: ChartHighLowClose.New
+- uid: ProCharts.ChartHighLowClose.Close
+  name: Close
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose_Close
+  commentId: P:ProCharts.ChartHighLowClose.Close
+  fullName: ProCharts.ChartHighLowClose.Close
+  nameWithType: ChartHighLowClose.Close
+- uid: ProCharts.ChartHighLowClose.Close*
+  name: Close
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose_Close_
+  commentId: Overload:ProCharts.ChartHighLowClose.Close
+  isSpec: "True"
+  fullName: ProCharts.ChartHighLowClose.Close
+  nameWithType: ChartHighLowClose.Close
+- uid: ProCharts.ChartHighLowClose.High
+  name: High
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose_High
+  commentId: P:ProCharts.ChartHighLowClose.High
+  fullName: ProCharts.ChartHighLowClose.High
+  nameWithType: ChartHighLowClose.High
+- uid: ProCharts.ChartHighLowClose.High*
+  name: High
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose_High_
+  commentId: Overload:ProCharts.ChartHighLowClose.High
+  isSpec: "True"
+  fullName: ProCharts.ChartHighLowClose.High
+  nameWithType: ChartHighLowClose.High
+- uid: ProCharts.ChartHighLowClose.Low
+  name: Low
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose_Low
+  commentId: P:ProCharts.ChartHighLowClose.Low
+  fullName: ProCharts.ChartHighLowClose.Low
+  nameWithType: ChartHighLowClose.Low
+- uid: ProCharts.ChartHighLowClose.Low*
+  name: Low
+  href: api/ProCharts.ChartHighLowClose.html#ProCharts_ChartHighLowClose_Low_
+  commentId: Overload:ProCharts.ChartHighLowClose.Low
+  isSpec: "True"
+  fullName: ProCharts.ChartHighLowClose.Low
+  nameWithType: ChartHighLowClose.Low
 - uid: ProCharts.ChartIndicators
   name: ChartIndicators
   href: api/ProCharts.ChartIndicators.html
@@ -72989,6 +73159,70 @@ references:
   isSpec: "True"
   fullName: ProCharts.ChartMacdSeries.Signal
   nameWithType: ChartMacdSeries.Signal
+- uid: ProCharts.ChartMacdValue
+  name: ChartMacdValue
+  href: api/ProCharts.ChartMacdValue.html
+  commentId: T:ProCharts.ChartMacdValue
+  fullName: ProCharts.ChartMacdValue
+  nameWithType: ChartMacdValue
+- uid: ProCharts.ChartMacdValue.#ctor(System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double})
+  name: ChartMacdValue(double?, double?, double?)
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue__ctor_System_Nullable_System_Double__System_Nullable_System_Double__System_Nullable_System_Double__
+  commentId: M:ProCharts.ChartMacdValue.#ctor(System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double})
+  name.vb: New(Double?, Double?, Double?)
+  fullName: ProCharts.ChartMacdValue.ChartMacdValue(double?, double?, double?)
+  fullName.vb: ProCharts.ChartMacdValue.New(Double?, Double?, Double?)
+  nameWithType: ChartMacdValue.ChartMacdValue(double?, double?, double?)
+  nameWithType.vb: ChartMacdValue.New(Double?, Double?, Double?)
+- uid: ProCharts.ChartMacdValue.#ctor*
+  name: ChartMacdValue
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue__ctor_
+  commentId: Overload:ProCharts.ChartMacdValue.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProCharts.ChartMacdValue.ChartMacdValue
+  fullName.vb: ProCharts.ChartMacdValue.New
+  nameWithType: ChartMacdValue.ChartMacdValue
+  nameWithType.vb: ChartMacdValue.New
+- uid: ProCharts.ChartMacdValue.Histogram
+  name: Histogram
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue_Histogram
+  commentId: P:ProCharts.ChartMacdValue.Histogram
+  fullName: ProCharts.ChartMacdValue.Histogram
+  nameWithType: ChartMacdValue.Histogram
+- uid: ProCharts.ChartMacdValue.Histogram*
+  name: Histogram
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue_Histogram_
+  commentId: Overload:ProCharts.ChartMacdValue.Histogram
+  isSpec: "True"
+  fullName: ProCharts.ChartMacdValue.Histogram
+  nameWithType: ChartMacdValue.Histogram
+- uid: ProCharts.ChartMacdValue.Line
+  name: Line
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue_Line
+  commentId: P:ProCharts.ChartMacdValue.Line
+  fullName: ProCharts.ChartMacdValue.Line
+  nameWithType: ChartMacdValue.Line
+- uid: ProCharts.ChartMacdValue.Line*
+  name: Line
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue_Line_
+  commentId: Overload:ProCharts.ChartMacdValue.Line
+  isSpec: "True"
+  fullName: ProCharts.ChartMacdValue.Line
+  nameWithType: ChartMacdValue.Line
+- uid: ProCharts.ChartMacdValue.Signal
+  name: Signal
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue_Signal
+  commentId: P:ProCharts.ChartMacdValue.Signal
+  fullName: ProCharts.ChartMacdValue.Signal
+  nameWithType: ChartMacdValue.Signal
+- uid: ProCharts.ChartMacdValue.Signal*
+  name: Signal
+  href: api/ProCharts.ChartMacdValue.html#ProCharts_ChartMacdValue_Signal_
+  commentId: Overload:ProCharts.ChartMacdValue.Signal
+  isSpec: "True"
+  fullName: ProCharts.ChartMacdValue.Signal
+  nameWithType: ChartMacdValue.Signal
 - uid: ProCharts.ChartMarkerShape
   name: ChartMarkerShape
   href: api/ProCharts.ChartMarkerShape.html
@@ -73578,6 +73812,44 @@ references:
   commentId: F:ProCharts.ChartPointerTool.Zoom
   fullName: ProCharts.ChartPointerTool.Zoom
   nameWithType: ChartPointerTool.Zoom
+- uid: ProCharts.ChartRangeSeries
+  name: ChartRangeSeries
+  href: api/ProCharts.ChartRangeSeries.html
+  commentId: T:ProCharts.ChartRangeSeries
+  fullName: ProCharts.ChartRangeSeries
+  nameWithType: ChartRangeSeries
+- uid: ProCharts.ChartRangeSeries.CreateArea(System.String,System.Collections.Generic.IReadOnlyList{System.Nullable{System.Double}},System.Collections.Generic.IReadOnlyList{System.Nullable{System.Double}},System.Collections.Generic.IReadOnlyList{System.Double},ProCharts.ChartValueAxisAssignment,ProCharts.ChartSeriesStyle)
+  name: CreateArea(string?, IReadOnlyList<double?>, IReadOnlyList<double?>, IReadOnlyList<double>?, ChartValueAxisAssignment, ChartSeriesStyle?)
+  href: api/ProCharts.ChartRangeSeries.html#ProCharts_ChartRangeSeries_CreateArea_System_String_System_Collections_Generic_IReadOnlyList_System_Nullable_System_Double___System_Collections_Generic_IReadOnlyList_System_Nullable_System_Double___System_Collections_Generic_IReadOnlyList_System_Double__ProCharts_ChartValueAxisAssignment_ProCharts_ChartSeriesStyle_
+  commentId: M:ProCharts.ChartRangeSeries.CreateArea(System.String,System.Collections.Generic.IReadOnlyList{System.Nullable{System.Double}},System.Collections.Generic.IReadOnlyList{System.Nullable{System.Double}},System.Collections.Generic.IReadOnlyList{System.Double},ProCharts.ChartValueAxisAssignment,ProCharts.ChartSeriesStyle)
+  name.vb: CreateArea(String, IReadOnlyList(Of Double?), IReadOnlyList(Of Double?), IReadOnlyList(Of Double), ChartValueAxisAssignment, ChartSeriesStyle)
+  fullName: ProCharts.ChartRangeSeries.CreateArea(string?, System.Collections.Generic.IReadOnlyList<double?>, System.Collections.Generic.IReadOnlyList<double?>, System.Collections.Generic.IReadOnlyList<double>?, ProCharts.ChartValueAxisAssignment, ProCharts.ChartSeriesStyle?)
+  fullName.vb: ProCharts.ChartRangeSeries.CreateArea(String, System.Collections.Generic.IReadOnlyList(Of Double?), System.Collections.Generic.IReadOnlyList(Of Double?), System.Collections.Generic.IReadOnlyList(Of Double), ProCharts.ChartValueAxisAssignment, ProCharts.ChartSeriesStyle)
+  nameWithType: ChartRangeSeries.CreateArea(string?, IReadOnlyList<double?>, IReadOnlyList<double?>, IReadOnlyList<double>?, ChartValueAxisAssignment, ChartSeriesStyle?)
+  nameWithType.vb: ChartRangeSeries.CreateArea(String, IReadOnlyList(Of Double?), IReadOnlyList(Of Double?), IReadOnlyList(Of Double), ChartValueAxisAssignment, ChartSeriesStyle)
+- uid: ProCharts.ChartRangeSeries.CreateArea*
+  name: CreateArea
+  href: api/ProCharts.ChartRangeSeries.html#ProCharts_ChartRangeSeries_CreateArea_
+  commentId: Overload:ProCharts.ChartRangeSeries.CreateArea
+  isSpec: "True"
+  fullName: ProCharts.ChartRangeSeries.CreateArea
+  nameWithType: ChartRangeSeries.CreateArea
+- uid: ProCharts.ChartRangeSeries.ToRangeArea(ProCharts.ChartBandSeries,System.String,ProCharts.ChartSeriesStyle)
+  name: ToRangeArea(ChartBandSeries, string?, ChartSeriesStyle?)
+  href: api/ProCharts.ChartRangeSeries.html#ProCharts_ChartRangeSeries_ToRangeArea_ProCharts_ChartBandSeries_System_String_ProCharts_ChartSeriesStyle_
+  commentId: M:ProCharts.ChartRangeSeries.ToRangeArea(ProCharts.ChartBandSeries,System.String,ProCharts.ChartSeriesStyle)
+  name.vb: ToRangeArea(ChartBandSeries, String, ChartSeriesStyle)
+  fullName: ProCharts.ChartRangeSeries.ToRangeArea(ProCharts.ChartBandSeries, string?, ProCharts.ChartSeriesStyle?)
+  fullName.vb: ProCharts.ChartRangeSeries.ToRangeArea(ProCharts.ChartBandSeries, String, ProCharts.ChartSeriesStyle)
+  nameWithType: ChartRangeSeries.ToRangeArea(ChartBandSeries, string?, ChartSeriesStyle?)
+  nameWithType.vb: ChartRangeSeries.ToRangeArea(ChartBandSeries, String, ChartSeriesStyle)
+- uid: ProCharts.ChartRangeSeries.ToRangeArea*
+  name: ToRangeArea
+  href: api/ProCharts.ChartRangeSeries.html#ProCharts_ChartRangeSeries_ToRangeArea_
+  commentId: Overload:ProCharts.ChartRangeSeries.ToRangeArea
+  isSpec: "True"
+  fullName: ProCharts.ChartRangeSeries.ToRangeArea
+  nameWithType: ChartRangeSeries.ToRangeArea
 - uid: ProCharts.ChartSample
   name: ChartSample
   href: api/ProCharts.ChartSample.html
@@ -73808,6 +74080,12 @@ references:
   commentId: F:ProCharts.ChartSeriesKind.Range
   fullName: ProCharts.ChartSeriesKind.Range
   nameWithType: ChartSeriesKind.Range
+- uid: ProCharts.ChartSeriesKind.RangeArea
+  name: RangeArea
+  href: api/ProCharts.ChartSeriesKind.html#ProCharts_ChartSeriesKind_RangeArea
+  commentId: F:ProCharts.ChartSeriesKind.RangeArea
+  fullName: ProCharts.ChartSeriesKind.RangeArea
+  nameWithType: ChartSeriesKind.RangeArea
 - uid: ProCharts.ChartSeriesKind.Renko
   name: Renko
   href: api/ProCharts.ChartSeriesKind.html#ProCharts_ChartSeriesKind_Renko
@@ -74947,6 +75225,93 @@ references:
   commentId: E:ProCharts.IChartDataSource.DataInvalidated
   fullName: ProCharts.IChartDataSource.DataInvalidated
   nameWithType: IChartDataSource.DataInvalidated
+- uid: ProCharts.IChartHierarchyNavigator
+  name: IChartHierarchyNavigator
+  href: api/ProCharts.IChartHierarchyNavigator.html
+  commentId: T:ProCharts.IChartHierarchyNavigator
+  fullName: ProCharts.IChartHierarchyNavigator
+  nameWithType: IChartHierarchyNavigator
+- uid: ProCharts.IChartHierarchyNavigator.CanDrillUp
+  name: CanDrillUp
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_CanDrillUp
+  commentId: P:ProCharts.IChartHierarchyNavigator.CanDrillUp
+  fullName: ProCharts.IChartHierarchyNavigator.CanDrillUp
+  nameWithType: IChartHierarchyNavigator.CanDrillUp
+- uid: ProCharts.IChartHierarchyNavigator.CanDrillUp*
+  name: CanDrillUp
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_CanDrillUp_
+  commentId: Overload:ProCharts.IChartHierarchyNavigator.CanDrillUp
+  isSpec: "True"
+  fullName: ProCharts.IChartHierarchyNavigator.CanDrillUp
+  nameWithType: IChartHierarchyNavigator.CanDrillUp
+- uid: ProCharts.IChartHierarchyNavigator.CurrentRoot
+  name: CurrentRoot
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_CurrentRoot
+  commentId: P:ProCharts.IChartHierarchyNavigator.CurrentRoot
+  fullName: ProCharts.IChartHierarchyNavigator.CurrentRoot
+  nameWithType: IChartHierarchyNavigator.CurrentRoot
+- uid: ProCharts.IChartHierarchyNavigator.CurrentRoot*
+  name: CurrentRoot
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_CurrentRoot_
+  commentId: Overload:ProCharts.IChartHierarchyNavigator.CurrentRoot
+  isSpec: "True"
+  fullName: ProCharts.IChartHierarchyNavigator.CurrentRoot
+  nameWithType: IChartHierarchyNavigator.CurrentRoot
+- uid: ProCharts.IChartHierarchyNavigator.GetPath
+  name: GetPath()
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_GetPath
+  commentId: M:ProCharts.IChartHierarchyNavigator.GetPath
+  fullName: ProCharts.IChartHierarchyNavigator.GetPath()
+  nameWithType: IChartHierarchyNavigator.GetPath()
+- uid: ProCharts.IChartHierarchyNavigator.GetPath*
+  name: GetPath
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_GetPath_
+  commentId: Overload:ProCharts.IChartHierarchyNavigator.GetPath
+  isSpec: "True"
+  fullName: ProCharts.IChartHierarchyNavigator.GetPath
+  nameWithType: IChartHierarchyNavigator.GetPath
+- uid: ProCharts.IChartHierarchyNavigator.ResetNavigation
+  name: ResetNavigation()
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_ResetNavigation
+  commentId: M:ProCharts.IChartHierarchyNavigator.ResetNavigation
+  fullName: ProCharts.IChartHierarchyNavigator.ResetNavigation()
+  nameWithType: IChartHierarchyNavigator.ResetNavigation()
+- uid: ProCharts.IChartHierarchyNavigator.ResetNavigation*
+  name: ResetNavigation
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_ResetNavigation_
+  commentId: Overload:ProCharts.IChartHierarchyNavigator.ResetNavigation
+  isSpec: "True"
+  fullName: ProCharts.IChartHierarchyNavigator.ResetNavigation
+  nameWithType: IChartHierarchyNavigator.ResetNavigation
+- uid: ProCharts.IChartHierarchyNavigator.TryDrillDown(System.String)
+  name: TryDrillDown(string)
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_TryDrillDown_System_String_
+  commentId: M:ProCharts.IChartHierarchyNavigator.TryDrillDown(System.String)
+  name.vb: TryDrillDown(String)
+  fullName: ProCharts.IChartHierarchyNavigator.TryDrillDown(string)
+  fullName.vb: ProCharts.IChartHierarchyNavigator.TryDrillDown(String)
+  nameWithType: IChartHierarchyNavigator.TryDrillDown(string)
+  nameWithType.vb: IChartHierarchyNavigator.TryDrillDown(String)
+- uid: ProCharts.IChartHierarchyNavigator.TryDrillDown*
+  name: TryDrillDown
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_TryDrillDown_
+  commentId: Overload:ProCharts.IChartHierarchyNavigator.TryDrillDown
+  isSpec: "True"
+  fullName: ProCharts.IChartHierarchyNavigator.TryDrillDown
+  nameWithType: IChartHierarchyNavigator.TryDrillDown
+- uid: ProCharts.IChartHierarchyNavigator.TryDrillUp
+  name: TryDrillUp()
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_TryDrillUp
+  commentId: M:ProCharts.IChartHierarchyNavigator.TryDrillUp
+  fullName: ProCharts.IChartHierarchyNavigator.TryDrillUp()
+  nameWithType: IChartHierarchyNavigator.TryDrillUp()
+- uid: ProCharts.IChartHierarchyNavigator.TryDrillUp*
+  name: TryDrillUp
+  href: api/ProCharts.IChartHierarchyNavigator.html#ProCharts_IChartHierarchyNavigator_TryDrillUp_
+  commentId: Overload:ProCharts.IChartHierarchyNavigator.TryDrillUp
+  isSpec: "True"
+  fullName: ProCharts.IChartHierarchyNavigator.TryDrillUp
+  nameWithType: IChartHierarchyNavigator.TryDrillUp
 - uid: ProCharts.IChartIncrementalDataSource
   name: IChartIncrementalDataSource
   href: api/ProCharts.IChartIncrementalDataSource.html
@@ -74988,6 +75353,83 @@ references:
   isSpec: "True"
   fullName: ProCharts.IChartWindowInfoProvider.GetTotalCategoryCount
   nameWithType: IChartWindowInfoProvider.GetTotalCategoryCount
+- uid: ProCharts.IStreamingChartIndicator`2
+  name: IStreamingChartIndicator<TInput, TOutput>
+  href: api/ProCharts.IStreamingChartIndicator-2.html
+  commentId: T:ProCharts.IStreamingChartIndicator`2
+  name.vb: IStreamingChartIndicator(Of TInput, TOutput)
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput)
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput)
+- uid: ProCharts.IStreamingChartIndicator`2.Current
+  name: Current
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_Current
+  commentId: P:ProCharts.IStreamingChartIndicator`2.Current
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.Current
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).Current
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.Current
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).Current
+- uid: ProCharts.IStreamingChartIndicator`2.Current*
+  name: Current
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_Current_
+  commentId: Overload:ProCharts.IStreamingChartIndicator`2.Current
+  isSpec: "True"
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.Current
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).Current
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.Current
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).Current
+- uid: ProCharts.IStreamingChartIndicator`2.Push(`0)
+  name: Push(TInput)
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_Push__0_
+  commentId: M:ProCharts.IStreamingChartIndicator`2.Push(`0)
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.Push(TInput)
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).Push(TInput)
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.Push(TInput)
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).Push(TInput)
+- uid: ProCharts.IStreamingChartIndicator`2.Push*
+  name: Push
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_Push_
+  commentId: Overload:ProCharts.IStreamingChartIndicator`2.Push
+  isSpec: "True"
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.Push
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).Push
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.Push
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).Push
+- uid: ProCharts.IStreamingChartIndicator`2.Reset
+  name: Reset()
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_Reset
+  commentId: M:ProCharts.IStreamingChartIndicator`2.Reset
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.Reset()
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).Reset()
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.Reset()
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).Reset()
+- uid: ProCharts.IStreamingChartIndicator`2.Reset*
+  name: Reset
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_Reset_
+  commentId: Overload:ProCharts.IStreamingChartIndicator`2.Reset
+  isSpec: "True"
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.Reset
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).Reset
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.Reset
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).Reset
+- uid: ProCharts.IStreamingChartIndicator`2.SamplesProcessed
+  name: SamplesProcessed
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_SamplesProcessed
+  commentId: P:ProCharts.IStreamingChartIndicator`2.SamplesProcessed
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.SamplesProcessed
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).SamplesProcessed
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.SamplesProcessed
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).SamplesProcessed
+- uid: ProCharts.IStreamingChartIndicator`2.SamplesProcessed*
+  name: SamplesProcessed
+  href: api/ProCharts.IStreamingChartIndicator-2.html#ProCharts_IStreamingChartIndicator_2_SamplesProcessed_
+  commentId: Overload:ProCharts.IStreamingChartIndicator`2.SamplesProcessed
+  isSpec: "True"
+  fullName: ProCharts.IStreamingChartIndicator<TInput, TOutput>.SamplesProcessed
+  fullName.vb: ProCharts.IStreamingChartIndicator(Of TInput, TOutput).SamplesProcessed
+  nameWithType: IStreamingChartIndicator<TInput, TOutput>.SamplesProcessed
+  nameWithType.vb: IStreamingChartIndicator(Of TInput, TOutput).SamplesProcessed
 - uid: ProCharts.Skia
   name: ProCharts.Skia
   href: api/ProCharts.Skia.html
@@ -75607,6 +76049,19 @@ references:
   commentId: T:ProCharts.Skia.SkiaChartRenderer
   fullName: ProCharts.Skia.SkiaChartRenderer
   nameWithType: SkiaChartRenderer
+- uid: ProCharts.Skia.SkiaChartRenderer.ClearInteractionCache
+  name: ClearInteractionCache()
+  href: api/ProCharts.Skia.SkiaChartRenderer.html#ProCharts_Skia_SkiaChartRenderer_ClearInteractionCache
+  commentId: M:ProCharts.Skia.SkiaChartRenderer.ClearInteractionCache
+  fullName: ProCharts.Skia.SkiaChartRenderer.ClearInteractionCache()
+  nameWithType: SkiaChartRenderer.ClearInteractionCache()
+- uid: ProCharts.Skia.SkiaChartRenderer.ClearInteractionCache*
+  name: ClearInteractionCache
+  href: api/ProCharts.Skia.SkiaChartRenderer.html#ProCharts_Skia_SkiaChartRenderer_ClearInteractionCache_
+  commentId: Overload:ProCharts.Skia.SkiaChartRenderer.ClearInteractionCache
+  isSpec: "True"
+  fullName: ProCharts.Skia.SkiaChartRenderer.ClearInteractionCache
+  nameWithType: SkiaChartRenderer.ClearInteractionCache
 - uid: ProCharts.Skia.SkiaChartRenderer.HitTest(SkiaSharp.SKPoint,SkiaSharp.SKRect,ProCharts.ChartDataSnapshot,ProCharts.Skia.SkiaChartStyle)
   name: HitTest(SKPoint, SKRect, ChartDataSnapshot, SkiaChartStyle?)
   href: api/ProCharts.Skia.SkiaChartRenderer.html#ProCharts_Skia_SkiaChartRenderer_HitTest_SkiaSharp_SKPoint_SkiaSharp_SKRect_ProCharts_ChartDataSnapshot_ProCharts_Skia_SkiaChartStyle_
@@ -75682,6 +76137,19 @@ references:
   isSpec: "True"
   fullName: ProCharts.Skia.SkiaChartRenderer.TryGetViewportInfo
   nameWithType: SkiaChartRenderer.TryGetViewportInfo
+- uid: ProCharts.Skia.SkiaChartRenderer.UseInteractionCache
+  name: UseInteractionCache
+  href: api/ProCharts.Skia.SkiaChartRenderer.html#ProCharts_Skia_SkiaChartRenderer_UseInteractionCache
+  commentId: P:ProCharts.Skia.SkiaChartRenderer.UseInteractionCache
+  fullName: ProCharts.Skia.SkiaChartRenderer.UseInteractionCache
+  nameWithType: SkiaChartRenderer.UseInteractionCache
+- uid: ProCharts.Skia.SkiaChartRenderer.UseInteractionCache*
+  name: UseInteractionCache
+  href: api/ProCharts.Skia.SkiaChartRenderer.html#ProCharts_Skia_SkiaChartRenderer_UseInteractionCache_
+  commentId: Overload:ProCharts.Skia.SkiaChartRenderer.UseInteractionCache
+  isSpec: "True"
+  fullName: ProCharts.Skia.SkiaChartRenderer.UseInteractionCache
+  nameWithType: SkiaChartRenderer.UseInteractionCache
 - uid: ProCharts.Skia.SkiaChartSeriesStyle
   name: SkiaChartSeriesStyle
   href: api/ProCharts.Skia.SkiaChartSeriesStyle.html
@@ -78143,6 +78611,105 @@ references:
   commentId: F:ProCharts.Skia.SkiaPieLabelPlacement.Outside
   fullName: ProCharts.Skia.SkiaPieLabelPlacement.Outside
   nameWithType: SkiaPieLabelPlacement.Outside
+- uid: ProCharts.StreamingAverageTrueRange
+  name: StreamingAverageTrueRange
+  href: api/ProCharts.StreamingAverageTrueRange.html
+  commentId: T:ProCharts.StreamingAverageTrueRange
+  fullName: ProCharts.StreamingAverageTrueRange
+  nameWithType: StreamingAverageTrueRange
+- uid: ProCharts.StreamingAverageTrueRange.#ctor(System.Int32)
+  name: StreamingAverageTrueRange(int)
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange__ctor_System_Int32_
+  commentId: M:ProCharts.StreamingAverageTrueRange.#ctor(System.Int32)
+  name.vb: New(Integer)
+  fullName: ProCharts.StreamingAverageTrueRange.StreamingAverageTrueRange(int)
+  fullName.vb: ProCharts.StreamingAverageTrueRange.New(Integer)
+  nameWithType: StreamingAverageTrueRange.StreamingAverageTrueRange(int)
+  nameWithType.vb: StreamingAverageTrueRange.New(Integer)
+- uid: ProCharts.StreamingAverageTrueRange.#ctor*
+  name: StreamingAverageTrueRange
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange__ctor_
+  commentId: Overload:ProCharts.StreamingAverageTrueRange.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProCharts.StreamingAverageTrueRange.StreamingAverageTrueRange
+  fullName.vb: ProCharts.StreamingAverageTrueRange.New
+  nameWithType: StreamingAverageTrueRange.StreamingAverageTrueRange
+  nameWithType.vb: StreamingAverageTrueRange.New
+- uid: ProCharts.StreamingAverageTrueRange.Current
+  name: Current
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Current
+  commentId: P:ProCharts.StreamingAverageTrueRange.Current
+  fullName: ProCharts.StreamingAverageTrueRange.Current
+  nameWithType: StreamingAverageTrueRange.Current
+- uid: ProCharts.StreamingAverageTrueRange.Current*
+  name: Current
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Current_
+  commentId: Overload:ProCharts.StreamingAverageTrueRange.Current
+  isSpec: "True"
+  fullName: ProCharts.StreamingAverageTrueRange.Current
+  nameWithType: StreamingAverageTrueRange.Current
+- uid: ProCharts.StreamingAverageTrueRange.Period
+  name: Period
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Period
+  commentId: P:ProCharts.StreamingAverageTrueRange.Period
+  fullName: ProCharts.StreamingAverageTrueRange.Period
+  nameWithType: StreamingAverageTrueRange.Period
+- uid: ProCharts.StreamingAverageTrueRange.Period*
+  name: Period
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Period_
+  commentId: Overload:ProCharts.StreamingAverageTrueRange.Period
+  isSpec: "True"
+  fullName: ProCharts.StreamingAverageTrueRange.Period
+  nameWithType: StreamingAverageTrueRange.Period
+- uid: ProCharts.StreamingAverageTrueRange.Push(ProCharts.ChartHighLowClose)
+  name: Push(ChartHighLowClose)
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Push_ProCharts_ChartHighLowClose_
+  commentId: M:ProCharts.StreamingAverageTrueRange.Push(ProCharts.ChartHighLowClose)
+  fullName: ProCharts.StreamingAverageTrueRange.Push(ProCharts.ChartHighLowClose)
+  nameWithType: StreamingAverageTrueRange.Push(ChartHighLowClose)
+- uid: ProCharts.StreamingAverageTrueRange.Push(System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double})
+  name: Push(double?, double?, double?)
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Push_System_Nullable_System_Double__System_Nullable_System_Double__System_Nullable_System_Double__
+  commentId: M:ProCharts.StreamingAverageTrueRange.Push(System.Nullable{System.Double},System.Nullable{System.Double},System.Nullable{System.Double})
+  name.vb: Push(Double?, Double?, Double?)
+  fullName: ProCharts.StreamingAverageTrueRange.Push(double?, double?, double?)
+  fullName.vb: ProCharts.StreamingAverageTrueRange.Push(Double?, Double?, Double?)
+  nameWithType: StreamingAverageTrueRange.Push(double?, double?, double?)
+  nameWithType.vb: StreamingAverageTrueRange.Push(Double?, Double?, Double?)
+- uid: ProCharts.StreamingAverageTrueRange.Push*
+  name: Push
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Push_
+  commentId: Overload:ProCharts.StreamingAverageTrueRange.Push
+  isSpec: "True"
+  fullName: ProCharts.StreamingAverageTrueRange.Push
+  nameWithType: StreamingAverageTrueRange.Push
+- uid: ProCharts.StreamingAverageTrueRange.Reset
+  name: Reset()
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Reset
+  commentId: M:ProCharts.StreamingAverageTrueRange.Reset
+  fullName: ProCharts.StreamingAverageTrueRange.Reset()
+  nameWithType: StreamingAverageTrueRange.Reset()
+- uid: ProCharts.StreamingAverageTrueRange.Reset*
+  name: Reset
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_Reset_
+  commentId: Overload:ProCharts.StreamingAverageTrueRange.Reset
+  isSpec: "True"
+  fullName: ProCharts.StreamingAverageTrueRange.Reset
+  nameWithType: StreamingAverageTrueRange.Reset
+- uid: ProCharts.StreamingAverageTrueRange.SamplesProcessed
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_SamplesProcessed
+  commentId: P:ProCharts.StreamingAverageTrueRange.SamplesProcessed
+  fullName: ProCharts.StreamingAverageTrueRange.SamplesProcessed
+  nameWithType: StreamingAverageTrueRange.SamplesProcessed
+- uid: ProCharts.StreamingAverageTrueRange.SamplesProcessed*
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingAverageTrueRange.html#ProCharts_StreamingAverageTrueRange_SamplesProcessed_
+  commentId: Overload:ProCharts.StreamingAverageTrueRange.SamplesProcessed
+  isSpec: "True"
+  fullName: ProCharts.StreamingAverageTrueRange.SamplesProcessed
+  nameWithType: StreamingAverageTrueRange.SamplesProcessed
 - uid: ProCharts.StreamingChartDataSource
   name: StreamingChartDataSource
   href: api/ProCharts.StreamingChartDataSource.html
@@ -78307,6 +78874,311 @@ references:
   isSpec: "True"
   fullName: ProCharts.StreamingChartDataSource.TotalSamples
   nameWithType: StreamingChartDataSource.TotalSamples
+- uid: ProCharts.StreamingExponentialMovingAverage
+  name: StreamingExponentialMovingAverage
+  href: api/ProCharts.StreamingExponentialMovingAverage.html
+  commentId: T:ProCharts.StreamingExponentialMovingAverage
+  fullName: ProCharts.StreamingExponentialMovingAverage
+  nameWithType: StreamingExponentialMovingAverage
+- uid: ProCharts.StreamingExponentialMovingAverage.#ctor(System.Int32)
+  name: StreamingExponentialMovingAverage(int)
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage__ctor_System_Int32_
+  commentId: M:ProCharts.StreamingExponentialMovingAverage.#ctor(System.Int32)
+  name.vb: New(Integer)
+  fullName: ProCharts.StreamingExponentialMovingAverage.StreamingExponentialMovingAverage(int)
+  fullName.vb: ProCharts.StreamingExponentialMovingAverage.New(Integer)
+  nameWithType: StreamingExponentialMovingAverage.StreamingExponentialMovingAverage(int)
+  nameWithType.vb: StreamingExponentialMovingAverage.New(Integer)
+- uid: ProCharts.StreamingExponentialMovingAverage.#ctor*
+  name: StreamingExponentialMovingAverage
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage__ctor_
+  commentId: Overload:ProCharts.StreamingExponentialMovingAverage.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProCharts.StreamingExponentialMovingAverage.StreamingExponentialMovingAverage
+  fullName.vb: ProCharts.StreamingExponentialMovingAverage.New
+  nameWithType: StreamingExponentialMovingAverage.StreamingExponentialMovingAverage
+  nameWithType.vb: StreamingExponentialMovingAverage.New
+- uid: ProCharts.StreamingExponentialMovingAverage.Current
+  name: Current
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Current
+  commentId: P:ProCharts.StreamingExponentialMovingAverage.Current
+  fullName: ProCharts.StreamingExponentialMovingAverage.Current
+  nameWithType: StreamingExponentialMovingAverage.Current
+- uid: ProCharts.StreamingExponentialMovingAverage.Current*
+  name: Current
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Current_
+  commentId: Overload:ProCharts.StreamingExponentialMovingAverage.Current
+  isSpec: "True"
+  fullName: ProCharts.StreamingExponentialMovingAverage.Current
+  nameWithType: StreamingExponentialMovingAverage.Current
+- uid: ProCharts.StreamingExponentialMovingAverage.Period
+  name: Period
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Period
+  commentId: P:ProCharts.StreamingExponentialMovingAverage.Period
+  fullName: ProCharts.StreamingExponentialMovingAverage.Period
+  nameWithType: StreamingExponentialMovingAverage.Period
+- uid: ProCharts.StreamingExponentialMovingAverage.Period*
+  name: Period
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Period_
+  commentId: Overload:ProCharts.StreamingExponentialMovingAverage.Period
+  isSpec: "True"
+  fullName: ProCharts.StreamingExponentialMovingAverage.Period
+  nameWithType: StreamingExponentialMovingAverage.Period
+- uid: ProCharts.StreamingExponentialMovingAverage.Push(System.Nullable{System.Double})
+  name: Push(double?)
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Push_System_Nullable_System_Double__
+  commentId: M:ProCharts.StreamingExponentialMovingAverage.Push(System.Nullable{System.Double})
+  name.vb: Push(Double?)
+  fullName: ProCharts.StreamingExponentialMovingAverage.Push(double?)
+  fullName.vb: ProCharts.StreamingExponentialMovingAverage.Push(Double?)
+  nameWithType: StreamingExponentialMovingAverage.Push(double?)
+  nameWithType.vb: StreamingExponentialMovingAverage.Push(Double?)
+- uid: ProCharts.StreamingExponentialMovingAverage.Push*
+  name: Push
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Push_
+  commentId: Overload:ProCharts.StreamingExponentialMovingAverage.Push
+  isSpec: "True"
+  fullName: ProCharts.StreamingExponentialMovingAverage.Push
+  nameWithType: StreamingExponentialMovingAverage.Push
+- uid: ProCharts.StreamingExponentialMovingAverage.Reset
+  name: Reset()
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Reset
+  commentId: M:ProCharts.StreamingExponentialMovingAverage.Reset
+  fullName: ProCharts.StreamingExponentialMovingAverage.Reset()
+  nameWithType: StreamingExponentialMovingAverage.Reset()
+- uid: ProCharts.StreamingExponentialMovingAverage.Reset*
+  name: Reset
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_Reset_
+  commentId: Overload:ProCharts.StreamingExponentialMovingAverage.Reset
+  isSpec: "True"
+  fullName: ProCharts.StreamingExponentialMovingAverage.Reset
+  nameWithType: StreamingExponentialMovingAverage.Reset
+- uid: ProCharts.StreamingExponentialMovingAverage.SamplesProcessed
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_SamplesProcessed
+  commentId: P:ProCharts.StreamingExponentialMovingAverage.SamplesProcessed
+  fullName: ProCharts.StreamingExponentialMovingAverage.SamplesProcessed
+  nameWithType: StreamingExponentialMovingAverage.SamplesProcessed
+- uid: ProCharts.StreamingExponentialMovingAverage.SamplesProcessed*
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingExponentialMovingAverage.html#ProCharts_StreamingExponentialMovingAverage_SamplesProcessed_
+  commentId: Overload:ProCharts.StreamingExponentialMovingAverage.SamplesProcessed
+  isSpec: "True"
+  fullName: ProCharts.StreamingExponentialMovingAverage.SamplesProcessed
+  nameWithType: StreamingExponentialMovingAverage.SamplesProcessed
+- uid: ProCharts.StreamingMacd
+  name: StreamingMacd
+  href: api/ProCharts.StreamingMacd.html
+  commentId: T:ProCharts.StreamingMacd
+  fullName: ProCharts.StreamingMacd
+  nameWithType: StreamingMacd
+- uid: ProCharts.StreamingMacd.#ctor(System.Int32,System.Int32,System.Int32)
+  name: StreamingMacd(int, int, int)
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd__ctor_System_Int32_System_Int32_System_Int32_
+  commentId: M:ProCharts.StreamingMacd.#ctor(System.Int32,System.Int32,System.Int32)
+  name.vb: New(Integer, Integer, Integer)
+  fullName: ProCharts.StreamingMacd.StreamingMacd(int, int, int)
+  fullName.vb: ProCharts.StreamingMacd.New(Integer, Integer, Integer)
+  nameWithType: StreamingMacd.StreamingMacd(int, int, int)
+  nameWithType.vb: StreamingMacd.New(Integer, Integer, Integer)
+- uid: ProCharts.StreamingMacd.#ctor*
+  name: StreamingMacd
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd__ctor_
+  commentId: Overload:ProCharts.StreamingMacd.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProCharts.StreamingMacd.StreamingMacd
+  fullName.vb: ProCharts.StreamingMacd.New
+  nameWithType: StreamingMacd.StreamingMacd
+  nameWithType.vb: StreamingMacd.New
+- uid: ProCharts.StreamingMacd.Current
+  name: Current
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_Current
+  commentId: P:ProCharts.StreamingMacd.Current
+  fullName: ProCharts.StreamingMacd.Current
+  nameWithType: StreamingMacd.Current
+- uid: ProCharts.StreamingMacd.Current*
+  name: Current
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_Current_
+  commentId: Overload:ProCharts.StreamingMacd.Current
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.Current
+  nameWithType: StreamingMacd.Current
+- uid: ProCharts.StreamingMacd.FastPeriod
+  name: FastPeriod
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_FastPeriod
+  commentId: P:ProCharts.StreamingMacd.FastPeriod
+  fullName: ProCharts.StreamingMacd.FastPeriod
+  nameWithType: StreamingMacd.FastPeriod
+- uid: ProCharts.StreamingMacd.FastPeriod*
+  name: FastPeriod
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_FastPeriod_
+  commentId: Overload:ProCharts.StreamingMacd.FastPeriod
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.FastPeriod
+  nameWithType: StreamingMacd.FastPeriod
+- uid: ProCharts.StreamingMacd.Push(System.Nullable{System.Double})
+  name: Push(double?)
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_Push_System_Nullable_System_Double__
+  commentId: M:ProCharts.StreamingMacd.Push(System.Nullable{System.Double})
+  name.vb: Push(Double?)
+  fullName: ProCharts.StreamingMacd.Push(double?)
+  fullName.vb: ProCharts.StreamingMacd.Push(Double?)
+  nameWithType: StreamingMacd.Push(double?)
+  nameWithType.vb: StreamingMacd.Push(Double?)
+- uid: ProCharts.StreamingMacd.Push*
+  name: Push
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_Push_
+  commentId: Overload:ProCharts.StreamingMacd.Push
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.Push
+  nameWithType: StreamingMacd.Push
+- uid: ProCharts.StreamingMacd.Reset
+  name: Reset()
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_Reset
+  commentId: M:ProCharts.StreamingMacd.Reset
+  fullName: ProCharts.StreamingMacd.Reset()
+  nameWithType: StreamingMacd.Reset()
+- uid: ProCharts.StreamingMacd.Reset*
+  name: Reset
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_Reset_
+  commentId: Overload:ProCharts.StreamingMacd.Reset
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.Reset
+  nameWithType: StreamingMacd.Reset
+- uid: ProCharts.StreamingMacd.SamplesProcessed
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_SamplesProcessed
+  commentId: P:ProCharts.StreamingMacd.SamplesProcessed
+  fullName: ProCharts.StreamingMacd.SamplesProcessed
+  nameWithType: StreamingMacd.SamplesProcessed
+- uid: ProCharts.StreamingMacd.SamplesProcessed*
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_SamplesProcessed_
+  commentId: Overload:ProCharts.StreamingMacd.SamplesProcessed
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.SamplesProcessed
+  nameWithType: StreamingMacd.SamplesProcessed
+- uid: ProCharts.StreamingMacd.SignalPeriod
+  name: SignalPeriod
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_SignalPeriod
+  commentId: P:ProCharts.StreamingMacd.SignalPeriod
+  fullName: ProCharts.StreamingMacd.SignalPeriod
+  nameWithType: StreamingMacd.SignalPeriod
+- uid: ProCharts.StreamingMacd.SignalPeriod*
+  name: SignalPeriod
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_SignalPeriod_
+  commentId: Overload:ProCharts.StreamingMacd.SignalPeriod
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.SignalPeriod
+  nameWithType: StreamingMacd.SignalPeriod
+- uid: ProCharts.StreamingMacd.SlowPeriod
+  name: SlowPeriod
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_SlowPeriod
+  commentId: P:ProCharts.StreamingMacd.SlowPeriod
+  fullName: ProCharts.StreamingMacd.SlowPeriod
+  nameWithType: StreamingMacd.SlowPeriod
+- uid: ProCharts.StreamingMacd.SlowPeriod*
+  name: SlowPeriod
+  href: api/ProCharts.StreamingMacd.html#ProCharts_StreamingMacd_SlowPeriod_
+  commentId: Overload:ProCharts.StreamingMacd.SlowPeriod
+  isSpec: "True"
+  fullName: ProCharts.StreamingMacd.SlowPeriod
+  nameWithType: StreamingMacd.SlowPeriod
+- uid: ProCharts.StreamingRelativeStrengthIndex
+  name: StreamingRelativeStrengthIndex
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html
+  commentId: T:ProCharts.StreamingRelativeStrengthIndex
+  fullName: ProCharts.StreamingRelativeStrengthIndex
+  nameWithType: StreamingRelativeStrengthIndex
+- uid: ProCharts.StreamingRelativeStrengthIndex.#ctor(System.Int32)
+  name: StreamingRelativeStrengthIndex(int)
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex__ctor_System_Int32_
+  commentId: M:ProCharts.StreamingRelativeStrengthIndex.#ctor(System.Int32)
+  name.vb: New(Integer)
+  fullName: ProCharts.StreamingRelativeStrengthIndex.StreamingRelativeStrengthIndex(int)
+  fullName.vb: ProCharts.StreamingRelativeStrengthIndex.New(Integer)
+  nameWithType: StreamingRelativeStrengthIndex.StreamingRelativeStrengthIndex(int)
+  nameWithType.vb: StreamingRelativeStrengthIndex.New(Integer)
+- uid: ProCharts.StreamingRelativeStrengthIndex.#ctor*
+  name: StreamingRelativeStrengthIndex
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex__ctor_
+  commentId: Overload:ProCharts.StreamingRelativeStrengthIndex.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProCharts.StreamingRelativeStrengthIndex.StreamingRelativeStrengthIndex
+  fullName.vb: ProCharts.StreamingRelativeStrengthIndex.New
+  nameWithType: StreamingRelativeStrengthIndex.StreamingRelativeStrengthIndex
+  nameWithType.vb: StreamingRelativeStrengthIndex.New
+- uid: ProCharts.StreamingRelativeStrengthIndex.Current
+  name: Current
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Current
+  commentId: P:ProCharts.StreamingRelativeStrengthIndex.Current
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Current
+  nameWithType: StreamingRelativeStrengthIndex.Current
+- uid: ProCharts.StreamingRelativeStrengthIndex.Current*
+  name: Current
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Current_
+  commentId: Overload:ProCharts.StreamingRelativeStrengthIndex.Current
+  isSpec: "True"
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Current
+  nameWithType: StreamingRelativeStrengthIndex.Current
+- uid: ProCharts.StreamingRelativeStrengthIndex.Period
+  name: Period
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Period
+  commentId: P:ProCharts.StreamingRelativeStrengthIndex.Period
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Period
+  nameWithType: StreamingRelativeStrengthIndex.Period
+- uid: ProCharts.StreamingRelativeStrengthIndex.Period*
+  name: Period
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Period_
+  commentId: Overload:ProCharts.StreamingRelativeStrengthIndex.Period
+  isSpec: "True"
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Period
+  nameWithType: StreamingRelativeStrengthIndex.Period
+- uid: ProCharts.StreamingRelativeStrengthIndex.Push(System.Nullable{System.Double})
+  name: Push(double?)
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Push_System_Nullable_System_Double__
+  commentId: M:ProCharts.StreamingRelativeStrengthIndex.Push(System.Nullable{System.Double})
+  name.vb: Push(Double?)
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Push(double?)
+  fullName.vb: ProCharts.StreamingRelativeStrengthIndex.Push(Double?)
+  nameWithType: StreamingRelativeStrengthIndex.Push(double?)
+  nameWithType.vb: StreamingRelativeStrengthIndex.Push(Double?)
+- uid: ProCharts.StreamingRelativeStrengthIndex.Push*
+  name: Push
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Push_
+  commentId: Overload:ProCharts.StreamingRelativeStrengthIndex.Push
+  isSpec: "True"
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Push
+  nameWithType: StreamingRelativeStrengthIndex.Push
+- uid: ProCharts.StreamingRelativeStrengthIndex.Reset
+  name: Reset()
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Reset
+  commentId: M:ProCharts.StreamingRelativeStrengthIndex.Reset
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Reset()
+  nameWithType: StreamingRelativeStrengthIndex.Reset()
+- uid: ProCharts.StreamingRelativeStrengthIndex.Reset*
+  name: Reset
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_Reset_
+  commentId: Overload:ProCharts.StreamingRelativeStrengthIndex.Reset
+  isSpec: "True"
+  fullName: ProCharts.StreamingRelativeStrengthIndex.Reset
+  nameWithType: StreamingRelativeStrengthIndex.Reset
+- uid: ProCharts.StreamingRelativeStrengthIndex.SamplesProcessed
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_SamplesProcessed
+  commentId: P:ProCharts.StreamingRelativeStrengthIndex.SamplesProcessed
+  fullName: ProCharts.StreamingRelativeStrengthIndex.SamplesProcessed
+  nameWithType: StreamingRelativeStrengthIndex.SamplesProcessed
+- uid: ProCharts.StreamingRelativeStrengthIndex.SamplesProcessed*
+  name: SamplesProcessed
+  href: api/ProCharts.StreamingRelativeStrengthIndex.html#ProCharts_StreamingRelativeStrengthIndex_SamplesProcessed_
+  commentId: Overload:ProCharts.StreamingRelativeStrengthIndex.SamplesProcessed
+  isSpec: "True"
+  fullName: ProCharts.StreamingRelativeStrengthIndex.SamplesProcessed
+  nameWithType: StreamingRelativeStrengthIndex.SamplesProcessed
 - uid: ProDataGrid.Charting
   name: ProDataGrid.Charting
   href: api/ProDataGrid.Charting.html
@@ -80785,6 +81657,19 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumArrayCellCount
   nameWithType: FormulaCalculationSettings.MaximumArrayCellCount
+- uid: ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumLambdaDepth
+  name: MaximumLambdaDepth
+  href: api/ProDataGrid.FormulaEngine.FormulaCalculationSettings.html#ProDataGrid_FormulaEngine_FormulaCalculationSettings_MaximumLambdaDepth
+  commentId: P:ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumLambdaDepth
+  fullName: ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumLambdaDepth
+  nameWithType: FormulaCalculationSettings.MaximumLambdaDepth
+- uid: ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumLambdaDepth*
+  name: MaximumLambdaDepth
+  href: api/ProDataGrid.FormulaEngine.FormulaCalculationSettings.html#ProDataGrid_FormulaEngine_FormulaCalculationSettings_MaximumLambdaDepth_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumLambdaDepth
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaCalculationSettings.MaximumLambdaDepth
+  nameWithType: FormulaCalculationSettings.MaximumLambdaDepth
 - uid: ProDataGrid.FormulaEngine.FormulaCalculationSettings.NumberPrecisionDigits
   name: NumberPrecisionDigits
   href: api/ProDataGrid.FormulaEngine.FormulaCalculationSettings.html#ProDataGrid_FormulaEngine_FormulaCalculationSettings_NumberPrecisionDigits
@@ -80811,6 +81696,19 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaCalculationSettings.ReferenceMode
   nameWithType: FormulaCalculationSettings.ReferenceMode
+- uid: ProDataGrid.FormulaEngine.FormulaCalculationSettings.TextCompatibilityVersion
+  name: TextCompatibilityVersion
+  href: api/ProDataGrid.FormulaEngine.FormulaCalculationSettings.html#ProDataGrid_FormulaEngine_FormulaCalculationSettings_TextCompatibilityVersion
+  commentId: P:ProDataGrid.FormulaEngine.FormulaCalculationSettings.TextCompatibilityVersion
+  fullName: ProDataGrid.FormulaEngine.FormulaCalculationSettings.TextCompatibilityVersion
+  nameWithType: FormulaCalculationSettings.TextCompatibilityVersion
+- uid: ProDataGrid.FormulaEngine.FormulaCalculationSettings.TextCompatibilityVersion*
+  name: TextCompatibilityVersion
+  href: api/ProDataGrid.FormulaEngine.FormulaCalculationSettings.html#ProDataGrid_FormulaEngine_FormulaCalculationSettings_TextCompatibilityVersion_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaCalculationSettings.TextCompatibilityVersion
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaCalculationSettings.TextCompatibilityVersion
+  nameWithType: FormulaCalculationSettings.TextCompatibilityVersion
 - uid: ProDataGrid.FormulaEngine.FormulaCalculationSettings.UseExcelNumberParsing
   name: UseExcelNumberParsing
   href: api/ProDataGrid.FormulaEngine.FormulaCalculationSettings.html#ProDataGrid_FormulaEngine_FormulaCalculationSettings_UseExcelNumberParsing
@@ -81312,6 +82210,34 @@ references:
   commentId: T:ProDataGrid.FormulaEngine.FormulaDependencyGraph
   fullName: ProDataGrid.FormulaEngine.FormulaDependencyGraph
   nameWithType: FormulaDependencyGraph
+- uid: ProDataGrid.FormulaEngine.FormulaDependencyGraph.#ctor
+  name: FormulaDependencyGraph()
+  href: api/ProDataGrid.FormulaEngine.FormulaDependencyGraph.html#ProDataGrid_FormulaEngine_FormulaDependencyGraph__ctor
+  commentId: M:ProDataGrid.FormulaEngine.FormulaDependencyGraph.#ctor
+  name.vb: New()
+  fullName: ProDataGrid.FormulaEngine.FormulaDependencyGraph.FormulaDependencyGraph()
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaDependencyGraph.New()
+  nameWithType: FormulaDependencyGraph.FormulaDependencyGraph()
+  nameWithType.vb: FormulaDependencyGraph.New()
+- uid: ProDataGrid.FormulaEngine.FormulaDependencyGraph.#ctor(ProDataGrid.FormulaEngine.IFormulaFunctionRegistry)
+  name: FormulaDependencyGraph(IFormulaFunctionRegistry)
+  href: api/ProDataGrid.FormulaEngine.FormulaDependencyGraph.html#ProDataGrid_FormulaEngine_FormulaDependencyGraph__ctor_ProDataGrid_FormulaEngine_IFormulaFunctionRegistry_
+  commentId: M:ProDataGrid.FormulaEngine.FormulaDependencyGraph.#ctor(ProDataGrid.FormulaEngine.IFormulaFunctionRegistry)
+  name.vb: New(IFormulaFunctionRegistry)
+  fullName: ProDataGrid.FormulaEngine.FormulaDependencyGraph.FormulaDependencyGraph(ProDataGrid.FormulaEngine.IFormulaFunctionRegistry)
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaDependencyGraph.New(ProDataGrid.FormulaEngine.IFormulaFunctionRegistry)
+  nameWithType: FormulaDependencyGraph.FormulaDependencyGraph(IFormulaFunctionRegistry)
+  nameWithType.vb: FormulaDependencyGraph.New(IFormulaFunctionRegistry)
+- uid: ProDataGrid.FormulaEngine.FormulaDependencyGraph.#ctor*
+  name: FormulaDependencyGraph
+  href: api/ProDataGrid.FormulaEngine.FormulaDependencyGraph.html#ProDataGrid_FormulaEngine_FormulaDependencyGraph__ctor_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaDependencyGraph.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProDataGrid.FormulaEngine.FormulaDependencyGraph.FormulaDependencyGraph
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaDependencyGraph.New
+  nameWithType: FormulaDependencyGraph.FormulaDependencyGraph
+  nameWithType.vb: FormulaDependencyGraph.New
 - uid: ProDataGrid.FormulaEngine.FormulaDependencyGraph.Clear
   name: Clear()
   href: api/ProDataGrid.FormulaEngine.FormulaDependencyGraph.html#ProDataGrid_FormulaEngine_FormulaDependencyGraph_Clear
@@ -81729,6 +82655,22 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.Address
   nameWithType: FormulaEvaluationContext.Address
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda(System.Collections.Generic.IReadOnlyList{System.String},ProDataGrid.FormulaEngine.FormulaExpression)
+  name: CreateLambda(IReadOnlyList<string>, FormulaExpression)
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_CreateLambda_System_Collections_Generic_IReadOnlyList_System_String__ProDataGrid_FormulaEngine_FormulaExpression_
+  commentId: M:ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda(System.Collections.Generic.IReadOnlyList{System.String},ProDataGrid.FormulaEngine.FormulaExpression)
+  name.vb: CreateLambda(IReadOnlyList(Of String), FormulaExpression)
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda(System.Collections.Generic.IReadOnlyList<string>, ProDataGrid.FormulaEngine.FormulaExpression)
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda(System.Collections.Generic.IReadOnlyList(Of String), ProDataGrid.FormulaEngine.FormulaExpression)
+  nameWithType: FormulaEvaluationContext.CreateLambda(IReadOnlyList<string>, FormulaExpression)
+  nameWithType.vb: FormulaEvaluationContext.CreateLambda(IReadOnlyList(Of String), FormulaExpression)
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda*
+  name: CreateLambda
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_CreateLambda_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.CreateLambda
+  nameWithType: FormulaEvaluationContext.CreateLambda
 - uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.FunctionRegistry
   name: FunctionRegistry
   href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_FunctionRegistry
@@ -81742,6 +82684,35 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.FunctionRegistry
   nameWithType: FormulaEvaluationContext.FunctionRegistry
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.IsArgumentOmitted(ProDataGrid.FormulaEngine.FormulaExpression)
+  name: IsArgumentOmitted(FormulaExpression)
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_IsArgumentOmitted_ProDataGrid_FormulaEngine_FormulaExpression_
+  commentId: M:ProDataGrid.FormulaEngine.FormulaEvaluationContext.IsArgumentOmitted(ProDataGrid.FormulaEngine.FormulaExpression)
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.IsArgumentOmitted(ProDataGrid.FormulaEngine.FormulaExpression)
+  nameWithType: FormulaEvaluationContext.IsArgumentOmitted(FormulaExpression)
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.IsArgumentOmitted*
+  name: IsArgumentOmitted
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_IsArgumentOmitted_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaEvaluationContext.IsArgumentOmitted
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.IsArgumentOmitted
+  nameWithType: FormulaEvaluationContext.IsArgumentOmitted
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue(System.String,ProDataGrid.FormulaEngine.FormulaValue,System.Boolean)
+  name: WithLocalValue(string, FormulaValue, bool)
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_WithLocalValue_System_String_ProDataGrid_FormulaEngine_FormulaValue_System_Boolean_
+  commentId: M:ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue(System.String,ProDataGrid.FormulaEngine.FormulaValue,System.Boolean)
+  name.vb: WithLocalValue(String, FormulaValue, Boolean)
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue(string, ProDataGrid.FormulaEngine.FormulaValue, bool)
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue(String, ProDataGrid.FormulaEngine.FormulaValue, Boolean)
+  nameWithType: FormulaEvaluationContext.WithLocalValue(string, FormulaValue, bool)
+  nameWithType.vb: FormulaEvaluationContext.WithLocalValue(String, FormulaValue, Boolean)
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue*
+  name: WithLocalValue
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_WithLocalValue_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluationContext.WithLocalValue
+  nameWithType: FormulaEvaluationContext.WithLocalValue
 - uid: ProDataGrid.FormulaEngine.FormulaEvaluationContext.Workbook
   name: Workbook
   href: api/ProDataGrid.FormulaEngine.FormulaEvaluationContext.html#ProDataGrid_FormulaEngine_FormulaEvaluationContext_Workbook
@@ -81787,6 +82758,22 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaEvaluator.Evaluate
   nameWithType: FormulaEvaluator.Evaluate
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda(ProDataGrid.FormulaEngine.FormulaLambda,System.Collections.Generic.IReadOnlyList{ProDataGrid.FormulaEngine.FormulaValue},ProDataGrid.FormulaEngine.FormulaEvaluationContext,ProDataGrid.FormulaEngine.IFormulaValueResolver,System.Collections.Generic.IReadOnlyList{System.Boolean})
+  name: InvokeLambda(FormulaLambda, IReadOnlyList<FormulaValue>, FormulaEvaluationContext, IFormulaValueResolver, IReadOnlyList<bool>?)
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluator.html#ProDataGrid_FormulaEngine_FormulaEvaluator_InvokeLambda_ProDataGrid_FormulaEngine_FormulaLambda_System_Collections_Generic_IReadOnlyList_ProDataGrid_FormulaEngine_FormulaValue__ProDataGrid_FormulaEngine_FormulaEvaluationContext_ProDataGrid_FormulaEngine_IFormulaValueResolver_System_Collections_Generic_IReadOnlyList_System_Boolean__
+  commentId: M:ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda(ProDataGrid.FormulaEngine.FormulaLambda,System.Collections.Generic.IReadOnlyList{ProDataGrid.FormulaEngine.FormulaValue},ProDataGrid.FormulaEngine.FormulaEvaluationContext,ProDataGrid.FormulaEngine.IFormulaValueResolver,System.Collections.Generic.IReadOnlyList{System.Boolean})
+  name.vb: InvokeLambda(FormulaLambda, IReadOnlyList(Of FormulaValue), FormulaEvaluationContext, IFormulaValueResolver, IReadOnlyList(Of Boolean))
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda(ProDataGrid.FormulaEngine.FormulaLambda, System.Collections.Generic.IReadOnlyList<ProDataGrid.FormulaEngine.FormulaValue>, ProDataGrid.FormulaEngine.FormulaEvaluationContext, ProDataGrid.FormulaEngine.IFormulaValueResolver, System.Collections.Generic.IReadOnlyList<bool>?)
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda(ProDataGrid.FormulaEngine.FormulaLambda, System.Collections.Generic.IReadOnlyList(Of ProDataGrid.FormulaEngine.FormulaValue), ProDataGrid.FormulaEngine.FormulaEvaluationContext, ProDataGrid.FormulaEngine.IFormulaValueResolver, System.Collections.Generic.IReadOnlyList(Of Boolean))
+  nameWithType: FormulaEvaluator.InvokeLambda(FormulaLambda, IReadOnlyList<FormulaValue>, FormulaEvaluationContext, IFormulaValueResolver, IReadOnlyList<bool>?)
+  nameWithType.vb: FormulaEvaluator.InvokeLambda(FormulaLambda, IReadOnlyList(Of FormulaValue), FormulaEvaluationContext, IFormulaValueResolver, IReadOnlyList(Of Boolean))
+- uid: ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda*
+  name: InvokeLambda
+  href: api/ProDataGrid.FormulaEngine.FormulaEvaluator.html#ProDataGrid_FormulaEngine_FormulaEvaluator_InvokeLambda_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaEvaluator.InvokeLambda
+  nameWithType: FormulaEvaluator.InvokeLambda
 - uid: ProDataGrid.FormulaEngine.FormulaExpression
   name: FormulaExpression
   href: api/ProDataGrid.FormulaEngine.FormulaExpression.html
@@ -81849,6 +82836,12 @@ references:
   commentId: F:ProDataGrid.FormulaEngine.FormulaExpressionKind.FunctionCall
   fullName: ProDataGrid.FormulaEngine.FormulaExpressionKind.FunctionCall
   nameWithType: FormulaExpressionKind.FunctionCall
+- uid: ProDataGrid.FormulaEngine.FormulaExpressionKind.Invocation
+  name: Invocation
+  href: api/ProDataGrid.FormulaEngine.FormulaExpressionKind.html#ProDataGrid_FormulaEngine_FormulaExpressionKind_Invocation
+  commentId: F:ProDataGrid.FormulaEngine.FormulaExpressionKind.Invocation
+  fullName: ProDataGrid.FormulaEngine.FormulaExpressionKind.Invocation
+  nameWithType: FormulaExpressionKind.Invocation
 - uid: ProDataGrid.FormulaEngine.FormulaExpressionKind.Literal
   name: Literal
   href: api/ProDataGrid.FormulaEngine.FormulaExpressionKind.html#ProDataGrid_FormulaEngine_FormulaExpressionKind_Literal
@@ -82116,6 +83109,126 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaFunctionInfo.MinArgs
   nameWithType: FormulaFunctionInfo.MinArgs
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression
+  name: FormulaInvocationExpression
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html
+  commentId: T:ProDataGrid.FormulaEngine.FormulaInvocationExpression
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression
+  nameWithType: FormulaInvocationExpression
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression.#ctor(ProDataGrid.FormulaEngine.FormulaExpression,System.Collections.Generic.IReadOnlyList{ProDataGrid.FormulaEngine.FormulaExpression})
+  name: FormulaInvocationExpression(FormulaExpression, IReadOnlyList<FormulaExpression>)
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html#ProDataGrid_FormulaEngine_FormulaInvocationExpression__ctor_ProDataGrid_FormulaEngine_FormulaExpression_System_Collections_Generic_IReadOnlyList_ProDataGrid_FormulaEngine_FormulaExpression__
+  commentId: M:ProDataGrid.FormulaEngine.FormulaInvocationExpression.#ctor(ProDataGrid.FormulaEngine.FormulaExpression,System.Collections.Generic.IReadOnlyList{ProDataGrid.FormulaEngine.FormulaExpression})
+  name.vb: New(FormulaExpression, IReadOnlyList(Of FormulaExpression))
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression.FormulaInvocationExpression(ProDataGrid.FormulaEngine.FormulaExpression, System.Collections.Generic.IReadOnlyList<ProDataGrid.FormulaEngine.FormulaExpression>)
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaInvocationExpression.New(ProDataGrid.FormulaEngine.FormulaExpression, System.Collections.Generic.IReadOnlyList(Of ProDataGrid.FormulaEngine.FormulaExpression))
+  nameWithType: FormulaInvocationExpression.FormulaInvocationExpression(FormulaExpression, IReadOnlyList<FormulaExpression>)
+  nameWithType.vb: FormulaInvocationExpression.New(FormulaExpression, IReadOnlyList(Of FormulaExpression))
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression.#ctor*
+  name: FormulaInvocationExpression
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html#ProDataGrid_FormulaEngine_FormulaInvocationExpression__ctor_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaInvocationExpression.#ctor
+  isSpec: "True"
+  name.vb: New
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression.FormulaInvocationExpression
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaInvocationExpression.New
+  nameWithType: FormulaInvocationExpression.FormulaInvocationExpression
+  nameWithType.vb: FormulaInvocationExpression.New
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Arguments
+  name: Arguments
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html#ProDataGrid_FormulaEngine_FormulaInvocationExpression_Arguments
+  commentId: P:ProDataGrid.FormulaEngine.FormulaInvocationExpression.Arguments
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Arguments
+  nameWithType: FormulaInvocationExpression.Arguments
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Arguments*
+  name: Arguments
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html#ProDataGrid_FormulaEngine_FormulaInvocationExpression_Arguments_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaInvocationExpression.Arguments
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Arguments
+  nameWithType: FormulaInvocationExpression.Arguments
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Target
+  name: Target
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html#ProDataGrid_FormulaEngine_FormulaInvocationExpression_Target
+  commentId: P:ProDataGrid.FormulaEngine.FormulaInvocationExpression.Target
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Target
+  nameWithType: FormulaInvocationExpression.Target
+- uid: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Target*
+  name: Target
+  href: api/ProDataGrid.FormulaEngine.FormulaInvocationExpression.html#ProDataGrid_FormulaEngine_FormulaInvocationExpression_Target_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaInvocationExpression.Target
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaInvocationExpression.Target
+  nameWithType: FormulaInvocationExpression.Target
+- uid: ProDataGrid.FormulaEngine.FormulaLambda
+  name: FormulaLambda
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html
+  commentId: T:ProDataGrid.FormulaEngine.FormulaLambda
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda
+  nameWithType: FormulaLambda
+- uid: ProDataGrid.FormulaEngine.FormulaLambda.Body
+  name: Body
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html#ProDataGrid_FormulaEngine_FormulaLambda_Body
+  commentId: P:ProDataGrid.FormulaEngine.FormulaLambda.Body
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda.Body
+  nameWithType: FormulaLambda.Body
+- uid: ProDataGrid.FormulaEngine.FormulaLambda.Body*
+  name: Body
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html#ProDataGrid_FormulaEngine_FormulaLambda_Body_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaLambda.Body
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda.Body
+  nameWithType: FormulaLambda.Body
+- uid: ProDataGrid.FormulaEngine.FormulaLambda.ParameterCount
+  name: ParameterCount
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html#ProDataGrid_FormulaEngine_FormulaLambda_ParameterCount
+  commentId: P:ProDataGrid.FormulaEngine.FormulaLambda.ParameterCount
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda.ParameterCount
+  nameWithType: FormulaLambda.ParameterCount
+- uid: ProDataGrid.FormulaEngine.FormulaLambda.ParameterCount*
+  name: ParameterCount
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html#ProDataGrid_FormulaEngine_FormulaLambda_ParameterCount_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaLambda.ParameterCount
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda.ParameterCount
+  nameWithType: FormulaLambda.ParameterCount
+- uid: ProDataGrid.FormulaEngine.FormulaLambda.Parameters
+  name: Parameters
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html#ProDataGrid_FormulaEngine_FormulaLambda_Parameters
+  commentId: P:ProDataGrid.FormulaEngine.FormulaLambda.Parameters
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda.Parameters
+  nameWithType: FormulaLambda.Parameters
+- uid: ProDataGrid.FormulaEngine.FormulaLambda.Parameters*
+  name: Parameters
+  href: api/ProDataGrid.FormulaEngine.FormulaLambda.html#ProDataGrid_FormulaEngine_FormulaLambda_Parameters_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaLambda.Parameters
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaLambda.Parameters
+  nameWithType: FormulaLambda.Parameters
+- uid: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind
+  name: FormulaLexicalBindingKind
+  href: api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.html
+  commentId: T:ProDataGrid.FormulaEngine.FormulaLexicalBindingKind
+  fullName: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind
+  nameWithType: FormulaLexicalBindingKind
+- uid: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.Lambda
+  name: Lambda
+  href: api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.html#ProDataGrid_FormulaEngine_FormulaLexicalBindingKind_Lambda
+  commentId: F:ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.Lambda
+  fullName: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.Lambda
+  nameWithType: FormulaLexicalBindingKind.Lambda
+- uid: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.Let
+  name: Let
+  href: api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.html#ProDataGrid_FormulaEngine_FormulaLexicalBindingKind_Let
+  commentId: F:ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.Let
+  fullName: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.Let
+  nameWithType: FormulaLexicalBindingKind.Let
+- uid: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.None
+  name: None
+  href: api/ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.html#ProDataGrid_FormulaEngine_FormulaLexicalBindingKind_None
+  commentId: F:ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.None
+  fullName: ProDataGrid.FormulaEngine.FormulaLexicalBindingKind.None
+  nameWithType: FormulaLexicalBindingKind.None
 - uid: ProDataGrid.FormulaEngine.FormulaLiteralExpression
   name: FormulaLiteralExpression
   href: api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.html
@@ -82131,6 +83244,15 @@ references:
   fullName.vb: ProDataGrid.FormulaEngine.FormulaLiteralExpression.New(ProDataGrid.FormulaEngine.FormulaValue)
   nameWithType: FormulaLiteralExpression.FormulaLiteralExpression(FormulaValue)
   nameWithType.vb: FormulaLiteralExpression.New(FormulaValue)
+- uid: ProDataGrid.FormulaEngine.FormulaLiteralExpression.#ctor(ProDataGrid.FormulaEngine.FormulaValue,System.Boolean)
+  name: FormulaLiteralExpression(FormulaValue, bool)
+  href: api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.html#ProDataGrid_FormulaEngine_FormulaLiteralExpression__ctor_ProDataGrid_FormulaEngine_FormulaValue_System_Boolean_
+  commentId: M:ProDataGrid.FormulaEngine.FormulaLiteralExpression.#ctor(ProDataGrid.FormulaEngine.FormulaValue,System.Boolean)
+  name.vb: New(FormulaValue, Boolean)
+  fullName: ProDataGrid.FormulaEngine.FormulaLiteralExpression.FormulaLiteralExpression(ProDataGrid.FormulaEngine.FormulaValue, bool)
+  fullName.vb: ProDataGrid.FormulaEngine.FormulaLiteralExpression.New(ProDataGrid.FormulaEngine.FormulaValue, Boolean)
+  nameWithType: FormulaLiteralExpression.FormulaLiteralExpression(FormulaValue, bool)
+  nameWithType.vb: FormulaLiteralExpression.New(FormulaValue, Boolean)
 - uid: ProDataGrid.FormulaEngine.FormulaLiteralExpression.#ctor*
   name: FormulaLiteralExpression
   href: api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.html#ProDataGrid_FormulaEngine_FormulaLiteralExpression__ctor_
@@ -82141,6 +83263,19 @@ references:
   fullName.vb: ProDataGrid.FormulaEngine.FormulaLiteralExpression.New
   nameWithType: FormulaLiteralExpression.FormulaLiteralExpression
   nameWithType.vb: FormulaLiteralExpression.New
+- uid: ProDataGrid.FormulaEngine.FormulaLiteralExpression.IsOmitted
+  name: IsOmitted
+  href: api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.html#ProDataGrid_FormulaEngine_FormulaLiteralExpression_IsOmitted
+  commentId: P:ProDataGrid.FormulaEngine.FormulaLiteralExpression.IsOmitted
+  fullName: ProDataGrid.FormulaEngine.FormulaLiteralExpression.IsOmitted
+  nameWithType: FormulaLiteralExpression.IsOmitted
+- uid: ProDataGrid.FormulaEngine.FormulaLiteralExpression.IsOmitted*
+  name: IsOmitted
+  href: api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.html#ProDataGrid_FormulaEngine_FormulaLiteralExpression_IsOmitted_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaLiteralExpression.IsOmitted
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaLiteralExpression.IsOmitted
+  nameWithType: FormulaLiteralExpression.IsOmitted
 - uid: ProDataGrid.FormulaEngine.FormulaLiteralExpression.Value
   name: Value
   href: api/ProDataGrid.FormulaEngine.FormulaLiteralExpression.html#ProDataGrid_FormulaEngine_FormulaLiteralExpression_Value
@@ -83794,6 +84929,24 @@ references:
   commentId: F:ProDataGrid.FormulaEngine.FormulaStructuredReferenceScope.Totals
   fullName: ProDataGrid.FormulaEngine.FormulaStructuredReferenceScope.Totals
   nameWithType: FormulaStructuredReferenceScope.Totals
+- uid: ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion
+  name: FormulaTextCompatibilityVersion
+  href: api/ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.html
+  commentId: T:ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion
+  fullName: ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion
+  nameWithType: FormulaTextCompatibilityVersion
+- uid: ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.Version1
+  name: Version1
+  href: api/ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.html#ProDataGrid_FormulaEngine_FormulaTextCompatibilityVersion_Version1
+  commentId: F:ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.Version1
+  fullName: ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.Version1
+  nameWithType: FormulaTextCompatibilityVersion.Version1
+- uid: ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.Version2
+  name: Version2
+  href: api/ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.html#ProDataGrid_FormulaEngine_FormulaTextCompatibilityVersion_Version2
+  commentId: F:ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.Version2
+  fullName: ProDataGrid.FormulaEngine.FormulaTextCompatibilityVersion.Version2
+  nameWithType: FormulaTextCompatibilityVersion.Version2
 - uid: ProDataGrid.FormulaEngine.FormulaToken
   name: FormulaToken
   href: api/ProDataGrid.FormulaEngine.FormulaToken.html
@@ -84192,6 +85345,19 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaValue.AsError
   nameWithType: FormulaValue.AsError
+- uid: ProDataGrid.FormulaEngine.FormulaValue.AsLambda
+  name: AsLambda()
+  href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_AsLambda
+  commentId: M:ProDataGrid.FormulaEngine.FormulaValue.AsLambda
+  fullName: ProDataGrid.FormulaEngine.FormulaValue.AsLambda()
+  nameWithType: FormulaValue.AsLambda()
+- uid: ProDataGrid.FormulaEngine.FormulaValue.AsLambda*
+  name: AsLambda
+  href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_AsLambda_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaValue.AsLambda
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaValue.AsLambda
+  nameWithType: FormulaValue.AsLambda
 - uid: ProDataGrid.FormulaEngine.FormulaValue.AsNumber
   name: AsNumber()
   href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_AsNumber
@@ -84308,6 +85474,19 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaValue.FromError
   nameWithType: FormulaValue.FromError
+- uid: ProDataGrid.FormulaEngine.FormulaValue.FromLambda(ProDataGrid.FormulaEngine.FormulaLambda)
+  name: FromLambda(FormulaLambda)
+  href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_FromLambda_ProDataGrid_FormulaEngine_FormulaLambda_
+  commentId: M:ProDataGrid.FormulaEngine.FormulaValue.FromLambda(ProDataGrid.FormulaEngine.FormulaLambda)
+  fullName: ProDataGrid.FormulaEngine.FormulaValue.FromLambda(ProDataGrid.FormulaEngine.FormulaLambda)
+  nameWithType: FormulaValue.FromLambda(FormulaLambda)
+- uid: ProDataGrid.FormulaEngine.FormulaValue.FromLambda*
+  name: FromLambda
+  href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_FromLambda_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaValue.FromLambda
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaValue.FromLambda
+  nameWithType: FormulaValue.FromLambda
 - uid: ProDataGrid.FormulaEngine.FormulaValue.FromNumber(System.Double)
   name: FromNumber(double)
   href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_FromNumber_System_Double_
@@ -84379,6 +85558,19 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.FormulaValue.Kind
   nameWithType: FormulaValue.Kind
+- uid: ProDataGrid.FormulaEngine.FormulaValue.ToCellResult
+  name: ToCellResult()
+  href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_ToCellResult
+  commentId: M:ProDataGrid.FormulaEngine.FormulaValue.ToCellResult
+  fullName: ProDataGrid.FormulaEngine.FormulaValue.ToCellResult()
+  nameWithType: FormulaValue.ToCellResult()
+- uid: ProDataGrid.FormulaEngine.FormulaValue.ToCellResult*
+  name: ToCellResult
+  href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_ToCellResult_
+  commentId: Overload:ProDataGrid.FormulaEngine.FormulaValue.ToCellResult
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.FormulaValue.ToCellResult
+  nameWithType: FormulaValue.ToCellResult
 - uid: ProDataGrid.FormulaEngine.FormulaValue.ToString
   name: ToString()
   href: api/ProDataGrid.FormulaEngine.FormulaValue.html#ProDataGrid_FormulaEngine_FormulaValue_ToString
@@ -84460,6 +85652,12 @@ references:
   commentId: F:ProDataGrid.FormulaEngine.FormulaValueKind.Error
   fullName: ProDataGrid.FormulaEngine.FormulaValueKind.Error
   nameWithType: FormulaValueKind.Error
+- uid: ProDataGrid.FormulaEngine.FormulaValueKind.Lambda
+  name: Lambda
+  href: api/ProDataGrid.FormulaEngine.FormulaValueKind.html#ProDataGrid_FormulaEngine_FormulaValueKind_Lambda
+  commentId: F:ProDataGrid.FormulaEngine.FormulaValueKind.Lambda
+  fullName: ProDataGrid.FormulaEngine.FormulaValueKind.Lambda
+  nameWithType: FormulaValueKind.Lambda
 - uid: ProDataGrid.FormulaEngine.FormulaValueKind.Number
   name: Number
   href: api/ProDataGrid.FormulaEngine.FormulaValueKind.html#ProDataGrid_FormulaEngine_FormulaValueKind_Number
@@ -84781,6 +85979,25 @@ references:
   isSpec: "True"
   fullName: ProDataGrid.FormulaEngine.IFormulaFunctionRegistryVersion.Version
   nameWithType: IFormulaFunctionRegistryVersion.Version
+- uid: ProDataGrid.FormulaEngine.IFormulaLexicalFunction
+  name: IFormulaLexicalFunction
+  href: api/ProDataGrid.FormulaEngine.IFormulaLexicalFunction.html
+  commentId: T:ProDataGrid.FormulaEngine.IFormulaLexicalFunction
+  fullName: ProDataGrid.FormulaEngine.IFormulaLexicalFunction
+  nameWithType: IFormulaLexicalFunction
+- uid: ProDataGrid.FormulaEngine.IFormulaLexicalFunction.BindingKind
+  name: BindingKind
+  href: api/ProDataGrid.FormulaEngine.IFormulaLexicalFunction.html#ProDataGrid_FormulaEngine_IFormulaLexicalFunction_BindingKind
+  commentId: P:ProDataGrid.FormulaEngine.IFormulaLexicalFunction.BindingKind
+  fullName: ProDataGrid.FormulaEngine.IFormulaLexicalFunction.BindingKind
+  nameWithType: IFormulaLexicalFunction.BindingKind
+- uid: ProDataGrid.FormulaEngine.IFormulaLexicalFunction.BindingKind*
+  name: BindingKind
+  href: api/ProDataGrid.FormulaEngine.IFormulaLexicalFunction.html#ProDataGrid_FormulaEngine_IFormulaLexicalFunction_BindingKind_
+  commentId: Overload:ProDataGrid.FormulaEngine.IFormulaLexicalFunction.BindingKind
+  isSpec: "True"
+  fullName: ProDataGrid.FormulaEngine.IFormulaLexicalFunction.BindingKind
+  nameWithType: IFormulaLexicalFunction.BindingKind
 - uid: ProDataGrid.FormulaEngine.IFormulaNameChangeNotifier
   name: IFormulaNameChangeNotifier
   href: api/ProDataGrid.FormulaEngine.IFormulaNameChangeNotifier.html
