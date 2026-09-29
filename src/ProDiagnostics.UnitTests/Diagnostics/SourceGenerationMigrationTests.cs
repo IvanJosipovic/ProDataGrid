@@ -128,7 +128,8 @@ public sealed class SourceGenerationMigrationTests
         {
             DataContext = mainViewModel,
             Content = view,
-            Width = 900,
+            // Keep the long descendant wider than the viewport with real font metrics.
+            Width = 320,
             Height = 600
         };
 
