@@ -48,6 +48,8 @@ jobs:
           dotnet test src/ProDataGrid.FormulaEngine.UnitTests/ProDataGrid.FormulaEngine.UnitTests.csproj -c Release -p:FormulaTestFramework=net8.0 --logger trx --results-directory artifacts/formula/net8 2>&1 | tee artifacts/formula/net8.log
           dotnet test src/ProDataGrid.FormulaEngine.UnitTests/ProDataGrid.FormulaEngine.UnitTests.csproj -c Release -p:FormulaTestFramework=net10.0 --logger trx --results-directory artifacts/formula/net10 2>&1 | tee artifacts/formula/net10.log
           dotnet build src/ProDataGrid.FormulaEngine.Excel/ProDataGrid.FormulaEngine.Excel.csproj -c Release
+          # Exercise the scalar numerical fallback as well as the host SIMD path.
+          DOTNET_EnableHWIntrinsic=0 dotnet test src/ProDataGrid.FormulaEngine.UnitTests/ProDataGrid.FormulaEngine.UnitTests.csproj -c Release -p:FormulaTestFramework=net10.0 --no-restore --logger trx --results-directory artifacts/formula/scalar
       - name: Build and execute reusable formula smoke and aggregate benchmarks
         run: |
           set -o pipefail
@@ -80,6 +82,8 @@ jobs:
           mkdir -p artifacts/formula
           git rev-parse HEAD > artifacts/formula/revision.txt
           git ls-tree -r HEAD src/ProDataGrid.FormulaEngine src/ProDataGrid.FormulaEngine.Excel src/ProDataGrid.FormulaEngine.UnitTests tools/formula-function-benchmarks tools/formula-aggregate-benchmarks tools/formula-data-benchmarks > artifacts/formula/source-blobs.txt
+          # Retain tracked source only, never generated files, credentials, or build outputs.
+          git archive --format=tar.gz -o artifacts/formula/source.tar.gz HEAD
           dotnet --info > artifacts/formula/runtime.txt
           dotnet --list-runtimes > artifacts/formula/installed-runtimes.txt
           lscpu > artifacts/formula/cpu.txt
