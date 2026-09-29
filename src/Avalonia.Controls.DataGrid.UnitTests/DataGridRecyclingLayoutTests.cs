@@ -19,6 +19,57 @@ public class DataGridRecyclingLayoutTests
     [InlineData(DataGridTheme.SimpleV2)]
     [InlineData(DataGridTheme.Fluent)]
     [InlineData(DataGridTheme.FluentV2)]
+    public void Initial_Auto_Sizing_In_A_Narrow_Viewport_Does_Not_Realize_All_Rows(DataGridTheme theme)
+    {
+        var factory = new TrackingFactory();
+        var items = Enumerable.Range(0, 1000).ToArray();
+        var grid = new DataGrid
+        {
+            Width = 60,
+            Height = 240,
+            AutoGenerateColumns = false,
+            ItemsSource = items,
+            RealizationFactory = factory,
+        };
+        foreach (var width in new[] { new DataGridLength(2, DataGridLengthUnitType.Star), new DataGridLength(100), DataGridLength.Auto })
+        {
+            grid.Columns.Add(new DataGridTemplateColumn
+            {
+                Header = "Column",
+                Width = width,
+                CellTemplate = new FuncDataTemplate<int>((item, _) => new TextBlock { Text = $"Value {item}", Height = 24 }),
+            });
+        }
+        var window = new Window { Width = 600, Height = 500, Content = grid };
+        window.SetThemeStyles(theme);
+        try
+        {
+            window.Show();
+            Assert.True(grid.TryFindResource(typeof(DataGrid), out var resource));
+            grid.Theme = Assert.IsType<Avalonia.Styling.ControlTheme>(resource);
+            window.UpdateLayout();
+            Assert.InRange(factory.CreatedRows, 1, 32);
+            var rows = grid.DisplayData.GetScrollingElements().OfType<DataGridRow>().ToArray();
+            Assert.NotEmpty(rows);
+            Assert.All(rows, row => Assert.True(row.DesiredSize.Height >= 24));
+            Assert.False(grid.AutoSizingColumns);
+
+            grid.ScrollIntoView(items[999], grid.Columns[0]);
+            window.UpdateLayout();
+            Assert.Contains(grid.DisplayData.GetScrollingElements().OfType<DataGridRow>(), row => row.Index == 999);
+            Assert.InRange(factory.CreatedRows, 1, 64);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(DataGridTheme.Simple)]
+    [InlineData(DataGridTheme.SimpleV2)]
+    [InlineData(DataGridTheme.Fluent)]
+    [InlineData(DataGridTheme.FluentV2)]
     public void Shrinking_Viewport_With_Pending_Auto_Sizing_Does_Not_Reenter_Row_Layout(DataGridTheme theme)
     {
         var grid = new DataGrid
@@ -142,7 +193,12 @@ public class DataGridRecyclingLayoutTests
 
     private sealed class TrackingFactory : DataGridRealizationFactory
     {
-        public override DataGridRow CreateRow(DataGridRowRealizationContext context) => new TrackingRow();
+        public int CreatedRows { get; private set; }
+        public override DataGridRow CreateRow(DataGridRowRealizationContext context)
+        {
+            CreatedRows++;
+            return new TrackingRow();
+        }
     }
 
     private sealed class TrackingRow : DataGridRow
