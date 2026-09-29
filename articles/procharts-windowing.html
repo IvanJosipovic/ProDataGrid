@@ -2,9 +2,9 @@
 <html>
   <head>
     <meta charset="utf-8">
-      <title>Enum ChartLineInterpolation | ProDataGrid for Avalonia </title>
+      <title>Efficient grid-chart windows | ProDataGrid for Avalonia </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta name="title" content="Enum ChartLineInterpolation | ProDataGrid for Avalonia ">
+      <meta name="title" content="Efficient grid-chart windows | ProDataGrid for Avalonia ">
       
       
       <link rel="icon" href="../favicon.ico">
@@ -16,7 +16,7 @@
       
       
       
-      <meta name="docfx:docurl" content="https://github.com/IvanJosipovic/ProDataGrid/new/master/apiSpec/new?filename=ProCharts_ChartLineInterpolation.md&amp;value=---%0Auid%3A%20ProCharts.ChartLineInterpolation%0Asummary%3A%20&#39;*You%20can%20override%20summary%20for%20the%20API%20here%20using%20*MARKDOWN*%20syntax&#39;%0A---%0A%0A*Please%20type%20below%20more%20information%20about%20this%20API%3A*%0A%0A">
+      <meta name="docfx:docurl" content="https://github.com/IvanJosipovic/ProDataGrid/blob/master/docfx/articles/procharts-windowing.md/#L1">
       <meta name="loc:inThisArticle" content="In this article">
       <meta name="loc:searchResultsCount" content="{count} results for &quot;{query}&quot;">
       <meta name="loc:searchNoResults" content="No results for &quot;{query}&quot;">
@@ -39,7 +39,7 @@
 
   </head>
 
-  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="ManagedReference">
+  <body class="tex2jax_ignore" data-layout="" data-yaml-mime="">
     <header class="bg-body border-bottom">
       <nav id="autocollapse" class="navbar navbar-expand-md" role="navigation">
         <div class="container-xxl flex-nowrap">
@@ -80,57 +80,32 @@
           <nav id="breadcrumb"></nav>
         </div>
 
-        <article data-uid="ProCharts.ChartLineInterpolation">
+        <article data-uid="">
+<h1 id="efficient-grid-chart-windows">Efficient grid-chart windows</h1>
 
-
-
-
-  <h1 id="ProCharts_ChartLineInterpolation" data-uid="ProCharts.ChartLineInterpolation" class="text-break">
-Enum ChartLineInterpolation  <a class="header-action link-secondary" title="View source" href="https://github.com/IvanJosipovic/ProDataGrid/blob/master/src/ProCharts/ChartTypes.cs/#L131"><i class="bi bi-code-slash"></i></a>
-  </h1>
-
-  <div class="facts text-secondary">
-    <dl><dt>Namespace</dt><dd><a class="xref" href="ProCharts.html">ProCharts</a></dd></dl>
-  <dl><dt>Assembly</dt><dd>ProCharts.dll</dd></dl>
-  </div>
-
-  <div class="markdown summary"></div>
-  <div class="markdown conceptual"></div>
-
-  <div class="codewrapper">
-    <pre><code class="lang-csharp hljs">public enum ChartLineInterpolation</code></pre>
-  </div>
-
-
-
-
-
-
-
-
-
-  <h2 id="fields">Fields
-</h2>
-  <dl class="parameters">
-    <dt id="ProCharts_ChartLineInterpolation_Linear"><code>Linear = 0</code></dt>
-  
-  <dd></dd>
-    <dt id="ProCharts_ChartLineInterpolation_Smooth"><code>Smooth = 1</code></dt>
-  
-  <dd></dd>
-    <dt id="ProCharts_ChartLineInterpolation_Step"><code>Step = 2</code></dt>
-  
-  <dd></dd>
-  </dl>
-
-
+<p><code>DataGridChartModel.BuildSnapshot</code> accepts <code>WindowStart</code> and <code>WindowCount</code> through <code>ChartDataRequest</code>. Requests now copy only the selected slice of cached categories and value/X/size channels rather than copying the complete cache and trimming it afterward.</p>
+<pre><code class="lang-csharp">var visible = model.BuildSnapshot(new ChartDataRequest
+{
+    WindowStart = 50_000,
+    WindowCount = 128,
+    DownsampleMode = ChartDownsampleMode.None
+});
+</code></pre>
+<p>Start and count are safely clamped without adding potentially overflowing integers. A negative start is treated as zero; a start past the end produces an empty window; negative counts produce an empty window; an omitted count includes the remaining source. Every optional channel retains its original alignment. Missing optional channels remain absent. Existing full-cache clone callers retain their behavior, and subsequent window requests do not modify previously returned snapshots.</p>
+<p>The optimization applies after the source cache exists. Building or rebuilding that cache still visits the source data. Warm visible-window copy work is proportional to the requested window and number of channels, not the full retained dataset. Windowing continues to occur before compatible line/scatter downsampling.</p>
+<p>Heatmap cells, treemap/sunburst weights and gauge slots represent category identity rather than interchangeable samples of a continuous line. The grid adapter therefore disables point decimation for those chart kinds even when a caller explicitly requests Bucket, MinMax or LTTB. Explicit windows are still honored. This preserves the requested matrix cells and structural weights instead of silently averaging or dropping them. Existing Cartesian sampling policies are unchanged.</p>
+<p>Run the actual adapter benchmark with:</p>
+<pre><code class="lang-sh">dotnet run --project tests/ProDataGrid.Charting.Benchmarks/ProDataGrid.Charting.Benchmarks.csproj -c Release
+</code></pre>
+<p>The benchmark's README records same-runner before/after measurements and exact commit IDs. The charting workflow retains ongoing window timings and allocations beside its core benchmarks, native chart previews and regression TRX. These measurements concern data preparation, not UI frame rate or GPU throughput.</p>
 
 </article>
 
         <div class="contribution d-print-none">
-          <a href="https://github.com/IvanJosipovic/ProDataGrid/blob/master/src/ProCharts/ChartTypes.cs/#L131" class="edit-link">Edit this page</a>
+          <a href="https://github.com/IvanJosipovic/ProDataGrid/blob/master/docfx/articles/procharts-windowing.md/#L1" class="edit-link">Edit this page</a>
         </div>
 
+        <div class="next-article d-print-none border-top" id="nextArticle"></div>
 
       </div>
 
